@@ -1,41 +1,61 @@
 # Phase Init: Tech Stack Bootstrap
 
-**Goal:** Scaffold the project so the core engine is environment-agnostic — runs identically under Bun (CLI/test) and the browser (Vite/React webapp). No optimizer code yet — just the skeleton that proves both entry points build and execute.
+**Goal:** A building, testing, serving project with the `src/engine/` ↔ `src/ui/` boundary proven — but zero engine logic.
+
+**Outputs consumed by Phase 0:** A working repo where `bun test` and `bun run dev` both work, and any file placed under `src/engine/` is automatically available to both Vitest and the Vite/React app.
 
 ---
 
-## Stack
+## Scaffold
 
-| Concern | Tool |
-|---------|------|
-| Runtime (dev/test) | Bun |
-| Test runner | Vitest |
-| Bundler / dev server | Vite |
-| UI | React (minimal — one page shell) |
-| Language | TypeScript, strict mode |
+Run `bun create vite yfm3 --template react-ts` then adapt:
 
-## Rules
+1. **Move the generated React files** into `src/ui/` (keep `main.tsx`, `App.tsx`, `App.css`). Update `index.html` entry point to `src/ui/main.tsx`.
+2. **Create `src/engine/`** directory with a single `index.ts` exporting `export function ping(): string { return "engine-ok"; }`.
+3. **Add path alias** `@engine` → `src/engine` in both `tsconfig.json` (`paths`) and `vite.config.ts` (`resolve.alias`).
+4. **Add Vitest**: `bun add -d vitest`. Create `vitest.config.ts` extending the Vite config (reuses aliases). No separate tsconfig for tests — the shared one works.
+5. **Wire scripts** in `package.json`:
+   ```
+   "dev": "vite",
+   "build": "vite build",
+   "test": "vitest run",
+   "test:watch": "vitest",
+   "bench": "vitest bench"
+   ```
+6. **Tighten tsconfig**: ensure `strict: true`, `target: ES2022`, `moduleResolution: bundler`, `noUnusedLocals: true`.
 
-1. **The `src/engine/` directory is the boundary.** Everything inside it is pure TypeScript — no DOM, no React, no `import from "react"`, no Node/Bun-specific APIs. Only TypedArrays, plain functions, and Web Worker `postMessage`. This is the code that must run on both targets.
-2. **The `src/ui/` directory is React/browser-only.** It imports from `src/engine/` but never the reverse.
-3. **Vitest runs the engine directly via Bun** — no bundler in the loop. Tests import from `src/engine/` and exercise it as a library.
-4. **Vite builds the webapp** — bundles `src/ui/` + `src/engine/` for the browser, with Web Worker support via `new Worker(new URL(...), { type: 'module' })`.
+---
 
-## Deliverables
+## Boundary Rule
 
-1. `package.json` — Bun project. Scripts: `dev` (Vite), `build` (Vite), `test` (Vitest), `bench` (Vitest bench).
-2. `tsconfig.json` — `strict: true`, `target: ES2022`, `module: ESNext`, `moduleResolution: bundler`. Paths alias `@engine` → `src/engine`.
-3. `vite.config.ts` — React plugin, resolve alias for `@engine`, worker config.
-4. `vitest.config.ts` — Reuses Vite config, adds `src/engine/` test glob.
-5. `index.html` + `src/ui/main.tsx` + `src/ui/App.tsx` — Bare-bones React shell that renders "YFM3" and a placeholder "Optimize" button.
-6. `src/engine/index.ts` — Exports a single `ping(): string` function returning `"engine-ok"`.
-7. `src/ui/App.tsx` — Imports `ping()` from `@engine` and renders its return value, proving the import path works at runtime.
-8. `tests/smoke.test.ts` — Imports `ping()` from `@engine`, asserts it returns `"engine-ok"`. Proves Vitest can consume the engine directly.
+| Directory | May import | Must NOT import |
+|-----------|-----------|----------------|
+| `src/engine/` | Nothing outside itself. Pure TS only. | `react`, DOM APIs, `bun:*`, `node:*` |
+| `src/ui/` | `@engine`, `react`, DOM | — |
+| `tests/` | `@engine`, `vitest` | `react`, DOM |
+
+This rule is **enforced by convention** in this phase. (A lint rule can be added later.)
+
+---
+
+## Smoke Proof
+
+Two minimal proofs that the boundary works:
+
+1. **`tests/smoke.test.ts`** — Vitest imports `ping()` from `@engine`, asserts `=== "engine-ok"`.
+2. **`src/ui/App.tsx`** — Imports `ping()` from `@engine`, renders the return value in the page.
+
+---
 
 ## Success Criteria
 
-- `bun install` succeeds.
-- `bun test` runs the smoke test and passes.
-- `bun run dev` starts Vite, the React page loads, and displays "engine-ok" from the engine import.
-- `bun run build` produces a working production bundle.
-- `src/engine/` contains zero browser or framework imports.
+| Check | Command |
+|-------|---------|
+| Dependencies install | `bun install` exits 0 |
+| Types check | `bun run tsc --noEmit` exits 0 |
+| Unit tests pass | `bun test` — smoke test green |
+| Dev server works | `bun run dev` — page loads, shows "engine-ok" |
+| Production build | `bun run build` — outputs to `dist/`, no errors |
+| Bench scaffold works | `bun run bench` — runs (even with no bench files yet, exits 0 or "no bench files found") |
+
+**After this phase, the repo is ready for Phase 0 to populate `src/engine/` with types, dummies, and benchmarks.**
