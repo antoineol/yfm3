@@ -1,13 +1,13 @@
-import { defineConfig } from 'vitest/config'
-import path from 'path'
+import path from "node:path";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@engine': path.resolve(__dirname, 'src/engine'),
+      "@engine": path.resolve(import.meta.dirname, "src/engine"),
     },
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ["tests/**/*.test.ts"],
   },
-})
+});
