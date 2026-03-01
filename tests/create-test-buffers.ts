@@ -1,54 +1,56 @@
+import fs from "node:fs";
+import path from "node:path";
+import { loadGameData } from "@engine/data/load-game-data.ts";
 import { createBuffers, type OptBuffers } from "@engine/types/buffers.ts";
-import {
-  DECK_SIZE,
-  FUSION_NONE,
-  HAND_SIZE,
-  MAX_CARD_ID,
-  MAX_COPIES,
-  NUM_HANDS,
-} from "@engine/types/constants.ts";
+import { DECK_SIZE, HAND_SIZE, MAX_COPIES, NUM_HANDS } from "@engine/types/constants.ts";
+
+/**
+ * Simple seeded PRNG (mulberry32) for deterministic test data.
+ */
+function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 export function createTestBuffers(): OptBuffers {
   const buf = createBuffers();
 
-  // cardAtk: random values 100–3000
-  for (let i = 0; i < MAX_CARD_ID; i++) {
-    buf.cardAtk[i] = 100 + ((Math.random() * 2901) | 0);
+  // Load real game data from CSVs
+  const dataDir = path.resolve(import.meta.dirname, "../data");
+  const cardsCsv = fs.readFileSync(path.join(dataDir, "rp-cards.csv"), "utf-8");
+  const fusionsCsv = fs.readFileSync(path.join(dataDir, "rp-fusions1.csv"), "utf-8");
+  const cards = loadGameData(cardsCsv, fusionsCsv, buf);
+
+  // availableCounts: MAX_COPIES for all real cards
+  for (const card of cards) {
+    buf.availableCounts[card.id] = MAX_COPIES;
   }
 
-  // fusionTable: scatter ~13K random fusions
-  buf.fusionTable.fill(FUSION_NONE);
-  for (let i = 0; i < 13_000; i++) {
-    const a = (Math.random() * MAX_CARD_ID) | 0;
-    const b = (Math.random() * MAX_CARD_ID) | 0;
-    if (a === b) continue;
-    const atkA = buf.cardAtk[a] ?? 0;
-    const atkB = buf.cardAtk[b] ?? 0;
-    const atk = Math.max(atkA, atkB) + 100 + ((Math.random() * 500) | 0);
-    const clamped = atk > 32767 ? 32767 : atk;
-    buf.fusionTable[a * MAX_CARD_ID + b] = clamped;
-    buf.fusionTable[b * MAX_CARD_ID + a] = clamped;
-  }
-
-  // availableCounts: allow MAX_COPIES for every card
-  buf.availableCounts.fill(MAX_COPIES);
-
-  // deck: 40 random card IDs respecting max 3 copies
+  // Deck: top 40 cards by attack (deterministic)
+  const sorted = [...cards].sort((a, b) => b.attack - a.attack);
   buf.cardCounts.fill(0);
-  for (let i = 0; i < DECK_SIZE; i++) {
-    let card: number;
-    do {
-      card = (Math.random() * MAX_CARD_ID) | 0;
-    } while ((buf.cardCounts[card] ?? 0) >= MAX_COPIES);
-    buf.deck[i] = card;
-    buf.cardCounts[card] = (buf.cardCounts[card] ?? 0) + 1;
+  let deckIdx = 0;
+  for (const card of sorted) {
+    if (deckIdx >= DECK_SIZE) break;
+    const count = buf.cardCounts[card.id] ?? 0;
+    if (count < MAX_COPIES) {
+      buf.deck[deckIdx] = card.id;
+      buf.cardCounts[card.id] = count + 1;
+      deckIdx++;
+    }
   }
 
-  // handIndices: 15,000 random 5-combinations of [0, 39]
+  // handIndices: seeded PRNG for determinism
+  const rand = mulberry32(42);
   for (let h = 0; h < NUM_HANDS; h++) {
     const base = h * HAND_SIZE;
     for (let j = 0; j < HAND_SIZE; j++) {
-      buf.handIndices[base + j] = (Math.random() * DECK_SIZE) | 0;
+      buf.handIndices[base + j] = (rand() * DECK_SIZE) | 0;
     }
   }
 

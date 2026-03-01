@@ -2,9 +2,7 @@
 
 ## 1. Purpose
 
-YFM2 is a deck optimizer for Yu-Gi-Oh! Forbidden Memories. Given a player's card collection, it generates an optimal
-40-card monster deck that maximizes the **expected value of the highest attack** achievable from a random 5-card opening
-hand, considering both direct card plays and fusion chains.
+YFM2 is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remastered Perfected" mod. Given a player's card collection, it generates an optimal 40-card monster deck that maximizes the **expected value of the highest attack** achievable from a random 5-card opening hand, considering both direct card plays and fusion chains.
 
 ---
 

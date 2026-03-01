@@ -1,0 +1,38 @@
+import type { cardKinds, colors } from "./rp-types.ts";
+
+export type CardKind = (typeof cardKinds)[number];
+export type Color = (typeof colors)[number];
+
+export type CardId = number;
+
+// The immutable definition of a card
+export interface CardSpec {
+  id: CardId;
+  name: string;
+  kinds: CardKind[];
+  color?: Color;
+  attack: number;
+  defense: number;
+}
+
+export interface CardRefByName {
+  name: string;
+}
+
+export interface KindIdentifier {
+  kind: CardKind;
+  color?: Color;
+}
+
+export type FusionMaterial = CardRefByName | KindIdentifier;
+
+export type FusionMaterials = {
+  name: string;
+  materials: Set<string>; // Set of material pair keys (e.g. "Dragon:Beast")
+  attack: number;
+  defense: number;
+};
+
+export interface FusionDb {
+  fusions: FusionMaterials[];
+}

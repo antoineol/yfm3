@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "vitest bench",
-    "lint": "biome check .",
+    "lint": "biome check . --fix",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc -b"
   },
