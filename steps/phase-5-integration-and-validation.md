@@ -1,5 +1,7 @@
 # Phase 5: Integration, Edge Cases & Final Validation
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** Bring everything together into a production-ready system. Handle all edge cases from the SPEC, build the public API surface, run the full SPEC validation matrix, and perform final performance tuning.
 
 **Depends on:** Phases 0–4 (everything).

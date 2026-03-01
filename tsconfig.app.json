@@ -32,5 +32,5 @@
       "@engine/*": ["src/engine/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }

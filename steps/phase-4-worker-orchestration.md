@@ -1,5 +1,7 @@
 # Phase 4: Main Thread Orchestration & Exact Refinement
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** Wire up the Web Worker infrastructure. The main thread spawns N workers, distributes work, enforces the 60-second time limit, gathers results, and runs exact scoring on the best candidates. This is the production runtime layer.
 
 **Depends on:** Phase 0–3 (all interfaces, data structures, scorers, optimizer).

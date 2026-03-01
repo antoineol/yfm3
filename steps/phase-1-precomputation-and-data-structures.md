@@ -1,5 +1,7 @@
 # Phase 1: Pre-Computation & Data Structures
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** Parse the real game data and build all lookup tables and buffer pools that the optimizer consumes. Everything here runs **once** on the main thread before any workers spawn. Zero runtime allocations — all buffers are created in this phase and then transferred.
 
 **Depends on:** Phase 0 (interfaces, buffer types, constants).

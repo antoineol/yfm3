@@ -1,5 +1,7 @@
 # Phase 0: Engine Interfaces, Dummies & Benchmarking
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Prerequisite:** Phase Init is complete — `bun test` and `bun run dev` work, `@engine` alias resolves, `src/engine/` exists.
 
 **Goal:** Define the zero-allocation interface contracts, build dummy implementations that satisfy them, and create a benchmarking harness that measures raw throughput. After this phase, any future scorer or optimizer can be dropped in without touching wiring code.

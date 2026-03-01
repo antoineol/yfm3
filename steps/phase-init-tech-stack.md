@@ -1,5 +1,7 @@
 # Phase Init: Tech Stack Bootstrap
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** A building, testing, serving project with the `src/engine/` ↔ `src/ui/` boundary proven — but zero engine logic.
 
 **Outputs consumed by Phase 0:** A working repo where `bun test` and `bun run dev` both work, and any file placed under `src/engine/` is automatically available to both Vitest and the Vite/React app.

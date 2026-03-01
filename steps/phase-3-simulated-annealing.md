@@ -1,5 +1,7 @@
 # Phase 3: Simulated Annealing Worker Loop
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** Replace the greedy `RandomSwapOptimizer` with a proper Simulated Annealing (SA) optimizer. This is the real search algorithm that explores the deck space intelligently by accepting worse moves probabilistically to escape local optima.
 
 **Depends on:** Phase 0 (IOptimizer interface), Phase 1 (buffers, data), Phase 2 (FusionScorer, FusionDeltaScorer).

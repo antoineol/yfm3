@@ -1,5 +1,7 @@
 # Phase 2: Zero-Allocation 5-Card Hand Evaluator
 
+This phase is one of the implementation step of the plan in PLAN.md file.
+
 **Goal:** Implement the real `IScorer` — the fusion-chain-aware hand evaluator that computes the maximum achievable ATK from any 5-card hand. This is the computational nucleus of the entire system. It must be **completely zero-allocation** in its hot path.
 
 **Depends on:** Phase 0 (IScorer interface), Phase 1 (fusionTable, cardAtk, isFusionResult).
