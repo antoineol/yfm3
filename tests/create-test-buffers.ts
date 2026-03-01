@@ -1,4 +1,4 @@
-import { createBuffers, type OptBuffers } from "../types/buffers.ts";
+import { createBuffers, type OptBuffers } from "@engine/types/buffers.ts";
 import {
   DECK_SIZE,
   FUSION_NONE,
@@ -6,7 +6,7 @@ import {
   MAX_CARD_ID,
   MAX_COPIES,
   NUM_HANDS,
-} from "../types/constants.ts";
+} from "@engine/types/constants.ts";
 
 export function createTestBuffers(): OptBuffers {
   const buf = createBuffers();

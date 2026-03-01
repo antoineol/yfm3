@@ -1,10 +1,11 @@
-import { createTestBuffers } from "@engine/bench/create-test-buffers.ts";
 import { RandomSwapOptimizer } from "@engine/optimizer/random-swap-optimizer.ts";
 import { DummyDeltaScorer } from "@engine/scoring/dummy-delta-scorer.ts";
 import { DummyScorer } from "@engine/scoring/dummy-scorer.ts";
 import { createBuffers, type OptBuffers } from "@engine/types/buffers.ts";
 import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "@engine/types/constants.ts";
 import { beforeAll, describe, expect, it } from "vitest";
+
+import { createTestBuffers } from "./create-test-buffers.ts";
 
 const scorer = new DummyScorer();
 

@@ -9,8 +9,5 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
-    benchmark: {
-      include: ["src/**/*.bench.ts"],
-    },
   },
 });
