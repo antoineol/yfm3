@@ -30,16 +30,16 @@ export enum CsvColumn {
 }
 
 /**
+ * Read a numeric value from a specific column in a CSV line
+ */
+export function readColNum(line: string[], col: keyof typeof CsvColumn): number {
+  return +readCol(line, col) || 0;
+}
+
+/**
  * Read a string value from a specific column in a CSV line
  */
 export function readCol(line: string[], col: keyof typeof CsvColumn): string {
   const colIndex = CsvColumn[col];
   return line[colIndex]?.trim() ?? "";
-}
-
-/**
- * Read a numeric value from a specific column in a CSV line
- */
-export function readColNum(line: string[], col: keyof typeof CsvColumn): number {
-  return +readCol(line, col) || 0;
 }

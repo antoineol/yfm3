@@ -87,8 +87,42 @@ class CsvParserState {
   }
 }
 
-function isLineEmpty(line: string[]): boolean {
-  return line.every((cell) => !cell?.trim());
+/**
+ * Process fusion CSV content into structured data
+ */
+export function parseFusionCsv(csvContent: string): FusionDb {
+  const lines = csvContent.split("\n").map((line) => line.split("\t"));
+
+  // Skip header line
+  const dataLines = lines.slice(1);
+
+  const fusionsMap = new Map<string, FusionMaterials>();
+  const state = new CsvParserState();
+
+  for (const setup of columnsSetup) {
+    for (const line of dataLines) {
+      const lineData = processCsvLine(line, setup, state);
+
+      if (!lineData) {
+        continue;
+      }
+
+      try {
+        const fusionResults = parseCsvFusion(lineData);
+
+        if (fusionResults) {
+          addFusionsToMap(fusionsMap, fusionResults);
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error("Unknown error during fusion parsing");
+      }
+    }
+  }
+
+  return { fusions: Array.from(fusionsMap.values()) };
 }
 
 function processCsvLine(
@@ -145,40 +179,6 @@ function addFusionsToMap(
   }
 }
 
-/**
- * Process fusion CSV content into structured data
- */
-export function parseFusionCsv(csvContent: string): FusionDb {
-  const lines = csvContent.split("\n").map((line) => line.split("\t"));
-
-  // Skip header line
-  const dataLines = lines.slice(1);
-
-  const fusionsMap = new Map<string, FusionMaterials>();
-  const state = new CsvParserState();
-
-  for (const setup of columnsSetup) {
-    for (const line of dataLines) {
-      const lineData = processCsvLine(line, setup, state);
-
-      if (!lineData) {
-        continue;
-      }
-
-      try {
-        const fusionResults = parseCsvFusion(lineData);
-
-        if (fusionResults) {
-          addFusionsToMap(fusionsMap, fusionResults);
-        }
-      } catch (error: unknown) {
-        if (error instanceof Error) {
-          throw error;
-        }
-        throw new Error("Unknown error during fusion parsing");
-      }
-    }
-  }
-
-  return { fusions: Array.from(fusionsMap.values()) };
+function isLineEmpty(line: string[]): boolean {
+  return line.every((cell) => !cell?.trim());
 }
