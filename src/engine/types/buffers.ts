@@ -18,18 +18,24 @@ export interface OptBuffers {
   readonly cardCounts: Uint8Array;
   /** availableCounts[cardId] = how many copies the player owns (upper bound for cardCounts). */
   readonly availableCounts: Uint8Array;
-  /** Flat array of NUM_HANDS * 5 deck-slot indices (0..39). Each group of 5 is one sampled hand. */
+  /**
+   * Flat array of NUM_HANDS * 5 deck-slot indices (0..39).
+   * Each group of 5 is one sampled hand, stored as slot positions — NOT card IDs.
+   * To get the actual card: `deck[handSlots[h * 5 + j]]`.
+   * Slot-based storage means hands never need regeneration when the deck mutates (CRN technique).
+   */
   readonly handSlots: Uint8Array;
   /** handScores[h] = best attack achievable from hand h under the current deck. */
   readonly handScores: Int16Array;
   /**
-   * Reverse lookup: for each deck slot, which hand IDs reference it.
-   * Read via affectedHandOffsets and affectedHandCounts.
+   * Reverse lookup (CSR layout): maps each deck slot to the hands that reference it.
+   * When slot `s` changes, only hands in affectedHandIds[offset..offset+count] need rescoring
+   * (where offset = affectedHandOffsets[s], count = affectedHandCounts[s]).
    */
   readonly affectedHandIds: Uint16Array;
-  /** affectedHandOffsets[slot] = start index in affectedHandIds for this deck slot. */
+  /** affectedHandOffsets[slot] = start index in affectedHandIds for this slot's segment. */
   readonly affectedHandOffsets: Uint32Array;
-  /** affectedHandCounts[slot] = number of hands that reference this deck slot. */
+  /** affectedHandCounts[slot] = number of hands referencing this slot (~1,875 avg). */
   readonly affectedHandCounts: Uint16Array;
 }
 
