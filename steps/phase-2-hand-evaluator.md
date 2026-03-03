@@ -157,7 +157,7 @@ Phase 1's fusion-db.ts must now build BOTH tables:
 
 ## 2.5 FusionDeltaScorer (`src/scoring/fusion-delta-scorer.ts`)
 
-Identical structure to `DummyDeltaScorer` from Phase 0, but uses `FusionScorer` instead. This is a thin wrapper — the delta logic itself (iterate affected hands, compute new scores, track pending updates) is identical.
+Identical structure to `MaxAtkDeltaScorer` from Phase 0, but uses `FusionScorer` instead. This is a thin wrapper — the delta logic itself (iterate affected hands, compute new scores, track pending updates) is identical.
 
 Consider making a generic `BaseDeltaScorer` that accepts any `IScorer` and implements `IDeltaScorer`. The dummy and fusion variants are then just `new BaseDeltaScorer(dummyScorer)` vs `new BaseDeltaScorer(fusionScorer)`.
 
@@ -198,7 +198,7 @@ Consider making a generic `BaseDeltaScorer` that accepts any `IScorer` and imple
 
 ## 2.7 Benchmarks
 
-Update `src/bench/bench-scorer.ts` to benchmark `FusionScorer` alongside `DummyScorer`:
+Update `src/bench/bench-scorer.ts` to benchmark `FusionScorer` alongside `MaxAtkScorer`:
 
 | Benchmark | Target |
 |-----------|--------|
@@ -214,8 +214,8 @@ Multiply `computeDelta` target by the 55-second budget: 5,000 × 55 = **275,000 
 ## 2.8 Success Criteria
 
 1. All Phase 2 tests pass.
-2. `FusionScorer` implements `IScorer` — drop-in replacement for `DummyScorer`.
-3. `FusionDeltaScorer` implements `IDeltaScorer` — drop-in replacement for `DummyDeltaScorer`.
+2. `FusionScorer` implements `IScorer` — drop-in replacement for `MaxAtkScorer`.
+3. `FusionDeltaScorer` implements `IDeltaScorer` — drop-in replacement for `MaxAtkDeltaScorer`.
 4. The optimizer from Phase 0 (`RandomSwapOptimizer`) works unchanged with the new scorer/deltaScorer.
 5. Zero heap allocations in `evaluateHand` hot path (verified via benchmark stability — no GC spikes).
 6. All SPEC fusion resolution properties (F1–F5) pass dedicated tests.

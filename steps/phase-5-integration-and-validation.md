@@ -229,8 +229,8 @@ src/
   pool/
     hand-pool.ts
   scoring/
-    dummy-scorer.ts
-    dummy-delta-scorer.ts
+    max-atk-scorer.ts
+    max-atk-delta-scorer.ts
     fusion-scorer.ts
     fusion-delta-scorer.ts
     exact-scorer.ts

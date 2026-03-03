@@ -147,7 +147,7 @@ Every 50,000 iterations (configurable):
     // We've drifted too far from the best — restart from best known
     deck.set(bestDeck)
     recomputeCardCounts(deck, cardCounts)
-    recomputeAllHandScores(deck, handIndices, handScores, scorer, fusionTable, cardAtk)
+    recomputeAllHandScores(deck, handSlots, handScores, scorer, fusionTable, cardAtk)
     totalScore = sum(handScores)
     temp = config.initialTemp * 0.5  // restart at lower temp
 ```
@@ -185,7 +185,7 @@ The recomputation functions must also be zero-allocation — they just iterate a
 | Benchmark | Target |
 |-----------|--------|
 | `SAOptimizer` iterations/sec (with FusionScorer) | >5K/sec |
-| `SAOptimizer` iterations/sec (with DummyScorer) | >30K/sec |
+| `SAOptimizer` iterations/sec (with MaxAtkScorer) | >30K/sec |
 | `Rng.next()` ops/sec | >100M/sec |
 | `Rng.nextInt(722)` ops/sec | >50M/sec |
 

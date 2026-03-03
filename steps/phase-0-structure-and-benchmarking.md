@@ -50,7 +50,7 @@ export interface IDeltaScorer {
   computeDelta(
     deck: Int16Array,                    // length 40, already mutated with the new card
     slotIndex: number,                   // which slot was swapped (0–39)
-    handIndices: Uint8Array,             // flat NUM_HANDS × 5 pool
+    handSlots: Uint8Array,             // flat NUM_HANDS × 5 pool
     handScores: Int16Array,              // cached score per hand
     affectedHandIds: Uint16Array,        // flat reverse-lookup: hand IDs per slot
     affectedHandOffsets: Uint32Array,    // start offset per slot
@@ -75,7 +75,7 @@ export interface IOptimizer {
     deck: Int16Array,
     cardCounts: Uint8Array,
     availableCounts: Uint8Array,
-    handIndices: Uint8Array,
+    handSlots: Uint8Array,
     handScores: Int16Array,
     affectedHandIds: Uint16Array,
     affectedHandOffsets: Uint32Array,
@@ -108,7 +108,7 @@ export interface OptBuffers {
   readonly deck: Int16Array;               // DECK_SIZE
   readonly cardCounts: Uint8Array;         // MAX_CARD_ID
   readonly availableCounts: Uint8Array;    // MAX_CARD_ID
-  readonly handIndices: Uint8Array;        // NUM_HANDS × HAND_SIZE
+  readonly handSlots: Uint8Array;        // NUM_HANDS × HAND_SIZE
   readonly handScores: Int16Array;         // NUM_HANDS
   readonly affectedHandIds: Uint16Array;   // NUM_HANDS × HAND_SIZE
   readonly affectedHandOffsets: Uint32Array; // DECK_SIZE
@@ -124,11 +124,11 @@ export function createBuffers(): OptBuffers;
 
 Three stubs that prove the interface wiring. All under `src/engine/`.
 
-### `DummyScorer` (`src/engine/scoring/dummy-scorer.ts`)
+### `MaxAtkScorer` (`src/engine/scoring/max-atk-scorer.ts`)
 
 Returns `max(cardAtk[hand[i]])` for i in 0..4. No fusion logic — just a 5-iteration loop.
 
-### `DummyDeltaScorer` (`src/engine/scoring/dummy-delta-scorer.ts`)
+### `MaxAtkDeltaScorer` (`src/engine/scoring/max-atk-delta-scorer.ts`)
 
 Iterates affected hands for the swapped slot, calls `scorer.evaluateHand()` for each, computes delta vs cached score. Internal pre-allocated buffers (allocated once in constructor, reused forever):
 
@@ -152,8 +152,8 @@ Factory that returns a fully populated `OptBuffers` with random but structurally
 - `fusionTable`: mostly `FUSION_NONE`, ~5% random fusions with higher ATK.
 - `cardAtk`: random values 100–3000.
 - `deck`: 40 random card IDs respecting max 3 copies.
-- `handIndices`: 15,000 random 5-combinations of [0, 39].
-- Reverse lookup (`affectedHandIds`, `affectedHandOffsets`, `affectedHandCounts`): correctly computed from `handIndices`.
+- `handSlots`: 15,000 random 5-combinations of [0, 39].
+- Reverse lookup (`affectedHandIds`, `affectedHandOffsets`, `affectedHandCounts`): correctly computed from `handSlots`.
 
 ---
 
@@ -161,7 +161,7 @@ Factory that returns a fully populated `OptBuffers` with random but structurally
 
 | # | Test | Validates |
 |---|------|-----------|
-| 1 | `IScorer: returns a number` | `DummyScorer.evaluateHand()` returns non-negative number |
+| 1 | `IScorer: returns a number` | `MaxAtkScorer.evaluateHand()` returns non-negative number |
 | 2 | `IScorer: max of hand` | Result equals `Math.max(...cardAtk[hand[i]])` for known input |
 | 3 | `IDeltaScorer: zero delta on identity swap` | Swapping a card with itself → `delta === 0` |
 | 4 | `IDeltaScorer: commit updates handScores` | After `commitDelta()`, affected entries match new values |
@@ -180,8 +180,8 @@ Vitest bench files (run via `bun run bench`).
 
 | File | What it measures | Target |
 |------|-----------------|--------|
-| `bench-scorer.bench.ts` | `DummyScorer.evaluateHand` ops/sec | >5M ops/sec |
-| `bench-delta.bench.ts` | `DummyDeltaScorer.computeDelta` ops/sec | >50K ops/sec |
+| `bench-scorer.bench.ts` | `MaxAtkScorer.evaluateHand` ops/sec | >5M ops/sec |
+| `bench-delta.bench.ts` | `MaxAtkDeltaScorer.computeDelta` ops/sec | >50K ops/sec |
 | `bench-optimizer.bench.ts` | `RandomSwapOptimizer` iterations in 2s | >30K iter/sec |
 
 Each bench uses `createTestBuffers()` for setup. Steady ops/sec with no GC spikes (>2× variance between samples) confirms zero-allocation.
@@ -194,7 +194,7 @@ Each bench uses `createTestBuffers()` for setup. Steady ops/sec with no GC spike
 2. `bun run bench` — meets all three throughput targets.
 3. No GC spikes visible in bench output.
 4. Interfaces `IScorer`, `IDeltaScorer`, `IOptimizer` are final — changing them after this phase is a breaking change.
-5. Swapping `DummyScorer` for any future `IScorer` requires zero changes to optimizer or delta scorer code.
+5. Swapping `MaxAtkScorer` for any future `IScorer` requires zero changes to optimizer or delta scorer code.
 
 ---
 
@@ -207,8 +207,8 @@ src/engine/
     interfaces.ts
     buffers.ts
   scoring/
-    dummy-scorer.ts
-    dummy-delta-scorer.ts
+    max-atk-scorer.ts
+    max-atk-delta-scorer.ts
   optimizer/
     random-swap-optimizer.ts
   bench/

@@ -1,5 +1,5 @@
-import { parseCardFromCsv } from "@engine/data/card-line-parser.ts";
 import { describe, expect, it } from "vitest";
+import { parseCardFromCsv } from "./card-line-parser.ts";
 
 describe("parseCardFromCsv", () => {
   it("should return null for invalid input", () => {

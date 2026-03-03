@@ -1,5 +1,6 @@
-import { ping } from "@engine";
 import { expect, test } from "vitest";
+
+import { ping } from "./index.ts";
 
 test("engine boundary works", () => {
   expect(ping()).toBe("engine-ok");

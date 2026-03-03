@@ -1,7 +1,7 @@
-import { parseCardCell } from "@engine/data/card-cell-parser.ts";
-import type { CardRefByName, KindIdentifier } from "@engine/data/card-model.ts";
-import { isCardRefByName, isKindIdentifier } from "@engine/data/fusion-utils.ts";
 import { describe, expect, it } from "vitest";
+import { parseCardCell } from "./card-cell-parser.ts";
+import type { CardRefByName, KindIdentifier } from "./card-model.ts";
+import { isCardRefByName, isKindIdentifier } from "./fusion-utils.ts";
 
 describe("Card Cell Parser Tests", () => {
   it("should parse a simple card kind", () => {

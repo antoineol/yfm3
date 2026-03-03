@@ -115,7 +115,7 @@ We also need to know which cards are fusion results (for the chain restriction i
 |------|---------|
 | `src/pool/hand-pool.ts` | Generate the fixed hand index pool and reverse lookup |
 
-### Hand Index Generation (`handIndices: Uint8Array(NUM_HANDS * HAND_SIZE)`)
+### Hand Index Generation (`handSlots: Uint8Array(NUM_HANDS * HAND_SIZE)`)
 
 Generate 15,000 unique 5-combinations of indices from [0, 39]. Each combination is stored as 5 consecutive bytes in the flat array.
 
@@ -129,7 +129,7 @@ Algorithm:
     if !seen.has(key):
       seen.add(key)
       for j = 0 to 4:
-        handIndices[count * 5 + j] = indices[j]
+        handSlots[count * 5 + j] = indices[j]
       count++
 ```
 
@@ -144,7 +144,7 @@ Algorithm:
   // First pass: count
   for h = 0 to NUM_HANDS - 1:
     for j = 0 to 4:
-      slot = handIndices[h * 5 + j]
+      slot = handSlots[h * 5 + j]
       affectedHandCounts[slot]++
 
   // Compute offsets (prefix sum)
@@ -157,7 +157,7 @@ Algorithm:
   tempOffsets.set(affectedHandOffsets)
   for h = 0 to NUM_HANDS - 1:
     for j = 0 to 4:
-      slot = handIndices[h * 5 + j]
+      slot = handSlots[h * 5 + j]
       affectedHandIds[tempOffsets[slot]] = h
       tempOffsets[slot]++
 ```
@@ -194,11 +194,11 @@ After the deck and hand pool are built, compute the initial `handScores`:
 
 ```
 for h = 0 to NUM_HANDS - 1:
-  fill handBuf[0..4] = deck[handIndices[h*5 + j]] for j in 0..4
+  fill handBuf[0..4] = deck[handSlots[h*5 + j]] for j in 0..4
   handScores[h] = scorer.evaluateHand(handBuf, fusionTable, cardAtk)
 ```
 
-This uses the `IScorer` interface — at this point it will be the `DummyScorer` (from Phase 0) or the real `FusionScorer` (from Phase 2) depending on build order.
+This uses the `IScorer` interface — at this point it will be the `MaxAtkScorer` (from Phase 0) or the real `FusionScorer` (from Phase 2) depending on build order.
 
 ---
 
@@ -218,8 +218,8 @@ This uses the `IScorer` interface — at this point it will be the `DummyScorer`
 | `cardAtk populated` | All cards in the database have ATK values in `cardAtk` |
 | `kind bitmask correctness` | Known multi-kind cards have correct bits set |
 | `color-qualified fusion` | `[Blue] Fairy` matches only blue fairies, not red fairies |
-| `hand pool uniqueness` | No duplicate 5-combos in `handIndices` |
-| `hand pool range` | All index values in `handIndices` are in [0, 39] |
+| `hand pool uniqueness` | No duplicate 5-combos in `handSlots` |
+| `hand pool range` | All index values in `handSlots` are in [0, 39] |
 | `reverse lookup completeness` | Sum of `affectedHandCounts` = `NUM_HANDS * 5` |
 | `reverse lookup correctness` | For each slot, every listed hand actually contains that slot |
 | `initial deck validity` | 40 cards, within collection, all valid IDs |
@@ -234,7 +234,7 @@ This uses the `IScorer` interface — at this point it will be the `DummyScorer`
 3. Hand pool + reverse lookup generation completes in <100ms.
 4. `fusionTable` is symmetric and respects all 3 priority tiers.
 5. The `OptBuffers` struct can be fully populated from real game data.
-6. The initial `handScores` array is populated using the DummyScorer (will be recomputed in Phase 2 with real scoring).
+6. The initial `handScores` array is populated using the MaxAtkScorer (will be recomputed in Phase 2 with real scoring).
 
 ---
 

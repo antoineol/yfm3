@@ -1,5 +1,5 @@
-import { parseCsvFusion } from "@engine/data/csv-fusion-parser.ts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { parseCsvFusion } from "./csv-fusion-parser.ts";
 
 const originalWarn = console.warn;
 

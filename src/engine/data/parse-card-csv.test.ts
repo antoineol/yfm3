@@ -1,6 +1,6 @@
-import { resetIdGenerator } from "@engine/data/id-generator.ts";
-import { parseCardCsv } from "@engine/data/parse-card-csv.ts";
 import { beforeEach, describe, expect, it } from "vitest";
+import { resetIdGenerator } from "./id-generator.ts";
+import { parseCardCsv } from "./parse-card-csv.ts";
 
 describe("parseCardCsv", () => {
   beforeEach(() => {

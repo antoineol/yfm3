@@ -34,7 +34,7 @@ export type WorkerInMessage =
       deck: Int16Array;
       cardCounts: Uint8Array;
       availableCounts: Uint8Array;
-      handIndices: Uint8Array;
+      handSlots: Uint8Array;
       affectedHandIds: Uint16Array;
       affectedHandOffsets: Uint32Array;
       affectedHandCounts: Uint16Array;
@@ -62,7 +62,7 @@ export type WorkerOutMessage =
 
 For maximum performance, use `postMessage` with **Transferable** buffers where possible:
 - The `INIT` message transfers the lookup tables. Since each worker needs its own mutable `deck` and `cardCounts`, these are **copied** (not transferred).
-- Shared immutable tables (`fusionTableFull`, `fusionTableNameOnly`, `cardAtk`, `handIndices`, `affectedHandIds`, `affectedHandOffsets`, `affectedHandCounts`) can use `SharedArrayBuffer` if available, falling back to copies if not.
+- Shared immutable tables (`fusionTableFull`, `fusionTableNameOnly`, `cardAtk`, `handSlots`, `affectedHandIds`, `affectedHandOffsets`, `affectedHandCounts`) can use `SharedArrayBuffer` if available, falling back to copies if not.
 
 ```ts
 // If SharedArrayBuffer is available (requires COOP/COEP headers):
@@ -84,7 +84,7 @@ onmessage handler:
     // 1. Unpack all buffers from message
     // 2. Create FusionScorer and FusionDeltaScorer instances
     // 3. Create SAOptimizer with the provided seed/config
-    // 4. Compute initial handScores from deck + handIndices
+    // 4. Compute initial handScores from deck + handSlots
     // 5. Create AbortController (aborted on HALT message)
     // 6. Run optimizer.run(...)
     // 7. Post RESULT message back with bestDeck + bestScore

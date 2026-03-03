@@ -1,6 +1,6 @@
-import type { FusionMaterial } from "@engine/data/card-model.ts";
-import { getMaterialPairKey } from "@engine/data/fusion-utils.ts";
 import { describe, expect, it } from "vitest";
+import type { FusionMaterial } from "./card-model.ts";
+import { getMaterialPairKey } from "./fusion-utils.ts";
 
 describe("Fusion Utils", () => {
   const material1: FusionMaterial = { kind: "Dragon" };

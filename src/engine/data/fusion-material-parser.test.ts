@@ -1,5 +1,5 @@
-import { parseFusionMaterial } from "@engine/data/fusion-material-parser.ts";
 import { describe, expect, it } from "vitest";
+import { parseFusionMaterial } from "./fusion-material-parser.ts";
 
 describe("parseFusionMaterial", () => {
   it("should parse a single material", () => {

@@ -1,6 +1,6 @@
-import type { KindIdentifier } from "@engine/data/card-model.ts";
-import { parseFusionResult } from "@engine/data/fusion-result-parser.ts";
 import { describe, expect, it } from "vitest";
+import type { KindIdentifier } from "./card-model.ts";
+import { parseFusionResult } from "./fusion-result-parser.ts";
 
 describe("Fusion Result Parser Tests", () => {
   it("should parse a result with materials", () => {

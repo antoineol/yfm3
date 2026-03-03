@@ -1,5 +1,5 @@
-import { parseFusionCsv } from "@engine/data/parse-fusion-csv.ts";
 import { describe, expect, it } from "vitest";
+import { parseFusionCsv } from "./parse-fusion-csv.ts";
 
 describe("CSV Parser Tests", () => {
   it("should parse a full CSV string", () => {

@@ -1,16 +1,16 @@
 import type { FusionDb, FusionMaterials } from "./card-model.ts";
 import { parseCsvFusion } from "./csv-fusion-parser.ts";
-import { type CsvColumn, readCol } from "./csv-utils.ts";
+import { type CsvColumnKey, readCol } from "./csv-utils.ts";
 
 /**
  * Configuration for a single tier of fusion columns in the CSV
  */
 interface TierColumnConfig {
-  material1: keyof typeof CsvColumn;
-  material2: keyof typeof CsvColumn;
-  fusionName: keyof typeof CsvColumn;
-  fusionAttack: keyof typeof CsvColumn;
-  fusionDefense: keyof typeof CsvColumn;
+  material1: CsvColumnKey;
+  material2: CsvColumnKey;
+  fusionName: CsvColumnKey;
+  fusionAttack: CsvColumnKey;
+  fusionDefense: CsvColumnKey;
   tier: number;
 }
 

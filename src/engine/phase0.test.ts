@@ -1,13 +1,13 @@
-import { RandomSwapOptimizer } from "@engine/optimizer/random-swap-optimizer.ts";
-import { DummyDeltaScorer } from "@engine/scoring/dummy-delta-scorer.ts";
-import { DummyScorer } from "@engine/scoring/dummy-scorer.ts";
-import { createBuffers, type OptBuffers } from "@engine/types/buffers.ts";
-import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "@engine/types/constants.ts";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createTestBuffers } from "./create-test-buffers.ts";
+import { RandomSwapOptimizer } from "./optimizer/random-swap-optimizer.ts";
+import { MaxAtkDeltaScorer } from "./scoring/max-atk-delta-scorer.ts";
+import { MaxAtkScorer } from "./scoring/max-atk-scorer.ts";
+import { createBuffers, type OptBuffers } from "./types/buffers.ts";
+import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./types/constants.ts";
 
-const scorer = new DummyScorer();
+const scorer = new MaxAtkScorer();
 
 /** Pre-compute handScores for a test buffer set. */
 function scoreAllHands(buf: OptBuffers): void {
@@ -15,9 +15,9 @@ function scoreAllHands(buf: OptBuffers): void {
   for (let h = 0; h < NUM_HANDS; h++) {
     const base = h * HAND_SIZE;
     for (let j = 0; j < HAND_SIZE; j++) {
-      h5[j] = buf.deck[buf.handIndices[base + j] ?? 0] ?? 0;
+      h5[j] = buf.deck[buf.handSlots[base + j] ?? 0] ?? 0;
     }
-    buf.handScores[h] = scorer.evaluateHand(h5, buf.fusionTable, buf.cardAtk);
+    buf.handScores[h] = scorer.evaluateHand(h5, buf);
   }
 }
 
@@ -30,68 +30,46 @@ describe("Phase 0", () => {
   });
 
   it("IScorer: returns a number", () => {
+    const b = createBuffers();
+    b.cardAtk[1] = 500;
+    b.cardAtk[2] = 600;
+    b.cardAtk[3] = 700;
+    b.cardAtk[4] = 800;
+    b.cardAtk[5] = 900;
     const hand = new Uint16Array([1, 2, 3, 4, 5]);
-    const cardAtk = new Int16Array(MAX_CARD_ID);
-    cardAtk[1] = 500;
-    cardAtk[2] = 600;
-    cardAtk[3] = 700;
-    cardAtk[4] = 800;
-    cardAtk[5] = 900;
-    const result = scorer.evaluateHand(hand, new Int16Array(MAX_CARD_ID * MAX_CARD_ID), cardAtk);
+    const result = scorer.evaluateHand(hand, b);
     expect(typeof result).toBe("number");
     expect(result).toBeGreaterThanOrEqual(0);
   });
 
   it("IScorer: max of hand", () => {
+    const b = createBuffers();
+    b.cardAtk[10] = 100;
+    b.cardAtk[20] = 250;
+    b.cardAtk[30] = 3000;
+    b.cardAtk[40] = 150;
+    b.cardAtk[50] = 2000;
     const hand = new Uint16Array([10, 20, 30, 40, 50]);
-    const cardAtk = new Int16Array(MAX_CARD_ID);
-    cardAtk[10] = 100;
-    cardAtk[20] = 250;
-    cardAtk[30] = 3000;
-    cardAtk[40] = 150;
-    cardAtk[50] = 2000;
-    const result = scorer.evaluateHand(hand, new Int16Array(MAX_CARD_ID * MAX_CARD_ID), cardAtk);
+    const result = scorer.evaluateHand(hand, b);
     expect(result).toBe(3000);
   });
 
   it("IDeltaScorer: zero delta on identity swap", () => {
-    const ds = new DummyDeltaScorer();
-    const delta = ds.computeDelta(
-      buf.deck,
-      0,
-      buf.handIndices,
-      buf.handScores,
-      buf.affectedHandIds,
-      buf.affectedHandOffsets,
-      buf.affectedHandCounts,
-      buf.fusionTable,
-      buf.cardAtk,
-      scorer,
-    );
+    const ds = new MaxAtkDeltaScorer();
+    const delta = ds.computeDelta(0, buf, scorer);
     expect(delta).toBe(0);
   });
 
   it("IDeltaScorer: commit updates handScores", () => {
     const b = createTestBuffers();
     scoreAllHands(b);
-    const ds = new DummyDeltaScorer();
+    const ds = new MaxAtkDeltaScorer();
 
     const oldCard = b.deck[0] ?? 0;
     const newCard = (oldCard + 1) % MAX_CARD_ID;
     b.deck[0] = newCard;
 
-    ds.computeDelta(
-      b.deck,
-      0,
-      b.handIndices,
-      b.handScores,
-      b.affectedHandIds,
-      b.affectedHandOffsets,
-      b.affectedHandCounts,
-      b.fusionTable,
-      b.cardAtk,
-      scorer,
-    );
+    ds.computeDelta(0, b, scorer);
     ds.commitDelta(b.handScores);
 
     // Verify affected hands now match fresh evaluation
@@ -102,33 +80,22 @@ describe("Phase 0", () => {
       const hid = b.affectedHandIds[offset + i] ?? 0;
       const base = hid * HAND_SIZE;
       for (let j = 0; j < HAND_SIZE; j++) {
-        h5[j] = b.deck[b.handIndices[base + j] ?? 0] ?? 0;
+        h5[j] = b.deck[b.handSlots[base + j] ?? 0] ?? 0;
       }
-      expect(b.handScores[hid]).toBe(scorer.evaluateHand(h5, b.fusionTable, b.cardAtk));
+      expect(b.handScores[hid]).toBe(scorer.evaluateHand(h5, b));
     }
   });
 
   it("IDeltaScorer: no mutation on reject", () => {
     const b = createTestBuffers();
     scoreAllHands(b);
-    const ds = new DummyDeltaScorer();
+    const ds = new MaxAtkDeltaScorer();
     const snapshot = new Int16Array(b.handScores);
 
     const oldCard = b.deck[0] ?? 0;
     b.deck[0] = (oldCard + 1) % MAX_CARD_ID;
 
-    ds.computeDelta(
-      b.deck,
-      0,
-      b.handIndices,
-      b.handScores,
-      b.affectedHandIds,
-      b.affectedHandOffsets,
-      b.affectedHandCounts,
-      b.fusionTable,
-      b.cardAtk,
-      scorer,
-    );
+    ds.computeDelta(0, b, scorer);
     // No commitDelta call
     expect(b.handScores).toEqual(snapshot);
   });
@@ -136,23 +103,8 @@ describe("Phase 0", () => {
   it("IOptimizer: returns valid deck", () => {
     const b = createTestBuffers();
     scoreAllHands(b);
-    const opt = new RandomSwapOptimizer();
 
-    opt.run(
-      b.deck,
-      b.cardCounts,
-      b.availableCounts,
-      b.handIndices,
-      b.handScores,
-      b.affectedHandIds,
-      b.affectedHandOffsets,
-      b.affectedHandCounts,
-      b.fusionTable,
-      b.cardAtk,
-      scorer,
-      new DummyDeltaScorer(),
-      500,
-    );
+    new RandomSwapOptimizer().run(b, scorer, new MaxAtkDeltaScorer(), 500);
 
     expect(b.deck.length).toBe(DECK_SIZE);
     const counts = new Uint8Array(MAX_CARD_ID);
@@ -174,22 +126,7 @@ describe("Phase 0", () => {
       initialScore += b.handScores[i] ?? 0;
     }
 
-    const finalScore = new RandomSwapOptimizer().run(
-      b.deck,
-      b.cardCounts,
-      b.availableCounts,
-      b.handIndices,
-      b.handScores,
-      b.affectedHandIds,
-      b.affectedHandOffsets,
-      b.affectedHandCounts,
-      b.fusionTable,
-      b.cardAtk,
-      scorer,
-      new DummyDeltaScorer(),
-      1000,
-    );
-
+    const finalScore = new RandomSwapOptimizer().run(b, scorer, new MaxAtkDeltaScorer(), 1000);
     expect(finalScore).toBeGreaterThanOrEqual(initialScore);
   });
 
@@ -198,21 +135,7 @@ describe("Phase 0", () => {
     scoreAllHands(b);
 
     const start = performance.now();
-    new RandomSwapOptimizer().run(
-      b.deck,
-      b.cardCounts,
-      b.availableCounts,
-      b.handIndices,
-      b.handScores,
-      b.affectedHandIds,
-      b.affectedHandOffsets,
-      b.affectedHandCounts,
-      b.fusionTable,
-      b.cardAtk,
-      scorer,
-      new DummyDeltaScorer(),
-      0,
-    );
+    new RandomSwapOptimizer().run(b, scorer, new MaxAtkDeltaScorer(), 0);
     expect(performance.now() - start).toBeLessThan(50);
   });
 
@@ -223,7 +146,7 @@ describe("Phase 0", () => {
     expect(b.deck.length).toBe(DECK_SIZE);
     expect(b.cardCounts.length).toBe(MAX_CARD_ID);
     expect(b.availableCounts.length).toBe(MAX_CARD_ID);
-    expect(b.handIndices.length).toBe(NUM_HANDS * HAND_SIZE);
+    expect(b.handSlots.length).toBe(NUM_HANDS * HAND_SIZE);
     expect(b.handScores.length).toBe(NUM_HANDS);
     expect(b.affectedHandIds.length).toBe(NUM_HANDS * HAND_SIZE);
     expect(b.affectedHandOffsets.length).toBe(DECK_SIZE);
@@ -239,7 +162,7 @@ describe("Phase 0", () => {
         const base = handId * HAND_SIZE;
         let found = false;
         for (let j = 0; j < HAND_SIZE; j++) {
-          if (buf.handIndices[base + j] === slot) {
+          if (buf.handSlots[base + j] === slot) {
             found = true;
             break;
           }
