@@ -1,6 +1,6 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { DECK_SIZE, MAX_CARD_ID } from "../types/constants.ts";
-import type { IDeltaScorer, IOptimizer, IScorer } from "../types/interfaces.ts";
+import type { IDeltaEvaluator, IOptimizer, IScorer } from "../types/interfaces.ts";
 
 /**
  * Hill-climbing optimizer using random card swaps.
@@ -15,7 +15,12 @@ import type { IDeltaScorer, IOptimizer, IScorer } from "../types/interfaces.ts";
  * Guarantees monotonic improvement (non-regression invariant).
  */
 export class RandomSwapOptimizer implements IOptimizer {
-  run(buf: OptBuffers, scorer: IScorer, deltaScorer: IDeltaScorer, maxIterations: number): number {
+  run(
+    buf: OptBuffers,
+    scorer: IScorer,
+    deltaEvaluator: IDeltaEvaluator,
+    maxIterations: number,
+  ): number {
     const { deck, cardCounts, availableCounts, handScores } = buf;
 
     // Compute baseline total score from pre-scored hands
@@ -40,11 +45,11 @@ export class RandomSwapOptimizer implements IOptimizer {
       cardCounts[newCard] = (cardCounts[newCard] ?? 0) + 1;
 
       // Compute score delta by re-evaluating only hands that reference this slot
-      const delta = deltaScorer.computeDelta(slot, buf, scorer);
+      const delta = deltaEvaluator.computeDelta(slot, buf, scorer);
 
       if (delta > 0) {
         // Accept: commit the new hand scores
-        deltaScorer.commitDelta(handScores);
+        deltaEvaluator.commitDelta(handScores);
         totalScore += delta;
       } else {
         // Reject: revert the deck and counts

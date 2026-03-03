@@ -82,7 +82,7 @@ onmessage handler:
 
   case 'INIT':
     // 1. Unpack all buffers from message
-    // 2. Create FusionScorer and FusionDeltaScorer instances
+    // 2. Create FusionScorer and FusionDeltaEvaluator instances
     // 3. Create SAOptimizer with the provided seed/config
     // 4. Compute initial handScores from deck + handSlots
     // 5. Create AbortController (aborted on HALT message)

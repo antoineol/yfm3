@@ -4,7 +4,7 @@ This phase is one of the implementation step of the plan in PLAN.md file.
 
 **Goal:** Replace the greedy `RandomSwapOptimizer` with a proper Simulated Annealing (SA) optimizer. This is the real search algorithm that explores the deck space intelligently by accepting worse moves probabilistically to escape local optima.
 
-**Depends on:** Phase 0 (IOptimizer interface), Phase 1 (buffers, data), Phase 2 (FusionScorer, FusionDeltaScorer).
+**Depends on:** Phase 0 (IOptimizer interface), Phase 1 (buffers, data), Phase 2 (FusionScorer, FusionDeltaEvaluator).
 
 ---
 
@@ -83,7 +83,7 @@ run(deck, cardCounts, availableCounts, ..., signal):
     cardCounts[newCard]++
 
     // 3. Compute delta
-    delta = deltaScorer.computeDelta(deck, slotIndex, ...)
+    delta = deltaEvaluator.computeDelta(deck, slotIndex, ...)
 
     // 4. Acceptance decision
     accept = false
@@ -96,7 +96,7 @@ run(deck, cardCounts, availableCounts, ..., signal):
 
     // 5. Apply or revert
     if accept:
-      deltaScorer.commitDelta(handScores)
+      deltaEvaluator.commitDelta(handScores)
       totalScore += delta
       if totalScore > bestScore:
         bestScore = totalScore

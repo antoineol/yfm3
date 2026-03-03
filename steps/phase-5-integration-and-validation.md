@@ -230,9 +230,9 @@ src/
     hand-pool.ts
   scoring/
     max-atk-scorer.ts
-    max-atk-delta-scorer.ts
+    delta-evaluator.ts
     fusion-scorer.ts
-    fusion-delta-scorer.ts
+    fusion-delta-evaluator.ts
     exact-scorer.ts
   optimizer/
     random-swap-optimizer.ts

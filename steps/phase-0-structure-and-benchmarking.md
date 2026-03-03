@@ -41,12 +41,12 @@ export interface IScorer {
 }
 ```
 
-### `IDeltaScorer`
+### `IDeltaEvaluator`
 
 Evaluates only the hands affected by a single swap → net score change. Separated `computeDelta` / `commitDelta` so rejected moves cost zero writes.
 
 ```ts
-export interface IDeltaScorer {
+export interface IDeltaEvaluator {
   computeDelta(
     deck: Int16Array,                    // length 40, already mutated with the new card
     slotIndex: number,                   // which slot was swapped (0–39)
@@ -83,7 +83,7 @@ export interface IOptimizer {
     fusionTable: Int16Array,
     cardAtk: Int16Array,
     scorer: IScorer,
-    deltaScorer: IDeltaScorer,
+    deltaEvaluator: IDeltaEvaluator,
     signal: AbortSignal,
   ): number; // total score of the best deck found
 }
@@ -128,7 +128,7 @@ Three stubs that prove the interface wiring. All under `src/engine/`.
 
 Returns `max(cardAtk[hand[i]])` for i in 0..4. No fusion logic — just a 5-iteration loop.
 
-### `MaxAtkDeltaScorer` (`src/engine/scoring/max-atk-delta-scorer.ts`)
+### `DeltaEvaluator` (`src/engine/scoring/delta-evaluator.ts`)
 
 Iterates affected hands for the swapped slot, calls `scorer.evaluateHand()` for each, computes delta vs cached score. Internal pre-allocated buffers (allocated once in constructor, reused forever):
 
@@ -141,7 +141,7 @@ Iterates affected hands for the swapped slot, calls `scorer.evaluateHand()` for 
 
 ### `RandomSwapOptimizer` (`src/engine/optimizer/random-swap-optimizer.ts`)
 
-Greedy hill-climber: pick random slot, pick random replacement card, compute delta, accept if positive, revert otherwise. No annealing. Proves the optimizer ↔ scorer ↔ deltaScorer wiring works end-to-end.
+Greedy hill-climber: pick random slot, pick random replacement card, compute delta, accept if positive, revert otherwise. No annealing. Proves the optimizer ↔ scorer ↔ deltaEvaluator wiring works end-to-end.
 
 ---
 
@@ -163,9 +163,9 @@ Factory that returns a fully populated `OptBuffers` with random but structurally
 |---|------|-----------|
 | 1 | `IScorer: returns a number` | `MaxAtkScorer.evaluateHand()` returns non-negative number |
 | 2 | `IScorer: max of hand` | Result equals `Math.max(...cardAtk[hand[i]])` for known input |
-| 3 | `IDeltaScorer: zero delta on identity swap` | Swapping a card with itself → `delta === 0` |
-| 4 | `IDeltaScorer: commit updates handScores` | After `commitDelta()`, affected entries match new values |
-| 5 | `IDeltaScorer: no mutation on reject` | Skipping `commitDelta()` → `handScores` unchanged |
+| 3 | `IDeltaEvaluator: zero delta on identity swap` | Swapping a card with itself → `delta === 0` |
+| 4 | `IDeltaEvaluator: commit updates handScores` | After `commitDelta()`, affected entries match new values |
+| 5 | `IDeltaEvaluator: no mutation on reject` | Skipping `commitDelta()` → `handScores` unchanged |
 | 6 | `IOptimizer: returns valid deck` | After `run()`, deck has 40 cards, all within `availableCounts` |
 | 7 | `IOptimizer: non-regression` | Returned score ≥ initial score |
 | 8 | `IOptimizer: respects abort signal` | Stops when `AbortController.abort()` fires |
@@ -181,7 +181,7 @@ Vitest bench files (run via `bun run bench`).
 | File | What it measures | Target |
 |------|-----------------|--------|
 | `bench-scorer.bench.ts` | `MaxAtkScorer.evaluateHand` ops/sec | >5M ops/sec |
-| `bench-delta.bench.ts` | `MaxAtkDeltaScorer.computeDelta` ops/sec | >50K ops/sec |
+| `bench-delta.bench.ts` | `DeltaEvaluator.computeDelta` ops/sec | >50K ops/sec |
 | `bench-optimizer.bench.ts` | `RandomSwapOptimizer` iterations in 2s | >30K iter/sec |
 
 Each bench uses `createTestBuffers()` for setup. Steady ops/sec with no GC spikes (>2× variance between samples) confirms zero-allocation.
@@ -193,7 +193,7 @@ Each bench uses `createTestBuffers()` for setup. Steady ops/sec with no GC spike
 1. `bun test` — all 10 Phase 0 tests pass (plus the Phase Init smoke test still passes).
 2. `bun run bench` — meets all three throughput targets.
 3. No GC spikes visible in bench output.
-4. Interfaces `IScorer`, `IDeltaScorer`, `IOptimizer` are final — changing them after this phase is a breaking change.
+4. Interfaces `IScorer`, `IDeltaEvaluator`, `IOptimizer` are final — changing them after this phase is a breaking change.
 5. Swapping `MaxAtkScorer` for any future `IScorer` requires zero changes to optimizer or delta scorer code.
 
 ---
@@ -208,7 +208,7 @@ src/engine/
     buffers.ts
   scoring/
     max-atk-scorer.ts
-    max-atk-delta-scorer.ts
+    delta-evaluator.ts
   optimizer/
     random-swap-optimizer.ts
   bench/

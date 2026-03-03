@@ -16,3 +16,4 @@ This project is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remas
 - Always `bun lint` and `bun test` before completing tasks.
 - Write functions in reading order. If A calls B, write A then B.
 - All behavior changes must be covered by specs.
+- When updating code, you must also adapt current and next steps plans.

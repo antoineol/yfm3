@@ -17,7 +17,7 @@ The hand evaluator simulates all possible fusion chains up to depth 3 (consuming
 | File | Purpose |
 |------|---------|
 | `src/scoring/fusion-scorer.ts` | `FusionScorer` implementing `IScorer` — the real hand evaluator |
-| `src/scoring/fusion-delta-scorer.ts` | `FusionDeltaScorer` implementing `IDeltaScorer` — wraps FusionScorer for delta evaluation |
+| `src/scoring/fusion-delta-evaluator.ts` | `FusionDeltaEvaluator` implementing `IDeltaEvaluator` — wraps FusionScorer for delta evaluation |
 
 ---
 
@@ -155,11 +155,11 @@ Phase 1's fusion-db.ts must now build BOTH tables:
 
 ---
 
-## 2.5 FusionDeltaScorer (`src/scoring/fusion-delta-scorer.ts`)
+## 2.5 FusionDeltaEvaluator (`src/scoring/fusion-delta-evaluator.ts`)
 
-Identical structure to `MaxAtkDeltaScorer` from Phase 0, but uses `FusionScorer` instead. This is a thin wrapper — the delta logic itself (iterate affected hands, compute new scores, track pending updates) is identical.
+Identical structure to `DeltaEvaluator` from Phase 0, but uses `FusionScorer` instead. This is a thin wrapper — the delta logic itself (iterate affected hands, compute new scores, track pending updates) is identical.
 
-Consider making a generic `BaseDeltaScorer` that accepts any `IScorer` and implements `IDeltaScorer`. The dummy and fusion variants are then just `new BaseDeltaScorer(dummyScorer)` vs `new BaseDeltaScorer(fusionScorer)`.
+Consider making a generic `BaseDeltaEvaluator` that accepts any `IScorer` and implements `IDeltaEvaluator`. The dummy and fusion variants are then just `new BaseDeltaEvaluator(dummyScorer)` vs `new BaseDeltaEvaluator(fusionScorer)`.
 
 ---
 
@@ -205,7 +205,7 @@ Update `src/bench/bench-scorer.ts` to benchmark `FusionScorer` alongside `MaxAtk
 | `FusionScorer.evaluateHand` (no fusions possible) | >2M ops/sec |
 | `FusionScorer.evaluateHand` (avg ~2 fusions per hand) | >500K ops/sec |
 | `FusionScorer.evaluateHand` (dense fusions, 4-deep chains) | >200K ops/sec |
-| `FusionDeltaScorer.computeDelta` (real scorer, ~1875 hands) | >5K ops/sec |
+| `FusionDeltaEvaluator.computeDelta` (real scorer, ~1875 hands) | >5K ops/sec |
 
 Multiply `computeDelta` target by the 55-second budget: 5,000 × 55 = **275,000 optimizer iterations** minimum with real scoring. This is the throughput floor.
 
@@ -215,8 +215,8 @@ Multiply `computeDelta` target by the 55-second budget: 5,000 × 55 = **275,000 
 
 1. All Phase 2 tests pass.
 2. `FusionScorer` implements `IScorer` — drop-in replacement for `MaxAtkScorer`.
-3. `FusionDeltaScorer` implements `IDeltaScorer` — drop-in replacement for `MaxAtkDeltaScorer`.
-4. The optimizer from Phase 0 (`RandomSwapOptimizer`) works unchanged with the new scorer/deltaScorer.
+3. `FusionDeltaEvaluator` implements `IDeltaEvaluator` — drop-in replacement for `DeltaEvaluator`.
+4. The optimizer from Phase 0 (`RandomSwapOptimizer`) works unchanged with the new scorer/deltaEvaluator.
 5. Zero heap allocations in `evaluateHand` hot path (verified via benchmark stability — no GC spikes).
 6. All SPEC fusion resolution properties (F1–F5) pass dedicated tests.
 7. Dual fusion table approach correctly blocks kind-kind matches for fusion intermediates.
@@ -229,7 +229,7 @@ Multiply `computeDelta` target by the 55-second budget: 5,000 × 55 = **275,000 
 src/
   scoring/
     fusion-scorer.ts
-    fusion-delta-scorer.ts    (or: base-delta-scorer.ts used by both dummy and fusion)
+    fusion-delta-evaluator.ts    (or: base-delta-evaluator.ts used by both dummy and fusion)
 tests/
   phase2.test.ts
 ```

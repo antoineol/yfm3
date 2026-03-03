@@ -16,13 +16,13 @@ export interface IScorer {
  * Computes the score change (delta) when a single deck slot is swapped,
  * by re-evaluating only the hands that reference that slot.
  *
- * Two-phase commit:
+ * Two-phase commit so that rejected swaps (the common case) pay zero writes:
  *   1. computeDelta() — stages new scores internally, returns total delta.
  *      Must NOT write to buf.handScores.
  *   2. commitDelta() — flushes staged scores into buf.handScores.
  *      Call ONLY after accepting a move.
  */
-export interface IDeltaScorer {
+export interface IDeltaEvaluator {
   computeDelta(slotIndex: number, buf: OptBuffers, scorer: IScorer): number;
   commitDelta(handScores: Int16Array): void;
 }
@@ -37,5 +37,10 @@ export interface IDeltaScorer {
  *   - maxIterations=0 returns immediately with the current totalScore.
  */
 export interface IOptimizer {
-  run(buf: OptBuffers, scorer: IScorer, deltaScorer: IDeltaScorer, maxIterations: number): number;
+  run(
+    buf: OptBuffers,
+    scorer: IScorer,
+    deltaEvaluator: IDeltaEvaluator,
+    maxIterations: number,
+  ): number;
 }

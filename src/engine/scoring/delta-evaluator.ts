@@ -1,14 +1,12 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { HAND_SIZE, NUM_HANDS } from "../types/constants.ts";
-import type { IDeltaScorer, IScorer } from "../types/interfaces.ts";
+import type { IDeltaEvaluator, IScorer } from "../types/interfaces.ts";
 
 /**
- * Incremental delta scorer: re-evaluates only the ~1,875 hands (avg) affected
- * by a single deck-slot swap, instead of all 15,000.
- *
- * Two-phase commit: computeDelta() stages results, commitDelta() applies them.
+ * Incremental delta evaluator: re-evaluates only the ~1,875 hands (avg)
+ * affected by a single deck-slot swap, instead of all 15,000.
  */
-export class MaxAtkDeltaScorer implements IDeltaScorer {
+export class DeltaEvaluator implements IDeltaEvaluator {
   private readonly pendingScores = new Int16Array(NUM_HANDS);
   private readonly pendingIds = new Uint16Array(NUM_HANDS);
   private pendingCount = 0;
