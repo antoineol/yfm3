@@ -1,139 +1,95 @@
-# Phase 2: Zero-Allocation 5-Card Hand Evaluator
+# Phase 2: Fusion-Chain Hand Evaluator
 
-This phase is one of the implementation step of the plan in PLAN.md file.
+This phase is one of the implementation steps of the plan in PLAN.md file.
 
-**Goal:** Implement the real `IScorer` — the fusion-chain-aware hand evaluator that computes the maximum achievable ATK from any 5-card hand. This is the computational nucleus of the entire system. It must be **completely zero-allocation** in its hot path.
+**Goal:** Implement the real `IScorer` — a DFS evaluator that finds the maximum ATK achievable from 5 cards, considering fusion chains up to 3 deep (4 materials). Completely zero-allocation in the hot path. ~100 LOC.
 
-**Depends on:** Phase 0 (IScorer interface), Phase 1 (fusionTable, cardAtk, isFusionResult).
+**Depends on:** Phase 1 (fusion table, cardAtk).
 
 ---
 
-## 2.1 Architecture: Stack-Based DFS Without Recursion
+## 2.1 Overview
 
-The hand evaluator simulates all possible fusion chains up to depth 3 (consuming up to 4 cards). It uses a pre-allocated flat `Int16Array` as an explicit stack instead of function recursion to avoid stack frame allocations.
+The current scorer just returns the highest base ATK among 5 cards. The real scorer must explore all possible fusion chains to find the maximum achievable ATK.
 
-### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/scoring/fusion-scorer.ts` | `FusionScorer` implementing `IScorer` — the real hand evaluator |
-| `src/scoring/fusion-delta-evaluator.ts` | `FusionDeltaEvaluator` implementing `IDeltaEvaluator` — wraps FusionScorer for delta evaluation |
+A fusion chain:
+1. Pick any pair of cards in hand
+2. If they fuse, the result replaces both materials (hand shrinks by 1)
+3. The result can fuse again with remaining cards (chain continues)
+4. Chains go up to 3 fusions deep (4 materials consumed from 5-card hand)
 
 ---
 
 ## 2.2 Pre-Allocated Stack Buffer
 
-At construction time, `FusionScorer` allocates a flat buffer for DFS traversal:
-
 ```ts
-// Pre-allocated at construction — NEVER reallocated
-private readonly stackCards: Int16Array;     // card IDs at each DFS level
-private readonly stackIsFused: Uint8Array;   // 1 if card at this position is a fusion result
-private readonly handBuf: Uint16Array;       // reusable 5-element hand buffer
+stackBuffer: Int16Array(5 * 5)    // card IDs at each DFS level
+stackIsFused: Uint8Array(5 * 5)   // 1 if card is a fusion result
+handBuf: Uint16Array(5)            // reusable hand buffer
 ```
 
-### Stack Layout
-
-The DFS operates on shrinking "remaining cards" arrays at each fusion level:
-
-| Level | Cards remaining | Slice in stackCards | Max pairs to check |
-|-------|----------------|--------------------|--------------------|
-| 0 (entry) | 5 cards | `[0..4]` | C(5,2) = 10 |
-| 1 (after 1 fusion) | 4 cards | `[5..8]` | C(4,2) = 6 |
-| 2 (after 2 fusions) | 3 cards | `[9..11]` | C(3,2) = 3 |
-| 3 (after 3 fusions) | 2 cards | `[12..13]` | C(2,2) = 1 |
-
-Total buffer: `Int16Array(14)` for card IDs, `Uint8Array(14)` for fused flags.
+Level layout (hand shrinks each fusion):
+| Level | Cards | Slice | Max pairs |
+|-------|-------|-------|-----------|
+| 0 | 5 | [0..4] | C(5,2) = 10 |
+| 1 | 4 | [5..8] | C(4,2) = 6 |
+| 2 | 3 | [9..11] | C(3,2) = 3 |
+| 3 | 2 | [12..13] | C(2,2) = 1 |
 
 ---
 
-## 2.3 Evaluation Algorithm
+## 2.3 Algorithm
 
 ```
-evaluateHand(hand, fusionTable, cardAtk) -> number:
+evaluateHand(hand[5], fusionTable, cardAtk) -> maxAtk:
+  Copy hand into stackBuffer[0..4], stackIsFused[0..4] = 0
+  maxAtk = max(cardAtk[hand[i]] for i in 0..4)
 
-  // 1. Initialize level 0 with the 5 hand cards
-  for i = 0 to 4:
-    stackCards[i] = hand[i]
-    stackIsFused[i] = 0
+  DFS(level=0, handSize=5):
+    for i = 0 to handSize-2:
+      for j = i+1 to handSize-1:
+        cardA = stackBuffer[level*5 + i]
+        cardB = stackBuffer[level*5 + j]
+        isFusedA = stackIsFused[level*5 + i]
+        isFusedB = stackIsFused[level*5 + j]
 
-  maxAtk = 0
+        // Fusion result kind restriction (SPEC F5):
+        // If either card is a fusion result, use name-only table
+        result = lookupFusion(cardA, cardB, isFusedA, isFusedB)
+        if result == FUSION_NONE: continue
 
-  // 2. Check base ATK of all 5 cards
-  for i = 0 to 4:
-    atk = cardAtk[stackCards[i]]
-    if atk > maxAtk: maxAtk = atk
+        resultAtk = cardAtk[result]
+        if resultAtk > maxAtk: maxAtk = resultAtk
 
-  // 3. DFS through fusion levels
-  maxAtk = dfsLevel(0, 5, maxAtk, fusionTable, cardAtk)
+        // Copy remaining cards + result into next level
+        nextBase = (level+1) * 5
+        write = 0
+        for k = 0 to handSize-1:
+          if k != i and k != j:
+            stackBuffer[nextBase + write] = stackBuffer[level*5 + k]
+            stackIsFused[nextBase + write] = stackIsFused[level*5 + k]
+            write++
+        stackBuffer[nextBase + write] = result
+        stackIsFused[nextBase + write] = 1
+        newHandSize = handSize - 1
 
-  return maxAtk
-```
-
-### DFS at Each Level
-
-```
-dfsLevel(levelOffset, numCards, maxAtk, fusionTable, cardAtk) -> number:
-
-  if numCards < 2: return maxAtk
-
-  // Try all pairs (i, j) where i < j
-  for i = 0 to numCards - 2:
-    for j = i + 1 to numCards - 1:
-      cardA = stackCards[levelOffset + i]
-      cardB = stackCards[levelOffset + j]
-      isFusedA = stackIsFused[levelOffset + i]
-      isFusedB = stackIsFused[levelOffset + j]
-
-      // Apply fusion result kind restriction (SPEC F5):
-      // If cardA is a fusion result, it can only match by NAME.
-      // If cardB is a fusion result, it can only match by NAME.
-      // The fusionTable already encodes name+kind matches,
-      // so we need a SEPARATE lookup that distinguishes match types.
-      // (See Section 2.4 for the fusionMatchType approach.)
-
-      resultId = lookupFusion(cardA, cardB, isFusedA, isFusedB, fusionTable)
-      if resultId === FUSION_NONE: continue
-
-      resultAtk = cardAtk[resultId]
-
-      // Strict improvement check
-      if resultAtk <= cardAtk[cardA] || resultAtk <= cardAtk[cardB]: continue
-
-      if resultAtk > maxAtk: maxAtk = resultAtk
-
-      // Build next level: copy remaining cards + fusion result
-      nextOffset = levelOffset + numCards  // computed from level layout
-      writeIdx = 0
-      for k = 0 to numCards - 1:
-        if k !== i && k !== j:
-          stackCards[nextOffset + writeIdx] = stackCards[levelOffset + k]
-          stackIsFused[nextOffset + writeIdx] = stackIsFused[levelOffset + k]
-          writeIdx++
-      stackCards[nextOffset + writeIdx] = resultId
-      stackIsFused[nextOffset + writeIdx] = 1  // this is a fusion result
-      writeIdx++
-
-      // Recurse to next level
-      maxAtk = dfsLevel(nextOffset, writeIdx, maxAtk, fusionTable, cardAtk)
+        if newHandSize >= 2:
+          DFS(level+1, newHandSize)
 
   return maxAtk
 ```
 
 ---
 
-## 2.4 Handling the Fusion Result Kind Restriction (SPEC F5)
+## 2.4 Handling Fusion Result Kind Restriction (SPEC F5)
 
-This is the trickiest correctness issue. The fusionTable from Phase 1 encodes ALL fusions (name-name, name-kind, kind-kind) in a single flat lookup. But when a card is a fusion intermediate, it can only fuse via name-based matches (rules 1 and 2 from SPEC Section 4), NOT kind-kind.
+Fusion results cannot re-fuse by their own kinds. Two approaches:
 
-### Approach: Dual Fusion Tables
+### Approach A: Dual Fusion Tables
 
-Create **two** fusion tables during Phase 1:
-
-1. **`fusionTableFull: Int16Array(722 * 722)`** — All fusions (name-name, name-kind, kind-kind). Used when NEITHER card is a fusion result.
-2. **`fusionTableNameOnly: Int16Array(722 * 722)`** — Only name-name and name-kind fusions. Used when at LEAST ONE card is a fusion result.
-
-The `lookupFusion` function then becomes:
+Build **two** fusion tables in Phase 1:
+- `fusionTableFull: Int16Array(722²)` — all fusions (name+name, name+kind, kind+kind)
+- `fusionTableNameOnly: Int16Array(722²)` — only name-name and name-kind fusions
 
 ```
 lookupFusion(cardA, cardB, isFusedA, isFusedB):
@@ -143,93 +99,47 @@ lookupFusion(cardA, cardB, isFusedA, isFusedB):
     return fusionTableFull[cardA * 722 + cardB]
 ```
 
-This is a single branch + one typed array read — still O(1) and zero-allocation.
-
-**Memory cost:** Two tables of `722 * 722 * 2 bytes = ~1 MB each`, ~2 MB total. Acceptable.
+Memory cost: ~2 MB total. Single branch + one typed array read = O(1), zero-allocation.
 
 ### Phase 1 Adjustment
 
-Phase 1's fusion-db.ts must now build BOTH tables:
-- `fusionTableFull`: all 3 priority passes.
-- `fusionTableNameOnly`: only pass 1 (name-name) and pass 2 (name-kind).
+If using dual tables, Phase 1's fusion builder must produce both:
+- `fusionTableFull`: all 3 priority passes
+- `fusionTableNameOnly`: only pass 1 (name-name) and pass 2 (name-kind)
 
 ---
 
-## 2.5 FusionDeltaEvaluator (`src/scoring/fusion-delta-evaluator.ts`)
+## 2.5 File to Create
 
-Identical structure to `DeltaEvaluator` from Phase 0, but uses `FusionScorer` instead. This is a thin wrapper — the delta logic itself (iterate affected hands, compute new scores, track pending updates) is identical.
-
-Consider making a generic `BaseDeltaEvaluator` that accepts any `IScorer` and implements `IDeltaEvaluator`. The dummy and fusion variants are then just `new BaseDeltaEvaluator(dummyScorer)` vs `new BaseDeltaEvaluator(fusionScorer)`.
+| File | Purpose |
+|------|---------|
+| `src/engine/scoring/fusion-scorer.ts` | `FusionScorer` implementing `IScorer` — DFS fusion-chain evaluator |
 
 ---
 
 ## 2.6 Tests
 
-### File to Create
-
-| File | Purpose |
-|------|---------|
-| `tests/phase2.test.ts` | Exhaustive tests for the FusionScorer |
-
 | Test | Validates |
 |------|-----------|
-| `No fusions: returns max base ATK` | Hand of 5 non-fusing cards returns highest ATK |
-| `Single fusion: 2-material` | A+B fuse to X; returns X's ATK if X > A and X > B |
-| `Strict improvement enforced` | A+B would fuse to X, but X.atk <= A.atk; no fusion occurs |
-| `3-material chain` | A+B→X, X+C→Y; returns Y's ATK |
-| `4-material chain` | A+B→X, X+C→Y, Y+D→Z; returns Z's ATK |
-| `Chain depth limit` | No 5-material chain (only 4 cards can be consumed from a 5-card hand) |
-| `Fusion result kind restriction` | X (fusion result) has kind Dragon; X+E should NOT fuse via kind-kind, only via name |
-| `Commutativity` | evaluateHand([A,B,C,D,E]) == evaluateHand([B,A,C,D,E]) for all permutations |
-| `Determinism` | Same hand, same tables → same result, every time |
-| `Best chain selected` | When multiple chains exist, the one yielding highest ATK wins |
-| `Name-name priority` | Name match overrides kind match for same pair |
-| `Color-qualified match` | [Blue] Fairy ingredient only matches blue fairies |
-| `IScorer interface compliance` | FusionScorer passes all Phase 0 IScorer contract tests |
-
-### Known Edge Cases to Test
-
-- Hand where all 5 cards can fuse in multiple orders — must find the global max.
-- Hand where a 2-material fusion gives ATK 2000, but a 3-material chain gives ATK 2500 — must return 2500.
-- Hand where a fusion result could re-fuse by kind (should be BLOCKED by F5).
-- Hand where a fusion result re-fuses by name (should be ALLOWED by F5).
+| `no-fusion hand` | Returns highest base ATK when no fusions possible |
+| `single fusion` | Two cards fuse, result ATK returned |
+| `2-fusion chain` | A+B→X, X+C→Y, returns ATK(Y) |
+| `3-fusion chain` | Maximum depth chain works correctly |
+| `best chain selected` | When multiple chains possible, highest ATK wins |
+| `strict improvement` | Result ATK <= material ATK → no fusion |
+| `fusion result kind restriction (F5)` | Result cannot re-fuse by its own kind |
+| `fusion result name re-fuse (F5)` | Result CAN re-fuse by name |
+| `commutativity` | Same hand in any permutation → same result |
+| `determinism` | Same input → same output every time |
+| `zero allocations` | No GC pressure during evaluation (benchmark) |
 
 ---
 
-## 2.7 Benchmarks
+## 2.7 Success Criteria
 
-Update `src/bench/bench-scorer.ts` to benchmark `FusionScorer` alongside `MaxAtkScorer`:
-
-| Benchmark | Target |
-|-----------|--------|
-| `FusionScorer.evaluateHand` (no fusions possible) | >2M ops/sec |
-| `FusionScorer.evaluateHand` (avg ~2 fusions per hand) | >500K ops/sec |
-| `FusionScorer.evaluateHand` (dense fusions, 4-deep chains) | >200K ops/sec |
-| `FusionDeltaEvaluator.computeDelta` (real scorer, ~1875 hands) | >5K ops/sec |
-
-Multiply `computeDelta` target by the 55-second budget: 5,000 × 55 = **275,000 optimizer iterations** minimum with real scoring. This is the throughput floor.
-
----
-
-## 2.8 Success Criteria
-
-1. All Phase 2 tests pass.
-2. `FusionScorer` implements `IScorer` — drop-in replacement for `MaxAtkScorer`.
-3. `FusionDeltaEvaluator` implements `IDeltaEvaluator` — drop-in replacement for `DeltaEvaluator`.
-4. The optimizer from Phase 0 (`RandomSwapOptimizer`) works unchanged with the new scorer/deltaEvaluator.
-5. Zero heap allocations in `evaluateHand` hot path (verified via benchmark stability — no GC spikes).
-6. All SPEC fusion resolution properties (F1–F5) pass dedicated tests.
-7. Dual fusion table approach correctly blocks kind-kind matches for fusion intermediates.
-
----
-
-## 2.8 File Tree Additions After Phase 2
-
-```
-src/
-  scoring/
-    fusion-scorer.ts
-    fusion-delta-evaluator.ts    (or: base-delta-evaluator.ts used by both dummy and fusion)
-tests/
-  phase2.test.ts
-```
+1. All tests pass.
+2. Correctly handles fusion chain depths 0, 1, 2, 3.
+3. Respects SPEC F5 (fusion result kind restriction).
+4. Zero allocations in hot path.
+5. Per-hand evaluation ~1μs average.
+6. Drop-in replacement for the placeholder scorer (implements `IScorer`).
