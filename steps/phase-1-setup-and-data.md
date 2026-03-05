@@ -49,49 +49,24 @@ export const FUSION_NONE = -1;
 
 ### Interfaces (`src/engine/types/interfaces.ts`)
 
-All hot-path signatures accept only TypedArrays and return primitives. No object allocation.
+All hot-path signatures accept `OptBuffers` (the pre-allocated typed-array bundle) and return primitives. No object allocation in hot loops.
 
 ```ts
 export interface IScorer {
-  evaluateHand(
-    hand: Uint16Array,        // length 5
-    fusionTable: Int16Array,  // flat 722×722
-    cardAtk: Int16Array,      // card ID → base ATK
-  ): number;
+  evaluateHand(hand: Uint16Array, buf: OptBuffers): number;
 }
 
 export interface IDeltaEvaluator {
-  computeDelta(
-    deck: Int16Array,
-    slotIndex: number,
-    handSlots: Uint8Array,
-    handScores: Int16Array,
-    affectedHandIds: Uint16Array,
-    affectedHandOffsets: Uint32Array,
-    affectedHandCounts: Uint16Array,
-    fusionTable: Int16Array,
-    cardAtk: Int16Array,
-    scorer: IScorer,
-  ): number;
-
+  computeDelta(slotIndex: number, buf: OptBuffers, scorer: IScorer): number;
   commitDelta(handScores: Int16Array): void;
 }
 
 export interface IOptimizer {
   run(
-    deck: Int16Array,
-    cardCounts: Uint8Array,
-    availableCounts: Uint8Array,
-    handSlots: Uint8Array,
-    handScores: Int16Array,
-    affectedHandIds: Uint16Array,
-    affectedHandOffsets: Uint32Array,
-    affectedHandCounts: Uint16Array,
-    fusionTable: Int16Array,
-    cardAtk: Int16Array,
+    buf: OptBuffers,
     scorer: IScorer,
     deltaEvaluator: IDeltaEvaluator,
-    signal: AbortSignal,
+    maxIterations: number,
   ): number;
 }
 ```
@@ -148,13 +123,17 @@ Build the flat 2D lookup: `fusionTable[cardA * 722 + cardB] = resultCardId` (or 
 
 ### 3-Pass Priority Resolution
 
-Per SPEC §4, recipes are applied in priority order:
+Per SPEC §4 and official FM fusion rules, recipes are applied in priority order:
 
-1. **Pass 1:** Name-name recipes. Absolute priority.
-2. **Pass 2:** Name-kind and name-colorKind recipes. Only write if slot is still `FUSION_NONE`.
-3. **Pass 3:** Kind-kind, kind-colorKind, colorKind-colorKind recipes. Only write if slot is still `FUSION_NONE`.
+1. **Pass 1:** Name-name recipes. **Absolute priority** — always written (subject to strict improvement). If multiple name-name recipes match, keep the one with the highest result ATK.
+2. **Pass 2:** Name-kind and name-colorKind recipes. Only write if slot is still `FUSION_NONE`. **Tiebreaker: lower ATK wins** — if multiple type-based recipes match the same pair, keep the lowest result ATK (this matches the game's fusion resolution order).
+3. **Pass 3:** Kind-kind, kind-colorKind, colorKind-colorKind recipes. Only write if slot is still `FUSION_NONE`. Same **lower-ATK tiebreaker** as Pass 2.
 
 Each recipe is expanded by cross-product of matching card IDs for each ingredient.
+
+**Summary of resolution rules:**
+- **Between tiers:** Name > Kind (absolute). A name-name result is never overwritten by a kind-based result.
+- **Within type tiers (2 & 3):** Lower ATK result wins when multiple recipes match the same card pair.
 
 ### Strict Improvement Filter
 

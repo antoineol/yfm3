@@ -2,8 +2,8 @@ import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE } from "../types/constants.ts";
 import { buildFusionTable } from "./build-fusion-table.ts";
 import type { CardSpec } from "./card-model.ts";
-import { parseCardCsv } from "./parse-card-csv.ts";
-import { parseFusionCsv } from "./parse-fusion-csv.ts";
+import { parseCardCsv } from "./parse-cards.ts";
+import { parseFusionCsv } from "./parse-fusions.ts";
 
 /**
  * Load game data from CSV strings and populate buffers.

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetIdGenerator } from "./id-generator.ts";
-import { parseCardCsv } from "./parse-card-csv.ts";
+import { parseCardCsv } from "./parse-cards.ts";
 
 describe("parseCardCsv", () => {
   beforeEach(() => {
