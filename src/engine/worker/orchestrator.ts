@@ -1,10 +1,13 @@
 import type { Collection } from "../data/card-model.ts";
-import { initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
-import { mulberry32 } from "../mulberry32.ts";
-import { exactScore } from "../scoring/exact-scorer.ts";
-import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import { DECK_SIZE } from "../types/constants.ts";
-import type { WorkerInit, WorkerProgress, WorkerResponse, WorkerResult } from "./messages.ts";
+import type {
+  ScorerInit,
+  ScorerResponse,
+  WorkerInit,
+  WorkerProgress,
+  WorkerResponse,
+  WorkerResult,
+} from "./messages.ts";
 
 export interface OptimizeDeckParallelResult {
   deck: number[];
@@ -14,8 +17,8 @@ export interface OptimizeDeckParallelResult {
   elapsedMs: number;
 }
 
-/** Reserve time for exact scoring after workers finish (ms). */
-const EXACT_SCORING_RESERVE = 5_000;
+/** Reserve time for exact scoring in a worker after SA finishes (ms). */
+const EXACT_SCORING_RESERVE = 2_000;
 /** Default time limit for the parallel optimization pipeline (ms). */
 const DEFAULT_TIME_LIMIT = 15_000;
 /** Safety cap for worker count (prevents runaway on exotic hardware). */
@@ -28,10 +31,32 @@ const CONVERGENCE_TIMEOUT_RATIO = 0.3;
 const CONVERGENCE_MIN_IMPROVEMENT = 0.001;
 
 /**
+ * Spawn a scorer worker to exact-score a deck off the main thread.
+ * Returns a Promise that resolves with the expected ATK value.
+ */
+function scoreInWorker(collectionRecord: Record<number, number>, deck: number[]): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const worker = new Worker(new URL("./scorer-worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (e: MessageEvent<ScorerResponse>) => {
+      resolve(e.data.expectedAtk);
+      worker.terminate();
+    };
+    worker.onerror = (e) => {
+      reject(new Error(`Scorer worker error: ${e.message}`));
+      worker.terminate();
+    };
+    const msg: ScorerInit = { type: "SCORE", collection: collectionRecord, deck };
+    worker.postMessage(msg);
+  });
+}
+
+/**
  * Run SA optimization across multiple Web Workers in parallel.
  *
  * Each worker initializes its own buffers and runs SA with a different seed.
- * The orchestrator picks the best result and exact-scores it on the main thread.
+ * The orchestrator picks the best result and exact-scores it in a worker.
  *
  * @param collection  cardId → number of copies the player owns
  * @param options.timeLimit  total wall-clock budget in ms (default 15s)
@@ -55,22 +80,16 @@ export async function optimizeDeckParallel(
     );
   }
 
-  const scorer = new FusionScorer();
-
-  // Score the current deck on the main thread while workers run SA
-  let currentDeckScore: number | null = null;
-  if (options?.currentDeck && options.currentDeck.length === DECK_SIZE) {
-    const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42));
-    for (let i = 0; i < DECK_SIZE; i++) {
-      scoreBuf.deck[i] = options.currentDeck[i] ?? 0;
-    }
-    currentDeckScore = exactScore(scoreBuf, scorer);
-  }
-
   // Serialize collection for worker transfer (workers receive plain objects)
   const collectionRecord: Record<number, number> = {};
   for (const [id, qty] of collection) {
     collectionRecord[id] = qty;
+  }
+
+  // 1. Fire current-deck scoring in a worker (non-blocking, parallel with SA)
+  let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
+  if (options?.currentDeck && options.currentDeck.length === DECK_SIZE) {
+    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck);
   }
 
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
@@ -165,10 +184,10 @@ export async function optimizeDeckParallel(
     );
   }
 
-  // Wait for all workers to finish (or be resolved early via convergence)
+  // 2. Wait for all SA workers to finish (or be resolved early via convergence)
   const results = await Promise.all(promises);
 
-  // Terminate workers (they've already posted their results)
+  // Terminate SA workers (they've already posted their results)
   for (const w of workers) w.terminate();
 
   // Pick the best result by sampled score
@@ -180,12 +199,11 @@ export async function optimizeDeckParallel(
     }
   }
 
-  // Exact-score the best deck on the main thread
-  const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42));
-  for (let i = 0; i < DECK_SIZE; i++) {
-    scoreBuf.deck[i] = best.bestDeck[i] ?? 0;
-  }
-  const expectedAtk = exactScore(scoreBuf, scorer);
+  // 3. Score best deck in a worker (non-blocking)
+  const expectedAtk = await scoreInWorker(collectionRecord, best.bestDeck);
+
+  // 4. Await current deck score (likely already done, ran in parallel with SA)
+  const currentDeckScore = await currentDeckPromise;
 
   const elapsedMs = performance.now() - start;
 

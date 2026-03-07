@@ -23,5 +23,20 @@ export type WorkerProgress = {
   iterations: number;
 };
 
+/** Main thread → Scorer Worker: score a deck exactly. */
+export type ScorerInit = {
+  type: "SCORE";
+  collection: Record<number, number>;
+  deck: number[];
+};
+
+/** Scorer Worker → Main thread: exact scoring result. */
+export type ScorerResult = {
+  type: "SCORE_RESULT";
+  expectedAtk: number;
+};
+
 export type WorkerMessage = WorkerInit;
 export type WorkerResponse = WorkerResult | WorkerProgress;
+export type ScorerMessage = ScorerInit;
+export type ScorerResponse = ScorerResult;
