@@ -2,7 +2,7 @@
 
 This phase is one of the implementation steps of the plan in PLAN.md file.
 
-**Goal:** Implement the real `IScorer` — a DFS evaluator that finds the maximum ATK achievable from 5 cards, considering fusion chains up to 3 deep (4 materials). Completely zero-allocation in the hot path. ~100 LOC.
+**Goal:** Implement the real `IScorer` — a DFS evaluator that finds the maximum ATK achievable from 5 cards, considering fusion chains up to 3 deep (4 materials consumed). Completely zero-allocation in the hot path.
 
 **Depends on:** Phase 1 (fusion table, cardAtk).
 
@@ -18,23 +18,22 @@ A fusion chain:
 3. The result can fuse again with remaining cards (chain continues)
 4. Chains go up to 3 fusions deep (4 materials consumed from 5-card hand)
 
+Fusion results are regular cards — they retain all attributes (name, kinds, color) and can participate in further fusions exactly like base cards (see SPEC §4).
+
 ---
 
 ## 2.2 Pre-Allocated Stack Buffer
 
 ```ts
-stackBuffer: Int16Array(5 * 5)    // card IDs at each DFS level
-stackIsFused: Uint8Array(5 * 5)   // 1 if card is a fusion result
-handBuf: Uint16Array(5)            // reusable hand buffer
+stackBuffer: Int16Array(3 * 5)    // card IDs at each DFS level (stride-5)
 ```
 
-Level layout (hand shrinks each fusion):
-| Level | Cards | Slice | Max pairs |
-|-------|-------|-------|-----------|
+Level layout (hand shrinks each fusion, stride-5 addressing via `level * 5`):
+| Level | Cards | Slice (`level*5`) | Max pairs |
+|-------|-------|--------------------|-----------|
 | 0 | 5 | [0..4] | C(5,2) = 10 |
 | 1 | 4 | [5..8] | C(4,2) = 6 |
-| 2 | 3 | [9..11] | C(3,2) = 3 |
-| 3 | 2 | [12..13] | C(2,2) = 1 |
+| 2 | 3 | [10..12] | C(3,2) = 3 |
 
 ---
 
@@ -42,7 +41,7 @@ Level layout (hand shrinks each fusion):
 
 ```
 evaluateHand(hand[5], fusionTable, cardAtk) -> maxAtk:
-  Copy hand into stackBuffer[0..4], stackIsFused[0..4] = 0
+  Copy hand into stackBuffer[0..4]
   maxAtk = max(cardAtk[hand[i]] for i in 0..4)
 
   DFS(level=0, handSize=5):
@@ -50,16 +49,15 @@ evaluateHand(hand[5], fusionTable, cardAtk) -> maxAtk:
       for j = i+1 to handSize-1:
         cardA = stackBuffer[level*5 + i]
         cardB = stackBuffer[level*5 + j]
-        isFusedA = stackIsFused[level*5 + i]
-        isFusedB = stackIsFused[level*5 + j]
 
-        // Fusion result kind restriction (SPEC F5):
-        // If either card is a fusion result, use name-only table
-        result = lookupFusion(cardA, cardB, isFusedA, isFusedB)
+        result = fusionTable[cardA * 722 + cardB]
         if result == FUSION_NONE: continue
 
         resultAtk = cardAtk[result]
         if resultAtk > maxAtk: maxAtk = resultAtk
+
+        newHandSize = handSize - 1
+        if newHandSize < 2 || level + 1 > 2: continue
 
         // Copy remaining cards + result into next level
         nextBase = (level+1) * 5
@@ -67,45 +65,26 @@ evaluateHand(hand[5], fusionTable, cardAtk) -> maxAtk:
         for k = 0 to handSize-1:
           if k != i and k != j:
             stackBuffer[nextBase + write] = stackBuffer[level*5 + k]
-            stackIsFused[nextBase + write] = stackIsFused[level*5 + k]
             write++
         stackBuffer[nextBase + write] = result
-        stackIsFused[nextBase + write] = 1
-        newHandSize = handSize - 1
 
-        if newHandSize >= 2:
-          DFS(level+1, newHandSize)
+        DFS(level+1, newHandSize)
 
   return maxAtk
 ```
 
+Key details:
+- **Depth guard:** `level + 1 > 2` prevents recursion beyond level 2 (enforcing F4: max 3 fusions).
+- **Single table lookup:** `fusionTable[cardA * 722 + cardB]` — no special handling for fusion results (per SPEC §4, fusion results are regular cards).
+- **maxAtk update before recursion:** Captures the best result even if the chain doesn't continue.
+
 ---
 
-## 2.4 Handling Fusion Result Kind Restriction (SPEC F5)
+## 2.4 Fusion Results as Materials
 
-Fusion results cannot re-fuse by their own kinds. Two approaches:
+Per the official FM Remastered Perfected rules, fusion results are regular cards that retain all their attributes. No special handling is needed — the single `fusionTable` lookup works for both base cards and fusion results.
 
-### Approach A: Dual Fusion Tables
-
-Build **two** fusion tables in Phase 1:
-- `fusionTableFull: Int16Array(722²)` — all fusions (name+name, name+kind, kind+kind)
-- `fusionTableNameOnly: Int16Array(722²)` — only name-name and name-kind fusions
-
-```
-lookupFusion(cardA, cardB, isFusedA, isFusedB):
-  if isFusedA || isFusedB:
-    return fusionTableNameOnly[cardA * 722 + cardB]
-  else:
-    return fusionTableFull[cardA * 722 + cardB]
-```
-
-Memory cost: ~2 MB total. Single branch + one typed array read = O(1), zero-allocation.
-
-### Phase 1 Adjustment
-
-If using dual tables, Phase 1's fusion builder must produce both:
-- `fusionTableFull`: all 3 priority passes
-- `fusionTableNameOnly`: only pass 1 (name-name) and pass 2 (name-kind)
+Classic example: Thunder + Dragon → Thunder Dragon, then Thunder Dragon + Dragon → Twin-Headed Thunder Dragon. The intermediate result (Thunder Dragon) participates in the second fusion via its Dragon kind, exactly like a base card.
 
 ---
 
@@ -125,10 +104,10 @@ If using dual tables, Phase 1's fusion builder must produce both:
 | `single fusion` | Two cards fuse, result ATK returned |
 | `2-fusion chain` | A+B→X, X+C→Y, returns ATK(Y) |
 | `3-fusion chain` | Maximum depth chain works correctly |
+| `chain depth limit (F4)` | 4th fusion is NOT attempted (max 3 fusions enforced) |
+| `fusion result re-fuse by kind` | Fusion result CAN re-fuse via its kind (e.g., Thunder Dragon as Dragon) |
 | `best chain selected` | When multiple chains possible, highest ATK wins |
 | `strict improvement` | Result ATK <= material ATK → no fusion |
-| `fusion result kind restriction (F5)` | Result cannot re-fuse by its own kind |
-| `fusion result name re-fuse (F5)` | Result CAN re-fuse by name |
 | `commutativity` | Same hand in any permutation → same result |
 | `determinism` | Same input → same output every time |
 | `zero allocations` | No GC pressure during evaluation (benchmark) |
@@ -138,8 +117,7 @@ If using dual tables, Phase 1's fusion builder must produce both:
 ## 2.7 Success Criteria
 
 1. All tests pass.
-2. Correctly handles fusion chain depths 0, 1, 2, 3.
-3. Respects SPEC F5 (fusion result kind restriction).
-4. Zero allocations in hot path.
-5. Per-hand evaluation ~1μs average.
-6. Drop-in replacement for the placeholder scorer (implements `IScorer`).
+2. Correctly handles fusion chain depths 0, 1, 2, 3 (meaning 0–3 fusions).
+3. Zero allocations in hot path.
+4. Per-hand evaluation ~1μs average.
+5. Drop-in replacement for the placeholder scorer (implements `IScorer`).

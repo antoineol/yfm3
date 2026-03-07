@@ -195,7 +195,7 @@ Per SPEC §6.5 and §7.2:
 | `F2: strict improvement` | No fusion if result ATK <= material ATK |
 | `F3: commutativity` | fuse(A,B) == fuse(B,A) |
 | `F4: chain depth limit` | Max 3 fusions (4 materials) |
-| `F5: fusion result restriction` | Results can't re-fuse by own kind |
+| `F5: fusion results are regular` | Fusion results can re-fuse using all attributes (name, kinds, color) |
 
 ---
 

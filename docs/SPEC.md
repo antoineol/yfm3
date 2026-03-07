@@ -18,7 +18,7 @@ YFM2 is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remastered Pe
 | **Deck**         | A list of exactly 40 card IDs drawn from the collection, respecting ownership quantities.                                                                                                                               |
 | **Hand**         | 5 cards drawn uniformly at random (without replacement) from the deck.                                                                                                                                                  |
 | **Fusion**       | Combining two cards in hand to produce a new card with higher attack. Fusions are matched by card names, kinds, or color-qualified kinds.                                                                               |
-| **Fusion chain** | A sequence of fusions: A+B->X, then X+C->Y, etc. Chains consume up to 5 cards from the hand (3 sequential fusions).                                                                                                     |
+| **Fusion chain** | A sequence of fusions: A+B->X, then X+C->Y, etc. Chains consume up to 4 cards from the hand (at most 3 fusions).                                                                                                        |
 | **Score**        | The expected value of the maximum attack achievable from a random 5-card hand.                                                                                                                                          |
 
 
@@ -74,14 +74,9 @@ attack.
 
 **Rule: Commutativity.** `fuse(A, B)` always equals `fuse(B, A)`.
 
-**Rule: Fusion result kind restriction.** When a card is itself the result of a fusion (i.e., an intermediate result in a
-chain), its **kinds are never used** for matching. It can still participate in further fusions, but only via:
-
-- Its exact **name** paired with another card's exact **name** (rule 1), or
-- Its exact **name** paired with any of the other card's **kinds** (rule 2)
-
-The fusion result's own kinds are ignored entirely. This prevents spurious chains where a fusion result would match
-kind-based recipes that were meant for base cards.
+**Rule: Fusion results are regular cards.** A fusion result retains all its attributes (name, kinds, color) and can
+participate in further fusions exactly like any base card. For example, Thunder Dragon (a Dragon-type fusion result) can
+fuse again with another card via a Dragon kind-based recipe to produce Twin-Headed Thunder Dragon.
 
 ---
 
@@ -207,7 +202,7 @@ must be adapted to match the implementation's scoring strategy, but the qualitat
 | F2  | Strict improvement        | A fusion only occurs if result attack > both materials' attack.                                  |
 | F3  | Commutativity             | fuse(A, B) == fuse(B, A).                                                                        |
 | F4  | Chain depth limit         | Fusion chains go at most 3 deep (consume at most 4 cards from hand).                             |
-| F5  | Fusion result restriction | Fusion results can re-fuse by name (with name or kind of the other card), but never by own kind. |
+| F5  | Fusion results are regular | Fusion results retain all attributes (name, kinds, color) and can re-fuse like any base card.    |
 
 
 ---

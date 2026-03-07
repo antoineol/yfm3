@@ -14,7 +14,8 @@ export function buildInitialDeck(buf: OptBuffers, cards: readonly CardSpec[]): v
   for (const card of sorted) {
     if (deckIdx >= DECK_SIZE) break;
     const count = buf.cardCounts[card.id] ?? 0;
-    if (count < MAX_COPIES && count < (buf.availableCounts[card.id] ?? 0)) {
+    const availableCopies = buf.availableCounts[card.id] ?? 0;
+    if (count < MAX_COPIES && count < availableCopies) {
       buf.deck[deckIdx] = card.id;
       buf.cardCounts[card.id] = count + 1;
       deckIdx++;

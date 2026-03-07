@@ -169,7 +169,7 @@ For each deck slot `s` (0–39), which hand IDs contain that slot?
 - `affectedHandOffsets: Uint32Array(DECK_SIZE)` — start offset per slot
 - `affectedHandCounts: Uint16Array(DECK_SIZE)` — count per slot (~1,875 average)
 
-Construction: two-pass algorithm (count, then prefix-sum offsets, then fill).
+Construction: three-pass algorithm (count, then prefix-sum offsets, then scatter hand IDs).
 
 ### File to Create
 
