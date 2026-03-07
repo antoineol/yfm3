@@ -53,8 +53,8 @@ describe("fusionTable", () => {
         if (resultId !== FUSION_NONE) fusionCount++;
       }
     }
-    // Sanity: there should be many fusions in the game data
-    expect(fusionCount).toBeGreaterThan(1000);
+    // Sanity: thousands of fusions exist (base cards + fusion-only result cards)
+    expect(fusionCount).toBeGreaterThan(5000);
   });
 
   it("color-qualified fusion: [Blue] Fairy matches only blue fairies", () => {
@@ -79,8 +79,8 @@ describe("cardAtk", () => {
     for (let i = 0; i < MAX_CARD_ID; i++) {
       if ((buf.cardAtk[i] ?? 0) > 0) nonZero++;
     }
-    // The game has hundreds of monsters
-    expect(nonZero).toBeGreaterThan(100);
+    // Base cards (~211) plus fusion-only cards (~189)
+    expect(nonZero).toBeGreaterThan(300);
   });
 });
 

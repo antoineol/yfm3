@@ -1,5 +1,4 @@
-import type { CardId, CardSpec, FusionMaterials } from "./card-model.ts";
-import { generateNextId } from "./id-generator.ts";
+import type { CardId, CardSpec } from "./card-model.ts";
 
 export interface CardDb {
   cards: CardSpec[];
@@ -13,21 +12,6 @@ export function createCardDb(): CardDb {
     cardsById: new Map(),
     cardsByName: new Map(),
   };
-}
-
-export function addFusion(cardDb: CardDb, fusion: FusionMaterials) {
-  const { name, attack, defense } = fusion;
-  let spec = cardDb.cardsByName.get(name);
-  if (!spec) {
-    spec = {
-      id: generateNextId(),
-      name,
-      kinds: [],
-      attack,
-      defense,
-    };
-    addCard(cardDb, spec);
-  }
 }
 
 export function addCard(cardDb: CardDb, card: CardSpec) {

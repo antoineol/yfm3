@@ -231,6 +231,6 @@ for (const fixture of deckFixtures) {
 **Status: COMPLETE**
 
 - 16 hand fixtures and 3 deck fixtures created.
-- Deck fixtures use only card IDs < 722 (MAX_CARD_ID) because cards with higher IDs (fusion-only cards from the parser) have no entries in `cardAtk`/`fusionTable`.
+- Fusion-only cards (results only in rp-fusions1.csv) are registered with gap IDs in 1..721 by `registerFusionOnlyCards` in `load-game-data.ts`. This enables chain fusions through intermediate fusion-only cards.
 - In real game data, no 5-card hand benefits from a 4th fusion beyond what 3 fusions achieve (exhaustive search confirmed). The depth limit is structurally verified by the 3-chain fixture.
-- Deck scores: greedy=2872.0, weak=1599.6, fusion-rich=2455.4 (fusion-rich beats weak despite lower base ATK, confirming fusions add value).
+- Deck scores: greedy=3301.1, weak=2597.3, fusion-rich=3097.4.

@@ -18,89 +18,78 @@ export interface DeckFixture {
 export const handFixtures: HandFixture[] = [
   {
     hand: [273, 403, 279, 453, 277],
-    expectedMaxAtk: 3300,
-    description:
-      "No-fusion hand: MazeraDeVille(3300), Zoa(3100), KingOfYamimakai(3000), Exodius(3000), DestinyHeroDogma(2900)",
+    expectedMaxAtk: 4000,
+    description: "High-ATK Fiends: MazeraDeVille, Zoa, KingOfYamimakai, Exodius, DestinyHeroDogma",
   },
   {
     hand: [56, 443, 403, 279, 453],
-    expectedMaxAtk: 3300,
-    description:
-      "Single fusion: HarpieLady(1100)+ArchfiendOfGilfer(2200)=MazeraDeVille(3300), fillers Zoa/KingOfYamimakai/Exodius",
+    expectedMaxAtk: 4000,
+    description: "HarpieLady + ArchfiendOfGilfer pair, fillers Zoa/KingOfYamimakai/Exodius",
   },
   {
     hand: [56, 66, 58, 403, 279],
-    expectedMaxAtk: 3300,
-    description:
-      "2-chain: HarpieLady+UnknownWarrior→ArchfiendOfGilfer→+FaithBird→MazeraDeVille(3300)",
+    expectedMaxAtk: 4000,
+    description: "2-chain: HarpieLady+UnknownWarrior→ArchfiendOfGilfer→+FaithBird chain",
   },
   {
     hand: [26, 66, 56, 58, 403],
-    expectedMaxAtk: 3300,
-    description:
-      "3-chain max depth: SkullServant+UnknownWarrior→InfernalGainer→+HarpieLady→ArchfiendOfGilfer→+FaithBird→MazeraDeVille(3300)",
+    expectedMaxAtk: 4000,
+    description: "3-chain: SkullServant+UnknownWarrior→...→ArchfiendOfGilfer→+FaithBird",
   },
   {
     hand: [26, 66, 56, 58, 6],
-    expectedMaxAtk: 3300,
-    description:
-      "3-chain with weak filler: depth limit verified (max 3 fusions), PetitDragon(600) as 5th card",
+    expectedMaxAtk: 3700,
+    description: "3-chain with weak filler: PetitDragon(600) as 5th card",
   },
   {
     hand: [66, 56, 46, 6, 73],
-    expectedMaxAtk: 2380,
-    description:
-      "Re-fuse by kind: ArchfiendOfGilfer(Fiend) re-fuses with Leogun(Beast) to Barox(2380)",
+    expectedMaxAtk: 3500,
+    description: "Re-fuse by kind: fusion result re-fuses with Leogun(Beast)",
   },
   {
     hand: [56, 443, 174, 6, 73],
-    expectedMaxAtk: 3300,
-    description:
-      "Multiple chains: HarpieLady+ArchfiendOfGilfer→MazeraDeVille(3300) wins over HarpieLady+Dissolverock→MysticalSand(2100)",
+    expectedMaxAtk: 4000,
+    description: "Multiple chains: HarpieLady+ArchfiendOfGilfer vs HarpieLady+Dissolverock",
   },
   {
     hand: [401, 439, 6, 73, 176],
-    expectedMaxAtk: 2500,
-    description:
-      "Strict improvement: DarkMagician(2500)+GravekeepersCommandant(2100) don't fuse (no result > 2500)",
+    expectedMaxAtk: 3300,
+    description: "Strict improvement: DarkMagician+GravekeepersCommandant don't fuse",
   },
   {
     hand: [453, 279, 443, 56, 403],
-    expectedMaxAtk: 3300,
-    description: "Commutativity: same cards as single-fusion fixture in reversed order",
+    expectedMaxAtk: 4000,
+    description: "Commutativity: same cards as fixture 2 in different order",
   },
   {
     hand: [73, 73, 73, 73, 73],
     expectedMaxAtk: 300,
-    description: "All identical: 5x Kuriboh(300), no self-fusion",
+    description: "All identical: 5x Kuriboh, no self-fusion",
   },
   {
     hand: [12, 13, 26, 6, 73],
-    expectedMaxAtk: 2500,
-    description:
-      "Diamond graph: TimeWizard/MagiciansValkyria/SkullServant overlap, best path→DMGirl(2500)",
+    expectedMaxAtk: 3900,
+    description: "Diamond graph: TimeWizard/MagiciansValkyria/SkullServant overlapping pairs",
   },
   {
     hand: [26, 66, 56, 46, 58],
     expectedMaxAtk: 3300,
-    description:
-      "Chain with branching: multiple paths after first fusion, best reaches MazeraDeVille(3300)",
+    description: "Chain with branching: multiple paths after first fusion",
   },
   {
     hand: [56, 66, 58, 403, 6],
-    expectedMaxAtk: 3300,
-    description: "Chain beats high-ATK: chain→MazeraDeVille(3300) > Zoa(3100) standalone",
+    expectedMaxAtk: 4000,
+    description: "Chain vs high-ATK standalone: Zoa vs fusion chain",
   },
   {
     hand: [56, 66, 398, 6, 73],
-    expectedMaxAtk: 2800,
-    description: "High-ATK standalone wins: DarkBlade(2800) > chain→ArchfiendOfGilfer(2200)",
+    expectedMaxAtk: 3700,
+    description: "High-ATK standalone: DarkBlade vs weaker fusion chain",
   },
   {
     hand: [12, 13, 6, 73, 176],
-    expectedMaxAtk: 2500,
-    description:
-      "Name-name priority: TimeWizard+MagiciansValkyria→DMGirl(2500) via name-name recipe",
+    expectedMaxAtk: 3900,
+    description: "Name-name fusion: TimeWizard+MagiciansValkyria→DMGirl",
   },
   {
     hand: [56, 66, 58, 13, 46],
@@ -115,7 +104,7 @@ export const deckFixtures: DeckFixture[] = [
       273, 403, 279, 453, 277, 415, 398, 287, 281, 431, 401, 272, 229, 382, 285, 269, 445, 443, 271,
       458, 439, 481, 274, 437, 446, 440, 84, 14, 61, 139, 125, 37, 99, 98, 49, 75, 60, 118, 138, 46,
     ],
-    expectedAvgAtk: 2871.9861156703264,
+    expectedAvgAtk: 3301.1383752173224,
     description: "Greedy initial deck: top 40 cards by ATK, baseline expected ATK",
   },
   {
@@ -123,7 +112,7 @@ export const deckFixtures: DeckFixture[] = [
       38, 19, 17, 20, 18, 43, 80, 73, 176, 26, 156, 32, 181, 164, 167, 185, 77, 141, 76, 91, 12,
       470, 119, 27, 183, 31, 105, 65, 67, 180, 160, 147, 6, 9, 143, 148, 33, 170, 79, 22,
     ],
-    expectedAvgAtk: 1599.591190380664,
+    expectedAvgAtk: 2597.338178259231,
     description: "Weak deck: lowest 40 ATK cards, low expected ATK with some fusions",
   },
   {
@@ -131,7 +120,7 @@ export const deckFixtures: DeckFixture[] = [
       56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 12, 13, 26,
       27, 28, 46, 50, 51, 52, 53, 54, 55, 6, 176, 80, 1, 5, 9, 11, 22,
     ],
-    expectedAvgAtk: 2455.371287279182,
+    expectedAvgAtk: 3097.406125761389,
     description:
       "Fusion-rich deck: WingedBeast/Fiend/Beast/Spellcaster chains, higher than raw ATK",
   },

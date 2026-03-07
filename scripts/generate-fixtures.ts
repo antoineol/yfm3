@@ -16,16 +16,16 @@
  * The generated file is committed to the repo. Unit tests read from it directly.
  */
 
-import fs from "node:fs";
-import path from "node:path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   type DeckFixtureDef,
   deckFixtureDefs,
   type HandFixtureDef,
   handFixtureDefs,
-} from "../src/test/reference-fixture-defs.ts";
-import { referenceEvaluateHand, referenceScoreDeck } from "../src/test/reference-scorer.ts";
-import { createAllCardsBuffers } from "../src/test/test-helpers.ts";
+} from "../src/test/reference-fixture-defs";
+import { referenceEvaluateHand, referenceScoreDeck } from "../src/test/reference-scorer";
+import { createAllCardsBuffers } from "../src/test/test-helpers";
 
 const buf = createAllCardsBuffers();
 const { fusionTable, cardAtk } = buf;
