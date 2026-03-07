@@ -12,8 +12,10 @@ This phase is one of the implementation steps of the plan in PLAN.md file.
 
 MC scores have sampling noise (~2.3% sample of all hands). The exact evaluator eliminates this by scoring every possible hand, giving the user an accurate expected ATK.
 
+Uses the same 5-nested-loop structure as `referenceScoreDeck` (Phase 2), but calls `FusionScorer.evaluateHand` instead of `referenceEvaluateHand`. Since `FusionScorer` was validated against the reference in Phase 3, this avoids duplicating evaluator logic. Tested by comparing output against `referenceScoreDeck` on the same decks.
+
 ```
-function exactScore(deck[40], scorer, fusionTable, cardAtk) -> number:
+function exactScore(deck[40], buf) -> number:
   totalAtk = 0
   for a = 0 to 35:
     for b = a+1 to 36:
@@ -21,7 +23,7 @@ function exactScore(deck[40], scorer, fusionTable, cardAtk) -> number:
         for d = c+1 to 38:
           for e = d+1 to 39:
             hand = [deck[a], deck[b], deck[c], deck[d], deck[e]]
-            totalAtk += scorer.evaluateHand(hand, fusionTable, cardAtk)
+            totalAtk += scorer.evaluateHand(hand, buf)
   return totalAtk / 658_008
 ```
 
@@ -31,23 +33,27 @@ All C(40,5) = 658,008 hands. At ~1us/hand → ~660ms per deck.
 
 | File | Purpose |
 |------|---------|
-| `src/engine/scoring/exact-scorer.ts` | Exhaustive combinatorial deck scorer |
+| `src/engine/scoring/exact-scorer.ts` | Exhaustive combinatorial deck scorer using `FusionScorer` |
 
 ---
 
 ## 5.2 Public API
 
+V1 is fully synchronous — nothing in the pipeline requires async. Phase 6 (Web Workers) will introduce async when there's actually an event loop to coordinate workers.
+
+`AbortSignal` is also deferred to Phase 6: the SA optimizer uses `deadline: number` checked via `performance.now()` every 64 iterations, and `AbortSignal` cannot fire during synchronous tight loops in Bun/V8.
+
 ```ts
-export async function optimizeDeck(
+export function optimizeDeck(
   collection: Collection,
-  options?: { timeLimit?: number; signal?: AbortSignal }
-): Promise<{
+  options?: { timeLimit?: number }
+): {
   deck: number[]
   expectedAtk: number
   initialScore: number
   improvement: number
   elapsedMs: number
-}>
+}
 ```
 
 Entry point that:
@@ -77,44 +83,38 @@ Per SPEC §6.5 and §7.2:
 | Only one card type | Fill deck with max copies + next-best |
 | No fusions possible | Scoring degenerates to max base ATK |
 | All cards ATK 0 | Score = 0, return valid deck |
-| Collection < 40 total cards | Return error |
-| Cancellation (AbortSignal) | Return best valid deck found so far |
+| Collection < 40 total cards | Throw error (precondition violation) |
 
 ---
 
 ## 5.4 Tests
+
+F1–F5 (fusion rules) and S6 (determinism) are already covered by `fusion-scorer.test.ts` and `reference-scorer.test.ts` in Phases 2–3. Phase 5 tests focus on the new code: exact scorer and public API integration.
+
+Note: `buf.handScores` is stale after `SAOptimizer.run()` returns (the best deck is restored but `handScores` reflects the last iteration's deck). This is fine because the exact scorer recomputes from scratch, but tests and future code must not rely on `handScores` post-SA.
 
 | Test | Validates |
 |------|-----------|
 | `exact scorer counts all hands` | Returns exactly 658,008 evaluations |
 | `exact scorer matches reference deck scorer` | Production exact scorer agrees with Phase 2 reference deck scorer |
 | `exact scorer determinism` | Same deck → same score |
-| `public API valid output` | 40 cards, within collection, valid IDs |
+| `public API valid output (O1)` | 40 cards, within collection, valid IDs |
 | `public API respects time limit` | Completes within specified time |
-| `public API non-regression` | Output score >= initial score |
-| `cancellation returns best so far` | Abort mid-run → still valid deck |
-| **SPEC validation matrix** | |
+| `public API non-regression (O2)` | Output score >= initial score |
+| `public API improves weak decks (O3)` | Bad deck + good collection → improvement |
+| `public API respects collection (O4)` | Never exceeds owned quantities |
+| `public API throws on < 40 cards` | Collection too small → error thrown |
 | `S1: zero deck` | Empty deck scores 0 |
 | `S2: single card type` | 40x same card → score = card ATK |
 | `S3: score bounds` | min_ATK <= score <= max_achievable_ATK |
-| `S6: determinism` | Same input → same output |
-| `O1: valid output` | 40 cards, within bounds, valid IDs |
-| `O2: non-regression` | finalScore >= initialScore |
-| `O3: improves weak decks` | Bad deck + good collection → improvement |
-| `O4: respects collection` | Never exceeds owned quantities |
-| `F1: name priority` | Name-name > kind-kind |
-| `F2: strict improvement` | No fusion if result ATK <= material ATK |
-| `F3: commutativity` | fuse(A,B) == fuse(B,A) |
-| `F4: chain depth limit` | Max 3 fusions (4 materials) |
-| `F5: fusion results are regular` | Fusion results can re-fuse using all attributes (name, kinds, color) |
 
 ---
 
 ## 5.5 Success Criteria
 
-1. All tests pass, including full SPEC validation matrix.
+1. All tests pass (no duplicated F1–F5/S6 tests from earlier phases).
 2. Exact scorer completes in <700ms per deck.
 3. Exact scorer matches reference deck scorer (Phase 2) on all deck fixtures.
-4. Public API produces valid, optimized decks.
+4. Public API produces valid, optimized decks (synchronous, no AbortSignal).
 5. End-to-end completes within 60s.
-6. `bun lint` and `bun test` pass.
+6. `bun typecheck`, `bun lint` and `bun test` pass.

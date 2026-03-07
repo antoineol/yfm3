@@ -1,0 +1,1 @@
+Currently seems hardcoded to 40 cards in the deck. Variabilize so that it can be changed to something smaller.

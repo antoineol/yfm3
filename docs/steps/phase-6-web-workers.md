@@ -8,6 +8,8 @@ This phase is an optional V2 enhancement to the plan in PLAN.md file.
 
 **Risk addressed:** Single-threaded SA may miss global optima on collections with many local optima or complex fusion chains.
 
+**Note:** This phase introduces `async` and `AbortSignal` support to the public API. Phase 5 (V1) is fully synchronous because there's no event loop to check signals during tight SA loops. With Web Workers, the orchestrator awaits worker results, making `async` necessary, and `AbortSignal` can terminate workers via `worker.terminate()`.
+
 ---
 
 ## 6.1 Message Protocol
@@ -56,8 +58,10 @@ Each worker:
 
 ## 6.3 Orchestrator
 
+The public API becomes `async` here (was synchronous in Phase 5) because worker coordination requires `await`. `AbortSignal` support is also added: the orchestrator listens for abort and calls `worker.terminate()` on all workers.
+
 ```
-async function runOptimization(collection, timeLimit = 60_000):
+async function optimizeDeck(collection, options?: { timeLimit?, signal? }):
   buffers = initializeBuffers(collection, rand)
 
   numWorkers = navigator.hardwareConcurrency || 4
@@ -65,6 +69,8 @@ async function runOptimization(collection, timeLimit = 60_000):
   for i = 0 to numWorkers-1:
     worker = new Worker('sa-worker.ts')
     worker.postMessage({ type: 'INIT', ...buffers, seed: i, timeBudgetMs: timeBudget })
+
+  if signal: signal.addEventListener('abort', () => workers.forEach(w => w.terminate()))
 
   results = await Promise.all(workers.map(waitForResult))
   bestDeck = results with highest bestScore

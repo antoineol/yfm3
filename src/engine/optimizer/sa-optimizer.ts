@@ -112,7 +112,10 @@ export class SAOptimizer implements IOptimizer {
       temp *= COOLING_RATE;
     }
 
-    // Restore the best deck ever seen (current deck may have drifted downhill)
+    // Restore the best deck ever seen (current deck may have drifted downhill).
+    // Note: handScores is NOT rebuilt here — it still reflects the last iteration's
+    // deck, not bestDeck. Callers must not rely on buf.handScores after run().
+    // The exact scorer (Phase 5) recomputes from scratch, so this is safe.
     buf.deck.set(bestDeck);
     buf.cardCounts.fill(0);
     for (let i = 0; i < DECK_SIZE; i++) {
