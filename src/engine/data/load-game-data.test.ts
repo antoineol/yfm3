@@ -1,8 +1,39 @@
+import fs from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import type { FusionDb } from "./card-model.ts";
 import { addCard, type CardDb, createCardDb } from "./game-db.ts";
-import { registerFusionOnlyCards } from "./load-game-data.ts";
+import {
+  loadGameData,
+  loadGameDataFromStrings,
+  registerFusionOnlyCards,
+} from "./load-game-data.ts";
+
+// ---------------------------------------------------------------------------
+// loadGameDataFromStrings produces identical results to loadGameData
+// ---------------------------------------------------------------------------
+
+describe("loadGameDataFromStrings", () => {
+  it("produces identical buffers and cards as loadGameData", () => {
+    const buf1 = createBuffers();
+    const cards1 = loadGameData(buf1);
+
+    const dataDir = path.resolve(import.meta.dirname, "../../../data");
+    const cardsCsv = fs.readFileSync(path.join(dataDir, "rp-cards.csv"), "utf-8");
+    const fusionsCsv = fs.readFileSync(path.join(dataDir, "rp-fusions1.csv"), "utf-8");
+
+    const buf2 = createBuffers();
+    const cards2 = loadGameDataFromStrings(buf2, cardsCsv, fusionsCsv);
+
+    expect(cards2.map((c) => c.id)).toEqual(cards1.map((c) => c.id));
+    expect(cards2.map((c) => c.name)).toEqual(cards1.map((c) => c.name));
+    expect(cards2.map((c) => c.attack)).toEqual(cards1.map((c) => c.attack));
+    expect(Array.from(buf2.cardAtk)).toEqual(Array.from(buf1.cardAtk));
+    expect(Array.from(buf2.fusionTable)).toEqual(Array.from(buf1.fusionTable));
+  });
+});
 
 // ---------------------------------------------------------------------------
 // registerFusionOnlyCards unit tests

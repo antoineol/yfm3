@@ -1,4 +1,4 @@
-import { mulberry32 } from "../initialize-buffers.ts";
+import { mulberry32 } from "../mulberry32.ts";
 import type { OptBuffers } from "../types/buffers.ts";
 import { DECK_SIZE } from "../types/constants.ts";
 import type { IDeltaEvaluator, IOptimizer, IScorer } from "../types/interfaces.ts";

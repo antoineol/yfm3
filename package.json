@@ -17,8 +17,12 @@
     "gen:ref": "bun run scripts/generate-fixtures.ts"
   },
   "dependencies": {
+    "@convex-dev/aggregate": "0.1.25",
+    "@tailwindcss/vite": "^4.2.1",
+    "convex": "^1.32.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
