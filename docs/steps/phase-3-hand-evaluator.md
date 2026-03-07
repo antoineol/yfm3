@@ -1,14 +1,14 @@
-# Phase 2: Fusion-Chain Hand Evaluator
+# Phase 3: Fusion-Chain Hand Evaluator
 
 This phase is one of the implementation steps of the plan in PLAN.md file.
 
 **Goal:** Implement the real `IScorer` — a DFS evaluator that finds the maximum ATK achievable from 5 cards, considering fusion chains up to 3 deep (4 materials consumed). Completely zero-allocation in the hot path.
 
-**Depends on:** Phase 1 (fusion table, cardAtk, delta evaluator).
+**Depends on:** Phase 1 (fusion table, cardAtk, delta evaluator), Phase 2 (reference scorer for validation).
 
 ---
 
-## 2.1 Overview
+## 3.1 Overview
 
 The current scorer just returns the highest base ATK among 5 cards. The real scorer must explore all possible fusion chains to find the maximum achievable ATK.
 
@@ -22,7 +22,7 @@ Fusion results are regular cards — they retain all attributes (name, kinds, co
 
 ---
 
-## 2.2 Pre-Allocated Stack Buffer
+## 3.2 Pre-Allocated Stack Buffer
 
 ```ts
 stackBuffer: Int16Array(3 * 5)    // card IDs at each DFS level (stride-5)
@@ -37,7 +37,7 @@ Level layout (hand shrinks each fusion, stride-5 addressing via `level * 5`):
 
 ---
 
-## 2.3 Algorithm
+## 3.3 Algorithm
 
 ```
 evaluateHand(hand[5], fusionTable, cardAtk) -> maxAtk:
@@ -80,7 +80,7 @@ Key details:
 
 ---
 
-## 2.4 Fusion Results as Materials
+## 3.4 Fusion Results as Materials
 
 Per the official FM Remastered Perfected rules, fusion results are regular cards that retain all their attributes. No special handling is needed — the single `fusionTable` lookup works for both base cards and fusion results.
 
@@ -88,9 +88,9 @@ Classic example: Thunder + Dragon → Thunder Dragon, then Thunder Dragon + Drag
 
 ---
 
-## 2.5 Initial Score Computation
+## 3.5 Initial Score Computation
 
-After the deck and hand pool are built, compute initial `handScores` for all 15,000 hands. This was previously Phase 3 — merged here since the delta evaluator already exists.
+After the deck and hand pool are built, compute initial `handScores` for all 15,000 hands. Merged here since the delta evaluator already exists.
 
 ```
 function computeInitialScores(buf, scorer):
@@ -106,7 +106,7 @@ Called once at initialization and again if the deck is ever fully reset.
 
 ---
 
-## 2.6 Files to Create
+## 3.6 Files to Create
 
 | File | Purpose |
 |------|---------|
@@ -115,7 +115,7 @@ Called once at initialization and again if the deck is ever fully reset.
 
 ---
 
-## 2.7 Tests
+## 3.7 Tests
 
 | Test | Validates |
 |------|-----------|
@@ -131,13 +131,15 @@ Called once at initialization and again if the deck is ever fully reset.
 | `determinism` | Same input → same output every time |
 | `zero allocations` | No GC pressure during evaluation (benchmark) |
 | `initial scores match full rescore` | Initial computation matches hand-by-hand verification |
+| `matches reference scorer on all fixtures` | Fast DFS agrees with Phase 2 reference scorer on every hand fixture |
 
 ---
 
-## 2.8 Success Criteria
+## 3.8 Success Criteria
 
 1. All tests pass.
 2. Correctly handles fusion chain depths 0, 1, 2, 3 (meaning 0–3 fusions).
-3. Zero allocations in hot path.
-4. Per-hand evaluation ~1μs average.
-5. Drop-in replacement for the placeholder scorer (implements `IScorer`).
+3. Matches reference scorer (Phase 2) on all hand fixtures.
+4. Zero allocations in hot path.
+5. Per-hand evaluation ~1us average.
+6. Drop-in replacement for the placeholder scorer (implements `IScorer`).

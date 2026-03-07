@@ -4,7 +4,7 @@ This phase is one of the implementation steps of the plan in PLAN.md file.
 
 **Goal:** Build the SA optimizer with tabu list and biased candidate selection. Single-threaded for V1; designed to be worker-ready for V2 (Phase 6).
 
-**Depends on:** Phase 1 (buffers), Phase 2 (scorer, initial scoring).
+**Depends on:** Phase 1 (buffers), Phase 3 (scorer, initial scoring).
 
 ---
 
@@ -150,5 +150,5 @@ This is critical for finding fusion synergies — without it, SA wastes most ite
 2. SA finds better decks than pure greedy hill climbing.
 3. Tabu list reduces wasted iterations measurably.
 4. Zero allocations in hot loop.
-5. Per-swap cost ~2ms (1,875 hands × ~1μs/hand).
+5. Per-swap cost ~2ms (1,875 hands × ~1us/hand).
 6. ~27,500 iterations in 55s budget.

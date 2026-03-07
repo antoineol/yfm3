@@ -61,9 +61,8 @@ Return best deck + exact expected ATK
 | Phase | Step File | What It Builds |
 |---|---|---|
 | 1: Setup & Data | `docs/steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
-| 1b: Reference Tests | `docs/steps/phase-1b-reference-tests.md` | Reference tests |
-| 2: Hand Evaluator | `docs/steps/phase-2-hand-evaluator.md` | Fusion-chain DFS scorer + initial scoring |
-| 3: Scoring & Delta | `docs/steps/phase-3-scoring-and-delta.md` | *(Merged — delta evaluator already implemented, initial scoring in Phase 2)* |
+| 2: Reference Tests | `docs/steps/phase-2-reference-tests.md` | Reference scorer, golden test fixtures |
+| 3: Hand Evaluator | `docs/steps/phase-3-hand-evaluator.md` | Fusion-chain DFS scorer + initial scoring |
 | 4: SA Optimizer | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + biased selection |
 | 5: Integration | `docs/steps/phase-5-integration.md` | Exact refinement, public API |
 | 6 (V2): Web Workers | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4–8 workers |

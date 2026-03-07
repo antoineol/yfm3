@@ -4,7 +4,7 @@ This phase is one of the implementation steps of the plan in PLAN.md file.
 
 **Goal:** Score the SA result with exhaustive combinatorial evaluation for accurate reporting, and wire everything into the public API.
 
-**Depends on:** Phase 2 (scorer), Phase 4 (SA optimizer).
+**Depends on:** Phase 3 (scorer), Phase 4 (SA optimizer).
 
 ---
 
@@ -25,7 +25,7 @@ function exactScore(deck[40], scorer, fusionTable, cardAtk) -> number:
   return totalAtk / 658_008
 ```
 
-All C(40,5) = 658,008 hands. At ~1μs/hand → ~660ms per deck.
+All C(40,5) = 658,008 hands. At ~1us/hand → ~660ms per deck.
 
 ### File to Create
 
@@ -52,7 +52,7 @@ export async function optimizeDeck(
 
 Entry point that:
 1. Initializes buffers (Phase 1)
-2. Computes initial scores (Phase 2)
+2. Computes initial scores (Phase 3)
 3. Runs SA optimizer (Phase 4) with `AbortSignal.timeout(timeLimit - 5000)`
 4. Exact-scores the best deck (§5.1) for accurate reporting
 5. Returns the best deck
@@ -87,7 +87,7 @@ Per SPEC §6.5 and §7.2:
 | Test | Validates |
 |------|-----------|
 | `exact scorer counts all hands` | Returns exactly 658,008 evaluations |
-| `exact scorer matches known value` | Hand-computed deck scores correctly |
+| `exact scorer matches reference deck scorer` | Production exact scorer agrees with Phase 2 reference deck scorer |
 | `exact scorer determinism` | Same deck → same score |
 | `public API valid output` | 40 cards, within collection, valid IDs |
 | `public API respects time limit` | Completes within specified time |
@@ -95,7 +95,7 @@ Per SPEC §6.5 and §7.2:
 | `cancellation returns best so far` | Abort mid-run → still valid deck |
 | **SPEC validation matrix** | |
 | `S1: zero deck` | Empty deck scores 0 |
-| `S2: single card type` | 40× same card → score = card ATK |
+| `S2: single card type` | 40x same card → score = card ATK |
 | `S3: score bounds` | min_ATK <= score <= max_achievable_ATK |
 | `S6: determinism` | Same input → same output |
 | `O1: valid output` | 40 cards, within bounds, valid IDs |
@@ -114,6 +114,7 @@ Per SPEC §6.5 and §7.2:
 
 1. All tests pass, including full SPEC validation matrix.
 2. Exact scorer completes in <700ms per deck.
-3. Public API produces valid, optimized decks.
-4. End-to-end completes within 60s.
-5. `bun lint` and `bun test` pass.
+3. Exact scorer matches reference deck scorer (Phase 2) on all deck fixtures.
+4. Public API produces valid, optimized decks.
+5. End-to-end completes within 60s.
+6. `bun lint` and `bun test` pass.
