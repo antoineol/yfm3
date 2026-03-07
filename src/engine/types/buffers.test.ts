@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-
-import { createTestBuffers } from "../create-test-buffers.ts";
+import { createAllCardsBuffers } from "../../test/test-helpers.ts";
 import { MaxAtkScorer } from "../scoring/max-atk-scorer.ts";
 import { createBuffers, type OptBuffers } from "./buffers.ts";
 import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
@@ -11,7 +10,7 @@ describe("OptBuffers", () => {
   let buf: OptBuffers;
 
   beforeAll(() => {
-    buf = createTestBuffers();
+    buf = createAllCardsBuffers();
     const h5 = new Uint16Array(HAND_SIZE);
     for (let h = 0; h < NUM_HANDS; h++) {
       const base = h * HAND_SIZE;

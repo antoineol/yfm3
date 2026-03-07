@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createTestBuffers } from "../create-test-buffers.ts";
+import { createAllCardsBuffers } from "../../test/test-helpers.ts";
 import type { OptBuffers } from "../types/buffers.ts";
 import { HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "../types/constants.ts";
 import { DeltaEvaluator } from "./delta-evaluator.ts";
@@ -23,7 +23,7 @@ describe("DeltaEvaluator", () => {
   let buf: OptBuffers;
 
   beforeAll(() => {
-    buf = createTestBuffers();
+    buf = createAllCardsBuffers();
     scoreAllHands(buf);
   });
 
@@ -34,7 +34,7 @@ describe("DeltaEvaluator", () => {
   });
 
   it("commit updates handScores", () => {
-    const b = createTestBuffers();
+    const b = createAllCardsBuffers();
     scoreAllHands(b);
     const ds = new DeltaEvaluator();
 
@@ -60,7 +60,7 @@ describe("DeltaEvaluator", () => {
   });
 
   it("no mutation on reject", () => {
-    const b = createTestBuffers();
+    const b = createAllCardsBuffers();
     scoreAllHands(b);
     const ds = new DeltaEvaluator();
     const snapshot = new Int16Array(b.handScores);

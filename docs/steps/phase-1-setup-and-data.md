@@ -94,6 +94,8 @@ export function createBuffers(): OptBuffers;
 
 ## 1.3 CSV Parsers
 
+> **Note:** All code under `src/engine/data/` is retrieved from a prior version of this project and kept as-is. Do not refactor, clean up, or remove "unused" exports from these files — they are a shared data layer and may have consumers outside the current codebase.
+
 ### Card Database Parser
 
 **Input:** CSV with columns: ID, Name, Attack, Defense, Kinds (comma-separated), Color (optional).
@@ -108,7 +110,7 @@ export function createBuffers(): OptBuffers;
 
 **Output:** Raw recipe objects for fusion table construction.
 
-### Files to Create
+### Files (pre-existing)
 
 | File | Purpose |
 |------|---------|
@@ -143,7 +145,7 @@ Only write `fusionTable[A*722+B] = result` if `cardAtk[result] > cardAtk[A] AND 
 
 Always write both `[A*722+B]` and `[B*722+A]`.
 
-### File to Create
+### File (pre-existing)
 
 | File | Purpose |
 |------|---------|
@@ -198,10 +200,12 @@ Write into `deck: Int16Array(40)` and populate `cardCounts: Uint8Array(722)`.
 Single function that wires everything together:
 
 ```ts
-function initializeBuffers(cardsCsv, fusionsCsv, collection): OptBuffers
+function initializeBuffers(setCollection, rand): OptBuffers
 ```
 
-Parses CSVs → builds fusion table → samples hands → builds CSR → constructs initial deck → returns fully populated `OptBuffers`.
+CSV reading is handled internally by `loadGameData` (static game data, read once at module load). `setCollection` populates `availableCounts` from the player's card collection. `rand` is a seeded PRNG for Monte Carlo hand sampling.
+
+Parses CSVs → builds fusion table → sets collection → constructs initial deck → samples hands → builds CSR → returns fully populated `OptBuffers`.
 
 ### File to Create
 

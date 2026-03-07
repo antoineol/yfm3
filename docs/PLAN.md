@@ -66,8 +66,9 @@ Return globally best deck
 
 | Phase | Step File | What It Builds |
 |---|---|---|
-| 1: Setup & Data | `steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
-| 2: Hand Evaluator | `steps/phase-2-hand-evaluator.md` | Fusion-chain DFS scorer (~100 LOC) |
-| 3: Scoring & Delta | `steps/phase-3-scoring-and-delta.md` | CRN delta evaluator, initial scoring |
-| 4: SA Optimizer | `steps/phase-4-sa-optimizer.md` | SA + tabu + multi-start + biased selection (~130 LOC) |
-| 5: Workers & Integration | `steps/phase-5-workers-and-integration.md` | Web Workers, exact refinement, public API (~200 LOC) |
+| 1: Setup & Data | `docs/steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
+| 1b: Setup & Data | `docs/steps/phase-1b-reference-tests.md` | Reference tests |
+| 2: Hand Evaluator | `docs/steps/phase-2-hand-evaluator.md` | Fusion-chain DFS scorer (~100 LOC) |
+| 3: Scoring & Delta | `docs/steps/phase-3-scoring-and-delta.md` | CRN delta evaluator, initial scoring |
+| 4: SA Optimizer | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + multi-start + biased selection (~130 LOC) |
+| 5: Workers & Integration | `docs/steps/phase-5-workers-and-integration.md` | Web Workers, exact refinement, public API (~200 LOC) |

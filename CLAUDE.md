@@ -8,12 +8,15 @@ This project is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remas
 
 ## Other files
 
-- SPEC.md: game rules and app high level specs
-- PLAN.md: the high-level implementation plan of the app we're building.
+- docs/PLAN.md: the high-level plan to implement this app.
+- docs/steps/*: the plan's implementation steps.
+- src/engine/data/*: imported from another project, provides a bunch of utils that will be useful.
 
 ## Rules
 
-- Always `bun lint` and `bun test` before completing tasks.
+You must always do below for all changes:
+
+- `bun lint` and `bun test` before completing tasks.
 - Write functions in reading order. If A calls B, write A then B.
-- All behavior changes must be covered by specs.
-- When updating code, you must also adapt current and next steps plans.
+- Cover all behavior changes by specs.
+- Adapt the plan, and current and next steps.

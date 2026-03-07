@@ -54,8 +54,8 @@ Each worker:
 ### Orchestrator
 
 ```
-async function runOptimization(gameData, collection, timeLimit = 60_000):
-  buffers = initializeBuffers(gameData, collection)
+async function runOptimization(collection, timeLimit = 60_000):
+  buffers = initializeBuffers(collection, rand)
 
   numWorkers = navigator.hardwareConcurrency || 4
   for i = 0 to numWorkers-1:
