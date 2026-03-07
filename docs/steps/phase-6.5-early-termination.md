@@ -10,43 +10,82 @@ This phase is an optional V2 enhancement that builds on Phase 6 (Web Workers).
 
 ---
 
-## 6.5.1 Progress Message
+## 6.5.1 Progress Callback in SAOptimizer
 
-Workers periodically post their current best score (e.g. every 500ms):
+`SAOptimizer.run()` is a monolithic synchronous call — the worker has no opportunity to post messages mid-run. Add an optional `onProgress` callback parameter, invoked from the existing `TIME_CHECK_INTERVAL` check (every 64 iterations) when enough wall-clock time has elapsed (~500ms):
+
+```ts
+run(
+  buf: OptBuffers,
+  scorer: IScorer,
+  deltaEvaluator: IDeltaEvaluator,
+  deadline: number,
+  onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
+): number
+```
+
+The worker wires it up to post a `PROGRESS` message:
+
+```ts
+optimizer.run(buf, scorer, de, deadline, (score, deck) => {
+  self.postMessage({
+    type: 'PROGRESS',
+    bestScore: score,
+    bestDeck: Array.from(deck),
+    iterations: optimizer.iterations,
+  });
+});
+```
+
+---
+
+## 6.5.2 Progress Message Type
 
 ```ts
 type WorkerProgress = {
   type: 'PROGRESS'
   bestScore: number
+  bestDeck: number[]   // needed so early termination can return a usable result
   iterations: number
 }
+
+export type WorkerResponse = WorkerResult | WorkerProgress;
 ```
 
-This requires adding a periodic check in the SA hot loop (e.g. every N iterations, check elapsed time and post progress if interval has passed).
+`bestDeck` (40 ints) every ~500ms is negligible — structured clone of a small array is microseconds.
 
 ---
 
-## 6.5.2 Convergence Detection
+## 6.5.3 Convergence Detection
 
-The orchestrator tracks the best score seen across all workers. If the global best hasn't improved for N seconds (e.g. 3-5s), it terminates all workers and returns the best result.
+The orchestrator tracks each worker's latest progress as a fallback result (since `worker.terminate()` kills the worker instantly — it never posts `RESULT`, and `Promise.all` would hang on unresolved promises).
 
 ```
 orchestrator:
   globalBest = -Infinity
   lastImprovedAt = now()
+  latestProgress[i] = null   // per-worker fallback
 
-  on PROGRESS from any worker:
+  on PROGRESS from worker i:
+    latestProgress[i] = progressData
     if score > globalBest:
       globalBest = score
       lastImprovedAt = now()
     if now() - lastImprovedAt > convergenceTimeout:
-      terminate all workers
-      return best result
+      // resolve each worker's promise from its last progress, then terminate
+      for each worker i:
+        if not yet resolved: resolveFrom(latestProgress[i])
+        workers[i].terminate()
+
+  on RESULT from worker i:
+    resolve promise normally
 ```
+
+Use a relative convergence timeout: `max(3s, budget * 0.3)`. The SA cooling schedule is adaptive (calibrated to reach TEMP_FLOOR by deadline), so a fixed timeout would disproportionately cut off the exploitation phase on longer budgets.
 
 ---
 
-## 6.5.3 Trade-offs
+## 6.5.4 Trade-offs
 
 - **Pro:** A 4-worker run that converges in 5 seconds beats a single-threaded 15-second run on both quality and speed.
 - **Pro:** Progress messages enable UI progress indicators.
