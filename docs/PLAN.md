@@ -2,7 +2,7 @@
 
 **Architecture:** Fixed-Index Correlated Monte Carlo (CRN) with Simulated Annealing and Exact Refinement.
 
-**Target Environment:** TypeScript (Browser/Bun), Web Workers, Strict 60s Execution.
+**Target Environment:** TypeScript (Browser/Bun), Strict 60s Execution.
 
 ## Global Directives
 
@@ -15,35 +15,29 @@
 ## Architecture Overview
 
 ```
-Main Thread                          Workers (×4–8)
-───────────                          ──────────────
+Main Thread
+───────────
 Load CSVs → fusionTable, cardAtk
 Build initial deck (greedy)
 Sample 15,000 hands (slot indices)
 Build CSR reverse lookup
-Score all hands
-                    ──► Spawn workers with:
-                        - fusionTable, cardAtk (shared/copied)
-                        - Different initial decks (multi-start)
-                        - Different PRNG seeds
+Score all hands (initial handScores)
 
-                                     SA loop (55s):
-                                       Pick random slot
-                                       Pick biased candidate
-                                       Skip if tabu
-                                       Swap deck[slot]
-                                       Delta = rescore ~1,875 hands
-                                       Accept/reject (SA criterion)
-                                       Update tabu list
-                                       Cool temperature
+SA loop (55s):
+  Pick random slot
+  Pick biased candidate
+  Skip if tabu
+  Swap deck[slot]
+  Delta = rescore ~1,875 hands
+  Accept/reject (SA criterion)
+  Update tabu list
+  Cool temperature
 
-                    ◄── Return best deck + MC score
+Exact refinement:
+  Score best deck via all C(40,5) = 658,008 hands
+  (~660ms)
 
-Collect best decks from all workers
-Exact refinement: score top ~7 decks
-  via all C(40,5) = 658,008 hands
-  (~660ms each)
-Return globally best deck
+Return best deck + exact expected ATK
 ```
 
 ---
@@ -53,10 +47,10 @@ Return globally best deck
 | Phase | Time | What Happens |
 |---|---|---|
 | Precompute | 0–1s | Load CSVs, build fusion table, sample hands, build CSR |
-| SA search | 1–55s | 4–8 workers, ~27,500 swaps each, SA with cooling |
-| Exact refinement | 55–60s | Score top ~7 decks via all 658,008 hands |
+| SA search | 1–56s | Single-threaded SA, ~27,500 swaps, biased selection + tabu |
+| Exact refinement | 56–57s | Score best deck via all 658,008 hands |
 
-**Iteration budget:** ~110k swaps (4 workers) to ~220k swaps (8 workers), covering 1.2–2.4× the full swap search space (~28,880 possible swaps).
+**Iteration budget:** ~27,500 swaps (single thread). Degrades to ~11,000 on fusion-dense decks (~5ms/swap).
 
 **Per-swap cost:** ~1,875 hands × ~1μs/hand = ~2ms. Degrades to ~4–6ms on fusion-dense decks.
 
@@ -67,8 +61,10 @@ Return globally best deck
 | Phase | Step File | What It Builds |
 |---|---|---|
 | 1: Setup & Data | `docs/steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
-| 1b: Setup & Data | `docs/steps/phase-1b-reference-tests.md` | Reference tests |
-| 2: Hand Evaluator | `docs/steps/phase-2-hand-evaluator.md` | Fusion-chain DFS scorer (~100 LOC) |
-| 3: Scoring & Delta | `docs/steps/phase-3-scoring-and-delta.md` | CRN delta evaluator, initial scoring |
-| 4: SA Optimizer | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + multi-start + biased selection (~130 LOC) |
-| 5: Workers & Integration | `docs/steps/phase-5-workers-and-integration.md` | Web Workers, exact refinement, public API (~200 LOC) |
+| 1b: Reference Tests | `docs/steps/phase-1b-reference-tests.md` | Reference tests |
+| 2: Hand Evaluator | `docs/steps/phase-2-hand-evaluator.md` | Fusion-chain DFS scorer + initial scoring |
+| 3: Scoring & Delta | `docs/steps/phase-3-scoring-and-delta.md` | *(Merged — delta evaluator already implemented, initial scoring in Phase 2)* |
+| 4: SA Optimizer | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + biased selection |
+| 5: Integration | `docs/steps/phase-5-integration.md` | Exact refinement, public API |
+| 6 (V2): Web Workers | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4–8 workers |
+| 7 (V2): Multi-Start | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |

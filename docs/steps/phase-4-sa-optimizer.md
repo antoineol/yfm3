@@ -2,35 +2,21 @@
 
 This phase is one of the implementation steps of the plan in PLAN.md file.
 
-**Goal:** Build the SA optimizer with tabu list, multi-start seeding, biased candidate selection, and seedable PRNG. This replaces a simple greedy hill-climber with a global search algorithm. ~130 LOC total.
+**Goal:** Build the SA optimizer with tabu list and biased candidate selection. Single-threaded for V1; designed to be worker-ready for V2 (Phase 6).
 
-**Depends on:** Phase 1 (buffers), Phase 2 (scorer), Phase 3 (delta evaluator).
-
----
-
-## 4.1 Seedable PRNG (~20 LOC)
-
-Workers need different random sequences. `Math.random()` is non-seedable and slower than xorshift128+.
-
-```ts
-class Rng {
-  constructor(seed: number)
-  next(): number        // float in [0, 1)
-  nextInt(max: number): number  // integer in [0, max)
-}
-```
-
-Each worker gets `new Rng(workerIndex * 0x9E3779B9)` for distinct sequences.
-
-### File to Create
-
-| File | Purpose |
-|------|---------|
-| `src/engine/optimizer/rng.ts` | Seedable xorshift128+ PRNG |
+**Depends on:** Phase 1 (buffers), Phase 2 (scorer, initial scoring).
 
 ---
 
-## 4.2 Simulated Annealing (~50 LOC)
+## 4.1 PRNG
+
+Reuse the existing `mulberry32` from `src/engine/initialize-buffers.ts`. It produces floats in [0, 1) from a seed, which is all SA needs. Integer selection: `(rand() * max) | 0`.
+
+No new file — extract `mulberry32` to a shared location if needed, or import from `initialize-buffers.ts`.
+
+---
+
+## 4.2 Simulated Annealing
 
 Replace greedy accept (`delta > 0`) with SA acceptance:
 
@@ -47,16 +33,16 @@ Temperature reaches near-zero by iteration ~23,000, leaving the last ~4,500 iter
 ### SA Loop
 
 ```
-run(deck, cardCounts, availableCounts, ..., signal):
-  rng = new Rng(seed)
+run(buf, scorer, deltaEvaluator, signal):
+  rand = mulberry32(seed)
   temp = 500
   bestScore = totalScore = sum(handScores)
   bestDeck = copy of deck
 
   while !signal.aborted:
-    slot = rng.nextInt(40)
+    slot = (rand() * 40) | 0
     oldCard = deck[slot]
-    newCard = selectCandidate(...)   // §4.5
+    newCard = selectCandidate(...)   // §4.4
     if newCard == -1: continue
     if isTabu(slot, newCard): continue  // §4.3
 
@@ -64,7 +50,7 @@ run(deck, cardCounts, availableCounts, ..., signal):
     cardCounts[oldCard]--, cardCounts[newCard]++
     delta = deltaEvaluator.computeDelta(...)
 
-    accept = delta > 0 || (temp > 0.1 && rng.next() < exp(delta / temp))
+    accept = delta > 0 || (temp > 0.1 && rand() < exp(delta / temp))
 
     if accept:
       deltaEvaluator.commitDelta(handScores)
@@ -85,7 +71,19 @@ run(deck, cardCounts, availableCounts, ..., signal):
   return bestScore
 ```
 
-### File to Modify/Create
+**Worker-ready design:** The SA loop takes an `AbortSignal` for stopping. In V1, the main thread sets a timeout (`AbortSignal.timeout(55_000)`). In V2 (Phase 6), each worker creates its own signal from the `HALT` message.
+
+### IOptimizer Interface Update
+
+The current `IOptimizer.run` takes `maxIterations: number`. Update to `signal: AbortSignal` for time-based stopping:
+
+```ts
+interface IOptimizer {
+  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, signal: AbortSignal): number;
+}
+```
+
+### File to Create
 
 | File | Purpose |
 |------|---------|
@@ -95,7 +93,7 @@ run(deck, cardCounts, availableCounts, ..., signal):
 
 ## 4.3 Tabu List (~30 LOC)
 
-Per-slot ring buffer tracking the last 8 cards tried and rejected in each slot. Skip a swap if the candidate was recently rejected. Reduces wasted iterations by ~20–30% in late optimization.
+Per-slot ring buffer tracking the last 8 cards tried and rejected in each slot. Skip a swap if the candidate was recently rejected. Reduces wasted iterations by ~20–30% in late optimization. Coupled with biased selection (§4.4) — without tabu, biased selection keeps picking the same promising-but-rejected candidates.
 
 ```ts
 tabuBuffer: Uint16Array(40 * 8)   // card IDs
@@ -113,23 +111,7 @@ function addTabu(slot: number, cardId: number): void
 
 ---
 
-## 4.4 Multi-Start Seeding (~20 LOC)
-
-Each worker starts from a different initial deck for search-space diversity:
-
-- **Worker 0:** Greedy seed (highest ATK cards)
-- **Worker 1:** Greedy seed + 10 random perturbations
-- **Workers 2–N:** Fully random valid decks from the collection
-
-### File to Create
-
-| File | Purpose |
-|------|---------|
-| `src/engine/optimizer/seed-strategies.ts` | Functions to generate different initial decks |
-
----
-
-## 4.5 Biased Candidate Selection (~30 LOC)
+## 4.4 Biased Candidate Selection (~30 LOC)
 
 Pre-compute `partnerCount[c]` = number of cards in the current deck that fuse with card `c`. Select swap candidates with probability proportional to `baseATK + α × partnerCount`. Recompute lazily (every ~100 accepted swaps).
 
@@ -138,41 +120,35 @@ partnerCount: Uint16Array(722)
 selectionWeights: Float32Array(722)
 
 function recomputeWeights(deck, fusionTable, cardAtk): void
-function selectCandidate(weights, availableCounts, cardCounts, oldCard, rng): number
+function selectCandidate(weights, availableCounts, cardCounts, oldCard, rand): number
 ```
 
-Fallback: if biased selection is too slow, use simple random selection from available cards with rejection sampling.
+This is critical for finding fusion synergies — without it, SA wastes most iterations on cards with no fusion potential, producing results barely better than the greedy starting deck.
 
 ---
 
-## 4.6 Tests
+## 4.5 Tests
 
 | Test | Validates |
 |------|-----------|
-| `Rng determinism` | Same seed → same sequence |
-| `Rng distribution` | 10K samples of `nextInt(100)` hit all values roughly uniformly |
-| `Rng distinct seeds` | Different seeds → different sequences |
 | `SA accepts uphill` | Positive delta always accepted |
 | `SA accepts downhill probabilistically` | Negative delta accepted at high temp, not at low temp |
 | `SA cooling schedule` | Temperature decreases correctly |
-| `SA implements IOptimizer` | Drop-in for any optimizer consumer |
 | `SA non-regression` | Output score >= input score |
 | `SA valid deck output` | 40 cards, within collection bounds |
 | `SA respects abort signal` | Stops within ~1ms of abort |
 | `SA improves bad deck` | Starting from weakest cards, finds better deck |
 | `tabu prevents repeat` | Recently rejected card is skipped |
 | `tabu ring wraps` | After 8 entries, oldest overwritten |
-| `multi-start greedy` | Worker 0 produces ATK-sorted deck |
-| `multi-start random` | Worker 2+ produces valid random deck |
 | `biased selection prefers fusions` | Cards with more fusion partners selected more often |
 
 ---
 
-## 4.7 Success Criteria
+## 4.6 Success Criteria
 
 1. All tests pass.
 2. SA finds better decks than pure greedy hill climbing.
 3. Tabu list reduces wasted iterations measurably.
 4. Zero allocations in hot loop.
 5. Per-swap cost ~2ms (1,875 hands × ~1μs/hand).
-6. ~27,500 iterations per worker in 55s budget.
+6. ~27,500 iterations in 55s budget.

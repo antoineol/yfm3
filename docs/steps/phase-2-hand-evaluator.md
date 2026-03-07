@@ -4,7 +4,7 @@ This phase is one of the implementation steps of the plan in PLAN.md file.
 
 **Goal:** Implement the real `IScorer` — a DFS evaluator that finds the maximum ATK achievable from 5 cards, considering fusion chains up to 3 deep (4 materials consumed). Completely zero-allocation in the hot path.
 
-**Depends on:** Phase 1 (fusion table, cardAtk).
+**Depends on:** Phase 1 (fusion table, cardAtk, delta evaluator).
 
 ---
 
@@ -88,15 +88,34 @@ Classic example: Thunder + Dragon → Thunder Dragon, then Thunder Dragon + Drag
 
 ---
 
-## 2.5 File to Create
+## 2.5 Initial Score Computation
+
+After the deck and hand pool are built, compute initial `handScores` for all 15,000 hands. This was previously Phase 3 — merged here since the delta evaluator already exists.
+
+```
+function computeInitialScores(buf, scorer):
+  handBuf = Uint16Array(5)   // allocated once
+  for h = 0 to NUM_HANDS - 1:
+    base = h * 5
+    for j = 0 to 4:
+      handBuf[j] = deck[handSlots[base + j]]
+    handScores[h] = scorer.evaluateHand(handBuf, buf)
+```
+
+Called once at initialization and again if the deck is ever fully reset.
+
+---
+
+## 2.6 Files to Create
 
 | File | Purpose |
 |------|---------|
 | `src/engine/scoring/fusion-scorer.ts` | `FusionScorer` implementing `IScorer` — DFS fusion-chain evaluator |
+| `src/engine/scoring/compute-initial-scores.ts` | Initial `handScores` computation |
 
 ---
 
-## 2.6 Tests
+## 2.7 Tests
 
 | Test | Validates |
 |------|-----------|
@@ -111,10 +130,11 @@ Classic example: Thunder + Dragon → Thunder Dragon, then Thunder Dragon + Drag
 | `commutativity` | Same hand in any permutation → same result |
 | `determinism` | Same input → same output every time |
 | `zero allocations` | No GC pressure during evaluation (benchmark) |
+| `initial scores match full rescore` | Initial computation matches hand-by-hand verification |
 
 ---
 
-## 2.7 Success Criteria
+## 2.8 Success Criteria
 
 1. All tests pass.
 2. Correctly handles fusion chain depths 0, 1, 2, 3 (meaning 0–3 fusions).
