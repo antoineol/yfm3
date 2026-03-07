@@ -24,6 +24,8 @@ const MAX_WORKERS = 32;
 const MIN_CONVERGENCE_TIMEOUT = 3_000;
 /** Convergence timeout as a fraction of the SA time budget. */
 const CONVERGENCE_TIMEOUT_RATIO = 0.3;
+/** Minimum relative improvement to reset the convergence timer. */
+const CONVERGENCE_MIN_IMPROVEMENT = 0.001;
 
 /**
  * Run SA optimization across multiple Web Workers in parallel.
@@ -124,8 +126,13 @@ export async function optimizeDeckParallel(
         } else {
           latestProgress[i] = msg;
           if (msg.bestScore > globalBest) {
+            const isSignificant =
+              globalBest <= 0 ||
+              (msg.bestScore - globalBest) / globalBest >= CONVERGENCE_MIN_IMPROVEMENT;
             globalBest = msg.bestScore;
-            lastImprovedAt = performance.now();
+            if (isSignificant) {
+              lastImprovedAt = performance.now();
+            }
           }
           if (performance.now() - lastImprovedAt > convergenceTimeout) {
             terminateEarly();
