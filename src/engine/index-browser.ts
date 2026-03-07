@@ -8,6 +8,9 @@ import { exactScore } from "./scoring/exact-scorer.ts";
 import { FusionScorer } from "./scoring/fusion-scorer.ts";
 import { DECK_SIZE } from "./types/constants.ts";
 
+export type { OptimizeDeckParallelResult } from "./worker/orchestrator.ts";
+export { optimizeDeckParallel } from "./worker/orchestrator.ts";
+
 export interface OptimizeDeckResult {
   deck: number[];
   expectedAtk: number;

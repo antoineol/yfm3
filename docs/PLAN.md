@@ -66,6 +66,6 @@ Return best deck + exact expected ATK
 | 4: SA Optimizer (DONE) | `docs/steps/v1/phase-4-sa-optimizer.md` | SA + tabu + biased selection |
 | 5: Integration (DONE) | `docs/steps/v1/phase-5-integration.md` | Exact refinement, public API |
 | 1-UI: Convex + UI (DONE) | `docs/steps/phase-1-setup-convex.md` | Minimalist UI to test optimizer with Convex data |
-| 6 (V2): Web Workers | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4-8 workers, unblock UI |
+| 6 (V2): Web Workers (DONE) | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4-8 workers, unblock UI |
 | 6.5 (V2): Early Termination | `docs/steps/phase-6.5-early-termination.md` | Progress reporting + convergence detection |
 | 7 (V2): Multi-Start | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |

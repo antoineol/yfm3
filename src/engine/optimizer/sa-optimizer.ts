@@ -34,6 +34,8 @@ const CALIBRATION_SWAPS = 50;
  */
 export class SAOptimizer implements IOptimizer {
   readonly seed: number;
+  /** Number of iterations completed in the last run() call. */
+  iterations = 0;
 
   constructor(seed: number = 42) {
     this.seed = seed;
@@ -121,6 +123,7 @@ export class SAOptimizer implements IOptimizer {
     for (let i = 0; i < DECK_SIZE; i++) {
       buf.cardCounts[buf.deck[i] ?? 0] = (buf.cardCounts[buf.deck[i] ?? 0] ?? 0) + 1;
     }
+    this.iterations = iteration;
     return bestScore;
   }
 }

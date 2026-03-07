@@ -143,6 +143,19 @@ describe("SAOptimizer", () => {
     expect(elapsed).toBeLessThan(200);
   });
 
+  it("exposes iterations count after run", () => {
+    const b = createAllCardsBuffers();
+    computeInitialScores(b, scorer);
+
+    const optimizer = new SAOptimizer(42);
+    const de = new DeltaEvaluator();
+    const deadline = performance.now() + 1000;
+
+    expect(optimizer.iterations).toBe(0);
+    optimizer.run(b, scorer, de, deadline);
+    expect(optimizer.iterations).toBeGreaterThan(0);
+  });
+
   it("improves a bad deck: starting from weakest cards finds better deck", () => {
     const b = createAllCardsBuffers();
 

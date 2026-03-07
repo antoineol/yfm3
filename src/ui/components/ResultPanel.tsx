@@ -1,8 +1,8 @@
-import type { OptimizeDeckResult } from "../../engine/index-browser.ts";
+import type { OptimizeDeckParallelResult } from "../../engine/index-browser.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
 interface ResultPanelProps {
-  result: OptimizeDeckResult | null;
+  result: OptimizeDeckParallelResult | null;
 }
 
 export function ResultPanel({ result }: ResultPanelProps) {

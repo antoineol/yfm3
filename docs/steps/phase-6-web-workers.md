@@ -1,4 +1,4 @@
-# Phase 6 (V2): Web Workers
+# Phase 6 (V2): Web Workers (DONE)
 
 This phase is an optional V2 enhancement to the plan in PLAN.md file.
 
