@@ -23,17 +23,24 @@ describe("SA acceptance logic", () => {
     expect(pLow).toBeLessThan(1e-10);
   });
 
-  it("cooling schedule decreases temperature correctly", () => {
-    let temp = 500;
-    // One cooling step (per-iteration cooling at rate 0.99963)
-    temp *= 0.99963;
-    expect(temp).toBeLessThan(500);
-    expect(temp).toBeCloseTo(499.815, 1);
+  it("adaptive cooling reaches floor for any time budget", () => {
+    // Simulates the adaptive cooling formula used in sa-optimizer.ts:
+    // coolingRate = exp(ln(TEMP_FLOOR / t0) / expectedIterations)
+    const TEMP_FLOOR = 0.1;
+    const MS_PER_SWAP = 2;
 
-    // After ~23,000 iterations, temperature reaches near-zero
-    for (let i = 0; i < 22999; i++) {
-      temp *= 0.99963;
+    for (const budgetMs of [2_000, 5_000, 10_000, 55_000]) {
+      const t0 = 500;
+      const expectedIter = budgetMs / MS_PER_SWAP;
+      const rate = Math.exp(Math.log(TEMP_FLOOR / t0) / expectedIter);
+
+      // After expectedIterations, temp should be at TEMP_FLOOR
+      const finalTemp = t0 * rate ** expectedIter;
+      expect(finalTemp).toBeCloseTo(TEMP_FLOOR, 5);
+
+      // Rate should be in (0, 1)
+      expect(rate).toBeGreaterThan(0);
+      expect(rate).toBeLessThan(1);
     }
-    expect(temp).toBeLessThan(1);
   });
 });

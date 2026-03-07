@@ -5,8 +5,10 @@ import type { IDeltaEvaluator, IOptimizer, IScorer } from "../types/interfaces.t
 import { createBiasedSelector } from "./biased-selection.ts";
 import { createTabuList } from "./tabu-list.ts";
 
-/** Per-iteration temperature multiplier. After ~23k iterations, temp ≈ 0. */
-const COOLING_RATE = 0.99963;
+/** Temperature below which SA becomes fully greedy (no bad-move acceptance). */
+const TEMP_FLOOR = 0.1;
+/** Conservative estimate: ~500 swaps/s → ~2ms per swap. */
+const MS_PER_SWAP = 2;
 /** Recompute biased-selection weights every N accepted swaps. */
 const REWEIGHT_INTERVAL = 100;
 /** Only call performance.now() every N iterations (amortize syscall cost). */
@@ -23,10 +25,10 @@ const CALIBRATION_SWAPS = 50;
  *   3. Tentatively swap the card, measure score delta across ~1,875 affected hands
  *   4. Accept if delta > 0 (always) or with probability exp(delta/temp) if delta < 0
  *   5. On reject: revert swap, mark card as tabu for this slot
- *   6. Cool temperature (temp *= 0.99963)
+ *   6. Cool temperature (temp *= coolingRate)
  *
  * The temperature starts high (calibrated so ~50% of bad swaps are accepted)
- * and decays to near-zero by ~23k iterations, transitioning from exploration
+ * and decays to TEMP_FLOOR by the deadline, transitioning from exploration
  * (accept bad moves to escape local optima) to exploitation (greedy polishing).
  *
  * Tracks the best deck ever seen. On exit, restores it (SA may have drifted
@@ -55,6 +57,14 @@ export class SAOptimizer implements IOptimizer {
 
     // Calibrate starting temperature against actual delta magnitudes
     let temp = calibrateTemp(buf, scorer, deltaEvaluator, selector, rand);
+
+    // Compute cooling rate so temperature reaches TEMP_FLOOR by deadline.
+    // Conservative estimate: ~500 swaps/s. If actual throughput is higher,
+    // temp hits the floor early and remaining iterations are greedy (fine).
+    const remainingMs = Math.max(deadline - performance.now(), 1);
+    const expectedIterations = Math.max(remainingMs / MS_PER_SWAP, 1);
+    const coolingRate = Math.exp(Math.log(TEMP_FLOOR / temp) / expectedIterations);
+
     let acceptedSinceReweight = 0;
     let iteration = 0;
 
@@ -67,12 +77,12 @@ export class SAOptimizer implements IOptimizer {
       const newCard = selector.selectCandidate(buf, oldCard, rand);
       if (newCard === -1) {
         iteration++;
-        temp *= COOLING_RATE;
+        temp *= coolingRate;
         continue;
       }
       if (tabu.isTabu(slot, newCard)) {
         iteration++;
-        temp *= COOLING_RATE;
+        temp *= coolingRate;
         continue;
       }
 
@@ -84,7 +94,7 @@ export class SAOptimizer implements IOptimizer {
       const delta = deltaEvaluator.computeDelta(slot, buf, scorer);
 
       // 3. SA acceptance: always accept improvements, probabilistically accept worsening
-      const accept = delta > 0 || (temp > 0.1 && rand() < Math.exp(delta / temp));
+      const accept = delta > 0 || (temp > TEMP_FLOOR && rand() < Math.exp(delta / temp));
 
       if (accept) {
         // Commit the new hand scores (were staged by computeDelta)
@@ -111,7 +121,7 @@ export class SAOptimizer implements IOptimizer {
       }
 
       iteration++;
-      temp *= COOLING_RATE;
+      temp *= coolingRate;
     }
 
     // Restore the best deck ever seen (current deck may have drifted downhill).

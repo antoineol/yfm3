@@ -18,6 +18,8 @@ export interface OptimizeDeckParallelResult {
 const EXACT_SCORING_RESERVE = 5_000;
 /** Default time limit for the parallel optimization pipeline (ms). */
 const DEFAULT_TIME_LIMIT = 15_000;
+/** Safety cap for worker count (prevents runaway on exotic hardware). */
+const MAX_WORKERS = 32;
 
 /**
  * Run SA optimization across multiple Web Workers in parallel.
@@ -65,7 +67,8 @@ export async function optimizeDeckParallel(
     collectionRecord[id] = qty;
   }
 
-  const numWorkers = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
+  const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
+  const numWorkers = Math.max(1, Math.min(cores - 1, MAX_WORKERS));
   const timeBudgetMs = timeLimit - EXACT_SCORING_RESERVE;
 
   const workers: Worker[] = [];

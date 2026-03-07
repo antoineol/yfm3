@@ -59,6 +59,54 @@ function makeCollection(size = 60): ReadonlyMap<number, number> {
   return m;
 }
 
+describe("worker count heuristic", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    [1, 1],
+    [2, 1],
+    [4, 3],
+    [8, 7],
+    [16, 15],
+    [64, 32],
+  ])("hardwareConcurrency=%i → %i workers", async (cores, expectedWorkers) => {
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+    vi.stubGlobal("navigator", { hardwareConcurrency: cores });
+
+    await optimizeDeckParallel(makeCollection());
+    expect(createdWorkers).toHaveLength(expectedWorkers);
+  });
+
+  it("defaults to 3 workers when hardwareConcurrency is 0 (unknown)", async () => {
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+    vi.stubGlobal("navigator", { hardwareConcurrency: 0 });
+
+    await optimizeDeckParallel(makeCollection());
+    // Falls back to 4 cores, then 4-1 = 3 workers
+    expect(createdWorkers).toHaveLength(3);
+  });
+});
+
 describe("optimizeDeckParallel", () => {
   it("throws on collection with < 40 total cards", async () => {
     const tiny = new Map<number, number>();
@@ -73,7 +121,8 @@ describe("optimizeDeckParallel", () => {
     expect(result.deck).toHaveLength(DECK_SIZE);
     expect(result.expectedAtk).toBeTypeOf("number");
     expect(result.elapsedMs).toBeGreaterThan(0);
-    expect(createdWorkers).toHaveLength(2);
+    // hardwareConcurrency=2 → max(1, min(2-1, 6)) = 1 worker
+    expect(createdWorkers).toHaveLength(1);
   });
 
   it("sends correct INIT messages to workers", async () => {
