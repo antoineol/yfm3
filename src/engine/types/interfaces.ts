@@ -1,4 +1,6 @@
+import type { AttackValue } from "../data/card-model.ts";
 import type { OptBuffers } from "./buffers.ts";
+import type { SlotIndex } from "./constants.ts";
 
 /**
  * Evaluates a single 5-card hand and returns the best attack achievable.
@@ -9,7 +11,7 @@ import type { OptBuffers } from "./buffers.ts";
  *   - Result >= max base ATK in the hand (fusions can only increase it).
  */
 export interface IScorer {
-  evaluateHand(hand: Uint16Array, buf: OptBuffers): number;
+  evaluateHand(hand: Uint16Array, buf: OptBuffers): AttackValue;
 }
 
 /**
@@ -35,7 +37,7 @@ export interface IDeltaEvaluator {
    * Re-scores only the hands that reference the given deck slot and returns
    * the total score change. New scores are staged internally, not yet committed.
    */
-  computeDelta(slotIndex: number, buf: OptBuffers, scorer: IScorer): number;
+  computeDelta(slotIndex: SlotIndex, buf: OptBuffers, scorer: IScorer): number;
   /** Flushes staged scores into handScores. Call only after accepting a swap. */
   commitDelta(handScores: Int16Array): void;
 }

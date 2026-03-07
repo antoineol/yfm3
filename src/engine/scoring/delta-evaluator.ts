@@ -1,5 +1,5 @@
 import type { OptBuffers } from "../types/buffers.ts";
-import { HAND_SIZE, NUM_HANDS } from "../types/constants.ts";
+import { HAND_SIZE, NUM_HANDS, type SlotIndex } from "../types/constants.ts";
 import type { IDeltaEvaluator, IScorer } from "../types/interfaces.ts";
 
 /**
@@ -13,7 +13,7 @@ export class DeltaEvaluator implements IDeltaEvaluator {
   /** Reusable 5-card buffer to avoid allocations when resolving card IDs. */
   private readonly handBuf = new Uint16Array(5);
 
-  computeDelta(slotIndex: number, buf: OptBuffers, scorer: IScorer): number {
+  computeDelta(slotIndex: SlotIndex, buf: OptBuffers, scorer: IScorer): number {
     const count = buf.affectedHandCounts[slotIndex] ?? 0;
     const offset = buf.affectedHandOffsets[slotIndex] ?? 0;
     let delta = 0;

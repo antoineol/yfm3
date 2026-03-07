@@ -13,5 +13,8 @@ export const NUM_HANDS = 15_000;
 /** Maximum copies of a single card allowed in a deck. */
 export const MAX_COPIES = 3;
 
+/** A deck position (0..39). */
+export type SlotIndex = number;
+
 /** Sentinel value in the fusion table meaning "no fusion exists for this pair". */
 export const FUSION_NONE = -1;

@@ -1,3 +1,4 @@
+import type { AttackValue } from "../data/card-model.ts";
 import type { OptBuffers } from "../types/buffers.ts";
 import type { IScorer } from "../types/interfaces.ts";
 
@@ -6,7 +7,7 @@ import type { IScorer } from "../types/interfaces.ts";
  * Will be replaced by a fusion-chain evaluator in a later phase.
  */
 export class MaxAtkScorer implements IScorer {
-  evaluateHand(hand: Uint16Array, buf: OptBuffers): number {
+  evaluateHand(hand: Uint16Array, buf: OptBuffers): AttackValue {
     let max = 0;
     for (let i = 0; i < 5; i++) {
       const atk = buf.cardAtk[hand[i] ?? 0] ?? 0;

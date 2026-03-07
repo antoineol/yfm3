@@ -4,6 +4,10 @@ export type CardKind = (typeof cardKinds)[number];
 export type Color = (typeof colors)[number];
 
 export type CardId = number;
+export type AttackValue = number;
+
+/** cardId → number of copies owned by the player. */
+export type Collection = ReadonlyMap<CardId, number>;
 
 // The immutable definition of a card
 export interface CardSpec {
@@ -11,7 +15,7 @@ export interface CardSpec {
   name: string;
   kinds: CardKind[];
   color?: Color;
-  attack: number;
+  attack: AttackValue;
   defense: number;
 }
 
@@ -29,7 +33,7 @@ export type FusionMaterial = CardRefByName | KindIdentifier;
 export type FusionMaterials = {
   name: string;
   materials: Set<string>; // Set of material pair keys (e.g. "Dragon:Beast")
-  attack: number;
+  attack: AttackValue;
   defense: number;
 };
 

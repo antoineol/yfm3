@@ -1,4 +1,4 @@
-import type { CardSpec } from "./data/card-model.ts";
+import type { Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
 import { loadGameData } from "./data/load-game-data.ts";
@@ -27,14 +27,15 @@ export function mulberry32(seed: number): () => number {
  *   3. Build greedy initial deck (highest-ATK cards first)
  *   4. Sample unique 5-card hands (Monte Carlo pool)
  *   5. Build reverse lookup (slot → affected hands) for delta scoring
+ *
+ * @param collection  cardId → number of copies owned by the player
  */
-export function initializeBuffers(
-  setCollection: (buf: OptBuffers, cards: readonly CardSpec[]) => void,
-  rand: () => number,
-): OptBuffers {
+export function initializeBuffers(collection: Collection, rand: () => number): OptBuffers {
   const buf = createBuffers();
   const cards = loadGameData(buf);
-  setCollection(buf, cards);
+  for (const card of cards) {
+    buf.availableCounts[card.id] = collection.get(card.id) ?? 0;
+  }
   buildInitialDeck(buf, cards);
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);

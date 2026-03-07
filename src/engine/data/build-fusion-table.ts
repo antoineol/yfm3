@@ -1,5 +1,5 @@
 import { MAX_CARD_ID } from "../types/constants.ts";
-import type { CardSpec, FusionMaterials } from "./card-model.ts";
+import type { AttackValue, CardId, CardSpec, FusionMaterials } from "./card-model.ts";
 import { isValidCardKind } from "./parser-utils.ts";
 
 /**
@@ -54,19 +54,19 @@ function classifyPart(part: string): number {
 }
 
 interface TieredEntry {
-  leftIds: number[];
-  rightIds: number[];
-  resultId: number;
-  resultAtk: number;
+  leftIds: CardId[];
+  rightIds: CardId[];
+  resultId: CardId;
+  resultAtk: AttackValue;
 }
 
 function classifyFusions(
   fusions: FusionMaterials[],
-  nameToId: Map<string, number>,
+  nameToId: Map<string, CardId>,
   cardAtk: Int16Array,
-  nameToIds: Map<string, number[]>,
-  kindToIds: Map<string, number[]>,
-  colorKindToIds: Map<string, number[]>,
+  nameToIds: Map<string, CardId[]>,
+  kindToIds: Map<string, CardId[]>,
+  colorKindToIds: Map<string, CardId[]>,
 ): [TieredEntry[], TieredEntry[], TieredEntry[]] {
   const tiers: [TieredEntry[], TieredEntry[], TieredEntry[]] = [[], [], []];
 
@@ -159,8 +159,8 @@ function applyEntry(
 
 function writeSlot(
   idx: number,
-  resultId: number,
-  resultAtk: number,
+  resultId: CardId,
+  resultAtk: AttackValue,
   fusionTable: Int16Array,
   cardAtk: Int16Array,
   written: Uint8Array,
@@ -185,8 +185,8 @@ function writeSlot(
 
 // --- Lookup map construction ---
 
-function buildNameToIdMap(cards: CardSpec[]): Map<string, number> {
-  const map = new Map<string, number>();
+function buildNameToIdMap(cards: CardSpec[]): Map<string, CardId> {
+  const map = new Map<string, CardId>();
   for (const card of cards) {
     map.set(card.name, card.id);
   }
@@ -194,9 +194,9 @@ function buildNameToIdMap(cards: CardSpec[]): Map<string, number> {
 }
 
 function buildLookupMaps(cards: CardSpec[]) {
-  const nameToIds = new Map<string, number[]>();
-  const kindToIds = new Map<string, number[]>();
-  const colorKindToIds = new Map<string, number[]>();
+  const nameToIds = new Map<string, CardId[]>();
+  const kindToIds = new Map<string, CardId[]>();
+  const colorKindToIds = new Map<string, CardId[]>();
 
   for (const card of cards) {
     const nameIds = nameToIds.get(card.name);
@@ -239,10 +239,10 @@ function buildLookupMaps(cards: CardSpec[]) {
  */
 function resolveKeyPart(
   part: string,
-  nameToIds: Map<string, number[]>,
-  kindToIds: Map<string, number[]>,
-  colorKindToIds: Map<string, number[]>,
-): number[] {
+  nameToIds: Map<string, CardId[]>,
+  kindToIds: Map<string, CardId[]>,
+  colorKindToIds: Map<string, CardId[]>,
+): CardId[] {
   const colorMatch = /^\[(\w+)\](\w+)$/.exec(part);
   if (colorMatch) {
     const key = `[${colorMatch[1]}]${colorMatch[2]}`;
