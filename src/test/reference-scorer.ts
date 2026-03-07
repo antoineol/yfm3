@@ -1,0 +1,101 @@
+import { FUSION_NONE, MAX_CARD_ID } from "../engine/types/constants.ts";
+
+/**
+ * Reference hand scorer: exhaustive recursive search of every fusion path.
+ *
+ * Given 5 cards, returns the highest ATK achievable by playing one card —
+ * either a raw card or one produced by chaining up to 3 fusions.
+ *
+ * Algorithm:
+ * 1. Start with the highest raw ATK in the hand as baseline.
+ * 2. Try every pair of cards as fusion materials.
+ *    - `fusionTable` is a flattened 722x722 grid: `fusionTable[a * 722 + b]`
+ *      gives the result card ID, or FUSION_NONE (-1) if they can't fuse.
+ *    - Skip fusions where the result ATK doesn't strictly beat both materials.
+ * 3. Replace the two materials with the fusion result, recurse (max depth 3).
+ * 4. Return the best ATK found across all paths.
+ *
+ * Search space: at most C(5,2) * C(4,2) * C(3,2) = 180 paths per hand.
+ * Structurally independent from the production DFS scorer (plain arrays +
+ * recursion vs. typed-array stack).
+ */
+export function referenceEvaluateHand(
+  hand: number[],
+  fusionTable: Int16Array,
+  cardAtk: Int16Array,
+): number {
+  let maxAtk = 0;
+  for (const id of hand) {
+    const atk = cardAtk[id] ?? 0;
+    if (atk > maxAtk) maxAtk = atk;
+  }
+
+  tryFusions(hand, 0);
+  return maxAtk;
+
+  function tryFusions(cards: number[], depth: number): void {
+    if (cards.length < 2) return;
+    if (depth >= 3) return;
+
+    for (let i = 0; i < cards.length - 1; i++) {
+      for (let j = i + 1; j < cards.length; j++) {
+        const a = cards[i] ?? 0;
+        const b = cards[j] ?? 0;
+        const result = fusionTable[a * MAX_CARD_ID + b] ?? FUSION_NONE;
+        if (result === FUSION_NONE) continue;
+
+        const resultAtk = cardAtk[result] ?? 0;
+        if (resultAtk <= (cardAtk[a] ?? 0)) continue;
+        if (resultAtk <= (cardAtk[b] ?? 0)) continue;
+
+        if (resultAtk > maxAtk) maxAtk = resultAtk;
+
+        // Remove materials, add fusion result, recurse
+        const remaining: number[] = [];
+        for (let k = 0; k < cards.length; k++) {
+          if (k !== i && k !== j) remaining.push(cards[k] ?? 0);
+        }
+        remaining.push(result);
+        tryFusions(remaining, depth + 1);
+      }
+    }
+  }
+}
+
+/**
+ * Reference deck scorer: enumerate all C(40,5) = 658,008 hands.
+ * Returns the true expected max ATK — no sampling, no approximation.
+ */
+export function referenceScoreDeck(
+  deck: number[],
+  fusionTable: Int16Array,
+  cardAtk: Int16Array,
+): number {
+  const hand = new Array<number>(5);
+  let totalAtk = 0;
+  let count = 0;
+
+  for (let a = 0; a < 36; a++) {
+    hand[0] = deck[a] ?? 0;
+    for (let b = a + 1; b < 37; b++) {
+      hand[1] = deck[b] ?? 0;
+      for (let c = b + 1; c < 38; c++) {
+        hand[2] = deck[c] ?? 0;
+        for (let d = c + 1; d < 39; d++) {
+          hand[3] = deck[d] ?? 0;
+          for (let e = d + 1; e < 40; e++) {
+            hand[4] = deck[e] ?? 0;
+            totalAtk += referenceEvaluateHand(hand, fusionTable, cardAtk);
+            count++;
+          }
+        }
+      }
+    }
+  }
+
+  if (count !== 658_008) {
+    throw new Error(`Expected 658008 hands, got ${count}`);
+  }
+
+  return totalAtk / count;
+}

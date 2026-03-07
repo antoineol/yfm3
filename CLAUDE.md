@@ -8,6 +8,7 @@ This project is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remas
 
 ## Other files
 
+- README.md: scripts and usage instructions.
 - docs/PLAN.md: the high-level plan to implement this app.
 - docs/steps/*: the plan's implementation steps.
 - src/engine/data/*: imported from another project, provides a bunch of utils that will be useful.

@@ -60,8 +60,8 @@ Return best deck + exact expected ATK
 
 | Phase | Step File | What It Builds |
 |---|---|---|
-| 1: Setup & Data | `docs/steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
-| 2: Reference Tests | `docs/steps/phase-2-reference-tests.md` | Reference scorer, golden test fixtures |
+| 1: Setup & Data (DONE) | `docs/steps/phase-1-setup-and-data.md` | Tech stack, types, CSV parsers, fusion table, hand pool, initial deck |
+| 2: Reference Tests (DONE) | `docs/steps/phase-2-reference-tests.md` | Reference scorer, golden test fixtures |
 | 3: Hand Evaluator | `docs/steps/phase-3-hand-evaluator.md` | Fusion-chain DFS scorer + initial scoring |
 | 4: SA Optimizer | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + biased selection |
 | 5: Integration | `docs/steps/phase-5-integration.md` | Exact refinement, public API |

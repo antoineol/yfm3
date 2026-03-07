@@ -11,7 +11,8 @@
     "bench": "vitest bench",
     "lint": "biome check . --fix",
     "lint:fix": "biome check --write .",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "gen:ref": "bun run scripts/generate-fixtures.ts"
   },
   "dependencies": {
     "react": "^19.2.0",

@@ -118,25 +118,41 @@ Each fixture is a `{ hand: number[], expectedMaxAtk: number, description: string
 
 Each fixture is a `{ deck: number[], expectedAvgAtk: number, description: string }`.
 
-### Fixture generation
+### Fixture generation workflow
 
-A one-time script (or test marked `skip` after generation) that:
-1. Loads real game data via `initializeBuffers`
-2. Constructs specific hands/decks for each scenario
-3. Runs reference scorer on each
-4. Outputs the fixture file with expected values
+Fixture definitions live in `src/test/reference-fixture-defs.ts` (inputs only: card IDs + descriptions, no expected values).
 
-After generation, fixtures are **static constants** — they don't change unless game data changes.
+**To generate or regenerate scored fixtures:**
+
+```bash
+bun run gen:ref
+```
+
+This runs `scripts/generate-fixtures.ts`, which:
+1. Reads hand/deck definitions from `reference-fixture-defs.ts`
+2. Scores each hand via `referenceEvaluateHand` (~instant)
+3. Scores each deck via `referenceScoreDeck` (~0.1-6s each)
+4. Writes `src/test/reference-fixtures.gen.ts` with expected values attached
+
+**When to run `bun run gen:ref`:**
+- Once during initial setup
+- After changing game data (rp-cards.csv, rp-fusions1.csv)
+- After changing the reference scorer logic
+- After adding/editing fixture scenarios in `reference-fixture-defs.ts`
+
+The generated file is committed to the repo. Unit tests (`bun test`) read from it directly — fast, no scoring at test time.
 
 ---
 
-## 2.5 Files to Create
+## 2.5 Files
 
 | File | Purpose |
 |------|---------|
 | `src/test/reference-scorer.ts` | `referenceEvaluateHand` and `referenceScoreDeck` — exhaustive recursive implementations, optimized for correctness |
-| `src/test/reference-fixtures.ts` | Pre-computed hand and deck fixtures with reference-scored expected values |
-| `src/test/reference-scorer.test.ts` | Self-consistency tests for the reference scorer |
+| `src/test/reference-fixture-defs.ts` | Fixture definitions: hand/deck card IDs + descriptions (no expected values) |
+| `src/test/reference-fixtures.gen.ts` | **Generated** — scored fixtures with expected values (committed to repo) |
+| `src/test/reference-scorer.test.ts` | Fast unit tests: hand fixtures, self-consistency, structural checks |
+| `scripts/generate-fixtures.ts` | Generation script: reads defs, runs reference scorer, writes `.gen.ts` |
 
 ---
 
@@ -153,14 +169,19 @@ After generation, fixtures are **static constants** — they don't change unless
 | `strict improvement` | Fusion skipped when result ATK <= material ATK |
 | `agrees with MaxAtkScorer on no-fusion hands` | When no fusions exist, reference scorer matches the placeholder scorer |
 
-### Fixture validation
+### Fixture validation (`bun test`)
 
 | Test | Validates |
 |------|-----------|
 | `all hand fixtures produce expected values` | Reference scorer matches pre-computed expected ATK for each hand fixture |
-| `all deck fixtures produce expected values` | Reference deck scorer matches pre-computed expected average ATK for each deck fixture |
 | `fixture hands use valid card IDs` | All card IDs in fixtures exist in game data |
 | `fixture decks are valid` | 40 cards, valid IDs, within collection bounds |
+
+### Fixture regeneration (`bun run gen:ref`)
+
+| Check | Validates |
+|-------|-----------|
+| Script prints scores for all fixtures | Reference scorer computes and writes expected values for all hand and deck fixtures |
 
 ---
 
@@ -202,3 +223,14 @@ for (const fixture of deckFixtures) {
 4. At least 15 hand fixtures and 3 deck fixtures with reference-computed values.
 5. Fixture values are stable (deterministic, reproducible).
 6. `bun lint` and `bun test` pass.
+
+---
+
+## 2.9 Implementation Notes
+
+**Status: COMPLETE**
+
+- 16 hand fixtures and 3 deck fixtures created.
+- Deck fixtures use only card IDs < 722 (MAX_CARD_ID) because cards with higher IDs (fusion-only cards from the parser) have no entries in `cardAtk`/`fusionTable`.
+- In real game data, no 5-card hand benefits from a 4th fusion beyond what 3 fusions achieve (exhaustive search confirmed). The depth limit is structurally verified by the 3-chain fixture.
+- Deck scores: greedy=2872.0, weak=1599.6, fusion-rich=2455.4 (fusion-rich beats weak despite lower base ATK, confirming fusions add value).
