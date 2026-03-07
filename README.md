@@ -6,7 +6,9 @@ Deck optimizer for Yu-Gi-Oh! Forbidden Memories (Remastered Perfected mod). Gene
 
 | Command | What it does |
 |---------|-------------|
-| `bun test` | Run all unit tests (~200ms, no expensive scoring) |
+| `bun run test` | Run unit tests (fast, no real game data) |
+| `bun run test:integration` | Run integration tests (real game data, full pipeline) |
+| `bun run test:all` | Run all tests (unit + integration) |
 | `bun run gen:ref` | Generate reference-scored fixtures. Reads definitions from `src/test/reference-fixture-defs.ts`, scores them via the reference scorer, writes `src/test/reference-fixtures.gen.ts`. Takes ~1-10s (deck scoring is slow). |
 | `bun lint` | Lint and auto-fix with Biome |
 | `bun run typecheck` | Run TypeScript type checker |
@@ -20,6 +22,6 @@ The reference scorer is the ground truth for evaluating all production component
 
 1. **Define** fixture inputs (hands/decks) in `src/test/reference-fixture-defs.ts`
 2. **Generate** scored fixtures: `bun run gen:ref` (writes `src/test/reference-fixtures.gen.ts`)
-3. **Test** production code against generated fixtures: `bun test`
+3. **Test** production code against generated fixtures: `bun run test`
 
 Regenerate after changing game data, reference scorer logic, or fixture definitions.

@@ -92,11 +92,21 @@ function classifyFusions(
       const leftIds = resolveKeyPart(left, nameToIds, kindToIds, colorKindToIds);
       const rightIds = resolveKeyPart(right, nameToIds, kindToIds, colorKindToIds);
 
+      // Warn for name-based parts that don't resolve (could be a data issue
+      // like a typo or a spell/trap referenced as a monster).
+      // Kind-based gaps are silently skipped — expected when the RP mod
+      // doesn't have cards of that kind/color combo.
       if (leftIds.length === 0) {
-        console.warn(`Material "${left}" resolved to no cards for fusion ${fusion.name}`);
+        if (classifyPart(left) === PART_NAME) {
+          console.warn(`Material "${left}" resolved to no cards for fusion ${fusion.name}`);
+        }
+        continue;
       }
       if (rightIds.length === 0) {
-        console.warn(`Material "${right}" resolved to no cards for fusion ${fusion.name}`);
+        if (classifyPart(right) === PART_NAME) {
+          console.warn(`Material "${right}" resolved to no cards for fusion ${fusion.name}`);
+        }
+        continue;
       }
 
       const lc = classifyPart(left);

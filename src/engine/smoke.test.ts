@@ -1,9 +1,7 @@
 import { expect, test } from "vitest";
 
-import { ping } from "./index.ts";
+import { optimizeDeck } from "./index.ts";
 
 test("engine boundary works", () => {
-  expect(ping()).toBe("engine-ok");
+  expect(typeof optimizeDeck).toBe("function");
 });
-
-// Phase 0b added

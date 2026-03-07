@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "vitest run --config vitest.all.config.ts",
     "test:watch": "vitest",
     "bench": "vitest bench",
     "lint": "biome check . --fix",

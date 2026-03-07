@@ -117,4 +117,24 @@ Note: `buf.handScores` is stale after `SAOptimizer.run()` returns (the best deck
 3. Exact scorer matches reference deck scorer (Phase 2) on all deck fixtures.
 4. Public API produces valid, optimized decks (synchronous, no AbortSignal).
 5. End-to-end completes within 60s.
-6. `bun typecheck`, `bun lint` and `bun test` pass.
+6. `bun typecheck`, `bun lint` and `bun run test` pass.
+
+---
+
+## Implementation Notes
+
+**All criteria met.** 126 tests pass, typecheck and lint clean.
+
+### Files Created
+- `src/engine/scoring/exact-scorer.ts` — exhaustive C(40,5) scorer using FusionScorer
+- `src/engine/scoring/exact-scorer.test.ts` — matches reference scorer, determinism
+- `src/engine/index.test.ts` — integration tests (O1–O4, S1–S3, time limit, error)
+
+### Files Modified
+- `src/engine/index.ts` — public `optimizeDeck()` API replacing placeholder `ping()`
+- `src/engine/smoke.test.ts` — updated to test new export
+- `src/ui/App.tsx` — removed stale `ping()` import
+
+### Bugs Fixed During Implementation
+- **`buildInitialDeck` single-pass bug** (`src/engine/data/initial-deck.ts`): only visited each card once, leaving unfilled deck slots as card 0 with inconsistent `cardCounts` (Uint8Array underflow on swap). Added pass 2 that relaxes MAX_COPIES to fill remaining slots, consistent with the SA optimizer's `availableCounts` bound.
+- **Noisy `console.warn` in `buildFusionTable`** (`src/engine/data/build-fusion-table.ts`): kind-based material gaps (e.g. `[blue]Reptile`, `MothInsect`) are expected when the RP mod lacks cards of that kind — silenced with `continue`. Name-based gaps (e.g. "Sword Of Dark Destruction", "Ryu-Kishin") still warn, as they could indicate data issues like typos.

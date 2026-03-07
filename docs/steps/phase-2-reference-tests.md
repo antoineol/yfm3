@@ -140,7 +140,7 @@ This runs `scripts/generate-fixtures.ts`, which:
 - After changing the reference scorer logic
 - After adding/editing fixture scenarios in `reference-fixture-defs.ts`
 
-The generated file is committed to the repo. Unit tests (`bun test`) read from it directly — fast, no scoring at test time.
+The generated file is committed to the repo. Unit tests (`bun run test`) read from it directly — fast, no scoring at test time.
 
 ---
 
@@ -169,7 +169,7 @@ The generated file is committed to the repo. Unit tests (`bun test`) read from i
 | `strict improvement` | Fusion skipped when result ATK <= material ATK |
 | `agrees with MaxAtkScorer on no-fusion hands` | When no fusions exist, reference scorer matches the placeholder scorer |
 
-### Fixture validation (`bun test`)
+### Fixture validation (`bun run test`)
 
 | Test | Validates |
 |------|-----------|
@@ -222,7 +222,7 @@ for (const fixture of deckFixtures) {
 3. Reference scorer is structurally independent from the production DFS.
 4. At least 15 hand fixtures and 3 deck fixtures with reference-computed values.
 5. Fixture values are stable (deterministic, reproducible).
-6. `bun lint` and `bun test` pass.
+6. `bun lint` and `bun run test` pass.
 
 ---
 

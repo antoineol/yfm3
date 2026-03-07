@@ -24,5 +24,11 @@
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "scripts"]
+  "include": [
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vitest.all.config.ts",
+    "vitest.integration.config.ts",
+    "scripts"
+  ]
 }

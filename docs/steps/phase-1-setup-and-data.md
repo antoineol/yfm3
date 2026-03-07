@@ -17,7 +17,7 @@ src/
 ```
 
 - `@engine` path alias in both `tsconfig.json` and `vite.config.ts`
-- Vitest for testing (`bun test`), `bun run dev` for dev server
+- Vitest for testing (`bun run test`), `bun run dev` for dev server
 - `strict: true`, `target: ES2022`, `moduleResolution: bundler`
 - Add linting script (`bun lint`)
 
@@ -237,7 +237,7 @@ Parses CSVs → builds fusion table → sets collection → constructs initial d
 ## 1.9 Success Criteria
 
 1. All Phase 1 tests pass.
-2. `bun test` and `bun lint` pass.
+2. `bun run test` and `bun lint` pass.
 3. Fusion table construction completes in <500ms.
 4. Hand pool + CSR generation completes in <100ms.
 5. Fusion table is symmetric and respects all 3 priority tiers.

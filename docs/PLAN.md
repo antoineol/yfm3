@@ -64,6 +64,6 @@ Return best deck + exact expected ATK
 | 2: Reference Tests (DONE) | `docs/steps/phase-2-reference-tests.md` | Reference scorer, golden test fixtures |
 | 3: Hand Evaluator (DONE) | `docs/steps/phase-3-hand-evaluator.md` | Fusion-chain DFS scorer + initial scoring |
 | 4: SA Optimizer (DONE) | `docs/steps/phase-4-sa-optimizer.md` | SA + tabu + biased selection |
-| 5: Integration | `docs/steps/phase-5-integration.md` | Exact refinement, public API |
+| 5: Integration (DONE) | `docs/steps/phase-5-integration.md` | Exact refinement, public API |
 | 6 (V2): Web Workers | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4–8 workers |
 | 7 (V2): Multi-Start | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |
