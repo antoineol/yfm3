@@ -49,13 +49,8 @@ export interface IDeltaEvaluator {
  *   - Monotonic: returned totalScore >= initial totalScore (never makes things worse).
  *   - Mutates buf.deck, buf.cardCounts, and buf.handScores in place.
  *   - Respects collection bounds: cardCounts[id] <= availableCounts[id] at all times.
- *   - maxIterations=0 returns immediately with the current totalScore.
+ *   - Stops when the deadline timestamp (performance.now()) is reached.
  */
 export interface IOptimizer {
-  run(
-    buf: OptBuffers,
-    scorer: IScorer,
-    deltaEvaluator: IDeltaEvaluator,
-    maxIterations: number,
-  ): number;
+  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, deadline: number): number;
 }

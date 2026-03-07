@@ -1,4 +1,4 @@
-# Phase 4: Simulated Annealing Optimizer
+# Phase 4: Simulated Annealing Optimizer (DONE)
 
 This phase is one of the implementation steps of the plan in PLAN.md file.
 
@@ -12,7 +12,7 @@ This phase is one of the implementation steps of the plan in PLAN.md file.
 
 Reuse the existing `mulberry32` from `src/engine/initialize-buffers.ts`. It produces floats in [0, 1) from a seed, which is all SA needs. Integer selection: `(rand() * max) | 0`.
 
-No new file — extract `mulberry32` to a shared location if needed, or import from `initialize-buffers.ts`.
+No new file — import from `initialize-buffers.ts`.
 
 ---
 
@@ -24,22 +24,26 @@ Replace greedy accept (`delta > 0`) with SA acceptance:
 if delta > 0:       accept unconditionally
 else:               accept with probability exp(delta / temperature)
 
-temperature starts at 500
-temperature *= 0.9999 every 50 iterations
+temperature starts at calibrated T0 (see below)
+temperature *= 0.99963 every iteration
 ```
 
-Temperature reaches near-zero by iteration ~23,000, leaving the last ~4,500 iterations as greedy polishing.
+Temperature reaches near-zero (~0.1) by iteration ~23,000, leaving the last ~4,500 iterations as greedy polishing.
+
+### Temperature Calibration
+
+T0 is calibrated at startup by running ~50 random swaps (without committing), measuring average |delta|, and setting `T0 = avgAbsDelta / ln(2)`. This ensures a typical negative delta has ~50% acceptance probability at the start, regardless of deck composition and card ATK ranges.
 
 ### SA Loop
 
 ```
-run(buf, scorer, deltaEvaluator, signal):
+run(buf, scorer, deltaEvaluator, deadline):
   rand = mulberry32(seed)
-  temp = 500
+  temp = calibrateTemp(buf, ...)
   bestScore = totalScore = sum(handScores)
   bestDeck = copy of deck
 
-  while !signal.aborted:
+  while iteration % 64 != 0 || performance.now() < deadline:
     slot = (rand() * 40) | 0
     oldCard = deck[slot]
     newCard = selectCandidate(...)   // §4.4
@@ -63,27 +67,25 @@ run(buf, scorer, deltaEvaluator, signal):
       cardCounts[oldCard]++, cardCounts[newCard]--
       addTabu(slot, newCard)  // §4.3
 
-    // Cooling
     iteration++
-    if iteration % 50 == 0: temp *= 0.9999
+    temp *= 0.99963
 
   deck.set(bestDeck)
+  rebuild cardCounts from bestDeck
   return bestScore
 ```
 
-**Worker-ready design:** The SA loop takes an `AbortSignal` for stopping. In V1, the main thread sets a timeout (`AbortSignal.timeout(55_000)`). In V2 (Phase 6), each worker creates its own signal from the `HALT` message.
+**Worker-ready design:** The SA loop takes a `deadline` timestamp (`performance.now()` value) for time-based stopping. Time is checked every 64 iterations to amortize the cost. `AbortSignal` cannot be used because signals don't fire during synchronous tight loops in Bun/V8. In V1, the main thread computes `performance.now() + 55_000`. In V2 (Phase 6), the main thread posts a time budget and each worker computes its own local deadline — no cross-thread signal plumbing needed.
 
-### IOptimizer Interface Update
-
-The current `IOptimizer.run` takes `maxIterations: number`. Update to `signal: AbortSignal` for time-based stopping:
+### IOptimizer Interface
 
 ```ts
 interface IOptimizer {
-  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, signal: AbortSignal): number;
+  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, deadline: number): number;
 }
 ```
 
-### File to Create
+### File
 
 | File | Purpose |
 |------|---------|
@@ -103,7 +105,7 @@ function isTabu(slot: number, cardId: number): boolean
 function addTabu(slot: number, cardId: number): void
 ```
 
-### File to Create
+### File
 
 | File | Purpose |
 |------|---------|
@@ -113,17 +115,25 @@ function addTabu(slot: number, cardId: number): void
 
 ## 4.4 Biased Candidate Selection (~30 LOC)
 
-Pre-compute `partnerCount[c]` = number of cards in the current deck that fuse with card `c`. Select swap candidates with probability proportional to `baseATK + α × partnerCount`. Recompute lazily (every ~100 accepted swaps).
+Pre-compute `partnerCount[c]` = number of cards in the current deck that fuse with card `c`. Select swap candidates with probability proportional to `baseATK + 200 × partnerCount` (α = 200, roughly half of a mid-range ATK). Recompute lazily (every ~100 accepted swaps).
+
+Cumulative weight array with binary search (O(log 722)) for weighted random selection. `selectCandidate` enforces availability (`cardCounts[c] < availableCounts[c]`) and skips the card currently in the slot. Up to 20 rejection-sampling attempts before returning -1.
 
 ```ts
 partnerCount: Uint16Array(722)
-selectionWeights: Float32Array(722)
+cumulativeWeights: Float64Array(722)
 
-function recomputeWeights(deck, fusionTable, cardAtk): void
-function selectCandidate(weights, availableCounts, cardCounts, oldCard, rand): number
+function recomputeWeights(buf: OptBuffers): void
+function selectCandidate(buf: OptBuffers, oldCard: number, rand: () => number): number
 ```
 
 This is critical for finding fusion synergies — without it, SA wastes most iterations on cards with no fusion potential, producing results barely better than the greedy starting deck.
+
+### File
+
+| File | Purpose |
+|------|---------|
+| `src/engine/optimizer/biased-selection.ts` | Biased candidate selection |
 
 ---
 
@@ -135,8 +145,8 @@ This is critical for finding fusion synergies — without it, SA wastes most ite
 | `SA accepts downhill probabilistically` | Negative delta accepted at high temp, not at low temp |
 | `SA cooling schedule` | Temperature decreases correctly |
 | `SA non-regression` | Output score >= input score |
-| `SA valid deck output` | 40 cards, within collection bounds |
-| `SA respects abort signal` | Stops within ~1ms of abort |
+| `SA valid deck output` | 40 cards, within collection bounds, cardCounts consistent |
+| `SA respects deadline` | Stops promptly when deadline is in the past |
 | `SA improves bad deck` | Starting from weakest cards, finds better deck |
 | `tabu prevents repeat` | Recently rejected card is skipped |
 | `tabu ring wraps` | After 8 entries, oldest overwritten |

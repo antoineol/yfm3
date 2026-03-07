@@ -53,7 +53,7 @@ export async function optimizeDeck(
 Entry point that:
 1. Initializes buffers (Phase 1)
 2. Computes initial scores (Phase 3)
-3. Runs SA optimizer (Phase 4) with `AbortSignal.timeout(timeLimit - 5000)`
+3. Runs SA optimizer (Phase 4) with `deadline = performance.now() + timeLimit - 5000`
 4. Exact-scores the best deck (§5.1) for accurate reporting
 5. Returns the best deck
 
