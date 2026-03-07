@@ -4,7 +4,7 @@ import { SAOptimizer } from "../optimizer/sa-optimizer.ts";
 import { computeInitialScores } from "../scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "../scoring/delta-evaluator.ts";
 import { FusionScorer } from "../scoring/fusion-scorer.ts";
-import type { WorkerInit, WorkerResult } from "./messages.ts";
+import type { WorkerInit, WorkerProgress, WorkerResult } from "./messages.ts";
 
 self.onmessage = (e: MessageEvent<WorkerInit>) => {
   const { collection, seed, timeBudgetMs } = e.data;
@@ -18,7 +18,15 @@ self.onmessage = (e: MessageEvent<WorkerInit>) => {
 
   const optimizer = new SAOptimizer(seed);
   const deadline = performance.now() + timeBudgetMs;
-  const bestScore = optimizer.run(buf, scorer, new DeltaEvaluator(), deadline);
+  const bestScore = optimizer.run(buf, scorer, new DeltaEvaluator(), deadline, (score, deck) => {
+    const progress: WorkerProgress = {
+      type: "PROGRESS",
+      bestScore: score,
+      bestDeck: Array.from(deck),
+      iterations: optimizer.iterations,
+    };
+    self.postMessage(progress);
+  });
 
   const result: WorkerResult = {
     type: "RESULT",

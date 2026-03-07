@@ -173,6 +173,65 @@ describe("SAOptimizer", () => {
     // with the adaptive cooling rate rather than the old hardcoded rate
   });
 
+  it("calls onProgress periodically with best score and deck", () => {
+    const b = createAllCardsBuffers();
+    computeInitialScores(b, scorer);
+
+    const optimizer = new SAOptimizer(42);
+    const de = new DeltaEvaluator();
+    // 2s budget should yield multiple progress callbacks (~500ms apart)
+    const deadline = performance.now() + 2000;
+
+    const progressCalls: Array<{ score: number; deckLength: number }> = [];
+    optimizer.run(b, scorer, de, deadline, (score, deck) => {
+      progressCalls.push({ score, deckLength: deck.length });
+    });
+
+    // Should fire at least once in 2s (first at ~500ms)
+    expect(progressCalls.length).toBeGreaterThanOrEqual(1);
+    // Each call should provide valid data
+    for (const call of progressCalls) {
+      expect(call.score).toBeGreaterThan(0);
+      expect(call.deckLength).toBe(DECK_SIZE);
+    }
+  });
+
+  it("does not call onProgress when budget is too short", () => {
+    const b = createAllCardsBuffers();
+    computeInitialScores(b, scorer);
+
+    const optimizer = new SAOptimizer(42);
+    const de = new DeltaEvaluator();
+    // Deadline in the past — no time for progress
+    const deadline = performance.now() - 1;
+
+    const progressCalls: number[] = [];
+    optimizer.run(b, scorer, de, deadline, (score) => {
+      progressCalls.push(score);
+    });
+
+    expect(progressCalls).toHaveLength(0);
+  });
+
+  it("sets iterations before calling onProgress", () => {
+    const b = createAllCardsBuffers();
+    computeInitialScores(b, scorer);
+
+    const optimizer = new SAOptimizer(42);
+    const de = new DeltaEvaluator();
+    const deadline = performance.now() + 2000;
+
+    let iterationsAtFirstCall = -1;
+    optimizer.run(b, scorer, de, deadline, () => {
+      if (iterationsAtFirstCall === -1) {
+        iterationsAtFirstCall = optimizer.iterations;
+      }
+    });
+
+    // iterations should have been set to a positive value before the callback
+    expect(iterationsAtFirstCall).toBeGreaterThan(0);
+  });
+
   it("improves a bad deck: starting from weakest cards finds better deck", () => {
     const b = createAllCardsBuffers();
 

@@ -4,7 +4,7 @@ import { mulberry32 } from "../mulberry32.ts";
 import { exactScore } from "../scoring/exact-scorer.ts";
 import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import { DECK_SIZE } from "../types/constants.ts";
-import type { WorkerInit, WorkerResult } from "./messages.ts";
+import type { WorkerInit, WorkerProgress, WorkerResponse, WorkerResult } from "./messages.ts";
 
 export interface OptimizeDeckParallelResult {
   deck: number[];
@@ -20,6 +20,10 @@ const EXACT_SCORING_RESERVE = 5_000;
 const DEFAULT_TIME_LIMIT = 15_000;
 /** Safety cap for worker count (prevents runaway on exotic hardware). */
 const MAX_WORKERS = 32;
+/** Minimum convergence timeout (ms). */
+const MIN_CONVERGENCE_TIMEOUT = 3_000;
+/** Convergence timeout as a fraction of the SA time budget. */
+const CONVERGENCE_TIMEOUT_RATIO = 0.3;
 
 /**
  * Run SA optimization across multiple Web Workers in parallel.
@@ -71,16 +75,62 @@ export async function optimizeDeckParallel(
   const numWorkers = Math.max(1, Math.min(cores - 1, MAX_WORKERS));
   const timeBudgetMs = timeLimit - EXACT_SCORING_RESERVE;
 
+  const convergenceTimeout = Math.max(
+    MIN_CONVERGENCE_TIMEOUT,
+    timeBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
+  );
+
   const workers: Worker[] = [];
   const promises: Promise<WorkerResult>[] = [];
+  const resolvers: Array<(result: WorkerResult) => void> = [];
+  const resolved: boolean[] = [];
+  const latestProgress: Array<WorkerProgress | null> = [];
+  let globalBest = -Infinity;
+  let lastImprovedAt = performance.now();
+
+  function terminateEarly() {
+    for (let j = 0; j < numWorkers; j++) {
+      if (!resolved[j]) {
+        const progress = latestProgress[j];
+        if (progress) {
+          resolved[j] = true;
+          resolvers[j]?.({
+            type: "RESULT",
+            bestDeck: progress.bestDeck,
+            bestScore: progress.bestScore,
+            iterations: progress.iterations,
+          });
+        }
+      }
+      workers[j]?.terminate();
+    }
+  }
 
   for (let i = 0; i < numWorkers; i++) {
     const worker = new Worker(new URL("./sa-worker.ts", import.meta.url), { type: "module" });
     workers.push(worker);
+    resolved.push(false);
+    latestProgress.push(null);
 
     const promise = new Promise<WorkerResult>((resolve, reject) => {
-      worker.onmessage = (e: MessageEvent<WorkerResult>) => {
-        resolve(e.data);
+      resolvers.push(resolve);
+      worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+        const msg = e.data;
+        if (msg.type === "RESULT") {
+          if (!resolved[i]) {
+            resolved[i] = true;
+            resolve(msg);
+          }
+        } else {
+          latestProgress[i] = msg;
+          if (msg.bestScore > globalBest) {
+            globalBest = msg.bestScore;
+            lastImprovedAt = performance.now();
+          }
+          if (performance.now() - lastImprovedAt > convergenceTimeout) {
+            terminateEarly();
+          }
+        }
       };
       worker.onerror = (e) => {
         reject(new Error(`Worker ${i} error: ${e.message}`));
@@ -102,13 +152,13 @@ export async function optimizeDeckParallel(
     options.signal.addEventListener(
       "abort",
       () => {
-        for (const w of workers) w.terminate();
+        terminateEarly();
       },
       { once: true },
     );
   }
 
-  // Wait for all workers to finish
+  // Wait for all workers to finish (or be resolved early via convergence)
   const results = await Promise.all(promises);
 
   // Terminate workers (they've already posted their results)

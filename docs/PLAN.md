@@ -68,5 +68,5 @@ Return best deck + exact expected ATK
 | 1-UI: Convex + UI (DONE) | `docs/steps/phase-1-setup-convex.md` | Minimalist UI to test optimizer with Convex data |
 | 6 (V2): Web Workers (DONE) | `docs/steps/phase-6-web-workers.md` | Parallelize SA across 4-8 workers, unblock UI |
 | 6.1 (V2): Adaptive Cooling & Worker Count (DONE) | `docs/steps/phase-6.1-adaptive-cooling-and-worker-count.md` | Fix truncated cooling schedule, cap worker count |
-| 6.5 (V2): Early Termination | `docs/steps/phase-6.5-early-termination.md` | Progress reporting + convergence detection |
+| 6.5 (V2): Early Termination (DONE) | `docs/steps/phase-6.5-early-termination.md` | Progress reporting + convergence detection |
 | 7 (V2): Multi-Start | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |

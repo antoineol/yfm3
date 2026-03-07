@@ -52,5 +52,11 @@ export interface IDeltaEvaluator {
  *   - Stops when the deadline timestamp (performance.now()) is reached.
  */
 export interface IOptimizer {
-  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, deadline: number): number;
+  run(
+    buf: OptBuffers,
+    scorer: IScorer,
+    deltaEvaluator: IDeltaEvaluator,
+    deadline: number,
+    onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
+  ): number;
 }

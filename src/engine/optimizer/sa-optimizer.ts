@@ -13,6 +13,8 @@ const MS_PER_SWAP = 2;
 const REWEIGHT_INTERVAL = 100;
 /** Only call performance.now() every N iterations (amortize syscall cost). */
 const TIME_CHECK_INTERVAL = 64;
+/** Minimum interval between onProgress callbacks (ms). */
+const PROGRESS_INTERVAL = 500;
 /** Number of trial swaps used to measure typical delta magnitude at startup. */
 const CALIBRATION_SWAPS = 50;
 
@@ -43,7 +45,13 @@ export class SAOptimizer implements IOptimizer {
     this.seed = seed;
   }
 
-  run(buf: OptBuffers, scorer: IScorer, deltaEvaluator: IDeltaEvaluator, deadline: number): number {
+  run(
+    buf: OptBuffers,
+    scorer: IScorer,
+    deltaEvaluator: IDeltaEvaluator,
+    deadline: number,
+    onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
+  ): number {
     const rand = mulberry32(this.seed);
     const tabu = createTabuList();
     const selector = createBiasedSelector();
@@ -67,10 +75,20 @@ export class SAOptimizer implements IOptimizer {
 
     let acceptedSinceReweight = 0;
     let iteration = 0;
+    let lastProgressAt = performance.now();
 
     // Check deadline every 64 iterations to amortize performance.now() cost.
     // On iteration 0, (0 % 64 === 0) so we always check time on the first pass.
-    while (iteration % TIME_CHECK_INTERVAL !== 0 || performance.now() < deadline) {
+    while (true) {
+      if (iteration % TIME_CHECK_INTERVAL === 0) {
+        const now = performance.now();
+        if (now >= deadline) break;
+        if (onProgress && now - lastProgressAt >= PROGRESS_INTERVAL) {
+          lastProgressAt = now;
+          this.iterations = iteration;
+          onProgress(bestScore, bestDeck);
+        }
+      }
       // 1. Pick a random slot and a biased replacement card
       const slot = (rand() * DECK_SIZE) | 0;
       const oldCard = buf.deck[slot] ?? 0;

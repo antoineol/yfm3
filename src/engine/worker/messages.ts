@@ -15,5 +15,13 @@ export type WorkerResult = {
   iterations: number;
 };
 
+/** Worker → Main thread: periodic progress update during SA run. */
+export type WorkerProgress = {
+  type: "PROGRESS";
+  bestScore: number;
+  bestDeck: number[];
+  iterations: number;
+};
+
 export type WorkerMessage = WorkerInit;
-export type WorkerResponse = WorkerResult;
+export type WorkerResponse = WorkerResult | WorkerProgress;
