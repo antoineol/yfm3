@@ -1,3 +1,4 @@
+import { setConfig } from "../engine/config.ts";
 import type { Collection } from "../engine/data/card-model.ts";
 import { initializeBuffers, mulberry32 } from "../engine/initialize-buffers.ts";
 import type { OptBuffers } from "../engine/types/buffers.ts";
@@ -11,5 +12,6 @@ function allCardsCollection(): Collection {
 }
 
 export function createAllCardsBuffers(deckSize?: number): OptBuffers {
-  return initializeBuffers(allCardsCollection(), mulberry32(42), deckSize);
+  if (deckSize != null) setConfig({ deckSize });
+  return initializeBuffers(allCardsCollection(), mulberry32(42));
 }

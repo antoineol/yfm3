@@ -1,4 +1,5 @@
-import { DECK_SIZE, MAX_COPIES } from "../types/constants.ts";
+import { getConfig } from "../config.ts";
+import { MAX_COPIES } from "../types/constants.ts";
 
 /**
  * Generate initial decks for multi-start SA.
@@ -7,18 +8,19 @@ import { DECK_SIZE, MAX_COPIES } from "../types/constants.ts";
  * - Worker 1: greedy seed with 10 random perturbations
  * - Workers 2+: fully random valid decks
  *
+ * Reads `deckSize` from `getConfig()`.
+ *
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
  * @param rand              seeded PRNG returning values in [0, 1)
- * @param deckSize          number of cards in a deck (default 40)
  * @returns array of length numWorkers; element 0 is undefined (greedy default)
  */
 export function generateInitialDecks(
   collectionRecord: Record<number, number>,
   numWorkers: number,
   rand: () => number,
-  deckSize: number = DECK_SIZE,
 ): Array<number[] | undefined> {
+  const { deckSize } = getConfig();
   const pool = buildPool(collectionRecord);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
 

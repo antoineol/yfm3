@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetConfig, setConfig } from "../config.ts";
 import { createBuffers } from "./buffers.ts";
 import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
+
+afterEach(() => resetConfig());
 
 describe("OptBuffers", () => {
   it("exact sizes with default deck size", () => {
@@ -18,7 +21,8 @@ describe("OptBuffers", () => {
   });
 
   it("sizes scale with custom deck size", () => {
-    const b = createBuffers(20);
+    setConfig({ deckSize: 20 });
+    const b = createBuffers();
     const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[20] ?? 0);
     expect(b.deck.length).toBe(20);
     expect(b.affectedHandOffsets.length).toBe(20);
@@ -32,7 +36,8 @@ describe("OptBuffers", () => {
   });
 
   it("caps numHands at C(deckSize,5) for small decks", () => {
-    const b = createBuffers(5);
+    setConfig({ deckSize: 5 });
+    const b = createBuffers();
     // C(5,5) = 1 → only 1 hand possible
     expect(b.handScores.length).toBe(1);
     expect(b.handSlots.length).toBe(HAND_SIZE);

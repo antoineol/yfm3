@@ -157,6 +157,35 @@ export const getUserPreferences = query({
   },
 });
 
+export const updatePreferences = mutation({
+  args: {
+    userId: v.string(),
+    deckSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('userPreferences')
+      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .first();
+
+    const now = Date.now();
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+    } else {
+      await ctx.db.insert('userPreferences', {
+        userId: args.userId,
+        ...patch,
+        deckSize: args.deckSize,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
 // Mutations
 export const addCard = mutation({
   args: {

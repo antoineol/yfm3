@@ -71,3 +71,4 @@ Return best deck + exact expected ATK
 | 6.5 (V2): Early Termination (DONE) | `docs/steps/phase-6.5-early-termination.md` | Progress reporting + convergence detection |
 | 6.6 (V2): Offload Exact Scoring (DONE) | `docs/steps/phase-6.6-offload-exact-scoring.md` | Move exact scoring off main thread |
 | 7 (V2): Multi-Start (DONE) | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |
+| 8.1: Configuration UI (DONE) | `docs/steps/phase-8.1-configuration-ui-including-deck-size.md` | Global config module, persisted preferences, ConfigPanel UI |

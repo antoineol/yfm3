@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetConfig } from "./config.ts";
 import { optimizeDeck } from "./index.ts";
 import { DECK_SIZE, MAX_CARD_ID, MAX_COPIES } from "./types/constants.ts";
+
+afterEach(() => resetConfig());
 
 /** Collection where every card is owned at MAX_COPIES. */
 function allCardsCollection(): Map<number, number> {

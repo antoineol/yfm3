@@ -1,3 +1,4 @@
+import { setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
 import { initializeBuffersBrowser } from "./initialize-buffers-browser.ts";
 import { mulberry32 } from "./mulberry32.ts";
@@ -53,12 +54,14 @@ export function optimizeDeck(
     );
   }
 
+  setConfig({ deckSize });
+
   const scorer = new FusionScorer();
 
   // Score the current deck if provided
   let currentDeckScore: number | null = null;
   if (options?.currentDeck && options.currentDeck.length === deckSize) {
-    const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42), deckSize);
+    const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42));
     for (let i = 0; i < deckSize; i++) {
       scoreBuf.deck[i] = options.currentDeck[i] ?? 0;
     }
@@ -66,7 +69,7 @@ export function optimizeDeck(
   }
 
   // Run SA optimization
-  const buf = initializeBuffersBrowser(collection, mulberry32(42), deckSize);
+  const buf = initializeBuffersBrowser(collection, mulberry32(42));
   computeInitialScores(buf, scorer);
 
   const deadline = start + timeLimit - EXACT_SCORING_RESERVE;

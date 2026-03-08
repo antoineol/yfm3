@@ -1,4 +1,5 @@
-import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
+import { getConfig } from "../config.ts";
+import { CHOOSE_5, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
 
 /**
  * All pre-allocated typed-array buffers used by the optimizer.
@@ -40,7 +41,8 @@ export interface OptBuffers {
 }
 
 /** Allocate all optimizer buffers (zero-initialized by typed-array constructors). */
-export function createBuffers(deckSize: number = DECK_SIZE): OptBuffers {
+export function createBuffers(): OptBuffers {
+  const { deckSize } = getConfig();
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[deckSize] ?? 0);
   return {
     fusionTable: new Int16Array(MAX_CARD_ID * MAX_CARD_ID),

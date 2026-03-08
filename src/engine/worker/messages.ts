@@ -1,3 +1,5 @@
+import type { EngineConfig } from "../config.ts";
+
 /** Main thread → Worker: initialize buffers and run SA. */
 export type WorkerInit = {
   type: "INIT";
@@ -7,8 +9,8 @@ export type WorkerInit = {
   timeBudgetMs: number;
   /** Optional initial deck to override the greedy seed. */
   initialDeck?: number[];
-  /** Number of cards in the deck (default 40). */
-  deckSize: number;
+  /** Engine configuration snapshot for this worker. */
+  config: EngineConfig;
 };
 
 /** Worker → Main thread: SA finished, here's the best result. */
@@ -32,6 +34,8 @@ export type ScorerInit = {
   type: "SCORE";
   collection: Record<number, number>;
   deck: number[];
+  /** Engine configuration snapshot for this worker. */
+  config: EngineConfig;
 };
 
 /** Scorer Worker → Main thread: exact scoring result. */

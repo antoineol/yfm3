@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetConfig } from "../config.ts";
 import { DECK_SIZE } from "../types/constants.ts";
 import type {
   ScorerInit,
@@ -78,6 +79,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetConfig();
 });
 
 function makeCollection(size = 60): ReadonlyMap<number, number> {

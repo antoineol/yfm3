@@ -11,12 +11,8 @@ import { createBuffers } from "./types/buffers.ts";
  * Browser-compatible initialization pipeline.
  * Uses Vite ?raw imports for CSV data instead of fs.readFileSync.
  */
-export function initializeBuffersBrowser(
-  collection: Collection,
-  rand: () => number,
-  deckSize?: number,
-): OptBuffers {
-  const buf = createBuffers(deckSize);
+export function initializeBuffersBrowser(collection: Collection, rand: () => number): OptBuffers {
+  const buf = createBuffers();
   const cards = loadGameDataFromStrings(buf, cardsCsvRaw, fusionsCsvRaw);
   for (const card of cards) {
     buf.availableCounts[card.id] = collection.get(card.id) ?? 0;

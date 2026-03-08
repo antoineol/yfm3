@@ -1,3 +1,4 @@
+import { setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
 import { initializeBuffers, mulberry32 } from "./initialize-buffers.ts";
 import { SAOptimizer } from "./optimizer/sa-optimizer.ts";
@@ -57,9 +58,11 @@ export function optimizeDeck(
     );
   }
 
+  setConfig({ deckSize });
+
   // 1. Initialize buffers
   const rand = mulberry32(42);
-  const buf = initializeBuffers(collection, rand, deckSize);
+  const buf = initializeBuffers(collection, rand);
 
   // 2. Compute initial scores
   const scorer = new FusionScorer();

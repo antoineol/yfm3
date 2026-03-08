@@ -33,6 +33,7 @@ export default defineSchema({
   userPreferences: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints
+    deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   }).index('by_user', ['userId']),

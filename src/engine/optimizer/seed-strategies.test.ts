@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetConfig } from "../config.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { DECK_SIZE, MAX_COPIES } from "../types/constants.ts";
 import { generateInitialDecks } from "./seed-strategies.ts";
+
+afterEach(() => resetConfig());
 
 function makeCollectionRecord(numCards = 60): Record<number, number> {
   const record: Record<number, number> = {};

@@ -1,11 +1,12 @@
-import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Collection } from "../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../engine/index-browser.ts";
 import { DECK_SIZE } from "../engine/types/constants.ts";
 import { CollectionPanel } from "./components/CollectionPanel.tsx";
+import { ConfigPanel } from "./components/ConfigPanel.tsx";
 import { DeckPanel } from "./components/DeckPanel.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
 import { useUserId } from "./lib/use-user-id.ts";
@@ -16,6 +17,22 @@ export default function App() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [deckSize, setDeckSize] = useState(DECK_SIZE);
   const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
+  const prefs = useQuery(api.collection.getUserPreferences, userId ? { userId } : "skip");
+  const updatePreferences = useMutation(api.collection.updatePreferences);
+
+  // Sync deckSize from loaded preferences
+  useEffect(() => {
+    if (prefs?.deckSize != null) {
+      setDeckSize(prefs.deckSize);
+    }
+  }, [prefs?.deckSize]);
+
+  function handleDeckSizeChange(size: number) {
+    setDeckSize(size);
+    if (userId) {
+      updatePreferences({ userId, deckSize: size });
+    }
+  }
 
   function handleOptimize(collectionRecord: Record<number, number>) {
     setIsOptimizing(true);
@@ -43,6 +60,11 @@ export default function App() {
           placeholder="Enter user ID"
         />
       </label>
+      <ConfigPanel
+        deckSize={deckSize}
+        onDeckSizeChange={handleDeckSizeChange}
+        isOptimizing={isOptimizing}
+      />
       <div className="flex gap-6">
         <div className="flex-1">
           <CollectionPanel
@@ -50,7 +72,6 @@ export default function App() {
             onOptimize={handleOptimize}
             isOptimizing={isOptimizing}
             deckSize={deckSize}
-            onDeckSizeChange={setDeckSize}
           />
         </div>
         <div className="flex-1">
