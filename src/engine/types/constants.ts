@@ -16,6 +16,12 @@ export const MAX_COPIES = 3;
 /** A deck position (0..39). */
 export type SlotIndex = number;
 
+/** Default fusion chain depth (number of fusions per hand evaluation). */
+export const DEFAULT_FUSION_DEPTH = 3;
+
+/** Maximum supported fusion depth (used for buffer pre-allocation). */
+export const MAX_FUSION_DEPTH = 4;
+
 /** Sentinel value in the fusion table meaning "no fusion exists for this pair". */
 export const FUSION_NONE = -1;
 

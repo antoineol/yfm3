@@ -3,7 +3,7 @@ import type { Collection } from "../../engine/data/card-model.ts";
 import { optimizeDeckParallel } from "../../engine/index-browser.ts";
 import { useCollection } from "../db/use-collection.ts";
 import { useDeck } from "../db/use-deck.ts";
-import { useDeckSize } from "../db/use-user-preferences.ts";
+import { useDeckSize, useFusionDepth } from "../db/use-user-preferences.ts";
 import { isOptimizingAtom, resultAtom } from "./atoms.ts";
 
 export function useOptimize() {
@@ -13,6 +13,7 @@ export function useOptimize() {
   const collection = useCollection();
   const deck = useDeck();
   const deckSize = useDeckSize();
+  const fusionDepth = useFusionDepth();
 
   function optimize() {
     if (!collection) return;
@@ -22,7 +23,7 @@ export function useOptimize() {
     const col: Collection = new Map(
       Object.entries(collection).map(([id, qty]) => [Number(id), qty]),
     );
-    optimizeDeckParallel(col, { currentDeck, deckSize })
+    optimizeDeckParallel(col, { currentDeck, deckSize, fusionDepth })
       .then((res) => setResult(res))
       .catch((err) => console.error("Optimization failed:", err))
       .finally(() => setIsOptimizing(false));

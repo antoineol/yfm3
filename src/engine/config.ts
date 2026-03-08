@@ -1,11 +1,12 @@
-import { DECK_SIZE } from "./types/constants.ts";
+import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "./types/constants.ts";
 
 /** Engine-wide configuration. Mutable at module level — safe for single-user apps. */
 export interface EngineConfig {
   deckSize: number;
+  fusionDepth: number;
 }
 
-const defaults: Readonly<EngineConfig> = { deckSize: DECK_SIZE };
+const defaults: Readonly<EngineConfig> = { deckSize: DECK_SIZE, fusionDepth: DEFAULT_FUSION_DEPTH };
 
 const config: EngineConfig = { ...defaults };
 

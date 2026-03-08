@@ -7,10 +7,10 @@ import { computeInitialScores } from "./scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
 import { exactScore } from "./scoring/exact-scorer.ts";
 import { FusionScorer } from "./scoring/fusion-scorer.ts";
-import { DECK_SIZE, HAND_SIZE } from "./types/constants.ts";
+import { DECK_SIZE, DEFAULT_FUSION_DEPTH, HAND_SIZE, MAX_FUSION_DEPTH } from "./types/constants.ts";
 
-export type { OptimizeDeckParallelResult } from "./worker/orchestrator.ts";
-export { optimizeDeckParallel } from "./worker/orchestrator.ts";
+export type { OptimizeDeckParallelResult } from "./orchestrator.ts";
+export { optimizeDeckParallel } from "./orchestrator.ts";
 
 export interface OptimizeDeckResult {
   deck: number[];
@@ -31,17 +31,22 @@ const EXACT_SCORING_RESERVE = 5_000;
  *
  * @param options.currentDeck  card IDs of the current deck to score for comparison
  * @param options.deckSize  number of cards in the deck (default 40)
+ * @param options.fusionDepth  max fusion chain depth (default 3)
  */
 export function optimizeDeck(
   collection: Collection,
-  options?: { timeLimit?: number; currentDeck?: number[]; deckSize?: number },
+  options?: { timeLimit?: number; currentDeck?: number[]; deckSize?: number; fusionDepth?: number },
 ): OptimizeDeckResult {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
   const deckSize = options?.deckSize ?? DECK_SIZE;
+  const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const start = performance.now();
 
   if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
     throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  }
+  if (fusionDepth < 1 || fusionDepth > MAX_FUSION_DEPTH) {
+    throw new Error(`Fusion depth must be between 1 and ${MAX_FUSION_DEPTH}, got ${fusionDepth}.`);
   }
 
   let totalCards = 0;
@@ -54,7 +59,7 @@ export function optimizeDeck(
     );
   }
 
-  setConfig({ deckSize });
+  setConfig({ deckSize, fusionDepth });
 
   const scorer = new FusionScorer();
 

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetConfig } from "../config.ts";
-import { DECK_SIZE } from "../types/constants.ts";
+import { resetConfig } from "./config.ts";
+import { optimizeDeckParallel } from "./orchestrator.ts";
+import { DECK_SIZE } from "./types/constants.ts";
 import type {
   ScorerInit,
   ScorerResult,
   WorkerInit,
   WorkerResponse,
   WorkerResult,
-} from "./messages.ts";
-import { optimizeDeckParallel } from "./orchestrator.ts";
+} from "./worker/messages.ts";
 
 /** Minimal mock Worker that handles both SA (INIT) and scorer (SCORE) messages. */
 class MockWorker {

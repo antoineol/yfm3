@@ -161,6 +161,7 @@ export const updatePreferences = mutation({
   args: {
     userId: v.string(),
     deckSize: v.optional(v.number()),
+    fusionDepth: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -171,6 +172,7 @@ export const updatePreferences = mutation({
     const now = Date.now();
     const patch: Record<string, unknown> = { updatedAt: now };
     if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
+    if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);
@@ -179,6 +181,7 @@ export const updatePreferences = mutation({
         userId: args.userId,
         ...patch,
         deckSize: args.deckSize,
+        fusionDepth: args.fusionDepth,
         createdAt: now,
         updatedAt: now,
       });

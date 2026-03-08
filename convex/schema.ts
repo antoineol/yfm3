@@ -34,6 +34,7 @@ export default defineSchema({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
+    fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   }).index('by_user', ['userId']),

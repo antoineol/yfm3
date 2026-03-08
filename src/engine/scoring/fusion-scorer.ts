@@ -1,31 +1,30 @@
+import { getConfig } from "../config.ts";
 import type { AttackValue } from "../data/card-model.ts";
 import type { OptBuffers } from "../types/buffers.ts";
-import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
+import { FUSION_NONE, MAX_CARD_ID, MAX_FUSION_DEPTH } from "../types/constants.ts";
 import type { IScorer } from "../types/interfaces.ts";
 
 /**
  * DFS fusion-chain hand evaluator.
  *
- * Given 5 cards, explores all fusion chains up to 3 fusions deep
- * (4 materials consumed) and returns the highest ATK achievable.
+ * Given 5 cards, explores all fusion chains up to `fusionDepth` fusions deep
+ * (fusionDepth + 1 materials consumed) and returns the highest ATK achievable.
  *
  * Zero allocations in the hot path — uses a pre-allocated Int16Array
  * with stride-5 addressing for the DFS stack.
  */
 export class FusionScorer implements IScorer {
   /**
-   * Pre-allocated stack buffer: 3 DFS levels × 5 card slots.
-   * Level layout (hand shrinks each fusion):
-   *   Level 0: [0..4]   — 5 cards, C(5,2)=10 pairs
-   *   Level 1: [5..8]   — 4 cards, C(4,2)=6  pairs
-   *   Level 2: [10..12] — 3 cards, C(3,2)=3  pairs
+   * Pre-allocated stack buffer: MAX_FUSION_DEPTH DFS levels × 5 card slots.
+   * Sized for worst case so the instance is reusable across config changes.
    */
-  private readonly stackBuffer = new Int16Array(3 * 5);
+  private readonly stackBuffer = new Int16Array(MAX_FUSION_DEPTH * 5);
 
   evaluateHand(hand: Uint16Array, buf: OptBuffers): AttackValue {
     const sb = this.stackBuffer;
     const ft = buf.fusionTable;
     const atk = buf.cardAtk;
+    const maxLevel = getConfig().fusionDepth;
 
     // Copy hand into level 0 and find max base ATK
     let maxAtk = 0;
@@ -36,7 +35,7 @@ export class FusionScorer implements IScorer {
       if (a > maxAtk) maxAtk = a;
     }
 
-    maxAtk = this.dfs(sb, ft, atk, 0, 5, maxAtk);
+    maxAtk = this.dfs(sb, ft, atk, 0, 5, maxAtk, maxLevel);
     return maxAtk;
   }
 
@@ -47,6 +46,7 @@ export class FusionScorer implements IScorer {
     level: number,
     handSize: number,
     maxAtk: number,
+    maxLevel: number,
   ): number {
     const base = level * 5;
 
@@ -62,7 +62,7 @@ export class FusionScorer implements IScorer {
         if (resultAtk > maxAtk) maxAtk = resultAtk;
 
         const newHandSize = handSize - 1;
-        if (newHandSize < 2 || level >= 2) continue;
+        if (newHandSize < 2 || level >= maxLevel - 1) continue;
 
         // Copy remaining cards + result into next level
         const nextBase = (level + 1) * 5;
@@ -75,7 +75,7 @@ export class FusionScorer implements IScorer {
         }
         sb[nextBase + write] = result;
 
-        maxAtk = this.dfs(sb, ft, atk, level + 1, newHandSize, maxAtk);
+        maxAtk = this.dfs(sb, ft, atk, level + 1, newHandSize, maxAtk, maxLevel);
       }
     }
 

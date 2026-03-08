@@ -1,10 +1,15 @@
-import { CHOOSE_5, FUSION_NONE, MAX_CARD_ID } from "../engine/types/constants.ts";
+import {
+  CHOOSE_5,
+  DEFAULT_FUSION_DEPTH,
+  FUSION_NONE,
+  MAX_CARD_ID,
+} from "../engine/types/constants.ts";
 
 /**
  * Reference hand scorer: exhaustive recursive search of every fusion path.
  *
  * Given 5 cards, returns the highest ATK achievable by playing one card —
- * either a raw card or one produced by chaining up to 3 fusions.
+ * either a raw card or one produced by chaining up to `maxDepth` fusions.
  *
  * Algorithm:
  * 1. Start with the highest raw ATK in the hand as baseline.
@@ -12,10 +17,10 @@ import { CHOOSE_5, FUSION_NONE, MAX_CARD_ID } from "../engine/types/constants.ts
  *    - `fusionTable` is a flattened 722x722 grid: `fusionTable[a * 722 + b]`
  *      gives the result card ID, or FUSION_NONE (-1) if they can't fuse.
  *    - Skip fusions where the result ATK doesn't strictly beat both materials.
- * 3. Replace the two materials with the fusion result, recurse (max depth 3).
+ * 3. Replace the two materials with the fusion result, recurse (max depth configurable).
  * 4. Return the best ATK found across all paths.
  *
- * Search space: at most C(5,2) * C(4,2) * C(3,2) = 180 paths per hand.
+ * Search space: at most C(5,2) * C(4,2) * C(3,2) = 180 paths per hand (at depth 3).
  * Structurally independent from the production DFS scorer (plain arrays +
  * recursion vs. typed-array stack).
  */
@@ -23,6 +28,7 @@ export function referenceEvaluateHand(
   hand: number[],
   fusionTable: Int16Array,
   cardAtk: Int16Array,
+  maxDepth: number = DEFAULT_FUSION_DEPTH,
 ): number {
   let maxAtk = 0;
   for (const id of hand) {
@@ -35,7 +41,7 @@ export function referenceEvaluateHand(
 
   function tryFusions(cards: number[], depth: number): void {
     if (cards.length < 2) return;
-    if (depth >= 3) return;
+    if (depth >= maxDepth) return;
 
     for (let i = 0; i < cards.length - 1; i++) {
       for (let j = i + 1; j < cards.length; j++) {

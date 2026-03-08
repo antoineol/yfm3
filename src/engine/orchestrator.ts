@@ -1,8 +1,8 @@
-import { getConfig, setConfig } from "../config.ts";
-import type { Collection } from "../data/card-model.ts";
-import { mulberry32 } from "../mulberry32.ts";
-import { generateInitialDecks } from "../optimizer/seed-strategies.ts";
-import { DECK_SIZE, HAND_SIZE } from "../types/constants.ts";
+import { getConfig, setConfig } from "./config.ts";
+import type { Collection } from "./data/card-model.ts";
+import { mulberry32 } from "./mulberry32.ts";
+import { generateInitialDecks } from "./optimizer/seed-strategies.ts";
+import { DECK_SIZE, DEFAULT_FUSION_DEPTH, HAND_SIZE, MAX_FUSION_DEPTH } from "./types/constants.ts";
 import type {
   ScorerInit,
   ScorerResponse,
@@ -10,7 +10,7 @@ import type {
   WorkerProgress,
   WorkerResponse,
   WorkerResult,
-} from "./messages.ts";
+} from "./worker/messages.ts";
 
 export interface OptimizeDeckParallelResult {
   deck: number[];
@@ -41,7 +41,7 @@ const SEED_STRATEGY_SEED = 42;
  */
 function scoreInWorker(collectionRecord: Record<number, number>, deck: number[]): Promise<number> {
   return new Promise<number>((resolve, reject) => {
-    const worker = new Worker(new URL("./scorer-worker.ts", import.meta.url), {
+    const worker = new Worker(new URL("./worker/scorer-worker.ts", import.meta.url), {
       type: "module",
     });
     worker.onmessage = (e: MessageEvent<ScorerResponse>) => {
@@ -70,6 +70,7 @@ function scoreInWorker(collectionRecord: Record<number, number>, deck: number[])
  * @param options.signal  AbortSignal to cancel workers early
  * @param options.currentDeck  card IDs of the current deck to score for comparison
  * @param options.deckSize  number of cards in the optimized deck (default 40)
+ * @param options.fusionDepth  max fusion chain depth (default 3)
  */
 export async function optimizeDeckParallel(
   collection: Collection,
@@ -78,14 +79,19 @@ export async function optimizeDeckParallel(
     signal?: AbortSignal;
     currentDeck?: number[];
     deckSize?: number;
+    fusionDepth?: number;
   },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
   const deckSize = options?.deckSize ?? DECK_SIZE;
+  const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const start = performance.now();
 
   if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
     throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  }
+  if (fusionDepth < 1 || fusionDepth > MAX_FUSION_DEPTH) {
+    throw new Error(`Fusion depth must be between 1 and ${MAX_FUSION_DEPTH}, got ${fusionDepth}.`);
   }
 
   let totalCards = 0;
@@ -98,7 +104,7 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize });
+  setConfig({ deckSize, fusionDepth });
 
   // Serialize collection for worker transfer (workers receive plain objects)
   const collectionRecord: Record<number, number> = {};
@@ -166,7 +172,9 @@ export async function optimizeDeckParallel(
   }
 
   for (let i = 0; i < numWorkers; i++) {
-    const worker = new Worker(new URL("./sa-worker.ts", import.meta.url), { type: "module" });
+    const worker = new Worker(new URL("./worker/sa-worker.ts", import.meta.url), {
+      type: "module",
+    });
     workers.push(worker);
     resolved.push(false);
     latestProgress.push(null);

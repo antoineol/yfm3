@@ -1,7 +1,8 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { handFixtures } from "../../test/reference-fixtures.gen.ts";
 import { referenceEvaluateHand } from "../../test/reference-scorer.ts";
 import { createAllCardsBuffers } from "../../test/test-helpers.ts";
+import { resetConfig, setConfig } from "../config.ts";
 import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
 import { FusionScorer } from "./fusion-scorer.ts";
@@ -11,6 +12,10 @@ const scorer = new FusionScorer();
 
 beforeAll(() => {
   buf = createAllCardsBuffers();
+});
+
+afterEach(() => {
+  resetConfig();
 });
 
 // ---------------------------------------------------------------------------
@@ -122,5 +127,51 @@ describe("FusionScorer matches reference scorer", () => {
       const refResult = referenceEvaluateHand(cardIds, buf.fusionTable, buf.cardAtk);
       expect(scorer.evaluateHand(hand, buf)).toBe(refResult);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Configurable fusion depth
+// ---------------------------------------------------------------------------
+describe("FusionScorer configurable depth", () => {
+  // Hand [26, 66, 56, 58, 403] produces a 3-fusion chain.
+  // At depth 2, only 2 fusions are attempted — the 3rd is skipped.
+  it("fusionDepth=2: 3rd fusion is NOT attempted", () => {
+    setConfig({ fusionDepth: 2 });
+    const hand = new Uint16Array([26, 66, 56, 58, 403]);
+    const refResult = referenceEvaluateHand(Array.from(hand), buf.fusionTable, buf.cardAtk, 2);
+    expect(scorer.evaluateHand(hand, buf)).toBe(refResult);
+  });
+
+  it("fusionDepth=2: result differs from depth=3 on a deep chain", () => {
+    const hand = new Uint16Array([26, 66, 56, 58, 403]);
+    const depth3Result = scorer.evaluateHand(hand, buf);
+
+    setConfig({ fusionDepth: 2 });
+    const depth2Result = scorer.evaluateHand(hand, buf);
+
+    // depth=2 may find a worse or equal result but never better on a 3-chain hand
+    expect(depth2Result).toBeLessThanOrEqual(depth3Result);
+  });
+
+  it("fusionDepth=1: only single fusions are attempted", () => {
+    setConfig({ fusionDepth: 1 });
+    const hand = new Uint16Array([56, 66, 58, 403, 279]);
+    const refResult = referenceEvaluateHand(Array.from(hand), buf.fusionTable, buf.cardAtk, 1);
+    expect(scorer.evaluateHand(hand, buf)).toBe(refResult);
+  });
+
+  it("fusionDepth=4: 4th fusion IS attempted", () => {
+    setConfig({ fusionDepth: 4 });
+    const hand = new Uint16Array([26, 66, 56, 58, 403]);
+    const refResult = referenceEvaluateHand(Array.from(hand), buf.fusionTable, buf.cardAtk, 4);
+    expect(scorer.evaluateHand(hand, buf)).toBe(refResult);
+  });
+
+  it("fusionDepth=3: matches default behavior", () => {
+    setConfig({ fusionDepth: 3 });
+    const hand = new Uint16Array([26, 66, 56, 58, 403]);
+    const defaultResult = referenceEvaluateHand(Array.from(hand), buf.fusionTable, buf.cardAtk, 3);
+    expect(scorer.evaluateHand(hand, buf)).toBe(defaultResult);
   });
 });

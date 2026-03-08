@@ -72,3 +72,4 @@ Return best deck + exact expected ATK
 | 6.6 (V2): Offload Exact Scoring (DONE) | `docs/steps/phase-6.6-offload-exact-scoring.md` | Move exact scoring off main thread |
 | 7 (V2): Multi-Start (DONE) | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |
 | 8.1: Configuration UI (DONE) | `docs/steps/phase-8.1-configuration-ui-including-deck-size.md` | Global config module, persisted preferences, ConfigPanel UI |
+| 9: Configurable Fusion Depth (DONE) | `docs/steps/phase-9-accept-different-depth.md` | Configurable fusion chain depth (1–4), threaded through config/workers/UI |
