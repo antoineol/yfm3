@@ -1,8 +1,8 @@
 import { ConvexProvider } from "convex/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { convex } from "./core/convex-client.ts";
 import { CardDbProvider } from "./lib/card-db-context.tsx";
-import { convex } from "./lib/convex-client.ts";
 import "./index.css";
 import App from "./App.tsx";
 

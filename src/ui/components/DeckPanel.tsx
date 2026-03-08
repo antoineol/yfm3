@@ -1,12 +1,11 @@
-import { useQuery } from "convex/react";
 import { useAtomValue } from "jotai";
-import { api } from "../../../convex/_generated/api";
+import { useDeck } from "../db/use-deck.ts";
 import { userIdAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
 export function DeckPanel() {
   const userId = useAtomValue(userIdAtom);
-  const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
+  const deck = useDeck();
   const cardDb = useCardDb();
 
   if (!userId) return <div className="text-gray-500">Enter a user ID to load deck.</div>;

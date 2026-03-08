@@ -1,23 +1,14 @@
-import { useMutation } from "convex/react";
-import { useAtom, useAtomValue } from "jotai";
-import { api } from "../../../convex/_generated/api";
+import { useAtomValue } from "jotai";
 import { DECK_SIZE, HAND_SIZE } from "../../engine/types/constants.ts";
-import { deckSizeAtom, isOptimizingAtom, userIdAtom } from "../lib/atoms.ts";
+import { useUserPreferences } from "../db/use-user-preferences.ts";
+import { isOptimizingAtom } from "../lib/atoms.ts";
 
 export function ConfigPanel() {
-  const userId = useAtomValue(userIdAtom);
-  const [deckSize, setDeckSize] = useAtom(deckSizeAtom);
   const isOptimizing = useAtomValue(isOptimizingAtom);
-  const updatePreferences = useMutation(api.collection.updatePreferences);
+  const { deckSize, setDeckSize } = useUserPreferences();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = Number(e.target.value);
-    if (v >= HAND_SIZE && v <= DECK_SIZE) {
-      setDeckSize(v);
-      if (userId) {
-        updatePreferences({ userId, deckSize: v });
-      }
-    }
+    setDeckSize(Number(e.target.value));
   }
 
   return (

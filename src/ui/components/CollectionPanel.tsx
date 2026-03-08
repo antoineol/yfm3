@@ -1,19 +1,20 @@
-import { useQuery } from "convex/react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { api } from "../../../convex/_generated/api";
 import type { Collection } from "../../engine/data/card-model.ts";
 import { optimizeDeckParallel } from "../../engine/index-browser.ts";
-import { deckSizeAtom, isOptimizingAtom, resultAtom, userIdAtom } from "../lib/atoms.ts";
+import { useCollection } from "../db/use-collection.ts";
+import { useDeck } from "../db/use-deck.ts";
+import { useUserPreferences } from "../db/use-user-preferences.ts";
+import { isOptimizingAtom, resultAtom, userIdAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
 export function CollectionPanel() {
   const userId = useAtomValue(userIdAtom);
   const isOptimizing = useAtomValue(isOptimizingAtom);
-  const deckSize = useAtomValue(deckSizeAtom);
   const setIsOptimizing = useSetAtom(isOptimizingAtom);
   const setResult = useSetAtom(resultAtom);
-  const collection = useQuery(api.collection.getCollection, userId ? { userId } : "skip");
-  const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
+  const collection = useCollection();
+  const deck = useDeck();
+  const { deckSize } = useUserPreferences();
   const cardDb = useCardDb();
 
   function handleOptimize() {

@@ -1,25 +1,13 @@
-import { useQuery } from "convex/react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useEffect } from "react";
-import { api } from "../../convex/_generated/api";
 import { CollectionPanel } from "./components/CollectionPanel.tsx";
 import { ConfigPanel } from "./components/ConfigPanel.tsx";
 import { DeckPanel } from "./components/DeckPanel.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
-import { deckSizeAtom, userIdAtom } from "./lib/atoms.ts";
+import { userIdAtom } from "./lib/atoms.ts";
 
 export default function App() {
   const userId = useAtomValue(userIdAtom);
   const setUserId = useSetAtom(userIdAtom);
-  const setDeckSize = useSetAtom(deckSizeAtom);
-  const prefs = useQuery(api.collection.getUserPreferences, userId ? { userId } : "skip");
-
-  // Sync deckSize from loaded preferences
-  useEffect(() => {
-    if (prefs?.deckSize != null) {
-      setDeckSize(prefs.deckSize);
-    }
-  }, [prefs?.deckSize, setDeckSize]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-4">
