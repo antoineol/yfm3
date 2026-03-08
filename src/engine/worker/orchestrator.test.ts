@@ -231,6 +231,54 @@ describe("optimizeDeckParallel", () => {
   });
 });
 
+describe("multi-start seeding", () => {
+  it("sends no initialDeck to worker 0 (greedy default)", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 5 });
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+
+    await optimizeDeckParallel(makeCollection());
+
+    const worker0 = saWorkers()[0];
+    expect(worker0).toBeDefined();
+    const msg = worker0?.receivedMessage as WorkerInit;
+    expect(msg.initialDeck).toBeUndefined();
+  });
+
+  it("sends initialDeck to workers 1+ when multiple workers exist", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 5 });
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+
+    await optimizeDeckParallel(makeCollection());
+
+    const workers = saWorkers();
+    expect(workers.length).toBeGreaterThan(1);
+
+    for (let i = 1; i < workers.length; i++) {
+      const msg = workers[i]?.receivedMessage as WorkerInit;
+      expect(msg.initialDeck).toBeDefined();
+      expect(msg.initialDeck).toHaveLength(DECK_SIZE);
+    }
+  });
+});
+
 describe("scorer workers", () => {
   it("scores best deck in a worker (not on main thread)", async () => {
     const result = await optimizeDeckParallel(makeCollection());
@@ -264,14 +312,29 @@ describe("scorer workers", () => {
     expect(scorerWorkers()).toHaveLength(1);
     expect(result.currentDeckScore).toBeNull();
   });
+
+  it("scores only the single best candidate by sampled score", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 5 });
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+
+    await optimizeDeckParallel(makeCollection());
+
+    // Regardless of how many SA workers, only 1 scorer worker fires (best by sampled score)
+    expect(scorerWorkers()).toHaveLength(1);
+  });
 });
 
 describe("convergence detection", () => {
-  it("terminates early when no improvement across workers", async () => {
-    // Mock that sends PROGRESS with a fixed score, then RESULT much later.
-    // The convergence timeout for a 15s budget (13s SA) is max(3s, 13s*0.3) = 3.9s.
-    // We send progress repeatedly with the same score; after ~4s of no improvement,
-    // the orchestrator should resolve from progress and terminate.
+  it("terminates early when all workers individually plateau", async () => {
     vi.stubGlobal("navigator", { hardwareConcurrency: 4 });
     createdWorkers = [];
 
@@ -298,7 +361,7 @@ describe("convergence detection", () => {
           }
           this.kind = "sa";
           const deck = new Array(DECK_SIZE).fill(1);
-          // Send PROGRESS every 100ms with the same score (no improvement)
+          // Each worker sends PROGRESS with a fixed per-worker score (no improvement)
           let count = 0;
           const interval = setInterval(() => {
             if (this.terminated) {
@@ -315,7 +378,7 @@ describe("convergence detection", () => {
               },
             } as MessageEvent<WorkerResponse>);
           }, 100);
-          // Never send RESULT — convergence should resolve the promise
+          // Never send RESULT — per-worker convergence should resolve
         }
       },
     );
@@ -325,12 +388,83 @@ describe("convergence detection", () => {
     const elapsed = performance.now() - start;
 
     // Should terminate well before the full 13s SA budget
-    // (convergence timeout is ~4s + some slack for progress intervals)
     expect(elapsed).toBeLessThan(6_000);
     expect(result.deck).toHaveLength(DECK_SIZE);
     for (const w of saWorkers()) {
       expect(w.terminated).toBe(true);
     }
+  });
+
+  it("does not terminate early while any worker is still improving", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 3 });
+    createdWorkers = [];
+    let improvingWorkerProgressCount = 0;
+
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              const result: ScorerResult = {
+                type: "SCORE_RESULT",
+                expectedAtk: 1234,
+              };
+              this.onmessage?.({ data: result } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          const deck = new Array(DECK_SIZE).fill(msg.seed + 1);
+          let count = 0;
+          const interval = setInterval(() => {
+            if (this.terminated) {
+              clearInterval(interval);
+              return;
+            }
+            count++;
+            // Worker 0: keeps improving
+            // Worker 1: plateaued
+            const score = msg.seed === 0 ? 50_000 + count * 100 : 60_000;
+            if (msg.seed === 0) improvingWorkerProgressCount++;
+            this.onmessage?.({
+              data: {
+                type: "PROGRESS",
+                bestScore: score,
+                bestDeck: deck,
+                iterations: count * 100,
+              },
+            } as MessageEvent<WorkerResponse>);
+
+            // After enough progress, end naturally
+            if (count >= 15) {
+              clearInterval(interval);
+              this.onmessage?.({
+                data: {
+                  type: "RESULT",
+                  bestDeck: deck,
+                  bestScore: score,
+                  iterations: count * 100,
+                },
+              } as MessageEvent<WorkerResponse>);
+            }
+          }, 100);
+        }
+      },
+    );
+
+    await optimizeDeckParallel(makeCollection());
+
+    // Worker 0 kept improving, so convergence shouldn't have triggered early
+    // Worker 0 should have sent multiple progress updates before natural completion
+    expect(improvingWorkerProgressCount).toBeGreaterThanOrEqual(10);
   });
 
   it("picks best score from progress when terminating early", async () => {
@@ -350,9 +484,11 @@ describe("convergence detection", () => {
             this.kind = "scorer";
             setTimeout(() => {
               if (this.terminated) return;
+              // Return higher exact score for the deck filled with 2s (worker seed=1)
+              const deckVal = msg.deck[0] ?? 0;
               const result: ScorerResult = {
                 type: "SCORE_RESULT",
-                expectedAtk: 9999,
+                expectedAtk: deckVal === 2 ? 9999 : 5000,
               };
               this.onmessage?.({ data: result } as MessageEvent<ScorerResult>);
             }, 0);
@@ -381,9 +517,9 @@ describe("convergence detection", () => {
 
     const result = await optimizeDeckParallel(makeCollection());
 
-    // Worker with seed=1 has highest score: 80_000 + 1*1000 = 81_000
-    // The result deck should be from that worker (filled with seed+1 = 2)
+    // Worker seed=1 deck (filled with 2s) gets highest exact score (9999)
     expect(result.deck[0]).toBe(2);
+    expect(result.expectedAtk).toBe(9999);
   });
 
   it("does not terminate early when scores keep improving", async () => {

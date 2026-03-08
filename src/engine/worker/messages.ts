@@ -5,6 +5,8 @@ export type WorkerInit = {
   collection: Record<number, number>;
   seed: number;
   timeBudgetMs: number;
+  /** Optional initial deck to override the greedy seed. */
+  initialDeck?: number[];
 };
 
 /** Worker → Main thread: SA finished, here's the best result. */
