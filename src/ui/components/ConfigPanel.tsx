@@ -1,11 +1,13 @@
 import { useAtomValue } from "jotai";
 import { DECK_SIZE, HAND_SIZE } from "../../engine/types/constants.ts";
-import { useUserPreferences } from "../db/use-user-preferences.ts";
+import { useUpdatePreferences } from "../db/use-update-preferences.ts";
+import { useDeckSize } from "../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../lib/atoms.ts";
 
 export function ConfigPanel() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
-  const { deckSize, setDeckSize } = useUserPreferences();
+  const deckSize = useDeckSize();
+  const setDeckSize = useUpdatePreferences();
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setDeckSize(Number(e.target.value));

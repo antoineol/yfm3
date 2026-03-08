@@ -1,35 +1,16 @@
-import { useAtomValue, useSetAtom } from "jotai";
-import type { Collection } from "../../engine/data/card-model.ts";
-import { optimizeDeckParallel } from "../../engine/index-browser.ts";
+import { useAtomValue } from "jotai";
 import { useCollection } from "../db/use-collection.ts";
-import { useDeck } from "../db/use-deck.ts";
-import { useUserPreferences } from "../db/use-user-preferences.ts";
-import { isOptimizingAtom, resultAtom, userIdAtom } from "../lib/atoms.ts";
+import { useDeckSize } from "../db/use-user-preferences.ts";
+import { userIdAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
+import { useOptimize } from "../lib/use-optimize.ts";
 
 export function CollectionPanel() {
   const userId = useAtomValue(userIdAtom);
-  const isOptimizing = useAtomValue(isOptimizingAtom);
-  const setIsOptimizing = useSetAtom(isOptimizingAtom);
-  const setResult = useSetAtom(resultAtom);
   const collection = useCollection();
-  const deck = useDeck();
-  const { deckSize } = useUserPreferences();
+  const deckSize = useDeckSize();
   const cardDb = useCardDb();
-
-  function handleOptimize() {
-    if (!collection) return;
-    setIsOptimizing(true);
-    setResult(null);
-    const currentDeck = deck?.map((d) => d.cardId);
-    const col: Collection = new Map(
-      Object.entries(collection).map(([id, qty]) => [Number(id), qty]),
-    );
-    optimizeDeckParallel(col, { currentDeck, deckSize })
-      .then((res) => setResult(res))
-      .catch((err) => console.error("Optimization failed:", err))
-      .finally(() => setIsOptimizing(false));
-  }
+  const { optimize, isOptimizing } = useOptimize();
 
   if (!userId) return <div className="text-gray-500">Enter a user ID to load collection.</div>;
   if (collection === undefined) return <div className="text-gray-500">Loading collection...</div>;
@@ -52,7 +33,7 @@ export function CollectionPanel() {
           type="button"
           className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50"
           disabled={isOptimizing || totalCards < deckSize}
-          onClick={handleOptimize}
+          onClick={optimize}
         >
           {isOptimizing ? "Optimizing..." : "Optimize Deck"}
         </button>
