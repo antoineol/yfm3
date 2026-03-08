@@ -8,8 +8,6 @@ import { MAX_COPIES } from "../types/constants.ts";
  * - Worker 1: greedy seed with 10 random perturbations
  * - Workers 2+: fully random valid decks
  *
- * Reads `deckSize` from `getConfig()`.
- *
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
  * @param rand              seeded PRNG returning values in [0, 1)
@@ -20,7 +18,6 @@ export function generateInitialDecks(
   numWorkers: number,
   rand: () => number,
 ): Array<number[] | undefined> {
-  const { deckSize } = getConfig();
   const pool = buildPool(collectionRecord);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
 
@@ -29,12 +26,12 @@ export function generateInitialDecks(
 
   if (numWorkers > 1) {
     // Worker 1: greedy + perturbation — build a greedy-like deck then perturb
-    const greedy = buildGreedyDeckFromPool(pool, deckSize);
+    const greedy = buildGreedyDeckFromPool(pool);
     decks[1] = perturbDeck(greedy, pool, 10, rand);
   }
 
   for (let i = 2; i < numWorkers; i++) {
-    decks[i] = buildRandomDeck(pool, rand, deckSize);
+    decks[i] = buildRandomDeck(pool, rand);
   }
 
   return decks;
@@ -65,7 +62,8 @@ function buildPool(collectionRecord: Record<number, number>): PoolEntry[] {
  * the orchestrator doesn't have ATK data). This gives a deterministic starting point
  * for perturbation. The exact card order doesn't matter much since we perturb it.
  */
-function buildGreedyDeckFromPool(pool: PoolEntry[], deckSize: number): number[] {
+function buildGreedyDeckFromPool(pool: PoolEntry[]): number[] {
+  const { deckSize } = getConfig();
   const sorted = [...pool].sort((a, b) => b.id - a.id);
   const deck: number[] = [];
   const counts = new Map<number, number>();
@@ -126,7 +124,8 @@ function perturbDeck(
  * Expands each card to maxCopies entries, shuffles, takes first deckSize.
  * The expanded pool guarantees maxCopies is never exceeded.
  */
-function buildRandomDeck(pool: PoolEntry[], rand: () => number, deckSize: number): number[] {
+function buildRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
+  const { deckSize } = getConfig();
   // Expand pool into a flat list — each card appears maxCopies times
   const expanded: number[] = [];
   for (const entry of pool) {

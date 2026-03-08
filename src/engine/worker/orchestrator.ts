@@ -1,4 +1,3 @@
-import type { EngineConfig } from "../config.ts";
 import { getConfig, setConfig } from "../config.ts";
 import type { Collection } from "../data/card-model.ts";
 import { mulberry32 } from "../mulberry32.ts";
@@ -40,11 +39,7 @@ const SEED_STRATEGY_SEED = 42;
  * Spawn a scorer worker to exact-score a deck off the main thread.
  * Returns a Promise that resolves with the expected ATK value.
  */
-function scoreInWorker(
-  collectionRecord: Record<number, number>,
-  deck: number[],
-  config: EngineConfig,
-): Promise<number> {
+function scoreInWorker(collectionRecord: Record<number, number>, deck: number[]): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const worker = new Worker(new URL("./scorer-worker.ts", import.meta.url), {
       type: "module",
@@ -57,6 +52,7 @@ function scoreInWorker(
       reject(new Error(`Scorer worker error: ${e.message}`));
       worker.terminate();
     };
+    const config = getConfig();
     const msg: ScorerInit = { type: "SCORE", collection: collectionRecord, deck, config };
     worker.postMessage(msg);
   });
@@ -110,12 +106,10 @@ export async function optimizeDeckParallel(
     collectionRecord[id] = qty;
   }
 
-  const config = getConfig();
-
   // 1. Fire current-deck scoring in a worker (non-blocking, parallel with SA)
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
   if (options?.currentDeck && options.currentDeck.length === deckSize) {
-    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, config);
+    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck);
   }
 
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
@@ -218,7 +212,7 @@ export async function optimizeDeckParallel(
       seed: i,
       timeBudgetMs,
       initialDeck: initialDecks[i],
-      config,
+      config: getConfig(),
     };
     worker.postMessage(init);
   }
@@ -251,7 +245,7 @@ export async function optimizeDeckParallel(
 
   // 4. Exact-score best deck + await current deck score (both in parallel)
   const [expectedAtk, currentDeckScore] = await Promise.all([
-    scoreInWorker(collectionRecord, best?.bestDeck ?? [], config),
+    scoreInWorker(collectionRecord, best?.bestDeck ?? []),
     currentDeckPromise,
   ]);
 

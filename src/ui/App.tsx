@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Collection } from "../engine/data/card-model.ts";
@@ -18,7 +18,6 @@ export default function App() {
   const [deckSize, setDeckSize] = useState(DECK_SIZE);
   const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
   const prefs = useQuery(api.collection.getUserPreferences, userId ? { userId } : "skip");
-  const updatePreferences = useMutation(api.collection.updatePreferences);
 
   // Sync deckSize from loaded preferences
   useEffect(() => {
@@ -26,13 +25,6 @@ export default function App() {
       setDeckSize(prefs.deckSize);
     }
   }, [prefs?.deckSize]);
-
-  function handleDeckSizeChange(size: number) {
-    setDeckSize(size);
-    if (userId) {
-      updatePreferences({ userId, deckSize: size });
-    }
-  }
 
   function handleOptimize(collectionRecord: Record<number, number>) {
     setIsOptimizing(true);
@@ -61,8 +53,9 @@ export default function App() {
         />
       </label>
       <ConfigPanel
+        userId={userId}
         deckSize={deckSize}
-        onDeckSizeChange={handleDeckSizeChange}
+        onDeckSizeChange={setDeckSize}
         isOptimizing={isOptimizing}
       />
       <div className="flex gap-6">
