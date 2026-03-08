@@ -1,18 +1,14 @@
-import { useAtomValue } from "jotai";
 import { useCollection } from "../db/use-collection.ts";
 import { useDeckSize } from "../db/use-user-preferences.ts";
-import { userIdAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useOptimize } from "../lib/use-optimize.ts";
 
 export function CollectionPanel() {
-  const userId = useAtomValue(userIdAtom);
   const collection = useCollection();
   const deckSize = useDeckSize();
   const cardDb = useCardDb();
   const { optimize, isOptimizing } = useOptimize();
 
-  if (!userId) return <div className="text-gray-500">Enter a user ID to load collection.</div>;
   if (collection === undefined) return <div className="text-gray-500">Loading collection...</div>;
 
   const entries = Object.entries(collection)

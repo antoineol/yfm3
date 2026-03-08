@@ -1,14 +1,10 @@
-import { useAtomValue } from "jotai";
 import { useDeck } from "../db/use-deck.ts";
-import { userIdAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
 export function DeckPanel() {
-  const userId = useAtomValue(userIdAtom);
   const deck = useDeck();
   const cardDb = useCardDb();
 
-  if (!userId) return <div className="text-gray-500">Enter a user ID to load deck.</div>;
   if (deck === undefined) return <div className="text-gray-500">Loading deck...</div>;
   if (deck.length === 0) return <div className="text-gray-500">No deck found.</div>;
 

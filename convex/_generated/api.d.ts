@@ -8,10 +8,13 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
+import type * as authHelper from "../authHelper.js";
 import type * as collection from "../collection.js";
 import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as hand from "../hand.js";
+import type * as http from "../http.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -20,29 +23,40 @@ import type {
   FunctionReference,
 } from "convex/server";
 
+declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
+  authHelper: typeof authHelper;
+  collection: typeof collection;
+  deck: typeof deck;
+  deckAggregate: typeof deckAggregate;
+  hand: typeof hand;
+  http: typeof http;
+  utils: typeof utils;
+}>;
+
 /**
- * A utility for referencing Convex functions in your app's API.
+ * A utility for referencing Convex functions in your app's public API.
  *
  * Usage:
  * ```js
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-declare const fullApi: ApiFromModules<{
-  collection: typeof collection;
-  deck: typeof deck;
-  deckAggregate: typeof deckAggregate;
-  hand: typeof hand;
-  utils: typeof utils;
-}>;
-declare const fullApiWithMounts: typeof fullApi;
-
 export declare const api: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
-  typeof fullApiWithMounts,
+  typeof fullApi,
   FunctionReference<any, "internal">
 >;
 
@@ -55,6 +69,12 @@ export declare const components: {
         { k1?: any; k2?: any; namespace?: any },
         { count: number; sum: number }
       >;
+      aggregateBetweenBatch: FunctionReference<
+        "query",
+        "internal",
+        { queries: Array<{ k1?: any; k2?: any; namespace?: any }> },
+        Array<{ count: number; sum: number }>
+      >;
       atNegativeOffset: FunctionReference<
         "query",
         "internal",
@@ -66,6 +86,19 @@ export declare const components: {
         "internal",
         { k1?: any; k2?: any; namespace?: any; offset: number },
         { k: any; s: number; v: any }
+      >;
+      atOffsetBatch: FunctionReference<
+        "query",
+        "internal",
+        {
+          queries: Array<{
+            k1?: any;
+            k2?: any;
+            namespace?: any;
+            offset: number;
+          }>;
+        },
+        Array<{ k: any; s: number; v: any }>
       >;
       get: FunctionReference<
         "query",
@@ -124,6 +157,30 @@ export declare const components: {
         { namespace?: any; node?: string },
         null
       >;
+      listTreeNodes: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          aggregate?: { count: number; sum: number };
+          items: Array<{ k: any; s: number; v: any }>;
+          subtrees: Array<string>;
+        }>
+      >;
+      listTrees: FunctionReference<
+        "query",
+        "internal",
+        { take?: number },
+        Array<{
+          _creationTime: number;
+          _id: string;
+          maxNodeSize: number;
+          namespace?: any;
+          root: string;
+        }>
+      >;
     };
     public: {
       clear: FunctionReference<
@@ -132,17 +189,17 @@ export declare const components: {
         { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
         null
       >;
-      deleteIfExists: FunctionReference<
-        "mutation",
-        "internal",
-        { key: any; namespace?: any },
-        any
-      >;
       delete_: FunctionReference<
         "mutation",
         "internal",
         { key: any; namespace?: any },
         null
+      >;
+      deleteIfExists: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        any
       >;
       init: FunctionReference<
         "mutation",

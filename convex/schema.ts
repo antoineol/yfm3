@@ -1,7 +1,10 @@
+import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
 export default defineSchema({
+  ...authTables,
+
   // User's card collection - tracks owned cards and their quantities
   cardCollection: defineTable({
     userId: v.string(), // User identifier (could be session ID or auth user ID)

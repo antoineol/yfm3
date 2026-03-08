@@ -1,12 +1,14 @@
 import { v } from 'convex/values';
 import { mutation, type MutationCtx, query } from './_generated/server';
+import { requireAuth } from './authHelper';
 
 export const getCollectionIndexedByCardId = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const collection = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     return collection.reduce(
@@ -20,17 +22,18 @@ export const getCollectionIndexedByCardId = query({
 });
 
 export const getCollectionWithoutDeck = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const collection = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     // Filter collection: remove cards that are in the deck
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     const deckCounts: Record<number, number> = {};
@@ -55,11 +58,12 @@ export const getCollectionWithoutDeck = query({
 });
 
 export const getCollectionCardIds = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const collection = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
     const cardIds = collection.map(item => item.cardId);
     const uniqueCardIds = [...new Set(cardIds)];
@@ -68,28 +72,29 @@ export const getCollectionCardIds = query({
 });
 
 export const getLastAddedCard = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const userPrefs = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .first();
 
     if (!userPrefs?.lastAddedCard) return null;
 
     return await ctx.db
       .query('cardCollection')
-      .withIndex('by_user_card', q => q.eq('userId', args.userId).eq('cardId', userPrefs.lastAddedCard!))
+      .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', userPrefs.lastAddedCard!))
       .first();
   },
 });
 
 export const removeFromCollection = mutation({
   args: {
-    userId: v.string(),
     id: v.id('cardCollection'),
   },
-  handler: async (ctx, { userId, id }) => {
+  handler: async (ctx, { id }) => {
+    const userId = await requireAuth(ctx);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) throw new Error('Collection card not found');
@@ -104,10 +109,10 @@ export const removeFromCollection = mutation({
 
 export const addToCollection = mutation({
   args: {
-    userId: v.string(),
     cardId: v.number(),
   },
-  handler: async (ctx, { userId, cardId }) => {
+  handler: async (ctx, { cardId }) => {
+    const userId = await requireAuth(ctx);
     const doc = await ctx.db
       .query('cardCollection')
       .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', cardId))
@@ -128,11 +133,12 @@ export const addToCollection = mutation({
 // Deprecated
 
 export const getCollection = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const collection = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     // Convert to Record<CardId, number> format expected by the app
@@ -146,11 +152,12 @@ export const getCollection = query({
 });
 
 export const getUserPreferences = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const prefs = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .first();
 
     return prefs ?? null;
@@ -159,14 +166,14 @@ export const getUserPreferences = query({
 
 export const updatePreferences = mutation({
   args: {
-    userId: v.string(),
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const existing = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .first();
 
     const now = Date.now();
@@ -178,7 +185,7 @@ export const updatePreferences = mutation({
       await ctx.db.patch(existing._id, patch);
     } else {
       await ctx.db.insert('userPreferences', {
-        userId: args.userId,
+        userId,
         ...patch,
         deckSize: args.deckSize,
         fusionDepth: args.fusionDepth,
@@ -192,14 +199,14 @@ export const updatePreferences = mutation({
 // Mutations
 export const addCard = mutation({
   args: {
-    userId: v.string(),
     cardId: v.number(),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // Find existing collection entry
     const existing = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .filter(q => q.eq(q.field('cardId'), args.cardId))
       .first();
 
@@ -211,7 +218,7 @@ export const addCard = mutation({
         });
 
         // Update last added card
-        await updateLastAddedCard(ctx, args.userId, args.cardId);
+        await updateLastAddedCard(ctx, userId, args.cardId);
 
         return { success: true, newQuantity: existing.quantity + 1 };
       } else {
@@ -220,13 +227,13 @@ export const addCard = mutation({
     } else {
       // Create new collection entry
       await ctx.db.insert('cardCollection', {
-        userId: args.userId,
+        userId,
         cardId: args.cardId,
         quantity: 1,
       });
 
       // Update last added card
-      await updateLastAddedCard(ctx, args.userId, args.cardId);
+      await updateLastAddedCard(ctx, userId, args.cardId);
 
       return { success: true, newQuantity: 1 };
     }
@@ -235,13 +242,13 @@ export const addCard = mutation({
 
 export const removeCard = mutation({
   args: {
-    userId: v.string(),
     cardId: v.number(),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const existing = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .filter(q => q.eq(q.field('cardId'), args.cardId))
       .first();
 
@@ -290,7 +297,6 @@ async function updateLastAddedCard(ctx: MutationCtx, userId: string, cardId: num
 // Batch migration functions for robust data migration
 export const batchMigrateCollection = mutation({
   args: {
-    userId: v.string(),
     collectionData: v.array(
       v.object({
         cardId: v.number(),
@@ -299,6 +305,7 @@ export const batchMigrateCollection = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const results = [];
 
     for (const item of args.collectionData) {
@@ -306,7 +313,7 @@ export const batchMigrateCollection = mutation({
         // Check if card already exists
         const existing = await ctx.db
           .query('cardCollection')
-          .withIndex('by_user_card', q => q.eq('userId', args.userId).eq('cardId', item.cardId))
+          .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', item.cardId))
           .first();
 
         if (existing) {
@@ -318,7 +325,7 @@ export const batchMigrateCollection = mutation({
         } else {
           // Create new record
           await ctx.db.insert('cardCollection', {
-            userId: args.userId,
+            userId,
             cardId: item.cardId,
             quantity: Math.min(item.quantity, 3), // Ensure max 3
           });
@@ -335,13 +342,13 @@ export const batchMigrateCollection = mutation({
 
 export const batchMigrateUserPreferences = mutation({
   args: {
-    userId: v.string(),
     lastAddedCard: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const existing = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .first();
 
     const now = Date.now();
@@ -356,7 +363,7 @@ export const batchMigrateUserPreferences = mutation({
     } else {
       // Create new preferences
       await ctx.db.insert('userPreferences', {
-        userId: args.userId,
+        userId,
         lastAddedCard: args.lastAddedCard,
         createdAt: now,
         updatedAt: now,
@@ -368,26 +375,27 @@ export const batchMigrateUserPreferences = mutation({
 
 // Check migration status - returns what data already exists
 export const getMigrationStatus = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const collection = await ctx.db
       .query('cardCollection')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     const deck = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     const hand = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     const preferences = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .first();
 
     return {

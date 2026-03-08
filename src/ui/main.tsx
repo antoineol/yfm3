@@ -1,4 +1,4 @@
-import { ConvexProvider } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { convex } from "./core/convex-client.ts";
@@ -11,10 +11,10 @@ if (!root) throw new Error("Missing #root element");
 
 createRoot(root).render(
   <StrictMode>
-    <ConvexProvider client={convex}>
+    <ConvexAuthProvider client={convex}>
       <CardDbProvider>
         <App />
       </CardDbProvider>
-    </ConvexProvider>
+    </ConvexAuthProvider>
   </StrictMode>,
 );

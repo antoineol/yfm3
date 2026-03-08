@@ -17,7 +17,9 @@
     "gen:ref": "bun run scripts/generate-fixtures.ts"
   },
   "dependencies": {
+    "@auth/core": "0.37.0",
     "@convex-dev/aggregate": "0.1.25",
+    "@convex-dev/auth": "^0.0.91",
     "@tailwindcss/vite": "^4.2.1",
     "convex": "^1.32.0",
     "jotai": "^2.18.0",

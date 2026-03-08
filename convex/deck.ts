@@ -1,15 +1,17 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
+import { requireAuth } from './authHelper';
 import { deckAggregate } from './deckAggregate';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
 export const getDeck = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     return deckCards.sort((a, b) => a.cardId - b.cardId);
@@ -17,11 +19,12 @@ export const getDeck = query({
 });
 
 export const getDeckCardIds = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
     const cardIds = deckCards.map(card => card.cardId);
     const uniqueCardIds = [...new Set(cardIds)];
@@ -30,8 +33,8 @@ export const getDeckCardIds = query({
 });
 
 export const getDeckCount = query({
-  args: { userId: v.string() },
-  handler: async (ctx, _args) => {
+  args: {},
+  handler: async (ctx) => {
     return await deckAggregate.count(ctx);
   },
 });
@@ -45,11 +48,11 @@ export const getDeckItem = query({
 
 export const addToDeck = mutation({
   args: {
-    userId: v.string(),
     cardId: v.number(),
   },
   handler: async (ctx, args) => {
-    const { userId, cardId } = args;
+    const userId = await requireAuth(ctx);
+    const { cardId } = args;
     const id = await ctx.db.insert('deck', { userId, cardId });
     const doc = await ctx.db.get(id);
     if (doc) await deckAggregate.insert(ctx, doc);
@@ -58,10 +61,10 @@ export const addToDeck = mutation({
 
 export const removeFromDeck = mutation({
   args: {
-    userId: v.string(),
     id: v.id('deck'),
   },
-  handler: async (ctx, { userId, id }) => {
+  handler: async (ctx, { id }) => {
+    const userId = await requireAuth(ctx);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) throw new Error('Deck card not found');
@@ -73,11 +76,11 @@ export const removeFromDeck = mutation({
 
 export const moveDeckCard = mutation({
   args: {
-    userId: v.string(),
     id: v.id('deck'),
     newOrder: v.number(), // Target fractional order
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // First, fetch the record to check ownership
     const deckCard = await ctx.db.get(args.id);
 
@@ -86,7 +89,7 @@ export const moveDeckCard = mutation({
     }
 
     // Verify ownership - ensure the record belongs to the requesting user
-    if (deckCard.userId !== args.userId) {
+    if (deckCard.userId !== userId) {
       return { success: false, error: 'Unauthorized: card does not belong to user' };
     }
 
@@ -100,12 +103,12 @@ export const moveDeckCard = mutation({
 
 export const insertDeckCardBetween = mutation({
   args: {
-    userId: v.string(),
     id: v.id('deck'),
     beforeCardId: v.optional(v.id('deck')), // Insert after this card
     afterCardId: v.optional(v.id('deck')), // Insert before this card
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // First, fetch the record to check ownership
     const deckCard = await ctx.db.get(args.id);
 
@@ -114,7 +117,7 @@ export const insertDeckCardBetween = mutation({
     }
 
     // Verify ownership - ensure the record belongs to the requesting user
-    if (deckCard.userId !== args.userId) {
+    if (deckCard.userId !== userId) {
       return { success: false, error: 'Unauthorized: card does not belong to user' };
     }
 
@@ -124,7 +127,7 @@ export const insertDeckCardBetween = mutation({
     if (args.beforeCardId) {
       const beforeCard = await ctx.db.get(args.beforeCardId);
       // Also verify ownership of reference cards if they exist
-      if (beforeCard && beforeCard.userId !== args.userId) {
+      if (beforeCard && beforeCard.userId !== userId) {
         return { success: false, error: 'Unauthorized: reference card does not belong to user' };
       }
       beforeOrder = beforeCard?.order ?? null;
@@ -133,7 +136,7 @@ export const insertDeckCardBetween = mutation({
     if (args.afterCardId) {
       const afterCard = await ctx.db.get(args.afterCardId);
       // Also verify ownership of reference cards if they exist
-      if (afterCard && afterCard.userId !== args.userId) {
+      if (afterCard && afterCard.userId !== userId) {
         return { success: false, error: 'Unauthorized: reference card does not belong to user' };
       }
       afterOrder = afterCard?.order ?? null;
@@ -150,11 +153,12 @@ export const insertDeckCardBetween = mutation({
 });
 
 export const clearDeck = mutation({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     // Delete all deck cards for this user and update aggregate
@@ -169,7 +173,6 @@ export const clearDeck = mutation({
 
 export const replaceDeck = mutation({
   args: {
-    userId: v.string(),
     newDeck: v.array(
       v.object({
         cardId: v.number(),
@@ -178,10 +181,11 @@ export const replaceDeck = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // Clear existing deck first
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     // Delete all deck cards for this user and update aggregate
@@ -198,7 +202,7 @@ export const replaceDeck = mutation({
       if (!card) throw new Error('Card is undefined');
 
       const id = await ctx.db.insert('deck', {
-        userId: args.userId,
+        userId,
         cardId: card.cardId,
         copyId: card.copyId,
         order: orders[i] ?? 0.5,
@@ -216,7 +220,6 @@ export const batchMigrateDeck = mutation({
   args: {
     deckData: v.array(
       v.object({
-        userId: v.string(),
         cardId: v.number(),
         copyId: v.string(),
         order: v.number(), // Now using fractional order instead of position
@@ -224,16 +227,14 @@ export const batchMigrateDeck = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const results = [];
-    const userId = args.deckData[0]?.userId ?? null;
 
     // First, clear any existing deck data for this user to avoid duplicates
-    const existingDeck = userId
-      ? await ctx.db
-          .query('deck')
-          .withIndex('by_user', q => q.eq('userId', userId))
-          .collect()
-      : [];
+    const existingDeck = await ctx.db
+      .query('deck')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .collect();
 
     // Delete existing deck and update aggregate
     for (const item of existingDeck) {
@@ -245,7 +246,7 @@ export const batchMigrateDeck = mutation({
     for (const item of args.deckData) {
       try {
         const id = await ctx.db.insert('deck', {
-          userId: item.userId,
+          userId,
           cardId: item.cardId,
           copyId: item.copyId,
           order: item.order,
@@ -299,10 +300,10 @@ export const backfillDeckAggregate = internalMutation({
 
 export const acceptSuggestedDeck = mutation({
   args: {
-    userId: v.string(),
     cardIds: v.array(v.number()),
   },
-  handler: async (ctx, { userId, cardIds }) => {
+  handler: async (ctx, { cardIds }) => {
+    const userId = await requireAuth(ctx);
     const existingDeckCards = await ctx.db
       .query('deck')
       .withIndex('by_user', q => q.eq('userId', userId))

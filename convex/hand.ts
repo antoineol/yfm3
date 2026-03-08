@@ -1,25 +1,27 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
+import { requireAuth } from './authHelper';
 import { getOrderBetween } from './utils';
 
 const MAX_HAND_SIZE = 5;
 
 export const getHand = query({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     return ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
   },
 });
 
 export const addToHand = mutation({
   args: {
-    userId: v.string(),
     cardId: v.number(),
   },
-  handler: async (ctx, { userId, cardId }) => {
+  handler: async (ctx, { cardId }) => {
+    const userId = await requireAuth(ctx);
     const currentHand = await ctx.db
       .query('hand')
       .withIndex('by_user', q => q.eq('userId', userId))
@@ -35,10 +37,10 @@ export const addToHand = mutation({
 
 export const removeFromHand = mutation({
   args: {
-    userId: v.string(),
     id: v.id('hand'),
   },
-  handler: async (ctx, { userId, id }) => {
+  handler: async (ctx, { id }) => {
+    const userId = await requireAuth(ctx);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) throw new Error('Deck card not found');
@@ -49,10 +51,10 @@ export const removeFromHand = mutation({
 
 export const removeMultipleFromHand = mutation({
   args: {
-    userId: v.string(),
     ids: v.array(v.id('hand')),
   },
-  handler: async (ctx, { userId, ids }) => {
+  handler: async (ctx, { ids }) => {
+    const userId = await requireAuth(ctx);
     const oldDocs = await Promise.all(ids.map(id => ctx.db.get(id)));
 
     for (const oldDoc of oldDocs) {
@@ -67,16 +69,16 @@ export const removeMultipleFromHand = mutation({
 
 export const moveHandCard = mutation({
   args: {
-    userId: v.string(),
     copyId: v.string(),
     beforeCardCopyId: v.optional(v.string()), // Insert after this card
     afterCardCopyId: v.optional(v.string()), // Insert before this card
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     // Find the card to move
     const cardToMove = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .filter(q => q.eq(q.field('copyId'), args.copyId))
       .first();
 
@@ -90,7 +92,7 @@ export const moveHandCard = mutation({
     if (args.beforeCardCopyId) {
       const beforeCard = await ctx.db
         .query('hand')
-        .withIndex('by_user', q => q.eq('userId', args.userId))
+        .withIndex('by_user', q => q.eq('userId', userId))
         .filter(q => q.eq(q.field('copyId'), args.beforeCardCopyId))
         .first();
       beforeOrder = beforeCard?.order ?? null;
@@ -99,7 +101,7 @@ export const moveHandCard = mutation({
     if (args.afterCardCopyId) {
       const afterCard = await ctx.db
         .query('hand')
-        .withIndex('by_user', q => q.eq('userId', args.userId))
+        .withIndex('by_user', q => q.eq('userId', userId))
         .filter(q => q.eq(q.field('copyId'), args.afterCardCopyId))
         .first();
       afterOrder = afterCard?.order ?? null;
@@ -116,11 +118,12 @@ export const moveHandCard = mutation({
 });
 
 export const clearHand = mutation({
-  args: { userId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
     const handCards = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', args.userId))
+      .withIndex('by_user', q => q.eq('userId', userId))
       .collect();
 
     // Delete all hand cards for this user
@@ -137,7 +140,6 @@ export const batchMigrateHand = mutation({
   args: {
     handData: v.array(
       v.object({
-        userId: v.string(),
         cardId: v.number(),
         copyId: v.string(),
         order: v.number(), // Now using fractional order instead of position
@@ -145,16 +147,14 @@ export const batchMigrateHand = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const results = [];
-    const userId = args.handData[0]?.userId ?? null;
 
     // First, clear any existing hand data for this user to avoid duplicates
-    const existingHand = userId
-      ? await ctx.db
-          .query('hand')
-          .withIndex('by_user', q => q.eq('userId', userId))
-          .collect()
-      : [];
+    const existingHand = await ctx.db
+      .query('hand')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .collect();
 
     for (const item of existingHand) {
       await ctx.db.delete(item._id);
@@ -166,7 +166,7 @@ export const batchMigrateHand = mutation({
     for (const item of handDataToInsert) {
       try {
         await ctx.db.insert('hand', {
-          userId: item.userId,
+          userId,
           cardId: item.cardId,
           copyId: item.copyId,
           order: item.order,
