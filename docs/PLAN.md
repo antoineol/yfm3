@@ -73,3 +73,11 @@ Return best deck + exact expected ATK
 | 7 (V2): Multi-Start (DONE) | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |
 | 8.1: Configuration UI (DONE) | `docs/steps/phase-8.1-configuration-ui-including-deck-size.md` | Global config module, persisted preferences, ConfigPanel UI |
 | 9: Configurable Fusion Depth (DONE) | `docs/steps/phase-9-accept-different-depth.md` | Configurable fusion chain depth (1–4), threaded through config/workers/UI |
+| **Port YFM2 Features** | [`docs/steps/p1-port-yfm2-features.md`](steps/p1-port-yfm2-features.md) | Overview & feature gap analysis |
+| P0a: Authentication | [`docs/steps/p1.1-auth.md`](steps/p1.1-auth.md) | Auto-generated user ID, remove manual input, shared session with YFM2 |
+| P0b: Baseline UX Polish | [`docs/steps/p1.5-baseline-ux-polish.md`](steps/p1.5-baseline-ux-polish.md) | Fix broken config inputs, visual hierarchy, card display |
+| P1: Hand Fusion Calculator | [`docs/steps/p2-hand-fusion-calculator.md`](steps/p2-hand-fusion-calculator.md) | 5-card hand simulation, real-time fusion chains, play fusion |
+| P2: Optimization UX | [`docs/steps/p3-optimization-ux.md`](steps/p3-optimization-ux.md) | Progress bar, cancel, accept/reject + manual fine-tuning |
+| P3: Deck Intelligence | [`docs/steps/p4-deck-intelligence.md`](steps/p4-deck-intelligence.md) | Deck fusion list, score explanation with probabilities |
+| P4: Collection UX | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Card autocomplete, last-added hint, manual deck add/remove |
+| P5: Fusion Reference | [`docs/steps/p6-fusion-reference.md`](steps/p6-fusion-reference.md) | Fusion lookup tool, browsable fusion database |
