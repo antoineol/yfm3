@@ -1,11 +1,9 @@
-import type { OptimizeDeckParallelResult } from "../../engine/index-browser.ts";
+import { useAtomValue } from "jotai";
+import { resultAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
-interface ResultPanelProps {
-  result: OptimizeDeckParallelResult | null;
-}
-
-export function ResultPanel({ result }: ResultPanelProps) {
+export function ResultPanel() {
+  const result = useAtomValue(resultAtom);
   const cardDb = useCardDb();
 
   if (!result) {

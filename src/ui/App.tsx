@@ -1,22 +1,17 @@
 import { useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useEffect } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Collection } from "../engine/data/card-model.ts";
-import type { OptimizeDeckParallelResult } from "../engine/index-browser.ts";
-import { optimizeDeckParallel } from "../engine/index-browser.ts";
-import { DECK_SIZE } from "../engine/types/constants.ts";
 import { CollectionPanel } from "./components/CollectionPanel.tsx";
 import { ConfigPanel } from "./components/ConfigPanel.tsx";
 import { DeckPanel } from "./components/DeckPanel.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
-import { useUserId } from "./lib/use-user-id.ts";
+import { deckSizeAtom, userIdAtom } from "./lib/atoms.ts";
 
 export default function App() {
-  const [userId, setUserId] = useUserId();
-  const [result, setResult] = useState<OptimizeDeckParallelResult | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [deckSize, setDeckSize] = useState(DECK_SIZE);
-  const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
+  const userId = useAtomValue(userIdAtom);
+  const setUserId = useSetAtom(userIdAtom);
+  const setDeckSize = useSetAtom(deckSizeAtom);
   const prefs = useQuery(api.collection.getUserPreferences, userId ? { userId } : "skip");
 
   // Sync deckSize from loaded preferences
@@ -24,20 +19,7 @@ export default function App() {
     if (prefs?.deckSize != null) {
       setDeckSize(prefs.deckSize);
     }
-  }, [prefs?.deckSize]);
-
-  function handleOptimize(collectionRecord: Record<number, number>) {
-    setIsOptimizing(true);
-    setResult(null);
-    const currentDeck = deck?.map((d) => d.cardId);
-    const collection: Collection = new Map(
-      Object.entries(collectionRecord).map(([id, qty]) => [Number(id), qty]),
-    );
-    optimizeDeckParallel(collection, { currentDeck, deckSize })
-      .then((res) => setResult(res))
-      .catch((err) => console.error("Optimization failed:", err))
-      .finally(() => setIsOptimizing(false));
-  }
+  }, [prefs?.deckSize, setDeckSize]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-4">
@@ -52,26 +34,16 @@ export default function App() {
           placeholder="Enter user ID"
         />
       </label>
-      <ConfigPanel
-        userId={userId}
-        deckSize={deckSize}
-        onDeckSizeChange={setDeckSize}
-        isOptimizing={isOptimizing}
-      />
+      <ConfigPanel />
       <div className="flex gap-6">
         <div className="flex-1">
-          <CollectionPanel
-            userId={userId}
-            onOptimize={handleOptimize}
-            isOptimizing={isOptimizing}
-            deckSize={deckSize}
-          />
+          <CollectionPanel />
         </div>
         <div className="flex-1">
-          <DeckPanel userId={userId} />
+          <DeckPanel />
         </div>
         <div className="flex-1">
-          <ResultPanel result={result} />
+          <ResultPanel />
         </div>
       </div>
     </div>
