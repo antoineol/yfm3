@@ -1,20 +1,8 @@
-import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
 import { Button } from "../../components/Button.tsx";
+import { useGoogleSignIn } from "./use-google-sign-in.ts";
 
 export function SignIn() {
-  const { signIn } = useAuthActions();
-  const [signingIn, setSigningIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleSignIn() {
-    setSigningIn(true);
-    setError(null);
-    signIn("google").catch(() => {
-      setError("Sign-in failed. Please try again.");
-      setSigningIn(false);
-    });
-  }
+  const { signingIn, error, handleSignIn } = useGoogleSignIn();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 relative">

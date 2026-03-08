@@ -27,6 +27,12 @@ export function buildCardEntries(
   return entries.sort((a, b) => b.atk - a.atk);
 }
 
+export function countById(ids: number[]): Map<number, number> {
+  const counts = new Map<number, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return counts;
+}
+
 export function CardTable({ entries }: { entries: CardEntry[] }) {
   return (
     <div className="overflow-x-auto">

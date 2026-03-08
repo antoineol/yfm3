@@ -1,14 +1,11 @@
-import { useAtomValue } from "jotai";
-import { buildCardEntries, CardTable } from "../../components/CardTable.tsx";
+import { CardTable } from "../../components/CardTable.tsx";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
-import { resultAtom } from "../../lib/atoms.ts";
-import { useCardDb } from "../../lib/card-db-context.tsx";
+import { useResultEntries } from "./use-result-entries.ts";
 
 export function ResultPanel() {
-  const result = useAtomValue(resultAtom);
-  const cardDb = useCardDb();
+  const data = useResultEntries();
 
-  if (!result) {
+  if (!data) {
     return (
       <>
         <PanelHeader title="Optimized Result" />
@@ -17,11 +14,7 @@ export function ResultPanel() {
     );
   }
 
-  const counts = new Map<number, number>();
-  for (const id of result.deck) {
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-  const entries = buildCardEntries(counts, cardDb);
+  const { entries, result } = data;
 
   return (
     <>

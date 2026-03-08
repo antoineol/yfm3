@@ -1,3 +1,21 @@
+import type { ReactNode } from "react";
+
+export function PanelCard({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`min-h-0 flex flex-col min-w-0 bg-bg-panel border border-border-subtle rounded-xl p-5 shadow-[0_0_40px_rgba(0,0,0,0.3)] ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function PanelHeader({ title, badge }: { title: string; badge?: string }) {
   return (
     <div className="flex items-baseline gap-3 pb-3 mb-3 border-b border-border-subtle">

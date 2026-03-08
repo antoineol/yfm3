@@ -5,7 +5,6 @@ import { useUpdateDeckSize, useUpdateFusionDepth } from "../../db/use-update-pre
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { useDraftField } from "../../hooks/use-draft-field.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
-import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
 
 const deckSizeSchema = z.number().int().min(HAND_SIZE).max(DECK_SIZE);
 const fusionDepthSchema = z.number().int().min(1).max(MAX_FUSION_DEPTH);
@@ -18,7 +17,7 @@ export function ConfigPanel() {
   const commitFusionDepth = useUpdateFusionDepth();
 
   return (
-    <div className="flex items-center gap-6 px-5 py-3 border-b border-border-subtle text-sm">
+    <div className="flex flex-col gap-4 text-sm">
       <ConfigInput
         label="Deck size"
         value={deckSize}
@@ -33,9 +32,6 @@ export function ConfigPanel() {
         onCommit={commitFusionDepth}
         disabled={isOptimizing}
       />
-      <div className="ml-auto">
-        <OptimizeButton />
-      </div>
     </div>
   );
 }
