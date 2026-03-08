@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Collection } from "../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../engine/index-browser.ts";
+import { DECK_SIZE } from "../engine/types/constants.ts";
 import { CollectionPanel } from "./components/CollectionPanel.tsx";
 import { DeckPanel } from "./components/DeckPanel.tsx";
 import { ResultPanel } from "./components/ResultPanel.tsx";
@@ -13,6 +14,7 @@ export default function App() {
   const [userId, setUserId] = useUserId();
   const [result, setResult] = useState<OptimizeDeckParallelResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [deckSize, setDeckSize] = useState(DECK_SIZE);
   const deck = useQuery(api.deck.getDeck, userId ? { userId } : "skip");
 
   function handleOptimize(collectionRecord: Record<number, number>) {
@@ -22,7 +24,7 @@ export default function App() {
     const collection: Collection = new Map(
       Object.entries(collectionRecord).map(([id, qty]) => [Number(id), qty]),
     );
-    optimizeDeckParallel(collection, { currentDeck })
+    optimizeDeckParallel(collection, { currentDeck, deckSize })
       .then((res) => setResult(res))
       .catch((err) => console.error("Optimization failed:", err))
       .finally(() => setIsOptimizing(false));
@@ -47,6 +49,8 @@ export default function App() {
             userId={userId}
             onOptimize={handleOptimize}
             isOptimizing={isOptimizing}
+            deckSize={deckSize}
+            onDeckSizeChange={setDeckSize}
           />
         </div>
         <div className="flex-1">

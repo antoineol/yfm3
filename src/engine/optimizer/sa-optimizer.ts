@@ -1,6 +1,5 @@
 import { mulberry32 } from "../mulberry32.ts";
 import type { OptBuffers } from "../types/buffers.ts";
-import { DECK_SIZE } from "../types/constants.ts";
 import type { IDeltaEvaluator, IOptimizer, IScorer } from "../types/interfaces.ts";
 import { createBiasedSelector } from "./biased-selection.ts";
 import { createTabuList } from "./tabu-list.ts";
@@ -53,9 +52,9 @@ export class SAOptimizer implements IOptimizer {
     onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
   ): number {
     const rand = mulberry32(this.seed);
-    const tabu = createTabuList();
+    const tabu = createTabuList(buf.deck.length);
     const selector = createBiasedSelector();
-    const bestDeck = new Int16Array(DECK_SIZE);
+    const bestDeck = new Int16Array(buf.deck.length);
 
     let totalScore = sumScores(buf);
     let bestScore = totalScore;
@@ -90,7 +89,7 @@ export class SAOptimizer implements IOptimizer {
         }
       }
       // 1. Pick a random slot and a biased replacement card
-      const slot = (rand() * DECK_SIZE) | 0;
+      const slot = (rand() * buf.deck.length) | 0;
       const oldCard = buf.deck[slot] ?? 0;
       const newCard = selector.selectCandidate(buf, oldCard, rand);
       if (newCard === -1) {
@@ -148,7 +147,7 @@ export class SAOptimizer implements IOptimizer {
     // The exact scorer (Phase 5) recomputes from scratch, so this is safe.
     buf.deck.set(bestDeck);
     buf.cardCounts.fill(0);
-    for (let i = 0; i < DECK_SIZE; i++) {
+    for (let i = 0; i < buf.deck.length; i++) {
       buf.cardCounts[buf.deck[i] ?? 0] = (buf.cardCounts[buf.deck[i] ?? 0] ?? 0) + 1;
     }
     this.iterations = iteration;
@@ -176,7 +175,7 @@ function calibrateTemp(
   let samples = 0;
 
   for (let i = 0; i < CALIBRATION_SWAPS; i++) {
-    const slot = (rand() * DECK_SIZE) | 0;
+    const slot = (rand() * buf.deck.length) | 0;
     const oldCard = buf.deck[slot] ?? 0;
     const newCard = selector.selectCandidate(buf, oldCard, rand);
     if (newCard === -1) continue;

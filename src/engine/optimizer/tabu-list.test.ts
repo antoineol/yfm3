@@ -4,13 +4,13 @@ import { createTabuList } from "./tabu-list.ts";
 
 describe("TabuList", () => {
   it("newly created tabu has nothing marked", () => {
-    const tabu = createTabuList();
+    const tabu = createTabuList(40);
     expect(tabu.isTabu(0, 100)).toBe(false);
     expect(tabu.isTabu(5, 200)).toBe(false);
   });
 
   it("prevents recently rejected card", () => {
-    const tabu = createTabuList();
+    const tabu = createTabuList(40);
     tabu.addTabu(3, 42);
     expect(tabu.isTabu(3, 42)).toBe(true);
     // Different slot is unaffected
@@ -18,7 +18,7 @@ describe("TabuList", () => {
   });
 
   it("ring wraps after 8 entries, oldest overwritten", () => {
-    const tabu = createTabuList();
+    const tabu = createTabuList(40);
     // Add 8 cards to slot 0
     for (let i = 1; i <= 8; i++) {
       tabu.addTabu(0, i);

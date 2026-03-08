@@ -18,3 +18,52 @@ export type SlotIndex = number;
 
 /** Sentinel value in the fusion table meaning "no fusion exists for this pair". */
 export const FUSION_NONE = -1;
+
+/**
+ * Precomputed C(n, 5) for n = 0..40.
+ * Used to determine the total number of 5-card hands for a given deck size.
+ */
+// prettier-ignore
+export const CHOOSE_5: readonly number[] = [
+  0,
+  0,
+  0,
+  0,
+  0, // n = 0..4
+  1,
+  6,
+  21,
+  56,
+  126, // n = 5..9
+  252,
+  462,
+  792,
+  1287,
+  2002, // n = 10..14
+  3003,
+  4368,
+  6188,
+  8568,
+  11628, // n = 15..19
+  15504,
+  20349,
+  26334,
+  33649,
+  42504, // n = 20..24
+  53130,
+  65780,
+  80730,
+  98280,
+  118755, // n = 25..29
+  142506,
+  169911,
+  201376,
+  237336,
+  278256, // n = 30..34
+  324632,
+  376992,
+  435897,
+  501942,
+  575757, // n = 35..39
+  658008, // n = 40
+];

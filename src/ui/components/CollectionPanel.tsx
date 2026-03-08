@@ -1,14 +1,23 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { DECK_SIZE, HAND_SIZE } from "../../engine/types/constants.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 
 interface CollectionPanelProps {
   userId: string;
   onOptimize: (collection: Record<number, number>) => void;
   isOptimizing: boolean;
+  deckSize: number;
+  onDeckSizeChange: (size: number) => void;
 }
 
-export function CollectionPanel({ userId, onOptimize, isOptimizing }: CollectionPanelProps) {
+export function CollectionPanel({
+  userId,
+  onOptimize,
+  isOptimizing,
+  deckSize,
+  onDeckSizeChange,
+}: CollectionPanelProps) {
   const collection = useQuery(api.collection.getCollection, userId ? { userId } : "skip");
   const cardDb = useCardDb();
 
@@ -29,14 +38,31 @@ export function CollectionPanel({ userId, onOptimize, isOptimizing }: Collection
     <div>
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold">Collection ({totalCards} cards)</h2>
-        <button
-          type="button"
-          className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50"
-          disabled={isOptimizing || totalCards < 40}
-          onClick={() => onOptimize(collection)}
-        >
-          {isOptimizing ? "Optimizing..." : "Optimize Deck"}
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 text-sm">
+            Deck size:
+            <input
+              type="number"
+              min={HAND_SIZE}
+              max={DECK_SIZE}
+              value={deckSize}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v >= HAND_SIZE && v <= DECK_SIZE) onDeckSizeChange(v);
+              }}
+              className="w-16 px-1 py-0.5 bg-gray-800 border border-gray-600 rounded text-center"
+              disabled={isOptimizing}
+            />
+          </label>
+          <button
+            type="button"
+            className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50"
+            disabled={isOptimizing || totalCards < deckSize}
+            onClick={() => onOptimize(collection)}
+          >
+            {isOptimizing ? "Optimizing..." : "Optimize Deck"}
+          </button>
+        </div>
       </div>
       <div className="max-h-[70vh] overflow-y-auto">
         <table className="w-full text-sm">

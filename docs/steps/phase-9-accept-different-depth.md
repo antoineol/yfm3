@@ -1,1 +1,1 @@
-Depth is currently hardcoded to 3 fusions (4 materials). Variabilize so that it can be changed, e.g. to 2 or 4 fusions.
+Currently, the fusions depth seems hardcoded to 3 fusions (4 materials). Variabilize, make it a config, so that it can be changed, e.g. to 2 or 4 fusions, e.g. from the UI.

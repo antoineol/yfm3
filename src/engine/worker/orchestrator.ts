@@ -1,7 +1,7 @@
 import type { Collection } from "../data/card-model.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { generateInitialDecks } from "../optimizer/seed-strategies.ts";
-import { DECK_SIZE } from "../types/constants.ts";
+import { DECK_SIZE, HAND_SIZE } from "../types/constants.ts";
 import type {
   ScorerInit,
   ScorerResponse,
@@ -67,21 +67,32 @@ function scoreInWorker(collectionRecord: Record<number, number>, deck: number[])
  * @param options.timeLimit  total wall-clock budget in ms (default 15s)
  * @param options.signal  AbortSignal to cancel workers early
  * @param options.currentDeck  card IDs of the current deck to score for comparison
+ * @param options.deckSize  number of cards in the optimized deck (default 40)
  */
 export async function optimizeDeckParallel(
   collection: Collection,
-  options?: { timeLimit?: number; signal?: AbortSignal; currentDeck?: number[] },
+  options?: {
+    timeLimit?: number;
+    signal?: AbortSignal;
+    currentDeck?: number[];
+    deckSize?: number;
+  },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
+  const deckSize = options?.deckSize ?? DECK_SIZE;
   const start = performance.now();
+
+  if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
+    throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  }
 
   let totalCards = 0;
   for (const count of collection.values()) {
     totalCards += count;
   }
-  if (totalCards < DECK_SIZE) {
+  if (totalCards < deckSize) {
     throw new Error(
-      `Collection has only ${totalCards} total cards, but a deck requires ${DECK_SIZE}.`,
+      `Collection has only ${totalCards} total cards, but a deck requires ${deckSize}.`,
     );
   }
 
@@ -93,7 +104,7 @@ export async function optimizeDeckParallel(
 
   // 1. Fire current-deck scoring in a worker (non-blocking, parallel with SA)
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
-  if (options?.currentDeck && options.currentDeck.length === DECK_SIZE) {
+  if (options?.currentDeck && options.currentDeck.length === deckSize) {
     currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck);
   }
 
@@ -108,7 +119,7 @@ export async function optimizeDeckParallel(
 
   // Generate multi-start initial decks
   const rand = mulberry32(SEED_STRATEGY_SEED);
-  const initialDecks = generateInitialDecks(collectionRecord, numWorkers, rand);
+  const initialDecks = generateInitialDecks(collectionRecord, numWorkers, rand, deckSize);
 
   const workers: Worker[] = [];
   const promises: Promise<WorkerResult>[] = [];
@@ -197,6 +208,7 @@ export async function optimizeDeckParallel(
       seed: i,
       timeBudgetMs,
       initialDeck: initialDecks[i],
+      deckSize,
     };
     worker.postMessage(init);
   }

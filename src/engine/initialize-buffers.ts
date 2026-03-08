@@ -18,8 +18,12 @@ import { createBuffers } from "./types/buffers.ts";
  *
  * @param collection  cardId → number of copies owned by the player
  */
-export function initializeBuffers(collection: Collection, rand: () => number): OptBuffers {
-  const buf = createBuffers();
+export function initializeBuffers(
+  collection: Collection,
+  rand: () => number,
+  deckSize?: number,
+): OptBuffers {
+  const buf = createBuffers(deckSize);
   const cards = loadGameData(buf);
   for (const card of cards) {
     buf.availableCounts[card.id] = collection.get(card.id) ?? 0;

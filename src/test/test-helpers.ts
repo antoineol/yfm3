@@ -10,6 +10,6 @@ function allCardsCollection(): Collection {
   return m;
 }
 
-export function createAllCardsBuffers(): OptBuffers {
-  return initializeBuffers(allCardsCollection(), mulberry32(42));
+export function createAllCardsBuffers(deckSize?: number): OptBuffers {
+  return initializeBuffers(allCardsCollection(), mulberry32(42), deckSize);
 }

@@ -1,14 +1,12 @@
-import { DECK_SIZE } from "../types/constants.ts";
-
 const TABU_SIZE = 8;
 
 /**
  * Per-slot ring buffer tracking the last 8 rejected cards per slot.
  * Prevents the SA loop from re-trying recently rejected candidates.
  */
-export function createTabuList() {
-  const buffer = new Uint16Array(DECK_SIZE * TABU_SIZE);
-  const index = new Uint8Array(DECK_SIZE);
+export function createTabuList(deckSize: number) {
+  const buffer = new Uint16Array(deckSize * TABU_SIZE);
+  const index = new Uint8Array(deckSize);
 
   function isTabu(slot: number, cardId: number): boolean {
     const base = slot * TABU_SIZE;

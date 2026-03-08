@@ -6,7 +6,7 @@ import { computeInitialScores } from "./scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
 import { exactScore } from "./scoring/exact-scorer.ts";
 import { FusionScorer } from "./scoring/fusion-scorer.ts";
-import { DECK_SIZE } from "./types/constants.ts";
+import { DECK_SIZE, HAND_SIZE } from "./types/constants.ts";
 
 export type { OptimizeDeckParallelResult } from "./worker/orchestrator.ts";
 export { optimizeDeckParallel } from "./worker/orchestrator.ts";
@@ -29,21 +29,27 @@ const EXACT_SCORING_RESERVE = 5_000;
  * Uses Vite ?raw CSV imports instead of fs.readFileSync.
  *
  * @param options.currentDeck  card IDs of the current deck to score for comparison
+ * @param options.deckSize  number of cards in the deck (default 40)
  */
 export function optimizeDeck(
   collection: Collection,
-  options?: { timeLimit?: number; currentDeck?: number[] },
+  options?: { timeLimit?: number; currentDeck?: number[]; deckSize?: number },
 ): OptimizeDeckResult {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
+  const deckSize = options?.deckSize ?? DECK_SIZE;
   const start = performance.now();
+
+  if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
+    throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  }
 
   let totalCards = 0;
   for (const count of collection.values()) {
     totalCards += count;
   }
-  if (totalCards < DECK_SIZE) {
+  if (totalCards < deckSize) {
     throw new Error(
-      `Collection has only ${totalCards} total cards, but a deck requires ${DECK_SIZE}.`,
+      `Collection has only ${totalCards} total cards, but a deck requires ${deckSize}.`,
     );
   }
 
@@ -51,16 +57,16 @@ export function optimizeDeck(
 
   // Score the current deck if provided
   let currentDeckScore: number | null = null;
-  if (options?.currentDeck && options.currentDeck.length === DECK_SIZE) {
-    const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42));
-    for (let i = 0; i < DECK_SIZE; i++) {
+  if (options?.currentDeck && options.currentDeck.length === deckSize) {
+    const scoreBuf = initializeBuffersBrowser(collection, mulberry32(42), deckSize);
+    for (let i = 0; i < deckSize; i++) {
       scoreBuf.deck[i] = options.currentDeck[i] ?? 0;
     }
     currentDeckScore = exactScore(scoreBuf, scorer);
   }
 
   // Run SA optimization
-  const buf = initializeBuffersBrowser(collection, mulberry32(42));
+  const buf = initializeBuffersBrowser(collection, mulberry32(42), deckSize);
   computeInitialScores(buf, scorer);
 
   const deadline = start + timeLimit - EXACT_SCORING_RESERVE;

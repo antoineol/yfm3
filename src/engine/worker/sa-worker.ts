@@ -7,12 +7,12 @@ import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { WorkerInit, WorkerProgress, WorkerResult } from "./messages.ts";
 
 self.onmessage = (e: MessageEvent<WorkerInit>) => {
-  const { collection, seed, timeBudgetMs, initialDeck } = e.data;
+  const { collection, seed, timeBudgetMs, initialDeck, deckSize } = e.data;
   const collectionMap = new Map(
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),
   );
   const rand = mulberry32(seed);
-  const buf = initializeBuffersBrowser(collectionMap, rand);
+  const buf = initializeBuffersBrowser(collectionMap, rand, deckSize);
 
   // Override greedy deck with the provided initial deck if any
   if (initialDeck) {

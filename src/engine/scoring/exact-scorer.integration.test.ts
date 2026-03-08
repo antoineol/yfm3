@@ -31,4 +31,27 @@ describe("exactScore", () => {
     const score2 = exactScore(buf, scorer);
     expect(score1).toBe(score2);
   });
+
+  it("works with a small deck (10 cards)", () => {
+    const smallBuf = createAllCardsBuffers(10);
+    const score = exactScore(smallBuf, scorer);
+    const reference = referenceScoreDeck(
+      Array.from(smallBuf.deck),
+      smallBuf.fusionTable,
+      smallBuf.cardAtk,
+    );
+    expect(score).toBeCloseTo(reference, 6);
+  });
+
+  it("works with a 5-card deck (single hand)", () => {
+    const tinyBuf = createAllCardsBuffers(5);
+    const score = exactScore(tinyBuf, scorer);
+    expect(score).toBeGreaterThan(0);
+    const reference = referenceScoreDeck(
+      Array.from(tinyBuf.deck),
+      tinyBuf.fusionTable,
+      tinyBuf.cardAtk,
+    );
+    expect(score).toBeCloseTo(reference, 6);
+  });
 });

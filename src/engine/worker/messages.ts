@@ -7,6 +7,8 @@ export type WorkerInit = {
   timeBudgetMs: number;
   /** Optional initial deck to override the greedy seed. */
   initialDeck?: number[];
+  /** Number of cards in the deck (default 40). */
+  deckSize: number;
 };
 
 /** Worker → Main thread: SA finished, here's the best result. */

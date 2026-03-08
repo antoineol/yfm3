@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createBuffers } from "./buffers.ts";
-import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
+import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
 
 describe("OptBuffers", () => {
-  it("exact sizes", () => {
+  it("exact sizes with default deck size", () => {
     const b = createBuffers();
     expect(b.fusionTable.length).toBe(MAX_CARD_ID * MAX_CARD_ID);
     expect(b.cardAtk.length).toBe(MAX_CARD_ID);
@@ -15,5 +15,27 @@ describe("OptBuffers", () => {
     expect(b.affectedHandIds.length).toBe(NUM_HANDS * HAND_SIZE);
     expect(b.affectedHandOffsets.length).toBe(DECK_SIZE);
     expect(b.affectedHandCounts.length).toBe(DECK_SIZE);
+  });
+
+  it("sizes scale with custom deck size", () => {
+    const b = createBuffers(20);
+    const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[20] ?? 0);
+    expect(b.deck.length).toBe(20);
+    expect(b.affectedHandOffsets.length).toBe(20);
+    expect(b.affectedHandCounts.length).toBe(20);
+    expect(b.handScores.length).toBe(expectedHands);
+    expect(b.handSlots.length).toBe(expectedHands * HAND_SIZE);
+    expect(b.affectedHandIds.length).toBe(expectedHands * HAND_SIZE);
+    // Game data arrays are unchanged
+    expect(b.fusionTable.length).toBe(MAX_CARD_ID * MAX_CARD_ID);
+    expect(b.cardAtk.length).toBe(MAX_CARD_ID);
+  });
+
+  it("caps numHands at C(deckSize,5) for small decks", () => {
+    const b = createBuffers(5);
+    // C(5,5) = 1 → only 1 hand possible
+    expect(b.handScores.length).toBe(1);
+    expect(b.handSlots.length).toBe(HAND_SIZE);
+    expect(b.deck.length).toBe(5);
   });
 });

@@ -10,12 +10,14 @@ import { DECK_SIZE, MAX_COPIES } from "../types/constants.ts";
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
  * @param rand              seeded PRNG returning values in [0, 1)
+ * @param deckSize          number of cards in a deck (default 40)
  * @returns array of length numWorkers; element 0 is undefined (greedy default)
  */
 export function generateInitialDecks(
   collectionRecord: Record<number, number>,
   numWorkers: number,
   rand: () => number,
+  deckSize: number = DECK_SIZE,
 ): Array<number[] | undefined> {
   const pool = buildPool(collectionRecord);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
@@ -25,12 +27,12 @@ export function generateInitialDecks(
 
   if (numWorkers > 1) {
     // Worker 1: greedy + perturbation — build a greedy-like deck then perturb
-    const greedy = buildGreedyDeckFromPool(pool);
+    const greedy = buildGreedyDeckFromPool(pool, deckSize);
     decks[1] = perturbDeck(greedy, pool, 10, rand);
   }
 
   for (let i = 2; i < numWorkers; i++) {
-    decks[i] = buildRandomDeck(pool, rand);
+    decks[i] = buildRandomDeck(pool, rand, deckSize);
   }
 
   return decks;
@@ -61,15 +63,15 @@ function buildPool(collectionRecord: Record<number, number>): PoolEntry[] {
  * the orchestrator doesn't have ATK data). This gives a deterministic starting point
  * for perturbation. The exact card order doesn't matter much since we perturb it.
  */
-function buildGreedyDeckFromPool(pool: PoolEntry[]): number[] {
+function buildGreedyDeckFromPool(pool: PoolEntry[], deckSize: number): number[] {
   const sorted = [...pool].sort((a, b) => b.id - a.id);
   const deck: number[] = [];
   const counts = new Map<number, number>();
 
   for (const entry of sorted) {
-    if (deck.length >= DECK_SIZE) break;
+    if (deck.length >= deckSize) break;
     const used = counts.get(entry.id) ?? 0;
-    const canAdd = Math.min(entry.maxCopies - used, DECK_SIZE - deck.length);
+    const canAdd = Math.min(entry.maxCopies - used, deckSize - deck.length);
     for (let c = 0; c < canAdd; c++) {
       deck.push(entry.id);
     }
@@ -96,7 +98,7 @@ function perturbDeck(
   }
 
   for (let s = 0; s < numSwaps; s++) {
-    const slot = (rand() * DECK_SIZE) | 0;
+    const slot = (rand() * deck.length) | 0;
     // Try a few times to find a valid replacement
     for (let attempt = 0; attempt < 10; attempt++) {
       const entry = pool[(rand() * pool.length) | 0];
@@ -119,10 +121,10 @@ function perturbDeck(
 
 /**
  * Build a fully random valid deck from the pool.
- * Expands each card to maxCopies entries, shuffles, takes first DECK_SIZE.
+ * Expands each card to maxCopies entries, shuffles, takes first deckSize.
  * The expanded pool guarantees maxCopies is never exceeded.
  */
-function buildRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
+function buildRandomDeck(pool: PoolEntry[], rand: () => number, deckSize: number): number[] {
   // Expand pool into a flat list — each card appears maxCopies times
   const expanded: number[] = [];
   for (const entry of pool) {
@@ -139,5 +141,5 @@ function buildRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
     expanded[j] = tmp;
   }
 
-  return expanded.slice(0, DECK_SIZE);
+  return expanded.slice(0, deckSize);
 }

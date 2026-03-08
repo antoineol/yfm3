@@ -76,12 +76,24 @@ describe("optimizeDeck", () => {
     expect(wallClock).toBeLessThan(15_000);
   }, 30_000);
 
-  it("throws on collection with < 40 total cards", () => {
+  it("throws on collection with fewer cards than deckSize", () => {
     const tiny = new Map<number, number>();
     tiny.set(1, 10);
     tiny.set(2, 10);
     // Only 20 total cards
     expect(() => optimizeDeck(tiny)).toThrow(/requires 40/);
+  });
+
+  it("throws on invalid deckSize", () => {
+    expect(() => optimizeDeck(allCardsCollection(), { deckSize: 3 })).toThrow(/between 5 and 40/);
+    expect(() => optimizeDeck(allCardsCollection(), { deckSize: 50 })).toThrow(/between 5 and 40/);
+  });
+
+  it("optimizes a 20-card deck", () => {
+    const result = optimizeDeck(allCardsCollection(), { timeLimit: 8_000, deckSize: 20 });
+    expect(result.deck).toHaveLength(20);
+    expect(result.expectedAtk).toBeGreaterThan(0);
+    expect(result.improvement).toBeGreaterThanOrEqual(0);
   });
 
   it("S1: deck of zero-ATK cards scores 0", () => {

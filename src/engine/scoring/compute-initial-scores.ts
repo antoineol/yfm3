@@ -1,5 +1,5 @@
 import type { OptBuffers } from "../types/buffers.ts";
-import { HAND_SIZE, NUM_HANDS } from "../types/constants.ts";
+import { HAND_SIZE } from "../types/constants.ts";
 import type { IScorer } from "../types/interfaces.ts";
 
 /**
@@ -15,7 +15,8 @@ export function computeInitialScores(buf: OptBuffers, scorer: IScorer): number {
   const handBuf = new Uint16Array(HAND_SIZE);
   let totalScore = 0;
 
-  for (let h = 0; h < NUM_HANDS; h++) {
+  const numHands = buf.handScores.length;
+  for (let h = 0; h < numHands; h++) {
     const base = h * HAND_SIZE;
     for (let j = 0; j < HAND_SIZE; j++) {
       handBuf[j] = buf.deck[buf.handSlots[base + j] ?? 0] ?? 0;

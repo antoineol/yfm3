@@ -1,5 +1,5 @@
 import type { OptBuffers } from "../types/buffers.ts";
-import { DECK_SIZE, FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
+import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
 
 /** Weight multiplier for fusion partner count. A card with 10 fusion partners
  *  in the deck gets +2000 weight (comparable to a mid-range ATK). */
@@ -38,7 +38,7 @@ export function createBiasedSelector() {
     partnerCount.fill(0);
     for (let c = 0; c < MAX_CARD_ID; c++) {
       let count = 0;
-      for (let s = 0; s < DECK_SIZE; s++) {
+      for (let s = 0; s < buf.deck.length; s++) {
         const deckCard = deck[s] ?? 0;
         if (fusionTable[c * MAX_CARD_ID + deckCard] !== FUSION_NONE) {
           count++;

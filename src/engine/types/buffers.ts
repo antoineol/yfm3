@@ -1,4 +1,4 @@
-import { DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
+import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
 
 /**
  * All pre-allocated typed-array buffers used by the optimizer.
@@ -12,7 +12,7 @@ export interface OptBuffers {
   readonly fusionTable: Int16Array;
   /** cardAtk[cardId] = base attack value of that card. */
   readonly cardAtk: Int16Array;
-  /** The current 40-card deck, stored as card IDs. Mutated during optimization. */
+  /** The current deck, stored as card IDs. Length = deckSize. Mutated during optimization. */
   readonly deck: Int16Array;
   /** cardCounts[cardId] = how many copies of that card are currently in the deck. */
   readonly cardCounts: Uint8Array;
@@ -40,17 +40,18 @@ export interface OptBuffers {
 }
 
 /** Allocate all optimizer buffers (zero-initialized by typed-array constructors). */
-export function createBuffers(): OptBuffers {
+export function createBuffers(deckSize: number = DECK_SIZE): OptBuffers {
+  const numHands = Math.min(NUM_HANDS, CHOOSE_5[deckSize] ?? 0);
   return {
     fusionTable: new Int16Array(MAX_CARD_ID * MAX_CARD_ID),
     cardAtk: new Int16Array(MAX_CARD_ID),
-    deck: new Int16Array(DECK_SIZE),
+    deck: new Int16Array(deckSize),
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),
-    handSlots: new Uint8Array(NUM_HANDS * HAND_SIZE),
-    handScores: new Int16Array(NUM_HANDS),
-    affectedHandIds: new Uint16Array(NUM_HANDS * HAND_SIZE),
-    affectedHandOffsets: new Uint32Array(DECK_SIZE),
-    affectedHandCounts: new Uint16Array(DECK_SIZE),
+    handSlots: new Uint8Array(numHands * HAND_SIZE),
+    handScores: new Int16Array(numHands),
+    affectedHandIds: new Uint16Array(numHands * HAND_SIZE),
+    affectedHandOffsets: new Uint32Array(deckSize),
+    affectedHandCounts: new Uint16Array(deckSize),
   };
 }
