@@ -1,10 +1,10 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import type { Collection } from "../../engine/data/card-model.ts";
-import { optimizeDeckParallel } from "../../engine/index-browser.ts";
-import { useCollection } from "../db/use-collection.ts";
-import { useDeck } from "../db/use-deck.ts";
-import { useDeckSize, useFusionDepth } from "../db/use-user-preferences.ts";
-import { isOptimizingAtom, resultAtom } from "./atoms.ts";
+import type { Collection } from "../../../engine/data/card-model.ts";
+import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
+import { useCollection } from "../../db/use-collection.ts";
+import { useDeck } from "../../db/use-deck.ts";
+import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
+import { isOptimizingAtom, resultAtom } from "../../lib/atoms.ts";
 
 export function useOptimize() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
@@ -14,6 +14,9 @@ export function useOptimize() {
   const deck = useDeck();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
+
+  const totalCards = collection ? Object.values(collection).reduce((sum, qty) => sum + qty, 0) : 0;
+  const canOptimize = !isOptimizing && totalCards >= deckSize;
 
   function optimize() {
     if (!collection) return;
@@ -29,5 +32,5 @@ export function useOptimize() {
       .finally(() => setIsOptimizing(false));
   }
 
-  return { optimize, isOptimizing };
+  return { optimize, isOptimizing, canOptimize };
 }

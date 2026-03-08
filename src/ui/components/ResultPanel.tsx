@@ -1,70 +1,92 @@
 import { useAtomValue } from "jotai";
 import { resultAtom } from "../lib/atoms.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
+import { buildCardEntries, CardTable } from "./CardTable.tsx";
+import { PanelHeader } from "./panel-chrome.tsx";
 
 export function ResultPanel() {
   const result = useAtomValue(resultAtom);
   const cardDb = useCardDb();
 
   if (!result) {
-    return <div className="text-gray-500">Run the optimizer to see results.</div>;
+    return (
+      <>
+        <PanelHeader title="Optimized Result" />
+        <ResultEmptyState />
+      </>
+    );
   }
 
-  // Group deck cards by id and count
   const counts = new Map<number, number>();
   for (const id of result.deck) {
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
-
-  const entries = [...counts.entries()]
-    .map(([id, qty]) => {
-      const card = cardDb.cardsById.get(id);
-      return { id, name: card?.name ?? `#${id}`, atk: card?.attack ?? 0, qty };
-    })
-    .sort((a, b) => b.atk - a.atk);
+  const entries = buildCardEntries(counts, cardDb);
 
   return (
-    <div>
-      <h2 className="text-lg font-bold mb-2">Optimized Deck ({result.deck.length} cards)</h2>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mb-3 p-2 bg-gray-800 rounded">
+    <>
+      <PanelHeader title="Optimized Result" badge={`${result.deck.length} cards`} />
+      <div className="flex flex-wrap gap-3 mb-4">
+        <StatCard label="Expected ATK" value={result.expectedAtk.toFixed(1)} hero />
         {result.currentDeckScore != null && (
-          <>
-            <span>Current deck:</span>
-            <span className="font-mono text-right">{result.currentDeckScore.toFixed(1)}</span>
-          </>
+          <StatCard label="Current Deck" value={result.currentDeckScore.toFixed(1)} />
         )}
-        <span>New deck:</span>
-        <span className="font-mono text-right">{result.expectedAtk.toFixed(1)}</span>
         {result.improvement != null && (
-          <>
-            <span>Improvement:</span>
-            <span className="font-mono text-right text-green-400">
-              +{result.improvement.toFixed(1)}
-            </span>
-          </>
+          <StatCard
+            label="Improvement"
+            value={`\u25b2 ${result.improvement.toFixed(1)}`}
+            variant="up"
+          />
         )}
-        <span>Elapsed:</span>
-        <span className="font-mono text-right">{(result.elapsedMs / 1000).toFixed(1)}s</span>
+        <StatCard label="Elapsed" value={`${(result.elapsedMs / 1000).toFixed(1)}s`} small />
       </div>
       <div className="max-h-[60vh] overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-gray-800">
-            <tr>
-              <th className="text-left p-1">Card</th>
-              <th className="text-right p-1">ATK</th>
-              <th className="text-right p-1">Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((e) => (
-              <tr key={e.id} className="border-t border-gray-700">
-                <td className="p-1">{e.name}</td>
-                <td className="text-right p-1">{e.atk}</td>
-                <td className="text-right p-1">{e.qty}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <CardTable entries={entries} />
+      </div>
+    </>
+  );
+}
+
+function ResultEmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+      <p className="text-gold/60 font-display text-sm uppercase tracking-wide">
+        Awaiting optimization
+      </p>
+      <div
+        className="w-32 h-0.5 rounded-full mt-2"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, transparent, var(--color-gold-dim), transparent)",
+          backgroundSize: "200% 100%",
+          animation: "shimmer 2s ease-in-out infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hero,
+  variant,
+  small,
+}: {
+  label: string;
+  value: string;
+  hero?: boolean;
+  variant?: "up";
+  small?: boolean;
+}) {
+  const valueColor = variant === "up" ? "text-stat-up" : hero ? "text-gold" : "text-text-primary";
+  return (
+    <div className="flex-1 min-w-[100px] bg-bg-surface border border-border-accent rounded-lg p-3">
+      <div className="text-xs text-text-secondary uppercase tracking-wide mb-1">{label}</div>
+      <div
+        className={`font-mono font-bold ${valueColor} ${hero ? "text-2xl" : small ? "text-sm" : "text-lg"}`}
+      >
+        {value}
       </div>
     </div>
   );
