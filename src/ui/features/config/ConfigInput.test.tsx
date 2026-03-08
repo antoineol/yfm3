@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { ConfigInput } from "./ConfigPanel.tsx";
 
 afterEach(cleanup);
+
+const schema = z.number().int().min(5).max(40);
 
 describe("ConfigInput", () => {
   function renderInput(overrides: Partial<Parameters<typeof ConfigInput>[0]> = {}) {
@@ -11,8 +14,7 @@ describe("ConfigInput", () => {
     const props = {
       label: "Deck size",
       value: 40,
-      min: 5,
-      max: 40,
+      schema,
       onCommit,
       disabled: false,
       ...overrides,
@@ -35,22 +37,21 @@ describe("ConfigInput", () => {
     expect(onCommit).toHaveBeenCalledWith(25);
   });
 
-  it("clamps values above max on commit", () => {
-    const { input, onCommit } = renderInput({ value: 40, max: 40 });
+  it("reverts values above max on commit", () => {
+    const { input, onCommit } = renderInput({ value: 40 });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
-    expect(onCommit).not.toHaveBeenCalled(); // 50 clamped to 40, same as current value
+    expect(onCommit).not.toHaveBeenCalled();
     expect(input.value).toBe("40");
   });
 
-  it("clamps values below min on commit", () => {
-    const { input, onCommit } = renderInput({ value: 40, min: 5 });
+  it("reverts values below min on commit", () => {
+    const { input, onCommit } = renderInput({ value: 40 });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "3" } });
     fireEvent.blur(input);
-    expect(onCommit).toHaveBeenCalledWith(5);
-    // After commit, useEffect syncs draft back to prop value (40) since prop hasn't updated yet
+    expect(onCommit).not.toHaveBeenCalled();
     expect(input.value).toBe("40");
   });
 
@@ -60,8 +61,7 @@ describe("ConfigInput", () => {
       <ConfigInput
         label="Deck size"
         value={30}
-        min={5}
-        max={40}
+        schema={schema}
         onCommit={vi.fn()}
         disabled={false}
       />,
@@ -77,8 +77,7 @@ describe("ConfigInput", () => {
       <ConfigInput
         label="Deck size"
         value={30}
-        min={5}
-        max={40}
+        schema={schema}
         onCommit={vi.fn()}
         disabled={false}
       />,
@@ -87,14 +86,14 @@ describe("ConfigInput", () => {
   });
 
   it("shows red border when value is out of range during typing", () => {
-    const { input } = renderInput({ value: 40, min: 5, max: 40 });
+    const { input } = renderInput({ value: 40 });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "50" } });
     expect(input.className).toContain("border-stat-atk");
   });
 
   it("shows default border when value is in range during typing", () => {
-    const { input } = renderInput({ value: 40, min: 5, max: 40 });
+    const { input } = renderInput({ value: 40 });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "20" } });
     expect(input.className).not.toContain("border-stat-atk");
@@ -108,5 +107,13 @@ describe("ConfigInput", () => {
     fireEvent.blur(input);
     expect(onCommit).not.toHaveBeenCalled();
     expect(input.value).toBe("40");
+  });
+
+  it("shows committed value immediately after blur without flash", () => {
+    const { input } = renderInput({ value: 40 });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "25" } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("25");
   });
 });

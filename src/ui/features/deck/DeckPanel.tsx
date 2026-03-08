@@ -1,19 +1,19 @@
-import { useDeck } from "../db/use-deck.ts";
-import { useCardDb } from "../lib/card-db-context.tsx";
-import { buildCardEntries, CardTable } from "./CardTable.tsx";
-import { EmptyState, LoadingState, PanelHeader } from "./panel-chrome.tsx";
+import { buildCardEntries, CardTable } from "../../components/CardTable.tsx";
+import { PanelEmptyState, PanelHeader, PanelLoadingState } from "../../components/panel-chrome.tsx";
+import { useDeck } from "../../db/use-deck.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 
 export function DeckPanel() {
   const deck = useDeck();
   const cardDb = useCardDb();
 
-  if (deck === undefined) return <LoadingState />;
+  if (deck === undefined) return <PanelLoadingState />;
 
   if (deck.length === 0) {
     return (
       <>
         <PanelHeader title="Current Deck" />
-        <EmptyState
+        <PanelEmptyState
           title="No deck saved yet"
           subtitle="Run the optimizer to generate your best deck"
         />

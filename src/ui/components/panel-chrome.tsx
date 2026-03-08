@@ -7,7 +7,7 @@ export function PanelHeader({ title, badge }: { title: string; badge?: string })
   );
 }
 
-export function LoadingState() {
+export function PanelLoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-[spin-gold_1s_linear_infinite]" />
@@ -29,7 +29,7 @@ export function LoadingState() {
   );
 }
 
-export function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
+export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
       <div className="w-12 h-16 border-2 border-text-muted rounded-lg opacity-40" />

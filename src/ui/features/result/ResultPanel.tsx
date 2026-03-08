@@ -1,8 +1,8 @@
 import { useAtomValue } from "jotai";
-import { resultAtom } from "../lib/atoms.ts";
-import { useCardDb } from "../lib/card-db-context.tsx";
-import { buildCardEntries, CardTable } from "./CardTable.tsx";
-import { PanelHeader } from "./panel-chrome.tsx";
+import { buildCardEntries, CardTable } from "../../components/CardTable.tsx";
+import { PanelHeader } from "../../components/panel-chrome.tsx";
+import { resultAtom } from "../../lib/atoms.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 
 export function ResultPanel() {
   const result = useAtomValue(resultAtom);

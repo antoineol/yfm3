@@ -1,11 +1,11 @@
 import { useConvexAuth } from "convex/react";
-import { CollectionPanel } from "./components/CollectionPanel.tsx";
-import { ConfigPanel } from "./components/ConfigPanel.tsx";
-import { DeckPanel } from "./components/DeckPanel.tsx";
-import { Header } from "./components/Header.tsx";
 import { LoaderBlock } from "./components/Loader.tsx";
-import { ResultPanel } from "./components/ResultPanel.tsx";
-import { SignIn } from "./components/SignIn.tsx";
+import { Header } from "./features/auth/Header.tsx";
+import { SignIn } from "./features/auth/SignIn.tsx";
+import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
+import { ConfigPanel } from "./features/config/ConfigPanel.tsx";
+import { DeckPanel } from "./features/deck/DeckPanel.tsx";
+import { ResultPanel } from "./features/result/ResultPanel.tsx";
 
 export default function App() {
   const { isAuthenticated, isLoading } = useConvexAuth();

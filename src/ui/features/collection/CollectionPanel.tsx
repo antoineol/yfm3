@@ -1,13 +1,13 @@
-import { useCollection } from "../db/use-collection.ts";
-import { useCardDb } from "../lib/card-db-context.tsx";
-import { buildCardEntries, CardTable } from "./CardTable.tsx";
-import { EmptyState, LoadingState, PanelHeader } from "./panel-chrome.tsx";
+import { buildCardEntries, CardTable } from "../../components/CardTable.tsx";
+import { PanelEmptyState, PanelHeader, PanelLoadingState } from "../../components/panel-chrome.tsx";
+import { useCollection } from "../../db/use-collection.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 
 export function CollectionPanel() {
   const collection = useCollection();
   const cardDb = useCardDb();
 
-  if (collection === undefined) return <LoadingState />;
+  if (collection === undefined) return <PanelLoadingState />;
 
   const pairs: [number, number][] = Object.entries(collection).map(([id, qty]) => [
     Number(id),
@@ -21,7 +21,7 @@ export function CollectionPanel() {
     return (
       <>
         <PanelHeader title="Collection" />
-        <EmptyState
+        <PanelEmptyState
           title="Your collection is empty"
           subtitle="Add cards to begin building your deck"
         />

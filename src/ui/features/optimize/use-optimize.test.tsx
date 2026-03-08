@@ -5,17 +5,17 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isOptimizingAtom, resultAtom } from "../../lib/atoms.ts";
 
-vi.mock("../db/use-collection.ts", () => ({
+vi.mock("../../db/use-collection.ts", () => ({
   useCollection: vi.fn(),
 }));
-vi.mock("../db/use-deck.ts", () => ({
+vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
 }));
-vi.mock("../db/use-user-preferences.ts", () => ({
+vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
 }));
-vi.mock("../../engine/index-browser.ts", () => ({
+vi.mock("../../../engine/index-browser.ts", () => ({
   optimizeDeckParallel: vi.fn(),
 }));
 
@@ -195,7 +195,7 @@ describe("useOptimize", () => {
     it("sets isOptimizing to false on error", async () => {
       mockOptimize.mockRejectedValue(new Error("fail"));
       mockCollection.mockReturnValue({ 1: 40 });
-      const consoleError = vi.spyOn(console, "error").mockImplementation(() => { });
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });

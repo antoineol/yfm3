@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
+import { Button } from "../../components/Button.tsx";
 
 export function SignIn() {
   const { signIn } = useAuthActions();
@@ -30,16 +31,9 @@ export function SignIn() {
           Forbidden Memories &middot; Remastered Perfected
         </p>
       </div>
-      <button
-        type="button"
-        disabled={signingIn}
-        onClick={handleSignIn}
-        className="relative px-8 py-3 bg-bg-panel border border-gold-dim rounded-lg font-medium text-gold
-          hover:border-gold hover:shadow-[0_0_16px_var(--color-gold-dim)] transition-all
-          disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-      >
+      <Button variant="outline" size="lg" disabled={signingIn} onClick={handleSignIn}>
         {signingIn ? "Signing in\u2026" : "Sign in with Google"}
-      </button>
+      </Button>
       {error && <p className="text-stat-atk text-sm">{error}</p>}
     </div>
   );
