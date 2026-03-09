@@ -1,3 +1,4 @@
+import { Tabs } from "@base-ui/react/tabs";
 import { useConvexAuth } from "convex/react";
 import { LoaderBlock } from "./components/Loader.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
@@ -19,9 +20,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen xl:h-screen flex flex-col">
+    <Tabs.Root className="min-h-screen xl:h-screen flex flex-col" defaultValue="deck">
       <Header />
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-3 xl:flex-1 xl:overflow-y-auto">
+
+      <Tabs.Panel
+        className="flex-1 grid grid-cols-1 lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-3 xl:overflow-y-auto"
+        value="deck"
+      >
         <PanelCard>
           <CollectionPanel />
         </PanelCard>
@@ -31,7 +36,11 @@ export default function App() {
         <PanelCard className="lg:col-span-2 xl:col-span-1">
           <ResultPanel />
         </PanelCard>
-      </div>
-    </div>
+      </Tabs.Panel>
+
+      <Tabs.Panel className="flex-1 flex items-center justify-center px-3 pt-2 pb-3" value="hand">
+        <p className="text-text-muted text-sm">Hand fusion calculator — coming in P2</p>
+      </Tabs.Panel>
+    </Tabs.Root>
   );
 }

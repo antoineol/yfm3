@@ -2,6 +2,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("convex/react", () => ({
+  useMutation: () => vi.fn(),
+}));
+
 vi.mock("./use-collection-entries.ts", () => ({
   useCollectionEntries: vi.fn(),
 }));

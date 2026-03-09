@@ -37,7 +37,7 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle z-10">
+        <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle">
           <tr className="text-text-secondary text-xs uppercase tracking-wide">
             <th className="text-left py-2 px-1 font-normal">#</th>
             <th className="text-left py-2 px-1 font-normal">Card</th>
