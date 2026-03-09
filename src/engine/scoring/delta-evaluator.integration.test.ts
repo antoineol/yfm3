@@ -4,9 +4,9 @@ import { createAllCardsBuffers } from "../../test/test-helpers.ts";
 import type { OptBuffers } from "../types/buffers.ts";
 import { HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "../types/constants.ts";
 import { DeltaEvaluator } from "./delta-evaluator.ts";
-import { MaxAtkScorer } from "./max-atk-scorer.ts";
+import { FusionScorer } from "./fusion-scorer.ts";
 
-const scorer = new MaxAtkScorer();
+const scorer = new FusionScorer();
 
 function scoreAllHands(buf: OptBuffers): void {
   const h5 = new Uint16Array(HAND_SIZE);

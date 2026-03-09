@@ -37,7 +37,7 @@ export function ResultPanel() {
         )}
         <StatItem label="Elapsed" muted value={`${(result.elapsedMs / 1000).toFixed(1)}s`} />
       </div>
-      <div className="max-h-[70vh] flex-1 overflow-y-auto">
+      <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">
         <CardTable entries={entries} />
       </div>
     </>

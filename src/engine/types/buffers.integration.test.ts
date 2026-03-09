@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createAllCardsBuffers } from "../../test/test-helpers.ts";
-import { MaxAtkScorer } from "../scoring/max-atk-scorer.ts";
+import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { OptBuffers } from "./buffers.ts";
 import { DECK_SIZE, HAND_SIZE, NUM_HANDS } from "./constants.ts";
 
-const scorer = new MaxAtkScorer();
+const scorer = new FusionScorer();
 
 describe("OptBuffers (integration)", () => {
   let buf: OptBuffers;
