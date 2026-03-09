@@ -131,8 +131,8 @@ Add sections below the deck list:
 
 ## Performance Notes
 
-- Deck fusion finder: O(n^2) pairs for n unique cards in deck (~800 pairs for 40 cards). Fast.
-- Score explanation: All 658,008 hands. Use the existing exact scorer approach but track per-ATK stats. ~1-2s, run in a Web Worker if needed.
+- Deck fusion finder: O(n^2) pairs for n unique cards in deck (~800 pairs for 40 cards). Fast, runs on main thread.
+- Score explanation: All 658,008 hands (~1-2s). **Must run in a Web Worker** to avoid freezing the UI. Show a loading/spinner state on the "Explain Score" button while computing.
 
 ## Files Changed/Created
 

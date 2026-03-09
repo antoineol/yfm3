@@ -64,6 +64,8 @@ const isCancellingAtom = atom(false);
 
 **New file:** `src/ui/components/SuggestedDeckView.tsx`
 
+Use the **frontend-design** skill for this component — it's the core UX moment (the "reveal" after waiting). Progress bar should animate smoothly. Comparison view should feel polished.
+
 When optimization completes, show a comparison view:
 
 ```
