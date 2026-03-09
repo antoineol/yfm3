@@ -2,6 +2,8 @@
 
 **Priority:** P2 — Better feedback during the optimizer's ~15-60s run.
 
+**Depends on:** P1.9 (CardAutocomplete for suggested deck editing)
+
 **Why:** The optimizer runs for seconds to a minute. Without progress feedback, cancel ability, and a review step before accepting results, the experience feels unresponsive and risky.
 
 ## Current State (YFM3)

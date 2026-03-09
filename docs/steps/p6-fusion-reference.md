@@ -2,6 +2,8 @@
 
 **Priority:** P5 — Reference tools for looking up fusions outside of gameplay.
 
+**Depends on:** P1.9 (FusionTable context, CardAutocomplete, tab navigation shell)
+
 **Why:** Players want to explore the fusion database to learn what's possible, plan strategies, and understand the game mechanics. Lower priority than gameplay features but adds depth.
 
 ## Features

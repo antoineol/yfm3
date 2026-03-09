@@ -43,7 +43,6 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
             <th className="text-left py-2 px-1 font-normal">Card</th>
             <th className="text-left py-2 px-2 font-normal">ATK</th>
             <th className="text-left py-2 px-2 font-normal">DEF</th>
-            <th className="text-left py-2 px-2 font-normal">Qty</th>
           </tr>
         </thead>
         <tbody>
@@ -56,12 +55,14 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
               <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
                 {String(e.id).padStart(3, "0")}
               </td>
-              <td className="py-1.5 px-1 text-text-primary">{e.name}</td>
+              <td className="py-1.5 px-1 text-text-primary">
+                <span>{e.name}</span>
+                {e.qty > 1 && (
+                  <span className="text-gold text-xs font-mono ml-1.5">{`\u00d7${e.qty}`}</span>
+                )}
+              </td>
               <td className="py-1.5 px-2 text-left font-mono font-bold text-stat-atk">{e.atk}</td>
               <td className="py-1.5 px-2 text-left font-mono text-xs text-stat-def">{e.def}</td>
-              <td className="py-1.5 px-2 text-left font-mono text-gold">
-                {e.qty > 1 ? `\u00d7${e.qty}` : ""}
-              </td>
             </tr>
           ))}
         </tbody>

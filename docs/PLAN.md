@@ -76,8 +76,9 @@ Return best deck + exact expected ATK
 | **Port YFM2 Features** | [`docs/steps/p1-port-yfm2-features.md`](steps/p1-port-yfm2-features.md) | Overview & feature gap analysis |
 | P0a: Authentication (DONE) | [`docs/steps/p1.1-auth.md`](steps/p1.1-auth.md) | Convex Auth + Google OAuth, replace manual userId with real cross-device auth |
 | P0b: Baseline UX Polish (DONE) | [`docs/steps/p1.5-baseline-ux-polish.md`](steps/p1.5-baseline-ux-polish.md) | Fix broken config inputs, visual hierarchy, card display |
+| P0c: Shared Infrastructure | [`docs/steps/p1.9-shared-infrastructure.md`](steps/p1.9-shared-infrastructure.md) | FusionTable context, CardAutocomplete, tab navigation shell |
 | P1: Hand Fusion Calculator | [`docs/steps/p2-hand-fusion-calculator.md`](steps/p2-hand-fusion-calculator.md) | 5-card hand simulation, real-time fusion chains, play fusion |
 | P2: Optimization UX | [`docs/steps/p3-optimization-ux.md`](steps/p3-optimization-ux.md) | Progress bar, cancel, accept/reject + manual fine-tuning |
 | P3: Deck Intelligence | [`docs/steps/p4-deck-intelligence.md`](steps/p4-deck-intelligence.md) | Deck fusion list, score explanation with probabilities |
-| P4: Collection UX | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Card autocomplete, last-added hint, manual deck add/remove |
+| P4: Collection UX | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Last-added hint, collection actions, manual deck add/remove |
 | P5: Fusion Reference | [`docs/steps/p6-fusion-reference.md`](steps/p6-fusion-reference.md) | Fusion lookup tool, browsable fusion database |

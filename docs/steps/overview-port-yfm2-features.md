@@ -31,15 +31,16 @@ Port YFM2's best UX features to YFM3, prioritized by impact on the copilot exper
 ## Step Plan (Prioritized for Copilot UX)
 
 
-| Priority | Step                   | File                                                                | What It Builds                                                                 |
-| -------- | ---------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **P0a**  | **Authentication**     | [`p1.1-auth.md`](p1.1-auth.md)                                     | Auto-generated user ID, remove manual input, shared session with YFM2          |
-| **P0b**  | **Baseline UX Polish** | [`p1.5-baseline-ux-polish.md`](p1.5-baseline-ux-polish.md)         | Fix broken config inputs, visual hierarchy, card display, empty/loading states |
-| P1       | Hand Fusion Calculator | [`p2-hand-fusion-calculator.md`](p2-hand-fusion-calculator.md)      | 5-card hand simulation, real-time fusion chains, "play fusion" action          |
-| P2       | Optimization UX        | [`p3-optimization-ux.md`](p3-optimization-ux.md)                   | Progress bar, cancel, accept/reject + **manual fine-tuning** of suggested deck |
-| P3       | Deck Intelligence      | [`p4-deck-intelligence.md`](p4-deck-intelligence.md)               | Deck fusion list, score explanation with probabilities                         |
-| P4       | Collection UX          | [`p5-collection-ux.md`](p5-collection-ux.md)                       | Card autocomplete, last-added hint, **manual deck add/remove**                 |
-| P5       | Fusion Reference       | [`p6-fusion-reference.md`](p6-fusion-reference.md)                 | Fusion lookup tool, browsable fusion database                                  |
+| Priority | Step                       | File                                                                | What It Builds                                                                 |
+| -------- | -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **P0a**  | **Authentication** (DONE)  | [`p1.1-auth.md`](p1.1-auth.md)                                     | Convex Auth + Google OAuth, replace manual userId with real cross-device auth  |
+| **P0b**  | **Baseline UX Polish** (DONE) | [`p1.5-baseline-ux-polish.md`](p1.5-baseline-ux-polish.md)      | Fix broken config inputs, visual hierarchy, card display, empty/loading states |
+| **P0c**  | **Shared Infrastructure**  | [`p1.9-shared-infrastructure.md`](p1.9-shared-infrastructure.md)    | FusionTable context, CardAutocomplete component, tab navigation shell          |
+| P1       | Hand Fusion Calculator     | [`p2-hand-fusion-calculator.md`](p2-hand-fusion-calculator.md)      | 5-card hand simulation, real-time fusion chains, play fusion (consume materials) |
+| P2       | Optimization UX            | [`p3-optimization-ux.md`](p3-optimization-ux.md)                   | Progress bar, cancel, accept/reject + **manual fine-tuning** of suggested deck |
+| P3       | Deck Intelligence          | [`p4-deck-intelligence.md`](p4-deck-intelligence.md)               | Deck fusion list, score explanation with probabilities                         |
+| P4       | Collection UX              | [`p5-collection-ux.md`](p5-collection-ux.md)                       | Last-added hint, collection actions, **manual deck add/remove**                |
+| P5       | Fusion Reference           | [`p6-fusion-reference.md`](p6-fusion-reference.md)                 | Fusion lookup tool, browsable fusion database                                  |
 
 
 ## What We Keep As-Is

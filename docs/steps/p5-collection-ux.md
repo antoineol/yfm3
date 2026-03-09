@@ -2,6 +2,8 @@
 
 **Priority:** P4 — Faster, smoother collection management.
 
+**Depends on:** P1.9 (CardAutocomplete — already built, reused here)
+
 **Why:** Players frequently add cards after winning duels. Fast card entry and clear collection-to-deck flow reduce friction.
 
 ## Current State (YFM3)
@@ -70,18 +72,9 @@ Note: deck size validation — warn if deck goes over/under the configured deck 
 
 ## Implementation Plan
 
-### Step 1: Card Autocomplete Component
+### Step 1: Add to Collection Flow
 
-**New file:** `src/ui/components/CardAutocomplete.tsx`
-
-Generic autocomplete:
-- Text input with debounced filtering
-- Dropdown list of matching cards from `CardDb`
-- Shows card name + current quantity
-- Keyboard navigation (arrow keys, enter, escape)
-- Forward ref for external focus control
-
-### Step 2: Add to Collection Flow
+`CardAutocomplete` component already exists from P1.9. Reuse it here.
 
 **Modify:** `src/ui/components/CollectionPanel.tsx`
 
@@ -89,7 +82,7 @@ Generic autocomplete:
 - On card selection: call `addToCollection` mutation (already exists)
 - Auto-focus back to search after adding
 
-### Step 3: Last Added Card Hint
+### Step 2: Last Added Card Hint
 
 **New file:** `src/ui/components/LastAddedCardHint.tsx`
 
@@ -97,7 +90,7 @@ Generic autocomplete:
 - Show card name + quantity + quick action buttons
 - Create hook `useLastAddedCard()` in `src/ui/db/`
 
-### Step 4: Collection Item Actions
+### Step 3: Collection Item Actions
 
 **Modify:** `src/ui/components/CollectionPanel.tsx`
 
@@ -105,7 +98,7 @@ Generic autocomplete:
 - Add "→ Deck" button per card row
 - Wire to existing Convex mutations: `addCard`, `removeCard`, `addToDeck`
 
-### Step 5: Deck Manual Editing
+### Step 4: Deck Manual Editing
 
 **Modify:** `src/ui/components/DeckPanel.tsx`
 
@@ -114,7 +107,7 @@ Generic autocomplete:
 - Show deck size indicator (e.g. "38/40") with warning color if under/over configured size
 - Available cards for adding = collection cards not already at max copies in deck
 
-### Step 6: Tests
+### Step 5: Tests
 
 - Test autocomplete filtering logic
 - Test add/remove/move flows update state correctly
@@ -130,7 +123,7 @@ Generic autocomplete:
 
 | Action | File |
 |--------|------|
-| Create | `src/ui/components/CardAutocomplete.tsx` |
+| Reuse  | `src/ui/components/CardAutocomplete.tsx` (from P1.9) |
 | Create | `src/ui/components/LastAddedCardHint.tsx` |
 | Create | `src/ui/db/use-last-added-card.ts` |
 | Modify | `src/ui/components/CollectionPanel.tsx` |

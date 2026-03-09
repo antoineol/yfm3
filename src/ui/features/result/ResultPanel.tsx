@@ -2,7 +2,7 @@ import { useAtomValue } from "jotai";
 import { CardTable } from "../../components/CardTable.tsx";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
-import { StatCard } from "./StatCard.tsx";
+import { StatItem } from "./StatCard.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 export function ResultPanel() {
@@ -23,19 +23,19 @@ export function ResultPanel() {
   return (
     <>
       <PanelHeader badge={`${result.deck.length} cards`} title="Optimized Result" />
-      <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard hero label="Expected ATK" value={result.expectedAtk.toFixed(1)} />
+      <div className="flex items-baseline flex-wrap gap-x-5 gap-y-2 mb-3">
+        <StatItem hero label="Expected ATK" value={result.expectedAtk.toFixed(1)} />
         {result.currentDeckScore != null && (
-          <StatCard label="Current Deck" value={result.currentDeckScore.toFixed(1)} />
+          <StatItem label="Current Deck" value={result.currentDeckScore.toFixed(1)} />
         )}
         {result.improvement != null && (
-          <StatCard
+          <StatItem
             label="Improvement"
             value={`\u25b2 ${result.improvement.toFixed(1)}`}
             variant="up"
           />
         )}
-        <StatCard label="Elapsed" small value={`${(result.elapsedMs / 1000).toFixed(1)}s`} />
+        <StatItem label="Elapsed" muted value={`${(result.elapsedMs / 1000).toFixed(1)}s`} />
       </div>
       <div className="max-h-[70vh] flex-1 overflow-y-auto">
         <CardTable entries={entries} />

@@ -21,7 +21,7 @@ export default function App() {
   return (
     <div className="min-h-screen xl:h-screen flex flex-col">
       <Header />
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-5 px-5 pt-3 pb-5 xl:flex-1 xl:overflow-y-auto">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-3 xl:flex-1 xl:overflow-y-auto">
         <PanelCard>
           <CollectionPanel />
         </PanelCard>

@@ -1,25 +1,30 @@
-export function StatCard({
+export function StatItem({
   label,
   value,
   hero,
   variant,
-  small,
+  muted,
 }: {
   label: string;
   value: string;
   hero?: boolean;
   variant?: "up";
-  small?: boolean;
+  muted?: boolean;
 }) {
-  const valueColor = variant === "up" ? "text-stat-up" : hero ? "text-gold" : "text-text-primary";
+  const color =
+    variant === "up"
+      ? "text-stat-up"
+      : hero
+        ? "text-gold"
+        : muted
+          ? "text-text-muted"
+          : "text-text-primary";
   return (
-    <div className="flex-1 min-w-[100px] bg-bg-surface border border-border-accent rounded-lg p-3">
-      <div className="text-xs text-text-secondary uppercase tracking-wide mb-1">{label}</div>
-      <div
-        className={`font-mono font-bold ${valueColor} ${hero ? "text-2xl" : small ? "text-sm" : "text-lg"}`}
-      >
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-xs text-text-secondary uppercase tracking-wide">{label}</span>
+      <span className={`font-mono font-bold ${color} ${hero ? "text-lg" : "text-sm"}`}>
         {value}
-      </div>
+      </span>
     </div>
   );
 }
