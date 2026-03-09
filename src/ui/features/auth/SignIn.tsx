@@ -19,7 +19,7 @@ export function SignIn() {
           Forbidden Memories &middot; Remastered Perfected
         </p>
       </div>
-      <Button variant="outline" size="lg" disabled={signingIn} onClick={handleSignIn}>
+      <Button disabled={signingIn} onClick={handleSignIn} size="lg" variant="outline">
         {signingIn ? "Signing in\u2026" : "Sign in with Google"}
       </Button>
       {error && <p className="text-stat-atk text-sm">{error}</p>}

@@ -32,8 +32,8 @@ export function PanelLoadingState() {
       <div className="space-y-2 w-full max-w-xs">
         {[1, 2, 3].map((i) => (
           <div
-            key={i}
             className="h-4 rounded bg-bg-surface"
+            key={i}
             style={{
               backgroundImage:
                 "linear-gradient(90deg, var(--color-bg-surface) 25%, var(--color-bg-hover) 50%, var(--color-bg-surface) 75%)",

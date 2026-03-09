@@ -14,8 +14,8 @@ export function DeckPanel() {
       <>
         <PanelHeader title="Current Deck" />
         <PanelEmptyState
-          title="No deck saved yet"
           subtitle="Run the optimizer to generate your best deck"
+          title="No deck saved yet"
         />
       </>
     );
@@ -23,8 +23,8 @@ export function DeckPanel() {
 
   return (
     <>
-      <PanelHeader title="Current Deck" badge={`${deckLength} cards`} />
-      <div className="max-h-[70vh] overflow-y-auto">
+      <PanelHeader badge={`${deckLength} cards`} title="Current Deck" />
+      <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">
         <CardTable entries={entries} />
       </div>
     </>

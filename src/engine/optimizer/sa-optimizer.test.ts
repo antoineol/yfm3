@@ -26,17 +26,17 @@ describe("SA acceptance logic", () => {
   it("adaptive cooling reaches floor for any time budget", () => {
     // Simulates the adaptive cooling formula used in sa-optimizer.ts:
     // coolingRate = exp(ln(TEMP_FLOOR / t0) / expectedIterations)
-    const TEMP_FLOOR = 0.1;
-    const MS_PER_SWAP = 2;
+    const TempFloor = 0.1;
+    const MsPerSwap = 2;
 
     for (const budgetMs of [2_000, 5_000, 10_000, 55_000]) {
       const t0 = 500;
-      const expectedIter = budgetMs / MS_PER_SWAP;
-      const rate = Math.exp(Math.log(TEMP_FLOOR / t0) / expectedIter);
+      const expectedIter = budgetMs / MsPerSwap;
+      const rate = Math.exp(Math.log(TempFloor / t0) / expectedIter);
 
       // After expectedIterations, temp should be at TEMP_FLOOR
       const finalTemp = t0 * rate ** expectedIter;
-      expect(finalTemp).toBeCloseTo(TEMP_FLOOR, 5);
+      expect(finalTemp).toBeCloseTo(TempFloor, 5);
 
       // Rate should be in (0, 1)
       expect(rate).toBeGreaterThan(0);

@@ -14,8 +14,8 @@ export function CollectionPanel() {
       <>
         <PanelHeader title="Collection" />
         <PanelEmptyState
-          title="Your collection is empty"
           subtitle="Add cards to begin building your deck"
+          title="Your collection is empty"
         />
       </>
     );
@@ -23,8 +23,8 @@ export function CollectionPanel() {
 
   return (
     <>
-      <PanelHeader title="Collection" badge={`${totalCards} cards (${uniqueCards} unique)`} />
-      <div className="max-xl:max-h-[70vh] overflow-y-auto">
+      <PanelHeader badge={`${totalCards} cards (${uniqueCards} unique)`} title="Collection" />
+      <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">
         <CardTable entries={entries} />
       </div>
     </>

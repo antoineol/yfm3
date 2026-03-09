@@ -1,119 +1,133 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type UseFormReturn, useForm } from "react-hook-form";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
+
+import { Form } from "../../components/Form.tsx";
 import { ConfigInput } from "./ConfigPanel.tsx";
+import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 
 afterEach(cleanup);
 
-const schema = z.number().int().min(5).max(40);
-
 describe("ConfigInput", () => {
-  function renderInput(overrides: Partial<Parameters<typeof ConfigInput>[0]> = {}) {
-    const onCommit = vi.fn();
-    const props = {
-      label: "Deck size",
-      value: 40,
-      schema,
-      onCommit,
-      disabled: false,
-      ...overrides,
-    };
-    const result = render(<ConfigInput {...props} />);
-    const input = screen.getByRole("textbox") as HTMLInputElement;
-    return { input, onCommit, result };
+  let formRef: UseFormReturn<ConfigFormValues>;
+
+  function Wrapper({
+    defaultValues = { deckSize: 40, fusionDepth: 3 },
+    disabled = false,
+    onBlur = vi.fn(),
+  }: {
+    defaultValues?: ConfigFormValues;
+    disabled?: boolean;
+    onBlur?: () => void;
+  }) {
+    const form = useForm<ConfigFormValues>({
+      resolver: zodResolver(configSchema),
+      mode: "onBlur",
+      defaultValues,
+    });
+    formRef = form;
+
+    return (
+      <Form form={form}>
+        <ConfigInput disabled={disabled} label="Deck size" name="deckSize" onBlur={onBlur} />
+      </Form>
+    );
+  }
+
+  function renderInput(
+    overrides: { defaultValues?: ConfigFormValues; disabled?: boolean; onBlur?: () => void } = {},
+  ) {
+    const onBlur = overrides.onBlur ?? vi.fn();
+    const result = render(<Wrapper {...overrides} onBlur={onBlur} />);
+    const input = screen.getByRole("spinbutton") as HTMLInputElement;
+    return { input, onBlur, result, getForm: () => formRef };
   }
 
   it("shows the current value", () => {
-    const { input } = renderInput({ value: 30 });
+    const { input } = renderInput({ defaultValues: { deckSize: 30, fusionDepth: 3 } });
     expect(input.value).toBe("30");
   });
 
-  it("calls onCommit with parsed value on blur", () => {
-    const { input, onCommit } = renderInput({ value: 40 });
+  it("calls onBlur callback on blur", () => {
+    const { input, onBlur } = renderInput();
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "25" } });
     fireEvent.blur(input);
-    expect(onCommit).toHaveBeenCalledWith(25);
+    expect(onBlur).toHaveBeenCalled();
   });
 
-  it("reverts values above max on commit", () => {
-    const { input, onCommit } = renderInput({ value: 40 });
+  it("does not save when value is above max", async () => {
+    const onBlur = vi.fn();
+    const { input } = renderInput({ onBlur });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(input.value).toBe("40");
+    expect(onBlur).toHaveBeenCalled();
+    // Value stays in input (standard RHF: no revert)
+    expect(input.value).toBe("50");
   });
 
-  it("reverts values below min on commit", () => {
-    const { input, onCommit } = renderInput({ value: 40 });
+  it("does not save when value is below min", async () => {
+    const onBlur = vi.fn();
+    const { input } = renderInput({ onBlur });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "3" } });
     fireEvent.blur(input);
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(input.value).toBe("40");
+    expect(onBlur).toHaveBeenCalled();
+    expect(input.value).toBe("3");
   });
 
-  it("syncs back from external value when not editing", () => {
-    const { input, result } = renderInput({ value: 40 });
-    result.rerender(
-      <ConfigInput
-        label="Deck size"
-        value={30}
-        schema={schema}
-        onCommit={vi.fn()}
-        disabled={false}
-      />,
-    );
-    expect(input.value).toBe("30");
-  });
-
-  it("does not sync external value while editing", () => {
-    const { input, result } = renderInput({ value: 40 });
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "2" } });
-    result.rerender(
-      <ConfigInput
-        label="Deck size"
-        value={30}
-        schema={schema}
-        onCommit={vi.fn()}
-        disabled={false}
-      />,
-    );
-    expect(input.value).toBe("2");
-  });
-
-  it("shows red border when value is out of range during typing", () => {
-    const { input } = renderInput({ value: 40 });
+  it("shows error border after blur with out-of-range value", async () => {
+    const { input } = renderInput();
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "50" } });
-    expect(input.className).toContain("border-stat-atk");
+    fireEvent.blur(input);
+    await waitFor(() => {
+      expect(input.className).toContain("border-stat-atk");
+    });
   });
 
-  it("shows default border when value is in range during typing", () => {
-    const { input } = renderInput({ value: 40 });
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "20" } });
+  it("shows default border with valid value", () => {
+    const { input } = renderInput();
     expect(input.className).not.toContain("border-stat-atk");
     expect(input.className).toContain("border-border-subtle");
   });
 
-  it("reverts to current value when NaN is committed", () => {
-    const { input, onCommit } = renderInput({ value: 40 });
+  it("does not show error border during typing (validation on blur only)", () => {
+    const { input } = renderInput();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.blur(input);
-    expect(onCommit).not.toHaveBeenCalled();
-    expect(input.value).toBe("40");
+    fireEvent.change(input, { target: { value: "50" } });
+    // mode: 'onBlur' — no validation until blur
+    expect(input.className).not.toContain("border-stat-atk");
+    expect(input.className).toContain("border-border-subtle");
   });
 
-  it("shows committed value immediately after blur without flash", () => {
-    const { input } = renderInput({ value: 40 });
+  it("syncs from external value via form.reset", async () => {
+    const { input, getForm } = renderInput();
+    expect(input.value).toBe("40");
+    getForm().reset({ deckSize: 30, fusionDepth: 3 });
+    await waitFor(() => {
+      expect(input.value).toBe("30");
+    });
+  });
+
+  it("keeps typed value after blur", () => {
+    const { input } = renderInput();
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "25" } });
     fireEvent.blur(input);
     expect(input.value).toBe("25");
+  });
+
+  it("does not save when value is empty", () => {
+    const onBlur = vi.fn();
+    const { input } = renderInput({ onBlur });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(onBlur).toHaveBeenCalled();
+    expect(input.value).toBe("");
   });
 });

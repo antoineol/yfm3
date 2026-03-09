@@ -14,14 +14,14 @@ export function Header() {
       <h1 className="font-display text-lg font-bold text-gold">YFM Deck Optimizer</h1>
       <div className="flex items-center gap-3">
         <OptimizeButton />
-        <Button variant="ghost" size="sm" onClick={() => setConfigOpen(true)}>
+        <Button onClick={() => setConfigOpen(true)} size="sm" variant="ghost">
           Settings
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+        <Button onClick={() => void signOut()} size="sm" variant="ghost">
           Sign out
         </Button>
       </div>
-      <Dialog open={configOpen} onClose={() => setConfigOpen(false)} title="Settings">
+      <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
         <ConfigPanel />
       </Dialog>
     </div>

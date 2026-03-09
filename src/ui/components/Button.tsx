@@ -48,8 +48,6 @@ export function Button({
 
   return (
     <button
-      type="button"
-      disabled={disabled}
       className={[
         "transition-all",
         v.base,
@@ -60,6 +58,8 @@ export function Button({
       ]
         .filter(Boolean)
         .join(" ")}
+      disabled={disabled}
+      type="button"
       {...props}
     />
   );

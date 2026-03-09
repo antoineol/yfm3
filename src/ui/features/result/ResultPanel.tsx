@@ -1,15 +1,19 @@
+import { useAtomValue } from "jotai";
 import { CardTable } from "../../components/CardTable.tsx";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
+import { isOptimizingAtom } from "../../lib/atoms.ts";
+import { StatCard } from "./StatCard.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 export function ResultPanel() {
   const data = useResultEntries();
+  const isOptimizing = useAtomValue(isOptimizingAtom);
 
   if (!data) {
     return (
       <>
         <PanelHeader title="Optimized Result" />
-        <ResultEmptyState />
+        {isOptimizing ? <ResultLoadingState /> : <ResultEmptyState />}
       </>
     );
   }
@@ -18,9 +22,9 @@ export function ResultPanel() {
 
   return (
     <>
-      <PanelHeader title="Optimized Result" badge={`${result.deck.length} cards`} />
+      <PanelHeader badge={`${result.deck.length} cards`} title="Optimized Result" />
       <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard label="Expected ATK" value={result.expectedAtk.toFixed(1)} hero />
+        <StatCard hero label="Expected ATK" value={result.expectedAtk.toFixed(1)} />
         {result.currentDeckScore != null && (
           <StatCard label="Current Deck" value={result.currentDeckScore.toFixed(1)} />
         )}
@@ -31,9 +35,9 @@ export function ResultPanel() {
             variant="up"
           />
         )}
-        <StatCard label="Elapsed" value={`${(result.elapsedMs / 1000).toFixed(1)}s`} small />
+        <StatCard label="Elapsed" small value={`${(result.elapsedMs / 1000).toFixed(1)}s`} />
       </div>
-      <div className="max-h-[60vh] overflow-y-auto">
+      <div className="max-h-[70vh] flex-1 overflow-y-auto">
         <CardTable entries={entries} />
       </div>
     </>
@@ -51,36 +55,25 @@ function ResultEmptyState() {
         style={{
           backgroundImage:
             "linear-gradient(90deg, transparent, var(--color-gold-dim), transparent)",
-          backgroundSize: "200% 100%",
-          animation: "shimmer 2s ease-in-out infinite",
         }}
       />
     </div>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  hero,
-  variant,
-  small,
-}: {
-  label: string;
-  value: string;
-  hero?: boolean;
-  variant?: "up";
-  small?: boolean;
-}) {
-  const valueColor = variant === "up" ? "text-stat-up" : hero ? "text-gold" : "text-text-primary";
+function ResultLoadingState() {
   return (
-    <div className="flex-1 min-w-[100px] bg-bg-surface border border-border-accent rounded-lg p-3">
-      <div className="text-xs text-text-secondary uppercase tracking-wide mb-1">{label}</div>
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+      <p className="text-gold font-display text-sm uppercase tracking-wide">Optimizing&hellip;</p>
       <div
-        className={`font-mono font-bold ${valueColor} ${hero ? "text-2xl" : small ? "text-sm" : "text-lg"}`}
-      >
-        {value}
-      </div>
+        className="w-32 h-0.5 rounded-full mt-2"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, transparent, var(--color-gold-dim), transparent)",
+          backgroundSize: "200% 100%",
+          animation: "shimmer 2s ease-in-out infinite",
+        }}
+      />
     </div>
   );
 }

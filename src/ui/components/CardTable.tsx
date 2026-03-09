@@ -49,9 +49,9 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
         <tbody>
           {entries.map((e) => (
             <tr
-              key={e.id}
               className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
                 even:bg-bg-surface/30`}
+              key={e.id}
             >
               <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
                 {String(e.id).padStart(3, "0")}

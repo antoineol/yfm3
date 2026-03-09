@@ -40,7 +40,7 @@ export class SAOptimizer implements IOptimizer {
   /** Number of iterations completed in the last run() call. */
   iterations = 0;
 
-  constructor(seed: number = 42) {
+  constructor(seed = 42) {
     this.seed = seed;
   }
 
