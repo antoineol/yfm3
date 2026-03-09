@@ -14,9 +14,51 @@ export type CardAutocompleteProps = {
   disabled?: boolean;
 };
 
-function cardFilter(card: CardSpec, query: string): boolean {
+/** Strip accents and lowercase for search normalisation. */
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Smart card filter:
+ * - Accent-insensitive, case-insensitive
+ * - Each query token must match the start of a word in the card name
+ *   ("dark mag" → "Dark Magician", "bl ey" → "Blue-Eyes White Dragon")
+ * - A pure-numeric query also matches the card ID ("123" → card #123)
+ * - Substring fallback: if word-start matching fails, tries substring match
+ */
+let _prevQuery = "";
+let _prevTokens: string[] = [];
+
+export function cardFilter(card: CardSpec, query: string): boolean {
   if (!query) return true;
-  return card.name.toLowerCase().includes(query.toLowerCase());
+
+  // Cache tokenisation across calls within the same filter pass
+  if (query !== _prevQuery) {
+    _prevQuery = query;
+    _prevTokens = normalize(query).split(/\s+/).filter(Boolean);
+  }
+  const tokens = _prevTokens;
+  if (tokens.length === 0) return true;
+
+  // Pure-numeric query: also match card ID
+  const first = tokens[0];
+  if (tokens.length === 1 && first !== undefined && /^\d+$/.test(first)) {
+    if (String(card.id) === first) return true;
+  }
+
+  // Each token must match the start of at least one word in the card name
+  const name = normalize(card.name);
+  const words = name.split(/[\s-]+/);
+  if (tokens.every((token) => words.some((word) => word.startsWith(token)))) {
+    return true;
+  }
+
+  // Substring fallback: all tokens must appear somewhere in the name
+  return tokens.every((token) => name.includes(token));
 }
 
 export function CardAutocomplete({
