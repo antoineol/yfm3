@@ -1,14 +1,12 @@
 # P2: Hand Fusion Calculator (Core Copilot Feature)
 
-**Priority:** P1 — This is the most impactful feature for a game copilot.
-
 **Why:** During gameplay, the player draws 5 cards and needs to instantly know the best fusion to play. This turns the optimizer from a pre-game tool into a real-time gameplay aid.
 
 **Depends on:** P1.9 (FusionTable context, CardAutocomplete, tab navigation)
 
 ## What It Does
 
-1. Player builds a 5-card hand (from their deck or all cards)
+1. Player builds a 5-card hand (either from their deck or all cards - from a setting)
 2. App shows all possible fusions from that hand in real-time, sorted by ATK
 3. Each fusion shows the chain: which cards to fuse, in what order, and the result
 4. Player can "play" a fusion — consuming the material cards from the hand (the fusion result goes to the field, not back to the hand)
@@ -42,6 +40,8 @@
 ```
 
 ## Implementation Plan
+
+Use your frontend design skill to produce the best UX.
 
 ### Step 1: User-Facing Fusion Chain Finder (Engine Module)
 

@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { CardTable } from "../../components/CardTable.tsx";
-import { PanelHeader } from "../../components/panel-chrome.tsx";
+import { PanelBody, PanelHeader } from "../../components/panel-chrome.tsx";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
 import { StatItem } from "./StatCard.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
@@ -37,9 +37,9 @@ export function ResultPanel() {
         )}
         <StatItem label="Elapsed" muted value={`${(result.elapsedMs / 1000).toFixed(1)}s`} />
       </div>
-      <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">
+      <PanelBody>
         <CardTable entries={entries} />
-      </div>
+      </PanelBody>
     </>
   );
 }

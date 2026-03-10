@@ -1,5 +1,10 @@
 import { CardTable } from "../../components/CardTable.tsx";
-import { PanelEmptyState, PanelHeader, PanelLoadingState } from "../../components/panel-chrome.tsx";
+import {
+  PanelBody,
+  PanelEmptyState,
+  PanelHeader,
+  PanelLoadingState,
+} from "../../components/panel-chrome.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
 
 export function DeckPanel() {
@@ -24,9 +29,9 @@ export function DeckPanel() {
   return (
     <>
       <PanelHeader badge={`${deckLength} cards`} title="Current Deck" />
-      <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">
+      <PanelBody>
         <CardTable entries={entries} />
-      </div>
+      </PanelBody>
     </>
   );
 }

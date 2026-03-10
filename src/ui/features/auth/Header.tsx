@@ -1,7 +1,9 @@
+import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Dialog } from "../../components/Dialog.tsx";
+import { IconButton } from "../../components/IconButton.tsx";
 import { ConfigPanel } from "../config/ConfigPanel.tsx";
 import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
 
@@ -38,66 +40,33 @@ export function Header() {
 }
 
 function HeaderMenu({ onSettings, onSignOut }: { onSettings: () => void; onSignOut: () => void }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
   return (
-    <div className="relative" ref={menuRef}>
-      <button
-        aria-label="Menu"
-        className="size-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-secondary hover:bg-bg-hover transition-colors cursor-pointer"
-        onClick={() => setOpen((v) => !v)}
-        type="button"
-      >
+    <Menu.Root>
+      <Menu.Trigger render={<IconButton label="Menu" />}>
         <svg aria-hidden="true" className="size-4" fill="currentColor" viewBox="0 0 16 16">
           <circle cx="8" cy="3" r="1.5" />
           <circle cx="8" cy="8" r="1.5" />
           <circle cx="8" cy="13" r="1.5" />
         </svg>
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-bg-panel border border-border-accent rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.4)] py-1 min-w-[140px]">
-          <MenuEntry
-            onClick={() => {
-              onSettings();
-              setOpen(false);
-            }}
-          >
-            Settings
-          </MenuEntry>
-          <MenuEntry
-            onClick={() => {
-              onSignOut();
-              setOpen(false);
-            }}
-          >
-            Sign out
-          </MenuEntry>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MenuEntry({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
-      onClick={onClick}
-      type="button"
-    >
-      {children}
-    </button>
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={4}>
+          <Menu.Popup className="z-50 bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-[140px]">
+            <Menu.Item
+              className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer"
+              onClick={onSettings}
+            >
+              Settings
+            </Menu.Item>
+            <Menu.Item
+              className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer"
+              onClick={onSignOut}
+            >
+              Sign out
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }

@@ -89,7 +89,7 @@ export function CardAutocomplete({
       <div className="relative">
         <SearchIcon />
         <Combobox.Input
-          className="w-full rounded-lg border border-border-subtle bg-bg-surface py-1.5 pr-3 pl-8 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 outline-none focus:border-gold-dim focus:ring-1 focus:ring-gold-dim/40 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full rounded-lg border border-border-subtle bg-bg-surface py-1.5 pr-3 pl-8 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 outline-none focus:border-gold focus:ring-1 focus:ring-gold disabled:opacity-40 disabled:cursor-not-allowed"
           disabled={disabled}
           placeholder={placeholder}
         />
@@ -97,7 +97,7 @@ export function CardAutocomplete({
 
       <Combobox.Portal>
         <Combobox.Positioner align="start" sideOffset={4}>
-          <Combobox.Popup className="z-50 w-(--anchor-width) overflow-hidden rounded-lg border border-border-accent bg-bg-panel shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_1px_rgba(201,168,76,0.1)] origin-(--transform-origin) transition-[transform,opacity] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+          <Combobox.Popup className="z-50 w-(--anchor-width) overflow-hidden rounded-lg border border-border-accent bg-bg-panel shadow-dropdown origin-(--transform-origin) transition-[transform,opacity] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
             <Combobox.List className="peer overflow-y-auto max-h-64 p-1 scroll-py-1">
               {(card: CardSpec) => <CardOption card={card} key={card.id} />}
             </Combobox.List>

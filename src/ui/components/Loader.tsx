@@ -1,6 +1,6 @@
 export function Loader() {
   return (
-    <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-[spin-gold_1s_linear_infinite]" />
+    <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-spin-gold" />
   );
 }
 

@@ -12,14 +12,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const variantStyles: Record<ButtonVariant, { base: string; enabled: string; disabled: string }> = {
   solid: {
     base: "font-bold uppercase tracking-wider",
-    enabled:
-      "bg-gold text-bg-deep hover:bg-gold-bright hover:shadow-[0_0_20px_var(--color-gold-dim)] cursor-pointer",
+    enabled: "bg-gold text-bg-deep hover:bg-gold-bright hover:shadow-glow-gold cursor-pointer",
     disabled: "bg-gold-dim/40 text-text-muted cursor-not-allowed",
   },
   outline: {
     base: "font-medium border",
     enabled:
-      "bg-bg-panel border-gold-dim text-gold hover:border-gold hover:shadow-[0_0_16px_var(--color-gold-dim)] cursor-pointer",
+      "bg-bg-panel border-gold-dim text-gold hover:border-gold hover:shadow-glow-gold-sm cursor-pointer",
     disabled: "bg-bg-panel border-gold-dim/50 text-text-muted opacity-50 cursor-not-allowed",
   },
   ghost: {
@@ -53,7 +52,7 @@ export function Button({
         v.base,
         s,
         disabled ? v.disabled : v.enabled,
-        glowing && !disabled ? "animate-[pulse-glow_2s_ease-in-out_infinite]" : "",
+        glowing && !disabled ? "animate-pulse-glow" : "",
         className,
       ]
         .filter(Boolean)

@@ -9,7 +9,7 @@ export function PanelCard({
 }) {
   return (
     <div
-      className={`min-h-0 flex flex-col min-w-0 bg-bg-panel border border-border-subtle rounded-xl p-3 shadow-[0_0_40px_rgba(0,0,0,0.3)] ${className}`}
+      className={`min-h-0 flex flex-col min-w-0 bg-bg-panel border border-border-subtle rounded-xl p-3 shadow-panel ${className}`}
     >
       {children}
     </div>
@@ -27,8 +27,8 @@ export function PanelHeader({ title, badge }: { title: string; badge?: string })
 
 export function PanelLoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4">
-      <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-[spin-gold_1s_linear_infinite]" />
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-spin-gold" />
       <div className="space-y-2 w-full max-w-xs">
         {[1, 2, 3].map((i) => (
           <div
@@ -55,4 +55,8 @@ export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: 
       <p className="text-xs text-text-muted">{subtitle}</p>
     </div>
   );
+}
+
+export function PanelBody({ children }: { children: ReactNode }) {
+  return <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">{children}</div>;
 }

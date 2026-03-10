@@ -27,6 +27,14 @@
         "noEvolvingTypes": "error",
         "noImplicitAnyLet": "error"
       },
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": ["Input"]
+          }
+        }
+      },
       "complexity": {
         "noBannedTypes": "error",
         "useLiteralKeys": { "level": "error", "fix": "safe" },

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Form } from "../../components/Form.tsx";
+import { Input } from "../../components/Input.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
@@ -72,13 +73,11 @@ export function ConfigInput({ name, label, disabled, onBlur }: ConfigInputProps)
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs text-text-secondary uppercase tracking-wide">{label}</span>
-      <input
+      <Input
         {...register(name, { valueAsNumber: true, onBlur })}
-        className={`w-full px-3 py-2 bg-bg-surface border rounded-lg text-center font-mono text-sm text-text-primary transition-colors
-					${errors[name] ? "border-stat-atk" : "border-border-subtle"}
-					focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold
-					disabled:opacity-40 disabled:cursor-not-allowed`}
+        className="text-center font-mono"
         disabled={disabled}
+        error={!!errors[name]}
         type="number"
       />
     </label>

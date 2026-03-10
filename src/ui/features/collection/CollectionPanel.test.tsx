@@ -21,7 +21,7 @@ describe("CollectionPanel", () => {
   it("renders loading state when data is undefined", () => {
     mockHook.mockReturnValue(undefined);
     const { container } = render(<CollectionPanel />);
-    expect(container.querySelector(".animate-\\[spin-gold_1s_linear_infinite\\]")).not.toBeNull();
+    expect(container.querySelector(".animate-spin-gold")).not.toBeNull();
   });
 
   it("renders empty state when totalCards is 0", () => {
