@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../engine/data/card-model.ts";
+import { addCard, createCardDb } from "../../engine/data/game-db.ts";
 import { CardDbProvider } from "../lib/card-db-context.tsx";
 import { CardAutocomplete, cardFilter } from "./CardAutocomplete.tsx";
 
@@ -34,10 +35,13 @@ const testCards: CardSpec[] = [
   },
 ];
 
+const testCardDb = createCardDb();
+for (const card of testCards) addCard(testCardDb, card);
+
 function renderAutocomplete(props: Partial<Parameters<typeof CardAutocomplete>[0]> = {}) {
   const onSelect = props.onSelect ?? vi.fn();
   return render(
-    <CardDbProvider>
+    <CardDbProvider cardDb={testCardDb}>
       <CardAutocomplete cards={testCards} onSelect={onSelect} {...props} />
     </CardDbProvider>,
   );
@@ -129,7 +133,7 @@ describe("CardAutocomplete", () => {
 
   it("uses all cards from CardDb when cards prop is omitted", () => {
     render(
-      <CardDbProvider>
+      <CardDbProvider cardDb={testCardDb}>
         <CardAutocomplete onSelect={vi.fn()} />
       </CardDbProvider>,
     );

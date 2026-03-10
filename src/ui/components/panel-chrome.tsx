@@ -16,11 +16,20 @@ export function PanelCard({
   );
 }
 
-export function PanelHeader({ title, badge }: { title: string; badge?: string }) {
+export function PanelHeader({
+  title,
+  badge,
+  children,
+}: {
+  title: string;
+  badge?: string;
+  children?: ReactNode;
+}) {
   return (
-    <div className="flex items-baseline gap-3 pb-2 mb-2 border-b border-border-subtle">
+    <div className="flex items-center gap-3 pb-2 mb-2 border-b border-border-subtle">
       <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold">{title}</h2>
       {badge && <span className="text-xs text-text-secondary">{badge}</span>}
+      {children && <div className="ml-auto">{children}</div>}
     </div>
   );
 }
@@ -59,4 +68,12 @@ export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: 
 
 export function PanelBody({ children }: { children: ReactNode }) {
   return <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">{children}</div>;
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="font-display text-[11px] font-semibold uppercase tracking-widest text-gold-dim">
+      {children}
+    </h3>
+  );
 }

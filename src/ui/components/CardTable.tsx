@@ -1,5 +1,7 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
+import { formatCardId } from "../lib/format.ts";
 
 export interface CardEntry {
   id: number;
@@ -34,6 +36,8 @@ export function countById(ids: number[]): Map<number, number> {
 }
 
 export function CardTable({ entries }: { entries: CardEntry[] }) {
+  const [animateRef] = useAutoAnimate();
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -45,7 +49,7 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
             <th className="text-left py-2 px-2 font-normal">DEF</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody ref={animateRef}>
           {entries.map((e) => (
             <tr
               className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
@@ -53,7 +57,7 @@ export function CardTable({ entries }: { entries: CardEntry[] }) {
               key={e.id}
             >
               <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
-                {String(e.id).padStart(3, "0")}
+                {formatCardId(e.id)}
               </td>
               <td className="py-1.5 px-1 text-text-primary">
                 <span>{e.name}</span>

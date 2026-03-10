@@ -1,4 +1,4 @@
-# P2: Hand Fusion Calculator (Core Copilot Feature)
+# P2: Hand Fusion Calculator (Core Copilot Feature) — DONE
 
 **Why:** During gameplay, the player draws 5 cards and needs to instantly know the best fusion to play. This turns the optimizer from a pre-game tool into a real-time gameplay aid.
 

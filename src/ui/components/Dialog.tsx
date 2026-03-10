@@ -1,6 +1,6 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import type { ReactNode } from "react";
-import { IconButton } from "./IconButton.tsx";
+import { CloseButton } from "./CloseButton.tsx";
 
 interface DialogProps {
   open: boolean;
@@ -19,19 +19,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
             <BaseDialog.Title className="font-display text-sm font-bold uppercase tracking-wide text-gold">
               {title}
             </BaseDialog.Title>
-            <BaseDialog.Close render={<IconButton label="Close" />}>
-              <svg
-                aria-hidden="true"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
-            </BaseDialog.Close>
+            <BaseDialog.Close render={<CloseButton label="Close" />} />
           </div>
           {children}
         </BaseDialog.Popup>

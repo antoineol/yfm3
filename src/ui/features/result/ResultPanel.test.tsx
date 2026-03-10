@@ -1,26 +1,29 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
-import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isOptimizingAtom } from "../../lib/atoms.ts";
 
 vi.mock("./use-result-entries.ts", () => ({
   useResultEntries: vi.fn(),
 }));
 
+vi.mock("../optimize/use-optimize.ts", () => ({
+  useOptimize: vi.fn(),
+}));
+
+import { useOptimize } from "../optimize/use-optimize.ts";
 import { ResultPanel } from "./ResultPanel.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
-const mockHook = useResultEntries as ReturnType<typeof vi.fn>;
+const mockResultHook = useResultEntries as ReturnType<typeof vi.fn>;
+const mockOptimizeHook = useOptimize as ReturnType<typeof vi.fn>;
 
-function renderWithStore(optimizing = false) {
-  const store = createStore();
-  store.set(isOptimizingAtom, optimizing);
-  return render(
-    <Provider store={store}>
-      <ResultPanel />
-    </Provider>,
-  );
+function renderPanel(optimizing = false) {
+  mockOptimizeHook.mockReturnValue({
+    optimize: vi.fn(),
+    isOptimizing: optimizing,
+    canOptimize: true,
+  });
+  return render(<ResultPanel />);
 }
 
 afterEach(cleanup);
@@ -35,43 +38,43 @@ const baseResult = {
 
 describe("ResultPanel", () => {
   it("renders empty state when no result and not optimizing", () => {
-    mockHook.mockReturnValue(null);
-    renderWithStore(false);
+    mockResultHook.mockReturnValue(null);
+    renderPanel(false);
     expect(screen.getByText("Awaiting optimization")).toBeDefined();
   });
 
   it("renders loading state when optimizing", () => {
-    mockHook.mockReturnValue(null);
-    renderWithStore(true);
-    expect(screen.getByText("Optimizing…")).toBeDefined();
+    mockResultHook.mockReturnValue(null);
+    renderPanel(true);
+    expect(screen.getByText("Optimizing\u2026")).toBeDefined();
   });
 
   it("renders stats and card table when result is present", () => {
-    mockHook.mockReturnValue({
+    mockResultHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
       result: baseResult,
     });
-    renderWithStore();
+    renderPanel();
     expect(screen.getByText("2500.0")).toBeDefined();
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
   });
 
   it("shows current deck score when available", () => {
-    mockHook.mockReturnValue({
+    mockResultHook.mockReturnValue({
       entries: [],
       result: { ...baseResult, currentDeckScore: 2000 },
     });
-    renderWithStore();
+    renderPanel();
     expect(screen.getByText("2000.0")).toBeDefined();
     expect(screen.getByText("Current Deck")).toBeDefined();
   });
 
   it("shows improvement when available", () => {
-    mockHook.mockReturnValue({
+    mockResultHook.mockReturnValue({
       entries: [],
       result: { ...baseResult, improvement: 500 },
     });
-    renderWithStore();
+    renderPanel();
     expect(screen.getByText("\u25b2 500.0")).toBeDefined();
     expect(screen.getByText("Improvement")).toBeDefined();
   });

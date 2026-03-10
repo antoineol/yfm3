@@ -1,13 +1,13 @@
-import { useAtomValue } from "jotai";
 import { CardTable } from "../../components/CardTable.tsx";
 import { PanelBody, PanelHeader } from "../../components/panel-chrome.tsx";
-import { isOptimizingAtom } from "../../lib/atoms.ts";
+import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
+import { useOptimize } from "../optimize/use-optimize.ts";
 import { StatItem } from "./StatCard.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 export function ResultPanel() {
   const data = useResultEntries();
-  const isOptimizing = useAtomValue(isOptimizingAtom);
+  const { isOptimizing } = useOptimize();
 
   if (!data) {
     return (
@@ -22,7 +22,9 @@ export function ResultPanel() {
 
   return (
     <>
-      <PanelHeader badge={`${result.deck.length} cards`} title="Optimized Result" />
+      <PanelHeader badge={`${result.deck.length} cards`} title="Optimized Result">
+        <OptimizeButton />
+      </PanelHeader>
       <div className="flex items-baseline flex-wrap gap-x-5 gap-y-2 mb-3">
         <StatItem hero label="Expected ATK" value={result.expectedAtk.toFixed(1)} />
         {result.currentDeckScore != null && (
@@ -46,17 +48,18 @@ export function ResultPanel() {
 
 function ResultEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
       <p className="text-gold/60 font-display text-sm uppercase tracking-wide">
         Awaiting optimization
       </p>
       <div
-        className="w-32 h-0.5 rounded-full mt-2"
+        className="w-32 h-0.5 rounded-full"
         style={{
           backgroundImage:
             "linear-gradient(90deg, transparent, var(--color-gold-dim), transparent)",
         }}
       />
+      <OptimizeButton />
     </div>
   );
 }

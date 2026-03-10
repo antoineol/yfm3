@@ -6,10 +6,12 @@ import { addCard, type CardDb } from "../../engine/data/game-db.ts";
 import { parseCardCsv } from "../../engine/data/parse-cards.ts";
 import { parseFusionCsv } from "../../engine/data/parse-fusions.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../../engine/types/constants.ts";
+import { CardDbProvider } from "./card-db-context.tsx";
 
 export interface FusionTableData {
   fusionTable: Int16Array;
   cardAtk: Int16Array;
+  cardDb: CardDb;
   maxCardId: number;
 }
 
@@ -32,7 +34,7 @@ export function buildFusionTableData(): FusionTableData {
   fusionTable.fill(FUSION_NONE);
   buildFusionTable(cardDb.cards, fusionDb.fusions, fusionTable, cardAtk);
 
-  return { fusionTable, cardAtk, maxCardId: MAX_CARD_ID };
+  return { fusionTable, cardAtk, cardDb, maxCardId: MAX_CARD_ID };
 }
 
 /**
@@ -87,7 +89,9 @@ export function FusionTableProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <FusionTableContext.Provider value={dataRef.current}>{children}</FusionTableContext.Provider>
+    <FusionTableContext.Provider value={dataRef.current}>
+      <CardDbProvider cardDb={dataRef.current.cardDb}>{children}</CardDbProvider>
+    </FusionTableContext.Provider>
   );
 }
 
