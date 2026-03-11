@@ -203,6 +203,15 @@ function buildNameToIdMap(cards: CardSpec[]): Map<string, CardId> {
   return map;
 }
 
+/**
+ * Cards that share the same fusion role as another card.
+ * When "Time Wizard" appears in the fusion CSV, it resolves to both
+ * Time Wizard (12) and Time Wizard Of Tomorrow (470).
+ */
+const FUSION_ALIASES: Readonly<Record<string, string>> = {
+  "Time Wizard Of Tomorrow": "Time Wizard",
+};
+
 function buildLookupMaps(cards: CardSpec[]) {
   const nameToIds = new Map<string, CardId[]>();
   const kindToIds = new Map<string, CardId[]>();
@@ -214,6 +223,17 @@ function buildLookupMaps(cards: CardSpec[]) {
       nameIds.push(card.id);
     } else {
       nameToIds.set(card.name, [card.id]);
+    }
+
+    // Register under alias: "Time Wizard Of Tomorrow" → also listed under "Time Wizard"
+    const alias = FUSION_ALIASES[card.name];
+    if (alias) {
+      const aliasIds = nameToIds.get(alias);
+      if (aliasIds) {
+        aliasIds.push(card.id);
+      } else {
+        nameToIds.set(alias, [card.id]);
+      }
     }
 
     for (const kind of card.kinds) {
