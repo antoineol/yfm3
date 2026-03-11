@@ -126,7 +126,7 @@ describe("useOptimize", () => {
           [1, 20],
           [2, 20],
         ]),
-        { currentDeck: [1, 2], deckSize: 40, fusionDepth: 3 },
+        expect.objectContaining({ currentDeck: [1, 2], deckSize: 40, fusionDepth: 3 }),
       );
     });
 
@@ -216,11 +216,14 @@ describe("useOptimize", () => {
 
       await act(() => result.current.optimize());
 
-      expect(mockOptimize).toHaveBeenCalledWith(new Map([[1, 40]]), {
-        currentDeck: undefined,
-        deckSize: 40,
-        fusionDepth: 3,
-      });
+      expect(mockOptimize).toHaveBeenCalledWith(
+        new Map([[1, 40]]),
+        expect.objectContaining({
+          currentDeck: undefined,
+          deckSize: 40,
+          fusionDepth: 3,
+        }),
+      );
     });
   });
 });

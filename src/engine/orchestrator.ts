@@ -2,7 +2,14 @@ import { getConfig, setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { generateInitialDecks } from "./optimizer/seed-strategies.ts";
-import { DECK_SIZE, DEFAULT_FUSION_DEPTH, HAND_SIZE, MAX_FUSION_DEPTH } from "./types/constants.ts";
+import {
+  CHOOSE_5,
+  DECK_SIZE,
+  DEFAULT_FUSION_DEPTH,
+  HAND_SIZE,
+  MAX_FUSION_DEPTH,
+  NUM_HANDS,
+} from "./types/constants.ts";
 import type {
   ScorerInit,
   ScorerResponse,
@@ -80,6 +87,7 @@ export async function optimizeDeckParallel(
     currentDeck?: number[];
     deckSize?: number;
     fusionDepth?: number;
+    onProgress?: (progress: number, bestScore: number) => void;
   },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
@@ -126,6 +134,9 @@ export async function optimizeDeckParallel(
     MIN_CONVERGENCE_TIMEOUT,
     timeBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
   );
+
+  // Number of sampled hands per worker — used to convert raw sum → approximate expected ATK
+  const numHands = Math.min(NUM_HANDS, CHOOSE_5[deckSize] ?? 0);
 
   // Generate multi-start initial decks
   const rand = mulberry32(SEED_STRATEGY_SEED);
@@ -202,6 +213,12 @@ export async function optimizeDeckParallel(
             if (isSignificant) {
               workerLastImprovedAt[i] = performance.now();
             }
+          }
+          if (options?.onProgress) {
+            const elapsed = performance.now() - start;
+            const progress = Math.min(elapsed / timeBudgetMs, 1);
+            const approxExpectedAtk = numHands > 0 ? globalBest / numHands : 0;
+            options.onProgress(progress, approxExpectedAtk);
           }
           if (allWorkersConverged()) {
             terminateEarly();

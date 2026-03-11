@@ -595,3 +595,151 @@ describe("convergence detection", () => {
     expect(result.expectedAtk).toBeTypeOf("number");
   });
 });
+
+describe("onProgress callback", () => {
+  it("receives increasing progress values 0→1 with best score", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+    createdWorkers = [];
+
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              const result: ScorerResult = {
+                type: "SCORE_RESULT",
+                expectedAtk: 1234,
+              };
+              this.onmessage?.({ data: result } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          const deck = new Array(DECK_SIZE).fill(1);
+          let count = 0;
+          const interval = setInterval(() => {
+            if (this.terminated) {
+              clearInterval(interval);
+              return;
+            }
+            count++;
+            this.onmessage?.({
+              data: {
+                type: "PROGRESS",
+                bestScore: 50_000 + count * 100,
+                bestDeck: deck,
+                iterations: count * 100,
+              },
+            } as MessageEvent<WorkerResponse>);
+
+            if (count >= 5) {
+              clearInterval(interval);
+              this.onmessage?.({
+                data: {
+                  type: "RESULT",
+                  bestDeck: deck,
+                  bestScore: 50_000 + count * 100,
+                  iterations: count * 100,
+                },
+              } as MessageEvent<WorkerResponse>);
+            }
+          }, 50);
+        }
+      },
+    );
+
+    const progressValues: Array<{ progress: number; bestScore: number }> = [];
+    await optimizeDeckParallel(makeCollection(), {
+      onProgress: (progress, bestScore) => {
+        progressValues.push({ progress, bestScore });
+      },
+    });
+
+    expect(progressValues.length).toBeGreaterThan(0);
+    // Progress values should be between 0 and 1
+    for (const pv of progressValues) {
+      expect(pv.progress).toBeGreaterThanOrEqual(0);
+      expect(pv.progress).toBeLessThanOrEqual(1);
+      expect(pv.bestScore).toBeGreaterThan(0);
+    }
+    // Best score should be non-decreasing
+    for (let i = 1; i < progressValues.length; i++) {
+      const curr = progressValues[i];
+      const prev = progressValues[i - 1];
+      if (curr && prev) {
+        expect(curr.bestScore).toBeGreaterThanOrEqual(prev.bestScore);
+      }
+    }
+  });
+
+  it("cancel aborts and returns partial result (not null)", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 2 });
+    createdWorkers = [];
+
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              const result: ScorerResult = {
+                type: "SCORE_RESULT",
+                expectedAtk: 7777,
+              };
+              this.onmessage?.({ data: result } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          const deck = new Array(DECK_SIZE).fill(1);
+          let count = 0;
+          // Send progress indefinitely, never send RESULT
+          const interval = setInterval(() => {
+            if (this.terminated) {
+              clearInterval(interval);
+              return;
+            }
+            count++;
+            this.onmessage?.({
+              data: {
+                type: "PROGRESS",
+                bestScore: 60_000 + count * 10,
+                bestDeck: deck,
+                iterations: count * 100,
+              },
+            } as MessageEvent<WorkerResponse>);
+          }, 50);
+        }
+      },
+    );
+
+    const controller = new AbortController();
+    const resultPromise = optimizeDeckParallel(makeCollection(), {
+      signal: controller.signal,
+    });
+
+    // Wait for workers to post some progress
+    await new Promise((r) => setTimeout(r, 200));
+    controller.abort();
+
+    const result = await resultPromise;
+    expect(result).not.toBeNull();
+    expect(result.deck).toHaveLength(DECK_SIZE);
+    expect(result.expectedAtk).toBe(7777);
+  });
+});

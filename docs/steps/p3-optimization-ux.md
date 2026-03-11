@@ -1,6 +1,8 @@
-# P3: Optimization UX Improvements
+# P3: Optimization UX Improvements (DONE)
 
 **Priority:** P2 — Better feedback during the optimizer's ~15s run.
+
+**Status:** DONE
 
 **Depends on:** P1.9 (shared infrastructure — done)
 
