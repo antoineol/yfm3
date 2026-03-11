@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
-import type { Doc } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
+import type { Doc } from "../../../convex/_generated/dataModel";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts";
 
 type UserPreferences = Doc<"userPreferences">;
