@@ -28,7 +28,7 @@ Port YFM2's best UX features to YFM3, prioritized by impact on the copilot exper
 | Card Registration Form         | Yes        | No               | Not needed — data comes from CSV           |
 
 
-## Step Plan (Prioritized for Copilot UX)
+## Step Plan (Prioritized for Copilot UX and supporting infrastructure)
 
 
 | Priority | Step                       | File                                                                | What It Builds                                                                 |
@@ -40,7 +40,11 @@ Port YFM2's best UX features to YFM3, prioritized by impact on the copilot exper
 | P2       | Optimization UX            | [`p3-optimization-ux.md`](p3-optimization-ux.md)                   | Progress bar, cancel, accept/reject + **manual fine-tuning** of suggested deck |
 | P3       | Deck Intelligence          | [`p4-deck-intelligence.md`](p4-deck-intelligence.md)               | Deck fusion list, score explanation with probabilities                         |
 | P4       | Collection UX              | [`p5-collection-ux.md`](p5-collection-ux.md)                       | Last-added hint, collection actions, **manual deck add/remove**                |
-| P5       | Fusion Reference           | [`p6-fusion-reference.md`](p6-fusion-reference.md)                 | Fusion lookup tool, browsable fusion database                                  |
+| P7       | Shared Reference Data      | [`p7-fusion-reference.md`](p7-fusion-reference.md)                 | Google Sheets as canonical source, shared runtime store, permissions model, and backup snapshots |
+| P8       | Google Sheets Fusions      | [`p8-google-sheets-fusions.md`](p8-google-sheets-fusions.md)       | Replace static fusion CSV with backend-imported Google Sheets fusion data       |
+
+P7 is not a direct YFM2 feature port. It is supporting infrastructure needed to keep the reference dataset correct as new discoveries are made during gameplay.
+P8 is the concrete migration step that moves the fusion dataset off the bundled CSV path.
 
 
 ## What We Keep As-Is
@@ -55,4 +59,3 @@ Port YFM2's best UX features to YFM3, prioritized by impact on the copilot exper
 - YFM3 uses **Vite** (not Next.js like YFM2) — no routing framework, will need lightweight client-side routing or tabs.
 - YFM3's engine `FusionScorer` returns only max ATK (optimized for speed). The hand fusion calculator needs a **separate, user-facing fusion chain finder** that returns full chain details (materials, intermediate results). This is a new module, not a modification of the hot-path scorer.
 - Convex `hand` table already exists with add/remove/clear mutations — ready for P1.
-

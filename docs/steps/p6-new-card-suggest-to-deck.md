@@ -1,3 +1,3 @@
 When adding a card to the collection, it should check if integrating it in the deck would increase the score. It's a kind of "delta" operation, where we try to find the most interesting swap that would lead to the best score increase. I guess there is something similar already done during the deck optimization process.
 
-Note: the database of cards and fusions should be shared between dev and prod, persisted and never lost. Or with a super easy sync (worst case if no better pragmatic solution). Contrary to the rest of the data (user settings, collection, deck...) which are bount to the signed in user and the environment.
+If a swap is found (suggest the most interesting one, of course), then the swap is suggested (optional). Find the best UX for that.

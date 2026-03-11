@@ -73,7 +73,7 @@ Return best deck + exact expected ATK
 | 7 (V2): Multi-Start (DONE) | `docs/steps/phase-7-multi-start.md` | Different initial decks per worker |
 | 8.1: Configuration UI (DONE) | `docs/steps/phase-8.1-configuration-ui-including-deck-size.md` | Global config module, persisted preferences, ConfigPanel UI |
 | 9: Configurable Fusion Depth (DONE) | `docs/steps/phase-9-accept-different-depth.md` | Configurable fusion chain depth (1–4), threaded through config/workers/UI |
-| **Port YFM2 Features** | [`docs/steps/p1-port-yfm2-features.md`](steps/p1-port-yfm2-features.md) | Overview & feature gap analysis |
+| **Port YFM2 Features** | [`docs/steps/overview-port-yfm2-features.md`](steps/overview-port-yfm2-features.md) | Overview & feature gap analysis |
 | P0a: Authentication (DONE) | [`docs/steps/p1.1-auth.md`](steps/p1.1-auth.md) | Convex Auth + Google OAuth, replace manual userId with real cross-device auth |
 | P0b: Baseline UX Polish (DONE) | [`docs/steps/p1.5-baseline-ux-polish.md`](steps/p1.5-baseline-ux-polish.md) | Fix broken config inputs, visual hierarchy, card display |
 | P0c: Shared Infrastructure (DONE) | [`docs/steps/p1.9-shared-infrastructure.md`](steps/p1.9-shared-infrastructure.md) | FusionTable context, CardAutocomplete, tab navigation shell |
@@ -82,4 +82,5 @@ Return best deck + exact expected ATK
 | P3: Deck Intelligence (DONE) | [`docs/steps/p4-deck-intelligence.md`](steps/p4-deck-intelligence.md) | Deck fusion list, score explanation with probabilities |
 | P4: Collection & Deck Editing (DONE) | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Last-added hint, collection actions, manual deck add/remove |
 | P4.5: Animate Generated Deck (DONE) | [`docs/steps/p5.5-animate-generated-deck.md`](steps/p5.5-animate-generated-deck.md) | Live deck preview with auto-animate during optimization |
-| P5: Fusion Reference | [`docs/steps/p6-fusion-reference.md`](steps/p6-fusion-reference.md) | Fusion lookup tool, browsable fusion database |
+| P7: Shared Reference Data | [`docs/steps/p7-fusion-reference.md`](steps/p7-fusion-reference.md) | Google Sheets as canonical source, shared runtime store, permissions model, and backup snapshots |
+| P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
