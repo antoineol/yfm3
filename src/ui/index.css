@@ -67,6 +67,10 @@ body {
   background: var(--color-gold);
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* Hide number input spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
