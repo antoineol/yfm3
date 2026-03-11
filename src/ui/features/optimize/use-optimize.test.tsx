@@ -3,7 +3,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isOptimizingAtom, resultAtom } from "../../lib/atoms.ts";
+import { isOptimizingAtom, liveBestDeckAtom, resultAtom } from "../../lib/atoms.ts";
 
 vi.mock("../../db/use-collection.ts", () => ({
   useCollection: vi.fn(),
@@ -224,6 +224,46 @@ describe("useOptimize", () => {
           fusionDepth: 3,
         }),
       );
+    });
+
+    it("sets liveBestDeck from onProgress callback", async () => {
+      const fakeDeck = [10, 20, 30];
+      mockOptimize.mockImplementation(
+        async (
+          _col: unknown,
+          opts: { onProgress?: (p: number, s: number, d: number[]) => void },
+        ) => {
+          opts?.onProgress?.(0.5, 2000, fakeDeck);
+          return {
+            deck: fakeDeck,
+            expectedAtk: 2000,
+            currentDeckScore: null,
+            improvement: null,
+            elapsedMs: 100,
+          };
+        },
+      );
+      mockCollection.mockReturnValue({ 1: 40 });
+      const { result } = renderHook(() => useOptimize(), {
+        wrapper: makeWrapper(store),
+      });
+
+      await act(() => result.current.optimize());
+
+      // liveBestDeck is cleared in .finally() after optimization completes
+      expect(store.get(liveBestDeckAtom)).toEqual([]);
+    });
+
+    it("clears liveBestDeck on optimization start", async () => {
+      store.set(liveBestDeckAtom, [1, 2, 3]);
+      mockCollection.mockReturnValue({ 1: 40 });
+      const { result } = renderHook(() => useOptimize(), {
+        wrapper: makeWrapper(store),
+      });
+
+      await act(() => result.current.optimize());
+
+      expect(store.get(liveBestDeckAtom)).toEqual([]);
     });
   });
 });

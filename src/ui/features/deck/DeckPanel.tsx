@@ -12,11 +12,13 @@ import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { DeckFusionList } from "./DeckFusionList.tsx";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
+import { useDeckScore } from "./use-deck-score.ts";
 
 export function DeckPanel() {
   const data = useDeckEntries();
   const targetSize = useDeckSize();
   const removeOne = useMutation(api.deck.removeOneByCardId);
+  const score = useDeckScore(data?.deckCardIds ?? []);
 
   if (data === undefined) return <PanelLoadingState />;
 
@@ -64,7 +66,9 @@ export function DeckPanel() {
           </span>
         }
         title="Current Deck"
-      />
+      >
+        <DeckScoreBadge score={score} />
+      </PanelHeader>
       <PanelBody>
         <CardTable entries={entries} leftActions={renderLeftActions} />
         <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-border-subtle">
@@ -73,5 +77,15 @@ export function DeckPanel() {
         </div>
       </PanelBody>
     </>
+  );
+}
+
+function DeckScoreBadge({ score }: { score: number | null }) {
+  if (score == null) return null;
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-xs text-text-secondary uppercase tracking-wide">ATK</span>
+      <span className="font-mono font-bold text-sm text-gold">{score.toFixed(1)}</span>
+    </div>
   );
 }

@@ -76,6 +76,7 @@ function scoreInWorker(collectionRecord: Record<number, number>, deck: number[])
  * @param options.timeLimit  total wall-clock budget in ms (default 15s)
  * @param options.signal  AbortSignal to cancel workers early
  * @param options.currentDeck  card IDs of the current deck to score for comparison
+ * @param options.currentDeckScore  pre-computed exact expected ATK of the current deck (skips redundant scoring)
  * @param options.deckSize  number of cards in the optimized deck (default 40)
  * @param options.fusionDepth  max fusion chain depth (default 3)
  */
@@ -85,9 +86,10 @@ export async function optimizeDeckParallel(
     timeLimit?: number;
     signal?: AbortSignal;
     currentDeck?: number[];
+    currentDeckScore?: number | null;
     deckSize?: number;
     fusionDepth?: number;
-    onProgress?: (progress: number, bestScore: number) => void;
+    onProgress?: (progress: number, bestScore: number, bestDeck: number[]) => void;
   },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
@@ -120,9 +122,11 @@ export async function optimizeDeckParallel(
     collectionRecord[id] = qty;
   }
 
-  // 1. Fire current-deck scoring in a worker (non-blocking, parallel with SA)
+  // 1. Resolve current-deck score: reuse pre-computed value or fire a worker
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
-  if (options?.currentDeck && options.currentDeck.length === deckSize) {
+  if (options?.currentDeckScore != null) {
+    currentDeckPromise = Promise.resolve(options.currentDeckScore);
+  } else if (options?.currentDeck && options.currentDeck.length === deckSize) {
     currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck);
   }
 
@@ -151,21 +155,20 @@ export async function optimizeDeckParallel(
   // the global best (not its own previous best). This prevents random-start
   // workers' catch-up improvements from delaying termination.
   let globalBest = -Infinity;
+  let globalBestDeck: number[] = [];
   const workerLastImprovedAt: number[] = [];
 
   function terminateEarly() {
     for (let j = 0; j < numWorkers; j++) {
       if (!resolved[j]) {
+        resolved[j] = true;
         const progress = latestProgress[j];
-        if (progress) {
-          resolved[j] = true;
-          resolvers[j]?.({
-            type: "RESULT",
-            bestDeck: progress.bestDeck,
-            bestScore: progress.bestScore,
-            iterations: progress.iterations,
-          });
-        }
+        resolvers[j]?.({
+          type: "RESULT",
+          bestDeck: progress?.bestDeck ?? [],
+          bestScore: progress?.bestScore ?? -Infinity,
+          iterations: progress?.iterations ?? 0,
+        });
       }
       workers[j]?.terminate();
     }
@@ -210,6 +213,7 @@ export async function optimizeDeckParallel(
               globalBest <= 0 ||
               (msg.bestScore - globalBest) / globalBest >= CONVERGENCE_MIN_IMPROVEMENT;
             globalBest = msg.bestScore;
+            globalBestDeck = msg.bestDeck;
             if (isSignificant) {
               workerLastImprovedAt[i] = performance.now();
             }
@@ -218,7 +222,7 @@ export async function optimizeDeckParallel(
             const elapsed = performance.now() - start;
             const progress = Math.min(elapsed / timeBudgetMs, 1);
             const approxExpectedAtk = numHands > 0 ? globalBest / numHands : 0;
-            options.onProgress(progress, approxExpectedAtk);
+            options.onProgress(progress, approxExpectedAtk, globalBestDeck);
           }
           if (allWorkersConverged()) {
             terminateEarly();

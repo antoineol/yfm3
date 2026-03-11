@@ -20,16 +20,29 @@ export function PanelHeader({
   title,
   badge,
   children,
+  stretch,
+  bottomBar,
 }: {
   title: string;
   badge?: ReactNode;
   children?: ReactNode;
+  /** When true, the children area fills remaining header space instead of shrink-wrapping. */
+  stretch?: boolean;
+  /** Overlay rendered on top of the bottom border (e.g. progress bar). */
+  bottomBar?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 pb-2 mb-2 border-b border-border-subtle">
-      <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold">{title}</h2>
-      {badge && <span className="text-xs text-text-secondary">{badge}</span>}
-      {children && <div className="ml-auto">{children}</div>}
+    <div className="relative flex items-center gap-3 pb-3 mb-2 border-b border-border-subtle">
+      <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
+        {title}
+      </h2>
+      {badge && <span className="text-xs text-text-secondary shrink-0">{badge}</span>}
+      {children && (
+        <div className={`-my-2 ${stretch ? "flex-1 min-w-0" : "ml-auto shrink-0"}`}>{children}</div>
+      )}
+      {bottomBar && (
+        <div className="absolute -bottom-px left-0 right-0 h-0.5 z-10">{bottomBar}</div>
+      )}
     </div>
   );
 }

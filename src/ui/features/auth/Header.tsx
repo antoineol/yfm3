@@ -7,17 +7,17 @@ import { IconButton } from "../../components/IconButton.tsx";
 import { ConfigPanel } from "../config/ConfigPanel.tsx";
 
 const tabClass =
-  "relative py-2.5 font-display text-xs font-semibold uppercase tracking-widest text-text-secondary transition-colors duration-200 hover:text-text-primary cursor-pointer data-active:text-gold-bright no-underline";
+  "relative py-2.5 font-display text-sm font-bold uppercase tracking-widest text-text-secondary transition-colors duration-200 hover:text-text-primary cursor-pointer data-active:text-gold-bright no-underline";
 
 export function Header() {
   const { signOut } = useAuthActions();
   const [configOpen, setConfigOpen] = useState(false);
 
   return (
-    <div className="flex items-center px-3 py-2 border-b border-border-subtle">
-      <h1 className="font-display text-lg font-bold text-gold mr-6">YFM Deck Optimizer</h1>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center px-3 py-2 border-b border-border-subtle">
+      <h1 className="font-display text-lg font-bold text-gold">YFM Deck Optimizer</h1>
 
-      <Tabs.List className="relative flex items-center gap-6 flex-1 self-stretch">
+      <Tabs.List className="relative flex items-center gap-8 self-stretch">
         <Tabs.Tab
           className={tabClass}
           nativeButton={false}
@@ -34,10 +34,10 @@ export function Header() {
         >
           Hand
         </Tabs.Tab>
-        <Tabs.Indicator className="absolute bottom-0 left-0 h-0.5 bg-gold transition-all duration-250 ease-out" />
+        <Tabs.Indicator className="absolute bottom-0 left-0 h-[3px] rounded-full bg-gold transition-all duration-250 ease-out" />
       </Tabs.List>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 justify-end">
         <HeaderMenu onSettings={() => setConfigOpen(true)} onSignOut={() => void signOut()} />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">

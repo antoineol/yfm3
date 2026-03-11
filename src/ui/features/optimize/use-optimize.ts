@@ -5,18 +5,27 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useCollection } from "../../db/use-collection.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
-import { isOptimizingAtom, liveBestScoreAtom, resultAtom } from "../../lib/atoms.ts";
+import {
+  currentDeckScoreAtom,
+  isOptimizingAtom,
+  liveBestDeckAtom,
+  liveBestScoreAtom,
+  resultAtom,
+} from "../../lib/atoms.ts";
 
 export function useOptimize() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
   const setIsOptimizing = useSetAtom(isOptimizingAtom);
   const setResult = useSetAtom(resultAtom);
   const setLiveBestScore = useSetAtom(liveBestScoreAtom);
+  const setLiveBestDeck = useSetAtom(liveBestDeckAtom);
+  const currentDeckScore = useAtomValue(currentDeckScoreAtom);
   const collection = useCollection();
   const deck = useDeck();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const lastDeckUpdateRef = useRef(0);
 
   const totalCards = collection ? Object.values(collection).reduce((sum, qty) => sum + qty, 0) : 0;
   const canOptimize = !isOptimizing && totalCards >= deckSize;
@@ -30,6 +39,8 @@ export function useOptimize() {
     setIsOptimizing(true);
     setResult(null);
     setLiveBestScore(0);
+    setLiveBestDeck([]);
+    lastDeckUpdateRef.current = 0;
 
     const currentDeck = deck?.map((d) => d.cardId);
     const col: Collection = new Map(
@@ -37,17 +48,24 @@ export function useOptimize() {
     );
     optimizeDeckParallel(col, {
       currentDeck,
+      currentDeckScore,
       deckSize,
       fusionDepth,
       signal: controller.signal,
-      onProgress: (_progress, bestScore) => {
+      onProgress: (_progress, bestScore, bestDeck) => {
         setLiveBestScore(bestScore);
+        const now = Date.now();
+        if (now - lastDeckUpdateRef.current >= 1000) {
+          lastDeckUpdateRef.current = now;
+          setLiveBestDeck(bestDeck);
+        }
       },
     })
       .then((res) => setResult(res))
       .catch((err) => console.error("Optimization failed:", err))
       .finally(() => {
         setIsOptimizing(false);
+        setLiveBestDeck([]);
         abortControllerRef.current = null;
       });
   }

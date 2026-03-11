@@ -33,12 +33,18 @@ vi.mock("./ScoreExplanation.tsx", () => ({
   ScoreExplanation: () => <div data-testid="score-explanation" />,
 }));
 
+vi.mock("./use-deck-score.ts", () => ({
+  useDeckScore: vi.fn(() => null),
+}));
+
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { DeckPanel } from "./DeckPanel.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
+import { useDeckScore } from "./use-deck-score.ts";
 
 const mockHook = useDeckEntries as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockDeckScore = useDeckScore as ReturnType<typeof vi.fn>;
 
 afterEach(() => {
   cleanup();
@@ -123,5 +129,27 @@ describe("DeckPanel", () => {
     const { container } = render(<DeckPanel />);
     expect(container.querySelector("[data-testid='deck-fusion-list']")).not.toBeNull();
     expect(container.querySelector("[data-testid='score-explanation']")).not.toBeNull();
+  });
+
+  it("shows score badge when useDeckScore returns a value", () => {
+    mockDeckScore.mockReturnValue(1234.5);
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 40 }],
+      deckLength: 40,
+      deckCardIds: Array(40).fill(1),
+    });
+    render(<DeckPanel />);
+    expect(screen.getByText("1234.5")).toBeDefined();
+  });
+
+  it("hides score badge when useDeckScore returns null", () => {
+    mockDeckScore.mockReturnValue(null);
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 40 }],
+      deckLength: 40,
+      deckCardIds: Array(40).fill(1),
+    });
+    render(<DeckPanel />);
+    expect(screen.queryByText("1234.5")).toBeNull();
   });
 });

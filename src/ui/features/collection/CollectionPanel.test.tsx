@@ -74,14 +74,13 @@ describe("CollectionPanel", () => {
     expect(screen.getByText("Your collection is empty")).toBeDefined();
   });
 
-  it("renders card table with badge when collection has cards", () => {
+  it("renders card table when collection has cards", () => {
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
       totalCards: 2,
       uniqueCards: 1,
     });
     render(<CollectionPanel />, { wrapper: Wrapper });
-    expect(screen.getByText("2 cards (1 unique)")).toBeDefined();
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
   });
 
@@ -167,15 +166,14 @@ describe("CollectionPanel", () => {
     expect(deckBtn.hasAttribute("disabled")).toBe(true);
   });
 
-  it("shows owned/available badge when deck has cards", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
+  it("renders search autocomplete in header", () => {
     mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
-      totalCards: 3,
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+      totalCards: 1,
       uniqueCards: 1,
     });
     render(<CollectionPanel />, { wrapper: Wrapper });
-    expect(screen.getByText("1 unique · 2 available")).toBeDefined();
+    expect(screen.getByPlaceholderText("Add card...")).toBeDefined();
   });
 
   it("disables remove button when no available copies", () => {

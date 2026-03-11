@@ -9,7 +9,7 @@ import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 type ExplainState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "done"; expectedAtk: number; distribution: AtkBucket[] };
+  | { status: "done"; distribution: AtkBucket[] };
 
 export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
   const collection = useCollection();
@@ -43,7 +43,6 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
       worker.onmessage = (e: MessageEvent<ExplainerResponse>) => {
         setState({
           status: "done",
-          expectedAtk: e.data.expectedAtk,
           distribution: e.data.distribution,
         });
         worker.terminate();
@@ -94,36 +93,23 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
               Analyzing all possible hands...
             </div>
           )}
-          {state.status === "done" && (
-            <DistributionTable distribution={state.distribution} expectedAtk={state.expectedAtk} />
-          )}
+          {state.status === "done" && <DistributionTable distribution={state.distribution} />}
         </div>
       )}
     </div>
   );
 }
 
-function DistributionTable({
-  expectedAtk,
-  distribution,
-}: {
-  expectedAtk: number;
-  distribution: AtkBucket[];
-}) {
+function DistributionTable({ distribution }: { distribution: AtkBucket[] }) {
   const maxProb = Math.max(...distribution.map((b) => b.probabilityMax), 0);
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-text-primary">
-        Expected ATK:{" "}
-        <span className="font-mono font-bold text-gold-bright">{expectedAtk.toFixed(1)}</span>
-      </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border-subtle">
             <tr className="text-text-secondary text-xs uppercase tracking-wide">
               <th className="text-left py-1.5 px-1 font-normal">ATK</th>
-              <th className="text-right py-1.5 px-1 font-normal">Hands</th>
               <th className="text-right py-1.5 px-1 font-normal">Chance</th>
               <th className="text-left py-1.5 px-2 font-normal w-full" />
             </tr>
@@ -145,9 +131,6 @@ function DistributionRow({ bucket, maxProb }: { bucket: AtkBucket; maxProb: numb
   return (
     <tr className="border-t border-border-subtle/50">
       <td className="py-1 px-1 font-mono font-bold text-stat-atk tabular-nums">{bucket.atk}</td>
-      <td className="py-1 px-1 text-right font-mono text-xs text-text-muted tabular-nums">
-        {bucket.count.toLocaleString()}
-      </td>
       <td className="py-1 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
         {pct}%
       </td>

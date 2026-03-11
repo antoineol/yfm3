@@ -33,7 +33,7 @@ export function CollectionPanel() {
 
   if (data === undefined) return <PanelLoadingState />;
 
-  const { entries, totalCards, uniqueCards } = data;
+  const { entries, totalCards } = data;
 
   const displayEntries = entries.map((e) => ({
     ...e,
@@ -84,23 +84,13 @@ export function CollectionPanel() {
 
   return (
     <>
-      <PanelHeader
-        badge={
-          totalCards > 0
-            ? deckLength > 0
-              ? `${uniqueCards} unique · ${totalCards - deckLength} available`
-              : `${totalCards} cards (${uniqueCards} unique)`
-            : undefined
-        }
-        title="Collection"
-      />
-      <div className="pb-2 flex flex-col gap-1.5">
+      <PanelHeader stretch title="Collection">
         <CardAutocomplete
           onSelect={(card) => void addCard({ cardId: card.id })}
-          placeholder="Add card to collection..."
+          placeholder="Add card..."
         />
-        <LastAddedCardHint />
-      </div>
+      </PanelHeader>
+      <LastAddedCardHint />
       {totalCards === 0 ? (
         <PanelEmptyState
           subtitle="Search above to add cards to your collection"

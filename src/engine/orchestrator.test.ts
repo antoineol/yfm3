@@ -184,10 +184,11 @@ describe("optimizeDeckParallel", () => {
     }
   });
 
-  it("terminates workers on abort", async () => {
+  it("terminates workers on abort even before any progress", async () => {
     const controller = new AbortController();
 
-    // Override MockWorker to never respond for SA, simulating a long-running worker
+    // Override MockWorker to never respond for SA, simulating a long-running worker.
+    // Scorer responds immediately so the pipeline can complete after abort.
     vi.stubGlobal(
       "Worker",
       class extends MockWorker {
@@ -199,7 +200,12 @@ describe("optimizeDeckParallel", () => {
           this.receivedMessage = msg;
           if (msg.type === "SCORE") {
             this.kind = "scorer";
-            // Scorer also doesn't respond
+            setTimeout(() => {
+              if (this.terminated) return;
+              this.onmessage?.({
+                data: { type: "SCORE_RESULT", expectedAtk: 0 },
+              } as MessageEvent<ScorerResult>);
+            }, 0);
           } else {
             this.kind = "sa";
             // Don't respond — simulate workers that never finish
@@ -221,9 +227,9 @@ describe("optimizeDeckParallel", () => {
       expect(w.terminated).toBe(true);
     }
 
-    // The promise won't resolve since workers never posted results and were terminated.
-    // We just verify the abort behavior — don't await the promise.
-    void promise.catch(() => {});
+    // Promise should resolve (not hang) even though workers never posted progress
+    const result = await promise;
+    expect(result.deck).toBeDefined();
   });
 
   it("returns null improvement when no currentDeck provided", async () => {
@@ -313,6 +319,19 @@ describe("scorer workers", () => {
     // Only 1 scorer worker (best deck), no current deck scoring
     expect(scorerWorkers()).toHaveLength(1);
     expect(result.currentDeckScore).toBeNull();
+  });
+
+  it("uses pre-computed currentDeckScore and skips scoring worker", async () => {
+    const currentDeck = new Array(DECK_SIZE).fill(5);
+    const result = await optimizeDeckParallel(makeCollection(), {
+      currentDeck,
+      currentDeckScore: 999.9,
+    });
+
+    // Only 1 scorer worker (best deck) — no extra worker for current deck
+    expect(scorerWorkers()).toHaveLength(1);
+    expect(result.currentDeckScore).toBe(999.9);
+    expect(result.improvement).toBe(1234 - 999.9);
   });
 
   it("scores only the single best candidate by sampled score", async () => {
@@ -656,10 +675,10 @@ describe("onProgress callback", () => {
       },
     );
 
-    const progressValues: Array<{ progress: number; bestScore: number }> = [];
+    const progressValues: Array<{ progress: number; bestScore: number; bestDeck: number[] }> = [];
     await optimizeDeckParallel(makeCollection(), {
-      onProgress: (progress, bestScore) => {
-        progressValues.push({ progress, bestScore });
+      onProgress: (progress, bestScore, bestDeck) => {
+        progressValues.push({ progress, bestScore, bestDeck });
       },
     });
 
@@ -669,6 +688,8 @@ describe("onProgress callback", () => {
       expect(pv.progress).toBeGreaterThanOrEqual(0);
       expect(pv.progress).toBeLessThanOrEqual(1);
       expect(pv.bestScore).toBeGreaterThan(0);
+      expect(pv.bestDeck).toBeInstanceOf(Array);
+      expect(pv.bestDeck.length).toBe(DECK_SIZE);
     }
     // Best score should be non-decreasing
     for (let i = 1; i < progressValues.length; i++) {

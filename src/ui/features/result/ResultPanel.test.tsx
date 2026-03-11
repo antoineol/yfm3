@@ -24,6 +24,10 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
   ScoreExplanation: () => <div data-testid="score-explanation" />,
 }));
 
+vi.mock("../../lib/card-db-context.tsx", () => ({
+  useCardDb: () => ({ cards: [], cardsById: new Map(), cardsByName: new Map() }),
+}));
+
 import { liveBestScoreAtom } from "../../lib/atoms.ts";
 import { useOptimize } from "../optimize/use-optimize.ts";
 import { ResultPanel } from "./ResultPanel.tsx";
@@ -69,21 +73,18 @@ describe("ResultPanel", () => {
     expect(screen.getByText("Awaiting optimization")).toBeDefined();
   });
 
-  it("renders progress bar with cancel when optimizing", () => {
+  it("renders cancel button when optimizing", () => {
     mockResultHook.mockReturnValue(null);
     renderPanel(true);
-    expect(screen.getByText(/Optimizing Deck/)).toBeDefined();
-    // Timer starts at 0, so progress shows 0%
-    expect(screen.getByText("0%")).toBeDefined();
-    expect(screen.getByText("Cancel")).toBeDefined();
+    expect(screen.getByLabelText("Cancel")).toBeDefined();
   });
 
-  it("renders live best score in progress view", () => {
+  it("renders live best score in header during optimization", () => {
     mockResultHook.mockReturnValue(null);
     store.set(liveBestScoreAtom, 2100);
     renderPanel(true);
-    expect(screen.getByText("~2100.0")).toBeDefined();
-    expect(screen.getByText("Best so far")).toBeDefined();
+    expect(screen.getByText(/2100\.0/)).toBeDefined();
+    expect(screen.getByText("ATK")).toBeDefined();
   });
 
   it("renders suggested deck comparison when result is present", () => {
@@ -94,19 +95,17 @@ describe("ResultPanel", () => {
     renderPanel();
     expect(screen.getByText("2500.0")).toBeDefined();
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
-    expect(screen.getByText("Accept Deck")).toBeDefined();
-    expect(screen.getByText("Reject")).toBeDefined();
-    expect(screen.getByText("Re-run")).toBeDefined();
+    expect(screen.getByLabelText("Accept deck")).toBeDefined();
+    expect(screen.getByLabelText("Reject")).toBeDefined();
+    expect(screen.getByLabelText("Re-run")).toBeDefined();
   });
 
-  it("shows current deck score and improvement when available", () => {
+  it("shows improvement percentage in header when available", () => {
     mockResultHook.mockReturnValue({
       entries: [],
       result: { ...baseResult, currentDeckScore: 2000, improvement: 500 },
     });
     renderPanel();
-    expect(screen.getByText("2000.0")).toBeDefined();
-    expect(screen.getByText("Current Deck")).toBeDefined();
-    expect(screen.getByText(/▲ 500\.0/)).toBeDefined();
+    expect(screen.getByText("+25.0%")).toBeDefined();
   });
 });
