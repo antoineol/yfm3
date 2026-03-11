@@ -13,6 +13,8 @@ import {
   resultAtom,
 } from "../../lib/atoms.ts";
 
+const LIVE_DECK_UPDATE_INTERVAL_MS = 1500;
+
 export function useOptimize() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
   const setIsOptimizing = useSetAtom(isOptimizingAtom);
@@ -55,7 +57,7 @@ export function useOptimize() {
       onProgress: (_progress, bestScore, bestDeck) => {
         setLiveBestScore(bestScore);
         const now = Date.now();
-        if (now - lastDeckUpdateRef.current >= 1000) {
+        if (now - lastDeckUpdateRef.current >= LIVE_DECK_UPDATE_INTERVAL_MS) {
           lastDeckUpdateRef.current = now;
           setLiveBestDeck(bestDeck);
         }
