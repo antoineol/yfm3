@@ -14,15 +14,15 @@
   --color-border-accent: #2a3654;
 
   --color-text-primary: #e8e0d4;
-  --color-text-secondary: #8a8070;
-  --color-text-muted: #4a4540;
+  --color-text-secondary: #a09585;
+  --color-text-muted: #7d7568;
 
   --color-gold: #c9a84c;
   --color-gold-dim: #8a7535;
   --color-gold-bright: #e8c75a;
 
-  --color-stat-atk: #e85a5a;
-  --color-stat-def: #5a8ae8;
+  --color-stat-atk: #f06a6a;
+  --color-stat-def: #6a9af0;
   --color-stat-up: #5ae87a;
 
   --shadow-panel: 0 0 40px rgba(0, 0, 0, 0.3);

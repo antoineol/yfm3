@@ -53,6 +53,32 @@ export const addToDeck = mutation({
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const { cardId } = args;
+
+    // Server-side deck size cap
+    const prefs = await ctx.db
+      .query('userPreferences')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .first();
+    const targetSize = prefs?.deckSize ?? 40;
+    const currentCount = await deckAggregate.count(ctx);
+    if (currentCount >= targetSize) throw new Error('Deck is full');
+
+    // Verify the user has an available copy in their collection
+    const collectionEntry = await ctx.db
+      .query('cardCollection')
+      .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', cardId))
+      .first();
+    if (!collectionEntry) throw new Error('Card not in collection');
+
+    const deckCopies = await ctx.db
+      .query('deck')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .filter(q => q.eq(q.field('cardId'), cardId))
+      .collect();
+    if (deckCopies.length >= collectionEntry.quantity) {
+      throw new Error('No available copies in collection');
+    }
+
     const id = await ctx.db.insert('deck', { userId, cardId });
     const doc = await ctx.db.get(id);
     if (doc) await deckAggregate.insert(ctx, doc);
@@ -71,6 +97,24 @@ export const removeFromDeck = mutation({
 
     await ctx.db.delete(id);
     await deckAggregate.delete(ctx, oldDoc).catch(e => console.warn('Record', id, 'not found in aggregate', e));
+  },
+});
+
+// Ownership is guaranteed by the by_user index filter (only queries current user's rows).
+export const removeOneByCardId = mutation({
+  args: { cardId: v.number() },
+  handler: async (ctx, { cardId }) => {
+    const userId = await requireAuth(ctx);
+    const doc = await ctx.db
+      .query('deck')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .filter(q => q.eq(q.field('cardId'), cardId))
+      .first();
+
+    if (!doc) throw new Error('Card not found in deck');
+
+    await ctx.db.delete(doc._id);
+    await deckAggregate.delete(ctx, doc).catch(e => console.warn('Record', doc._id, 'not found in aggregate', e));
   },
 });
 

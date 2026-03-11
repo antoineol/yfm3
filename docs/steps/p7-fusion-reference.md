@@ -1,4 +1,12 @@
-# P6: Fusion Reference Tools
+TODO replace this step with a database management:
+- of cards
+- of fusions
+So that I can complete them while discovering them during gameplay
+Must decide the best format to store it. Convex DB? CSV? Google Sheets?
+
+---
+
+# P7: Fusion Reference Tools
 
 **Priority:** P5 — Reference tools for looking up fusions outside of gameplay.
 

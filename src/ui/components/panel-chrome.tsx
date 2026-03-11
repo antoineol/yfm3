@@ -22,7 +22,7 @@ export function PanelHeader({
   children,
 }: {
   title: string;
-  badge?: string;
+  badge?: ReactNode;
   children?: ReactNode;
 }) {
   return (

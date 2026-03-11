@@ -6,13 +6,21 @@
 
 **Why:** Players frequently add cards after winning duels. Manual deck add/remove lets players tweak the optimizer's output or build a deck by hand.
 
-## Current State
+## Current State (DONE)
 
-- CollectionPanel shows owned cards with name, ATK, quantity
-- CardAutocomplete exists for adding cards to the collection (done in P1.9)
-- No +/- buttons on collection cards
-- No way to manually add/remove cards from the deck
-- DeckPanel is read-only
+- LastAddedCardHint shows card name, quantity, and quick +/- buttons after adding a card
+- CollectionPanel has +/- and → deck action buttons per card row
+- DeckPanel has remove button per card row and deck size indicator with warning color
+- CardTable extended with optional `actions` render prop
+- New `removeOneByCardId` mutation in convex/deck.ts for deck removal by cardId
+- All features covered by tests
+
+### Collection-Deck Consistency Guards
+
+- `removeCard` mutation: prevents removing a collection copy when all copies are committed to the deck
+- `addToDeck` mutation: verifies card exists in collection and has available (non-deck) copies
+- `LastAddedCardHint` "−" button: disabled when no available copies (all in deck)
+- CollectionPanel "−" button was already guarded via display-qty subtraction
 
 ## Target Features
 

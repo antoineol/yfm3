@@ -256,6 +256,16 @@ export const removeCard = mutation({
       return { success: false, error: 'Card not found in collection' };
     }
 
+    // Prevent removing a copy that is committed to the deck
+    const deckCopies = await ctx.db
+      .query('deck')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .filter(q => q.eq(q.field('cardId'), args.cardId))
+      .collect();
+    if (existing.quantity <= deckCopies.length) {
+      return { success: false, error: 'Cannot remove card that is in the deck' };
+    }
+
     if (existing.quantity > 1) {
       // Decrease quantity
       await ctx.db.patch(existing._id, {
@@ -266,6 +276,20 @@ export const removeCard = mutation({
       // Remove entirely
       await ctx.db.delete(existing._id);
       return { success: true, newQuantity: 0 };
+    }
+  },
+});
+
+export const clearLastAddedCard = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const prefs = await ctx.db
+      .query('userPreferences')
+      .withIndex('by_user', q => q.eq('userId', userId))
+      .first();
+    if (prefs) {
+      await ctx.db.patch(prefs._id, { lastAddedCard: undefined });
     }
   },
 });
