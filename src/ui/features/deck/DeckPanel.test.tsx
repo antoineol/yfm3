@@ -6,6 +6,14 @@ vi.mock("./use-deck-entries.ts", () => ({
   useDeckEntries: vi.fn(),
 }));
 
+vi.mock("./DeckFusionList.tsx", () => ({
+  DeckFusionList: () => <div data-testid="deck-fusion-list" />,
+}));
+
+vi.mock("./ScoreExplanation.tsx", () => ({
+  ScoreExplanation: () => <div data-testid="score-explanation" />,
+}));
+
 import { DeckPanel } from "./DeckPanel.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
 
@@ -21,7 +29,7 @@ describe("DeckPanel", () => {
   });
 
   it("renders empty state when deck is empty", () => {
-    mockHook.mockReturnValue({ entries: [], deckLength: 0 });
+    mockHook.mockReturnValue({ entries: [], deckLength: 0, deckCardIds: [] });
     render(<DeckPanel />);
     expect(screen.getByText("No deck saved yet")).toBeDefined();
   });
@@ -30,9 +38,21 @@ describe("DeckPanel", () => {
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
       deckLength: 2,
+      deckCardIds: [1, 1],
     });
     render(<DeckPanel />);
     expect(screen.getByText("2 cards")).toBeDefined();
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
+  });
+
+  it("renders deck intelligence sections when deck has cards", () => {
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+      deckLength: 1,
+      deckCardIds: [1],
+    });
+    const { container } = render(<DeckPanel />);
+    expect(container.querySelector("[data-testid='deck-fusion-list']")).not.toBeNull();
+    expect(container.querySelector("[data-testid='score-explanation']")).not.toBeNull();
   });
 });

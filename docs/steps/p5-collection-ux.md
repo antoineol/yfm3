@@ -26,25 +26,27 @@ Last added: Blue-Eyes White Dragon (2/3)
 [+ Add Another]  [- Remove One]
 ```
 
-- Quick add/remove buttons for rapid bulk entry after winning duels
+- Quick add/remove for rapid bulk entry after winning duels
 - Disappears when switching context
 
 ### B. Collection Item Actions
 
-Each card in the collection list gets action buttons:
+Each card in the collection list gets actions:
 
 - **+** Add another copy (disabled at 3)
 - **-** Remove one copy
 - **→** Add to deck (calls `addToDeck` mutation)
 
+Add/remove: you choose the best UX.
+
 ### C. Manual Deck Add/Remove
 
 The player can manually adjust their current deck without running the optimizer:
 
-- **Each collection card** has an icon button to add one copy to the deck
-- **Each deck card** has an icon button to remove one copy from the deck
+- **Each collection card** has an action to add one copy to the deck
+- **Each deck card** has an action to remove one copy from the deck
 - Show deck size indicator (e.g. "38/40") with warning color if under/over configured size
-- No autocomplete needed — just icon buttons on existing card rows
+- No autocomplete needed — just actions on existing card rows
 
 This is the simple, direct approach: see a card → tap to add/remove. The optimizer handles the complex decisions; manual editing is for small tweaks.
 

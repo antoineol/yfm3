@@ -42,7 +42,7 @@ describe("useDeckEntries", () => {
   it("returns empty entries for empty deck", () => {
     mockDeck.mockReturnValue([]);
     const { result } = renderHook(() => useDeckEntries());
-    expect(result.current).toEqual({ entries: [], deckLength: 0 });
+    expect(result.current).toEqual({ entries: [], deckLength: 0, deckCardIds: [] });
   });
 
   it("returns correct entries and deckLength", () => {

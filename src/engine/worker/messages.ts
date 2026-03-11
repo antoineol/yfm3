@@ -46,5 +46,23 @@ export type ScorerResult = {
 
 export type WorkerMessage = WorkerInit;
 export type WorkerResponse = WorkerResult | WorkerProgress;
+/** Main thread → Explainer Worker: explain a deck's score distribution. */
+export type ExplainerInit = {
+  type: "EXPLAIN";
+  collection: Record<number, number>;
+  deck: number[];
+  /** Engine configuration snapshot for this worker. */
+  config: EngineConfig;
+};
+
+/** Explainer Worker → Main thread: score explanation result. */
+export type ExplainerResult = {
+  type: "EXPLAIN_RESULT";
+  expectedAtk: number;
+  distribution: { atk: number; count: number; probabilityMax: number }[];
+};
+
 export type ScorerMessage = ScorerInit;
 export type ScorerResponse = ScorerResult;
+export type ExplainerMessage = ExplainerInit;
+export type ExplainerResponse = ExplainerResult;

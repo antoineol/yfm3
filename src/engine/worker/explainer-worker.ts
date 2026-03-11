@@ -1,0 +1,29 @@
+import { setConfig } from "../config.ts";
+import { initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
+import { mulberry32 } from "../mulberry32.ts";
+import { explainScore } from "../score-explainer.ts";
+import { FusionScorer } from "../scoring/fusion-scorer.ts";
+import type { ExplainerInit, ExplainerResult } from "./messages.ts";
+
+self.onmessage = (e: MessageEvent<ExplainerInit>) => {
+  const { collection, deck, config } = e.data;
+  setConfig(config);
+
+  const collectionMap = new Map(
+    Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),
+  );
+  const buf = initializeBuffersBrowser(collectionMap, mulberry32(42));
+  for (let i = 0; i < deck.length; i++) {
+    buf.deck[i] = deck[i] ?? 0;
+  }
+
+  const scorer = new FusionScorer();
+  const explanation = explainScore(buf, scorer);
+
+  const result: ExplainerResult = {
+    type: "EXPLAIN_RESULT",
+    expectedAtk: explanation.expectedAtk,
+    distribution: explanation.distribution,
+  };
+  self.postMessage(result);
+};

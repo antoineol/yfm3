@@ -72,8 +72,8 @@ export function PanelBody({ children }: { children: ReactNode }) {
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h3 className="font-display text-[11px] font-semibold uppercase tracking-widest text-gold-dim">
+    <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-gold-dim">
       {children}
-    </h3>
+    </span>
   );
 }

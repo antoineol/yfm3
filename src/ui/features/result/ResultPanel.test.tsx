@@ -16,6 +16,14 @@ vi.mock("convex/react", () => ({
   useMutation: () => vi.fn(),
 }));
 
+vi.mock("../deck/DeckFusionList.tsx", () => ({
+  DeckFusionList: () => <div data-testid="deck-fusion-list" />,
+}));
+
+vi.mock("../deck/ScoreExplanation.tsx", () => ({
+  ScoreExplanation: () => <div data-testid="score-explanation" />,
+}));
+
 import { liveBestScoreAtom } from "../../lib/atoms.ts";
 import { useOptimize } from "../optimize/use-optimize.ts";
 import { ResultPanel } from "./ResultPanel.tsx";

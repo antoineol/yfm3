@@ -48,7 +48,7 @@ export function Button({
   return (
     <button
       className={[
-        "transition-all",
+        "transition-colors outline-none focus-visible:ring-1 focus-visible:ring-gold",
         v.base,
         s,
         disabled ? v.disabled : v.enabled,

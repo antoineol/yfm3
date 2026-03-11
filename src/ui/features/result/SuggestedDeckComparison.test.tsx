@@ -9,6 +9,14 @@ vi.mock("convex/react", () => ({
   useMutation: () => mockAcceptDeck,
 }));
 
+vi.mock("../deck/DeckFusionList.tsx", () => ({
+  DeckFusionList: () => <div data-testid="deck-fusion-list" />,
+}));
+
+vi.mock("../deck/ScoreExplanation.tsx", () => ({
+  ScoreExplanation: () => <div data-testid="score-explanation" />,
+}));
+
 import { resultAtom } from "../../lib/atoms.ts";
 import { SuggestedDeckComparison } from "./SuggestedDeckComparison.tsx";
 

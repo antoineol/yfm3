@@ -5,6 +5,8 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
+import { DeckFusionList } from "./DeckFusionList.tsx";
+import { ScoreExplanation } from "./ScoreExplanation.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
 
 export function DeckPanel() {
@@ -12,7 +14,7 @@ export function DeckPanel() {
 
   if (data === undefined) return <PanelLoadingState />;
 
-  const { entries, deckLength } = data;
+  const { entries, deckLength, deckCardIds } = data;
 
   if (deckLength === 0) {
     return (
@@ -31,6 +33,10 @@ export function DeckPanel() {
       <PanelHeader badge={`${deckLength} cards`} title="Current Deck" />
       <PanelBody>
         <CardTable entries={entries} />
+        <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-border-subtle">
+          <DeckFusionList deckCardIds={deckCardIds} />
+          <ScoreExplanation deckCardIds={deckCardIds} />
+        </div>
       </PanelBody>
     </>
   );
