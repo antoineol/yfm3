@@ -1,70 +1,72 @@
 # P3: Optimization UX Improvements
 
-**Priority:** P2 — Better feedback during the optimizer's ~15-60s run.
+**Priority:** P2 — Better feedback during the optimizer's ~15s run.
 
-**Depends on:** P1.9 (CardAutocomplete for suggested deck editing)
+**Depends on:** P1.9 (shared infrastructure — done)
 
-**Why:** The optimizer runs for seconds to a minute. Without progress feedback, cancel ability, and a review step before accepting results, the experience feels unresponsive and risky.
+**Why:** The optimizer runs for ~15 seconds. Without progress feedback, cancel ability, and a review step before accepting results, the experience feels unresponsive and risky.
 
-## Current State (YFM3)
+## Current State
 
 - Click "Optimize Deck" → wait → results appear in ResultPanel
-- No progress indicator
+- No progress indicator (just a shimmer animation)
 - No cancel button
-- No accept/reject flow — results are just displayed, not applied
+- No accept/reject flow — results are just displayed, not saved to the deck
+- `acceptSuggestedDeck` Convex mutation exists but is not wired to the UI
+
+## What Already Exists in the Engine
+
+- **Worker progress messages:** SA workers already post `PROGRESS` messages every ~500ms with `bestScore`, `bestDeck`, and `iterations` (implemented in phase 6.5).
+- **AbortSignal support:** `optimizeDeckParallel` already accepts an `options.signal` parameter and wires it to `terminateEarly()`, resolving with the best-so-far result.
+- **Convergence detection:** The orchestrator already uses worker progress internally to detect convergence and early-terminate.
+
+The missing piece is **surfacing this to the UI layer**.
 
 ## Target State
 
-- Progress bar (0-100%) during optimization
-- Cancel button to abort early
+- Time-based progress bar (0-100%) during optimization, plus live best score
+- Cancel button to abort early (returns best-so-far)
 - Suggested deck shown with comparison to current deck
-- **Manual fine-tuning of suggestion** — remove/swap cards before accepting
-- Accept/Reject buttons before applying changes
-- Re-run button to try again
+- Accept/Reject/Re-run buttons before applying changes
 
 ## Implementation Plan
 
-### Step 1: Progress Reporting from Workers
+### Step 1: Surface Progress to the UI
 
-The orchestrator already has infrastructure for worker messages. Add progress reporting.
-
-**Modify:** `src/engine/orchestrator.ts`
-- Add a `onProgress` callback parameter to `optimizeDeckParallel`
-- Aggregate progress from all SA workers (each reports its iteration count vs total)
-- Call `onProgress(0..1)` periodically
-
-**Modify:** `src/engine/worker/sa-worker.ts`
-- Post `progress` messages back to main thread at regular intervals (every ~500ms)
-
-### Step 2: Cancel Support
+The orchestrator already receives worker `PROGRESS` messages for convergence detection. Add an `onProgress` callback to forward aggregated state to the caller.
 
 **Modify:** `src/engine/orchestrator.ts`
-- Accept an `AbortSignal` parameter
-- On abort: terminate all workers, resolve with best-so-far result (or null)
+- Add `onProgress?: (progress: number, bestScore: number) => void` to the options
+- Compute `progress` as `elapsed / timeLimit` (time-based, honest about the known budget)
+- Forward `globalBest` score so the UI can show the live improving score
+- Call `onProgress` whenever a worker posts a `PROGRESS` message
 
-**Modify:** `src/ui/lib/use-optimize.ts`
-- Store `AbortController` ref
-- Expose `cancel()` function
+### Step 2: Wire Cancel + Progress into useOptimize
 
-### Step 3: Optimization State Atoms
+**Modify:** `src/ui/features/optimize/use-optimize.ts`
+- Create an `AbortController` ref; pass its `signal` to `optimizeDeckParallel`
+- Pipe `onProgress` callback to update atoms
+- Expose `cancel()` function that calls `abortController.abort()`
 
 **Modify:** `src/ui/lib/atoms.ts`
+- Add `optimizationProgressAtom` (0 to 1, time-based)
+- Add `liveBestScoreAtom` (number, updated as workers improve)
 
-Expand state beyond `isOptimizingAtom` and `resultAtom`:
+### Step 3: Progress Bar + Cancel in ResultPanel
 
-```typescript
-// Progress: 0 to 1
-const optimizationProgressAtom = atom(0);
+**Modify:** `src/ui/features/result/ResultPanel.tsx`
 
-// Is cancellation in progress
-const isCancellingAtom = atom(false);
-```
+Replace the current shimmer loading state with a real progress view:
+- Time-based progress bar (0-100%)
+- Live best score displayed and updating as workers improve
+- Cancel button (returns best result found so far)
+- Elapsed time counter
 
-### Step 4: Suggested Deck View
+Use the **frontend-design** skill for the progress bar — smooth animation, gold accent color.
 
-**New file:** `src/ui/components/SuggestedDeckView.tsx`
+### Step 4: Accept/Reject/Re-run Flow
 
-Use the **frontend-design** skill for this component — it's the core UX moment (the "reveal" after waiting). Progress bar should animate smoothly. Comparison view should feel polished.
+**Create:** `src/ui/features/result/SuggestedDeckComparison.tsx`
 
 When optimization completes, show a comparison view:
 
@@ -74,7 +76,7 @@ When optimization completes, show a comparison view:
 │                                      │
 │ Current Score:  1850.3 ATK           │
 │ Suggested:      2105.7 ATK          │
-│ Improvement:    +255.4 (+13.8%)     │
+│ Improvement:    ▲ 255.4 (+13.8%)    │
 │                                      │
 │ ┌────────────────────────────────┐   │
 │ │ Suggested Deck (40 cards)      │   │
@@ -85,76 +87,27 @@ When optimization completes, show a comparison view:
 └─────────────────────────────────────┘
 ```
 
-- **Accept:** Calls `acceptSuggestedDeck` mutation (already exists in Convex)
-- **Reject:** Clears result, keeps current deck
-- **Re-run:** Starts optimization again
+- **Accept:** Calls existing `acceptSuggestedDeck` mutation → saves to Convex → DeckPanel auto-updates via reactivity → show toast confirmation
+- **Reject:** Clears `resultAtom`, keeps current deck unchanged
+- **Re-run:** Calls `optimize()` again, clears previous result
 
-### Step 5: Manual Fine-Tuning of Suggested Deck
+**Modify:** `src/ui/features/result/ResultPanel.tsx`
+- Integrate `SuggestedDeckComparison` for the completed state
 
-The suggested deck is editable before accepting — the player can swap out cards they dislike or force-include cards they want.
+### Step 5: Tests
 
-**UX:**
-```
-┌─────────────────────────────────────┐
-│ Suggested Deck (40 cards)            │
-│                                      │
-│  Dragon Knight  ATK 2100  [×]       │  ← remove from suggestion
-│  Great Moth     ATK 1800  [×]       │
-│  ...                                 │
-│                                      │
-│  [+ Add card from collection]       │  ← add a card to suggestion
-│                                      │
-│  ⚠ Score is stale (deck modified)   │
-│  [Accept Deck]  [Reject]  [Re-run]  │
-└─────────────────────────────────────┘
-```
-
-**Behavior:**
-- Each card in the suggested deck has a **remove (×)** button
-- Removing a card decreases the count; the card returns to the available pool
-- A **"+ Add card"** autocomplete (filtered to collection cards not already at max copies in the suggestion) lets the player insert cards
-- The suggestion is stored as local state (Jotai atom), not in Convex, until accepted
-- When the suggestion is manually edited, the displayed score is marked as **stale** (since it was computed for the original suggestion)
-- Player can still Accept (applies the modified deck), Reject, or Re-run
-- Re-run discards edits and starts a fresh optimization
-
-**State:**
-- `suggestedDeckAtom` — mutable `number[]` of card IDs, initialized from optimizer result
-- `isSuggestionModifiedAtom` — derived atom, `true` if deck differs from original result
-
-### Step 6: Progress Bar in CollectionPanel
-
-**Modify:** `src/ui/components/CollectionPanel.tsx` or extract to new component
-
-During optimization:
-- Show progress bar (0-100%)
-- Show cancel button
-- Disable "Optimize Deck" button
-
-### Step 7: Update ResultPanel
-
-**Modify:** `src/ui/components/ResultPanel.tsx`
-
-- Integrate with `SuggestedDeckView`
-- Show progress during optimization
-- Show comparison after completion
-- Handle cancel state
-
-### Step 8: Tests
-
-- Test progress callback receives values 0→1
-- Test cancel aborts and returns partial result or null
-- Test accept/reject flows update state correctly
-- Test manual fine-tuning: remove card from suggestion, add card, stale flag toggling
+- Test `onProgress` callback receives increasing values 0→1 with score
+- Test cancel aborts and returns partial result (not null)
+- Test accept calls `acceptSuggestedDeck` mutation with correct card IDs
+- Test reject clears result atom
+- Test re-run triggers new optimization
 
 ## Files Changed/Created
 
 | Action | File |
 |--------|------|
-| Modify | `src/engine/orchestrator.ts` (progress callback, abort signal) |
-| Modify | `src/engine/worker/sa-worker.ts` (progress messages) |
-| Modify | `src/ui/lib/use-optimize.ts` (progress, cancel) |
-| Modify | `src/ui/lib/atoms.ts` (progress, cancelling, suggestedDeck, isSuggestionModified atoms) |
-| Create | `src/ui/components/SuggestedDeckView.tsx` (comparison + manual fine-tuning) |
-| Modify | `src/ui/components/CollectionPanel.tsx` (progress bar, cancel) |
-| Modify | `src/ui/components/ResultPanel.tsx` (suggested deck integration) |
+| Modify | `src/engine/orchestrator.ts` (add `onProgress` callback forwarding) |
+| Modify | `src/ui/features/optimize/use-optimize.ts` (AbortController, progress piping, cancel) |
+| Modify | `src/ui/lib/atoms.ts` (add `optimizationProgressAtom`, `liveBestScoreAtom`) |
+| Create | `src/ui/features/result/SuggestedDeckComparison.tsx` (comparison + accept/reject/re-run) |
+| Modify | `src/ui/features/result/ResultPanel.tsx` (progress bar, cancel, comparison integration) |

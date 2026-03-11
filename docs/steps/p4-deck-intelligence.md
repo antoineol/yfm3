@@ -2,7 +2,16 @@
 
 **Priority:** P3 — Helps the player understand their deck's strengths before a duel.
 
+**Depends on:** P3 (accept flow so the player has a committed deck to analyze)
+
 **Why:** Knowing which fusions are possible in your deck and why the optimizer chose certain cards builds player confidence and game knowledge.
+
+## What Already Exists
+
+- `FusionTableContext` provides the loaded `fusionTable` (Int16Array[722×722]) and `cardAtk` lookup.
+- `findFusionChains()` in `src/engine/fusion-chain-finder.ts` does DFS fusion-chain exploration for a given set of cards (used by the Hand Fusion Calculator).
+- `CardDb` context provides card names, ATK/DEF, and kinds.
+- Exact scorer infrastructure (`scorer-worker.ts`) can score any deck off the main thread.
 
 ## Features
 
@@ -55,7 +64,7 @@ Top Paths:
 
 **New file:** `src/engine/deck-fusion-finder.ts`
 
-Reuse `findFusionChains` from P2 but applied to all possible 2-card combinations in the deck (not just a 5-card hand).
+Reuse the fusion table to find all fusions achievable from a given deck's card set.
 
 **Algorithm:**
 - For each unique pair of cards in the deck, check fusion table
@@ -68,9 +77,8 @@ Reuse `findFusionChains` from P2 but applied to all possible 2-card combinations
 type DeckFusion = {
   resultCardId: number;
   resultAtk: number;
-  resultName: string;
   materialCount: number; // 2, 3, 4...
-  materialPaths: { cardId: number; name: string }[][];
+  materialPaths: number[][]; // card IDs for each path
 };
 ```
 
@@ -78,12 +86,12 @@ type DeckFusion = {
 
 **New file:** `src/engine/score-explainer.ts`
 
-For a given 40-card deck, enumerate all C(40,5) = 658,008 hands and compute:
-- For each achievable ATK value: probability of appearing, probability of being the max
+For a given deck, enumerate all C(40,5) = 658,008 hands and compute:
+- For each achievable ATK value: probability of being the max in a hand
 - For each ATK value: which card(s)/fusion path(s) produce it
 - Aggregate into a sorted distribution
 
-This is computationally heavier but runs once on demand (not during SA). Can reuse the exact scorer infrastructure.
+**Must run in a Web Worker** (~1-2s). Reuse the scorer worker pattern.
 
 **Output:**
 ```typescript
@@ -91,16 +99,15 @@ type ScoreExplanation = {
   expectedAtk: number;
   distribution: {
     atk: number;
-    probability: number;      // P(this ATK appears in hand)
-    probabilityMax: number;   // P(this ATK is the highest in hand)
-    paths: FusionPath[];      // How to achieve this ATK
+    probabilityMax: number; // P(this ATK is the highest in hand)
+    paths: { materialIds: number[]; resultId: number }[];
   }[];
 };
 ```
 
 ### Step 3: Deck Fusion List Component
 
-**New file:** `src/ui/components/DeckFusionList.tsx`
+**New file:** `src/ui/features/deck/DeckFusionList.tsx`
 
 - "Calculate Fusions" button (compute on demand, not on every render)
 - Grouped display by material count
@@ -108,20 +115,19 @@ type ScoreExplanation = {
 
 ### Step 4: Score Explanation Component
 
-**New file:** `src/ui/components/ScoreExplanation.tsx`
+**New file:** `src/ui/features/deck/ScoreExplanation.tsx`
 
-- "Explain Score" button
-- Table: ATK value | Probability | P(max) | Materials
-- Color-coded by probability
+- "Explain Score" button (triggers worker computation)
+- Table: ATK value | P(max) | Materials
 - Shows top-N paths with card names
 
 ### Step 5: Integration with DeckPanel
 
-**Modify:** `src/ui/components/DeckPanel.tsx`
+**Modify:** `src/ui/features/deck/DeckPanel.tsx`
 
-Add sections below the deck list:
-- "Possible Fusions" (collapsible, compute on demand)
-- "Score Breakdown" (collapsible, compute on demand)
+Add collapsible sections below the deck list:
+- "Possible Fusions" (compute on demand)
+- "Score Breakdown" (compute on demand, shows loading while worker runs)
 
 ### Step 6: Tests
 
@@ -132,7 +138,7 @@ Add sections below the deck list:
 ## Performance Notes
 
 - Deck fusion finder: O(n^2) pairs for n unique cards in deck (~800 pairs for 40 cards). Fast, runs on main thread.
-- Score explanation: All 658,008 hands (~1-2s). **Must run in a Web Worker** to avoid freezing the UI. Show a loading/spinner state on the "Explain Score" button while computing.
+- Score explanation: All 658,008 hands (~1-2s). **Must run in a Web Worker.** Show loading state on the "Explain Score" button while computing.
 
 ## Files Changed/Created
 
@@ -142,6 +148,6 @@ Add sections below the deck list:
 | Create | `src/engine/deck-fusion-finder.test.ts` |
 | Create | `src/engine/score-explainer.ts` |
 | Create | `src/engine/score-explainer.test.ts` |
-| Create | `src/ui/components/DeckFusionList.tsx` |
-| Create | `src/ui/components/ScoreExplanation.tsx` |
-| Modify | `src/ui/components/DeckPanel.tsx` |
+| Create | `src/ui/features/deck/DeckFusionList.tsx` |
+| Create | `src/ui/features/deck/ScoreExplanation.tsx` |
+| Modify | `src/ui/features/deck/DeckPanel.tsx` |
