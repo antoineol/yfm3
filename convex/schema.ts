@@ -1,6 +1,7 @@
 import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import { handSourceModeValidator } from './userPreferences';
 
 export default defineSchema({
   ...authTables,
@@ -38,6 +39,7 @@ export default defineSchema({
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
+    handSourceMode: v.optional(handSourceModeValidator),
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   }).index('by_user', ['userId']),

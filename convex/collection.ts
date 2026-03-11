@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, type MutationCtx, query } from './_generated/server';
 import { requireAuth } from './authHelper';
+import { handSourceModeValidator } from './userPreferences';
 
 export const getCollectionIndexedByCardId = query({
   args: {},
@@ -168,6 +169,7 @@ export const updatePreferences = mutation({
   args: {
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
+    handSourceMode: v.optional(handSourceModeValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -180,6 +182,7 @@ export const updatePreferences = mutation({
     const patch: Record<string, unknown> = { updatedAt: now };
     if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
     if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
+    if (args.handSourceMode !== undefined) patch.handSourceMode = args.handSourceMode;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);
@@ -189,6 +192,7 @@ export const updatePreferences = mutation({
         ...patch,
         deckSize: args.deckSize,
         fusionDepth: args.fusionDepth,
+        handSourceMode: args.handSourceMode,
         createdAt: now,
         updatedAt: now,
       });

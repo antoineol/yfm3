@@ -15,6 +15,7 @@ import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as hand from "../hand.js";
 import type * as http from "../http.js";
+import type * as userPreferences from "../userPreferences.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   deckAggregate: typeof deckAggregate;
   hand: typeof hand;
   http: typeof http;
+  userPreferences: typeof userPreferences;
   utils: typeof utils;
 }>;
 

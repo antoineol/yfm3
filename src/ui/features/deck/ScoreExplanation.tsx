@@ -102,6 +102,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
 
 function DistributionTable({ distribution }: { distribution: AtkBucket[] }) {
   const maxProb = Math.max(...distribution.map((b) => b.probabilityMax), 0);
+  let cumulativeProbability = 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -111,13 +112,22 @@ function DistributionTable({ distribution }: { distribution: AtkBucket[] }) {
             <tr className="text-text-secondary text-xs uppercase tracking-wide">
               <th className="text-left py-1.5 px-1 font-normal">ATK</th>
               <th className="text-right py-1.5 px-1 font-normal">Chance</th>
+              <th className="text-right py-1.5 px-1 font-normal">Cumul</th>
               <th className="text-left py-1.5 px-2 font-normal w-full" />
             </tr>
           </thead>
           <tbody>
-            {distribution.map((bucket) => (
-              <DistributionRow bucket={bucket} key={bucket.atk} maxProb={maxProb} />
-            ))}
+            {distribution.map((bucket) => {
+              cumulativeProbability += bucket.probabilityMax;
+              return (
+                <DistributionRow
+                  bucket={bucket}
+                  cumulativeProbability={cumulativeProbability}
+                  key={bucket.atk}
+                  maxProb={maxProb}
+                />
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -125,14 +135,26 @@ function DistributionTable({ distribution }: { distribution: AtkBucket[] }) {
   );
 }
 
-function DistributionRow({ bucket, maxProb }: { bucket: AtkBucket; maxProb: number }) {
+function DistributionRow({
+  bucket,
+  cumulativeProbability,
+  maxProb,
+}: {
+  bucket: AtkBucket;
+  cumulativeProbability: number;
+  maxProb: number;
+}) {
   const pct = (bucket.probabilityMax * 100).toFixed(1);
+  const cumulativePct = (Math.min(cumulativeProbability, 1) * 100).toFixed(1);
   const barPct = maxProb > 0 ? (bucket.probabilityMax / maxProb) * 100 : 0;
   return (
     <tr className="border-t border-border-subtle/50">
       <td className="py-1 px-1 font-mono font-bold text-stat-atk tabular-nums">{bucket.atk}</td>
       <td className="py-1 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
         {pct}%
+      </td>
+      <td className="py-1 px-1 text-right font-mono text-xs text-text-secondary tabular-nums">
+        {cumulativePct}%
       </td>
       <td className="py-1 px-2">
         <div className="h-2 rounded-full bg-bg-surface overflow-hidden">

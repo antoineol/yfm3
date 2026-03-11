@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
 import { PanelLoadingState, SectionLabel } from "../../components/panel-chrome.tsx";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useHand, useHandMutations } from "../../db/use-hand.ts";
-import { useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
+import {
+  type HandSourceMode,
+  useFusionDepth,
+  useHandSourceMode,
+} from "../../db/use-user-preferences.ts";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { HandCardSelector } from "./HandCardSelector.tsx";
 import { HandDisplay } from "./HandDisplay.tsx";
 
-type SourceMode = "deck" | "all";
-
-const SOURCE_OPTIONS: { value: SourceMode; label: string }[] = [
+const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "all", label: "All cards" },
   { value: "deck", label: "Deck only" },
 ];
@@ -21,8 +24,9 @@ export function HandFusionCalculator() {
   const hand = useHand();
   const deck = useDeck();
   const fusionDepth = useFusionDepth();
+  const sourceMode = useHandSourceMode();
+  const updatePreferences = useUpdatePreferences();
   const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
-  const [sourceMode, setSourceMode] = useState<SourceMode>("all");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const deckCardIds = deck?.map((d) => d.cardId);
@@ -44,13 +48,25 @@ export function HandFusionCalculator() {
     [removeMultipleFromHand],
   );
 
+  const handleSourceModeChange = useCallback(
+    (value: HandSourceMode) => {
+      if (value === sourceMode) return;
+      updatePreferences({ handSourceMode: value });
+    },
+    [sourceMode, updatePreferences],
+  );
+
   if (hand === undefined) return <PanelLoadingState />;
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
       {/* Card source selector + autocomplete */}
       <div className="flex flex-col gap-2">
-        <ToggleGroup onChange={setSourceMode} options={SOURCE_OPTIONS} value={sourceMode} />
+        <ToggleGroup
+          onChange={handleSourceModeChange}
+          options={SOURCE_OPTIONS}
+          value={sourceMode}
+        />
         <HandCardSelector
           deckCardIds={deckCardIds}
           handSize={hand.length}
