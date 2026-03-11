@@ -1,9 +1,16 @@
 import { useAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useCollection } from "../../db/use-collection.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
+
+/**
+ * Key of the last successfully scored deck.
+ * Module-level so it persists across component remounts (e.g. tab switches).
+ * Set only when the scorer worker responds — not when computation starts.
+ */
+let lastCompletedKey = "";
 
 /**
  * Auto-computes the exact expected ATK for a deck whenever it changes.
@@ -15,7 +22,6 @@ export function useDeckScore(deckCardIds: number[]): number | null {
   const collection = useCollection();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
-  const prevKeyRef = useRef("");
 
   useEffect(() => {
     // Stable identity check: sort + join to ignore order changes from re-renders
@@ -23,12 +29,14 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       .slice()
       .sort((a, b) => a - b)
       .join(",");
-    if (key === prevKeyRef.current) return;
-    prevKeyRef.current = key;
+
+    // Skip if already scored for this exact deck (survives tab-switch remounts)
+    if (key === lastCompletedKey) return;
 
     // Only score full-size decks with a loaded collection
     if (deckCardIds.length !== deckSize || !collection) {
       setScore(null);
+      lastCompletedKey = "";
       return;
     }
 
@@ -41,7 +49,10 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     let cancelled = false;
 
     worker.onmessage = (e: MessageEvent<ScorerResponse>) => {
-      if (!cancelled) setScore(e.data.expectedAtk);
+      if (!cancelled) {
+        setScore(e.data.expectedAtk);
+        lastCompletedKey = key;
+      }
       worker.terminate();
     };
     worker.onerror = (err) => {
@@ -63,4 +74,9 @@ export function useDeckScore(deckCardIds: number[]): number | null {
   }, [deckCardIds, deckSize, fusionDepth, collection, setScore]);
 
   return score;
+}
+
+/** Reset module-level cache. Exported for tests only. */
+export function _resetDeckScoreCache() {
+  lastCompletedKey = "";
 }

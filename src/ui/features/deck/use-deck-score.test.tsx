@@ -15,7 +15,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
 }));
 
 import { useCollection } from "../../db/use-collection.ts";
-import { useDeckScore } from "./use-deck-score.ts";
+import { _resetDeckScoreCache, useDeckScore } from "./use-deck-score.ts";
 
 const mockCollection = useCollection as ReturnType<typeof vi.fn>;
 
@@ -45,6 +45,7 @@ let createdWorkers: MockWorker[] = [];
 
 beforeEach(() => {
   createdWorkers = [];
+  _resetDeckScoreCache();
   vi.stubGlobal(
     "Worker",
     class extends MockWorker {
@@ -112,8 +113,10 @@ describe("useDeckScore", () => {
     });
 
     expect(createdWorkers).toHaveLength(1);
+    // Let the first worker complete so the key is cached
+    createdWorkers[0]?.respond(1000);
 
-    // Change deck
+    // Rerender with same cards in different order
     rerender({ ids: [5, 4, 3, 2, 1] });
 
     // Same sorted key — should not spawn a new worker
@@ -125,6 +128,31 @@ describe("useDeckScore", () => {
     // New worker spawned, old one terminated
     expect(createdWorkers).toHaveLength(2);
     expect(createdWorkers[0]?.terminated).toBe(true);
+  });
+
+  it("preserves score across unmount/remount (tab switch)", () => {
+    const store = createStore();
+    const deck = [1, 2, 3, 4, 5];
+
+    // Mount and compute score
+    const { unmount } = renderHook(() => useDeckScore(deck), {
+      wrapper: makeWrapper(store),
+    });
+    expect(createdWorkers).toHaveLength(1);
+    createdWorkers[0]?.respond(1500.5);
+    expect(store.get(currentDeckScoreAtom)).toBe(1500.5);
+
+    // Unmount (tab switch away)
+    unmount();
+
+    // Remount with same deck (tab switch back)
+    renderHook(() => useDeckScore(deck), {
+      wrapper: makeWrapper(store),
+    });
+
+    // Should NOT have spawned a new worker — score is still cached
+    expect(createdWorkers).toHaveLength(1);
+    expect(store.get(currentDeckScoreAtom)).toBe(1500.5);
   });
 
   it("does not update atom after cleanup (cancelled)", () => {
