@@ -14,6 +14,15 @@
 - CardTable extended with optional `actions` render prop
 - New `removeOneByCardId` mutation in convex/deck.ts for deck removal by cardId
 - All features covered by tests
+- Icon-only and symbol-based collection/deck action buttons now use flex centering for reliable vertical/horizontal alignment
+
+## Current Step
+
+- Monitor collection/deck action button UX polish and keep shared button primitives consistent.
+
+## Next Step
+
+- Reuse the same centering approach for any future icon-only action buttons to avoid per-screen alignment drift.
 
 ### Collection-Deck Consistency Guards
 
