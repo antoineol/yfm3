@@ -23,5 +23,3 @@ You must always do below for all changes:
 - Adapt the plan, and current and next steps.
 
 ## Confusion points
-
-- Raw owned totals now live in the `ownedCards` Convex table and `useOwnedCardTotals()`. Collection UI that cares about deck-adjusted availability should use `useCollectionViewModel()`, which exposes `totalOwned`, `inDeck`, and `availableInCollection`.
