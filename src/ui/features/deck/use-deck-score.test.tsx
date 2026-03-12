@@ -6,18 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScorerResult } from "../../../engine/worker/messages.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 
-vi.mock("../../db/use-collection.ts", () => ({
-  useCollection: vi.fn(),
+vi.mock("../../db/use-owned-card-totals.ts", () => ({
+  useOwnedCardTotals: vi.fn(),
 }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 5),
   useFusionDepth: vi.fn(() => 3),
 }));
 
-import { useCollection } from "../../db/use-collection.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { _resetDeckScoreCache, useDeckScore } from "./use-deck-score.ts";
 
-const mockCollection = useCollection as ReturnType<typeof vi.fn>;
+const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 
 /** Captures posted messages and allows triggering onmessage. */
 class MockWorker {
@@ -55,7 +55,7 @@ beforeEach(() => {
       }
     },
   );
-  mockCollection.mockReturnValue({ 1: 3, 2: 3 });
+  mockOwnedCardTotals.mockReturnValue({ 1: 3, 2: 3 });
 });
 
 afterEach(() => {
@@ -79,7 +79,7 @@ describe("useDeckScore", () => {
   });
 
   it("returns null when collection is not loaded", () => {
-    mockCollection.mockReturnValue(undefined);
+    mockOwnedCardTotals.mockReturnValue(undefined);
     const store = createStore();
     const { result } = renderHook(() => useDeckScore([1, 2, 3, 4, 5]), {
       wrapper: makeWrapper(store),

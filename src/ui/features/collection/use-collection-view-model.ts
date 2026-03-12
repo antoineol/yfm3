@@ -1,6 +1,6 @@
 import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
-import { useCollection } from "../../db/use-collection.ts";
 import { useDeck } from "../../db/use-deck.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 
 export interface OwnedCardQuantities {
@@ -20,27 +20,27 @@ export interface CollectionViewModel {
 }
 
 export function useCollectionViewModel(): CollectionViewModel | undefined {
-  const collection = useCollection();
+  const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
   const cardDb = useCardDb();
 
-  if (collection === undefined) return undefined;
+  if (ownedCardTotals === undefined) return undefined;
 
   return buildCollectionViewModel(
-    collection,
+    ownedCardTotals,
     (deck ?? []).map((entry) => entry.cardId),
     cardDb,
   );
 }
 
 export function buildCollectionViewModel(
-  collection: Record<number, number>,
+  ownedCardTotals: Record<number, number>,
   deckCardIds: number[],
   cardDb: Parameters<typeof buildCardEntries>[1],
 ): CollectionViewModel {
   const deckCounts = countById(deckCardIds);
   const entries = buildCardEntries(
-    Object.entries(collection).map(([cardId, totalOwned]) => {
+    Object.entries(ownedCardTotals).map(([cardId, totalOwned]) => {
       const id = Number(cardId);
       const inDeck = deckCounts.get(id) ?? 0;
       const availableInCollection = Math.max(totalOwned - inDeck, 0);
@@ -48,7 +48,7 @@ export function buildCollectionViewModel(
     }),
     cardDb,
   ).map((entry) => {
-    const totalOwned = collection[entry.id] ?? 0;
+    const totalOwned = ownedCardTotals[entry.id] ?? 0;
     const inDeck = deckCounts.get(entry.id) ?? 0;
     const availableInCollection = entry.qty;
 
@@ -63,7 +63,7 @@ export function buildCollectionViewModel(
   return {
     entries,
     entriesByCardId: new Map(entries.map((entry) => [entry.id, entry])),
-    totalOwnedCards: Object.values(collection).reduce((sum, quantity) => sum + quantity, 0),
+    totalOwnedCards: Object.values(ownedCardTotals).reduce((sum, quantity) => sum + quantity, 0),
     uniqueOwnedCards: entries.length,
     deckLength: deckCardIds.length,
   };

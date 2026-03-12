@@ -23,8 +23,8 @@ export function CollectionPanel() {
   const { cards: allCards } = useCardDb();
   const data = useCollectionViewModel();
   const targetSize = useDeckSize();
-  const addCard = useMutation(api.collection.addCard);
-  const removeCard = useMutation(api.collection.removeCard);
+  const addCard = useMutation(api.ownedCards.addCard);
+  const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
 
   if (data === undefined) return <PanelLoadingState />;

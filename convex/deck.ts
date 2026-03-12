@@ -65,7 +65,7 @@ export const addToDeck = mutation({
 
     // Verify the user has an available copy in their collection
     const collectionEntry = await ctx.db
-      .query('cardCollection')
+      .query('ownedCards')
       .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', cardId))
       .first();
     if (!collectionEntry) throw new Error('Card not in collection');

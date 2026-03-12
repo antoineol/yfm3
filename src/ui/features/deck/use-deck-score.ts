@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
-import { useCollection } from "../../db/use-collection.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 
@@ -19,7 +19,7 @@ let lastCompletedKey = "";
  */
 export function useDeckScore(deckCardIds: number[]): number | null {
   const [score, setScore] = useAtom(currentDeckScoreAtom);
-  const collection = useCollection();
+  const ownedCardTotals = useOwnedCardTotals();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
 
@@ -34,7 +34,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     if (key === lastCompletedKey) return;
 
     // Only score full-size decks with a loaded collection
-    if (deckCardIds.length !== deckSize || !collection) {
+    if (deckCardIds.length !== deckSize || !ownedCardTotals) {
       setScore(null);
       lastCompletedKey = "";
       return;
@@ -62,7 +62,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
 
     worker.postMessage({
       type: "SCORE",
-      collection,
+      collection: ownedCardTotals,
       deck: deckCardIds,
       config: { deckSize, fusionDepth },
     });
@@ -71,7 +71,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       cancelled = true;
       worker.terminate();
     };
-  }, [deckCardIds, deckSize, fusionDepth, collection, setScore]);
+  }, [deckCardIds, deckSize, fusionDepth, ownedCardTotals, setScore]);
 
   return score;
 }

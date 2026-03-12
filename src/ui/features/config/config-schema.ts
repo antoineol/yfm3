@@ -13,7 +13,7 @@ export type ConfigFormValues = z.infer<typeof configSchema>;
 // Compile-time assertion: ConfigFormValues must match the Convex mutation args.
 // If a config field is added/renamed in the Convex schema, this line will error.
 type MutationArgs = Required<
-  Pick<FunctionArgs<typeof api.collection.updatePreferences>, "deckSize" | "fusionDepth">
+  Pick<FunctionArgs<typeof api.userPreferences.updatePreferences>, "deckSize" | "fusionDepth">
 >;
 type AssertEqual<T, U> = [T] extends [U] ? ([U] extends [T] ? true : never) : never;
 const _sync: AssertEqual<ConfigFormValues, MutationArgs> = true;

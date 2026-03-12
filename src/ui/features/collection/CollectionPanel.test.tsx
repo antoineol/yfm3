@@ -33,7 +33,7 @@ vi.mock("convex/react", () => ({
 
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
-    collection: { addCard: "addCard", removeCard: "removeCard" },
+    ownedCards: { addCard: "addCard", removeCard: "removeCard" },
     deck: { addToDeck: "addToDeck" },
   },
 }));

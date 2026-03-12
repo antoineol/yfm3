@@ -10,7 +10,7 @@ export type HandSourceMode = NonNullable<UserPreferences["handSourceMode"]>;
 export const DEFAULT_HAND_SOURCE_MODE: HandSourceMode = "all";
 
 export function useUserPreferences() {
-  return useQuery(api.collection.getUserPreferences, {});
+  return useQuery(api.userPreferences.getUserPreferences, {});
 }
 
 export function useDeckSize() {

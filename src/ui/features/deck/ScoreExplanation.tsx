@@ -3,7 +3,7 @@ import type { EngineConfig } from "../../../engine/config.ts";
 import type { AtkBucket } from "../../../engine/score-explainer.ts";
 import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
-import { useCollection } from "../../db/use-collection.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 
 type ExplainState =
@@ -12,7 +12,7 @@ type ExplainState =
   | { status: "done"; distribution: AtkBucket[] };
 
 export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
-  const collection = useCollection();
+  const ownedCardTotals = useOwnedCardTotals();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const [state, setState] = useState<ExplainState>({ status: "idle" });
@@ -30,7 +30,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
 
   const toggle = useCallback(() => {
     if (state.status === "idle") {
-      if (!collection) return;
+      if (!ownedCardTotals) return;
       setState({ status: "loading" });
       setExpanded(true);
 
@@ -56,21 +56,21 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
 
       worker.postMessage({
         type: "EXPLAIN",
-        collection,
+        collection: ownedCardTotals,
         deck: deckCardIds,
         config,
       });
     } else {
       setExpanded((v) => !v);
     }
-  }, [state.status, collection, deckCardIds, deckSize, fusionDepth]);
+  }, [state.status, ownedCardTotals, deckCardIds, deckSize, fusionDepth]);
 
   return (
     <div className="flex flex-col gap-2">
       <button
         aria-expanded={expanded}
         className="flex items-center gap-2 cursor-pointer text-left"
-        disabled={!collection && state.status === "idle"}
+        disabled={!ownedCardTotals && state.status === "idle"}
         onClick={toggle}
         type="button"
       >

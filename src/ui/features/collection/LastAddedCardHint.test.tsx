@@ -18,9 +18,11 @@ vi.mock("convex/react", () => ({
 
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
-    collection: {
+    ownedCards: {
       addCard: "addCard",
       removeCard: "removeCard",
+    },
+    userPreferences: {
       clearLastAddedCard: "clearLastAddedCard",
     },
   },

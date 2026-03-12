@@ -2,8 +2,8 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useRef } from "react";
 import type { Collection } from "../../../engine/data/card-model.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
-import { useCollection } from "../../db/use-collection.ts";
 import { useDeck } from "../../db/use-deck.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import {
   currentDeckScoreAtom,
@@ -22,18 +22,20 @@ export function useOptimize() {
   const setLiveBestScore = useSetAtom(liveBestScoreAtom);
   const setLiveBestDeck = useSetAtom(liveBestDeckAtom);
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
-  const collection = useCollection();
+  const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastDeckUpdateRef = useRef(0);
 
-  const totalCards = collection ? Object.values(collection).reduce((sum, qty) => sum + qty, 0) : 0;
+  const totalCards = ownedCardTotals
+    ? Object.values(ownedCardTotals).reduce((sum, qty) => sum + qty, 0)
+    : 0;
   const canOptimize = !isOptimizing && totalCards >= deckSize;
 
   function optimize() {
-    if (!collection) return;
+    if (!ownedCardTotals) return;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -46,7 +48,7 @@ export function useOptimize() {
 
     const currentDeck = deck?.map((d) => d.cardId);
     const col: Collection = new Map(
-      Object.entries(collection).map(([id, qty]) => [Number(id), qty]),
+      Object.entries(ownedCardTotals).map(([id, qty]) => [Number(id), qty]),
     );
     optimizeDeckParallel(col, {
       currentDeck,

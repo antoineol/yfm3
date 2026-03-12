@@ -3,8 +3,8 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 
-vi.mock("../../db/use-collection.ts", () => ({
-  useCollection: vi.fn(),
+vi.mock("../../db/use-owned-card-totals.ts", () => ({
+  useOwnedCardTotals: vi.fn(),
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
@@ -12,10 +12,10 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useFusionDepth: vi.fn(() => 3),
 }));
 
-import { useCollection } from "../../db/use-collection.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 
-const mockCollection = useCollection as ReturnType<typeof vi.fn>;
+const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 
 class MockWorker {
   onmessage: ((e: MessageEvent<ExplainerResponse>) => void) | null = null;
@@ -52,7 +52,7 @@ beforeEach(() => {
       }
     },
   );
-  mockCollection.mockReturnValue({ 1: 3, 2: 3, 3: 3, 4: 3, 5: 3 });
+  mockOwnedCardTotals.mockReturnValue({ 1: 3, 2: 3, 3: 3, 4: 3, 5: 3 });
 });
 
 afterEach(() => {
