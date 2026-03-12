@@ -33,13 +33,12 @@ export function CollectionPanel() {
   const deckFull = deckLength >= targetSize;
 
   const { entries, totalCards } = data;
-  const collectionCounts = new Map(entries.map((entry) => [entry.id, entry.qty]));
+  const totalOwnedCounts = new Map(entries.map((entry) => [entry.id, entry.qty]));
 
   const autocompleteCards = allCards.map((card) => {
-    const totalOwned = (collectionCounts.get(card.id) ?? 0) + (deckCounts.get(card.id) ?? 0);
     return {
       ...card,
-      disabled: totalOwned >= MAX_COPIES_PER_CARD,
+      disabled: (totalOwnedCounts.get(card.id) ?? 0) >= MAX_COPIES_PER_CARD,
     };
   });
 

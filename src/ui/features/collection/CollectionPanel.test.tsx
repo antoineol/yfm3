@@ -205,11 +205,28 @@ describe("CollectionPanel", () => {
     expect(screen.getByPlaceholderText("Add card...")).toBeDefined();
   });
 
-  it("disables autocomplete entries when total owned copies reached 3", () => {
+  it("keeps autocomplete enabled when a copy is in deck but total owned is below 3", () => {
     mockUseDeck.mockReturnValue([{ cardId: 1 }]);
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
       totalCards: 2,
+      uniqueCards: 1,
+    });
+
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    const props = mockCardAutocomplete.mock.calls.at(-1)?.[0] as
+      | { cards?: Array<{ id: number; disabled?: boolean }> }
+      | undefined;
+    const cardInDeck = props?.cards?.find((card) => card.id === 1);
+    expect(cardInDeck?.disabled).toBe(false);
+  });
+
+  it("disables autocomplete entries when total owned copies reached 3", () => {
+    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
+      totalCards: 3,
       uniqueCards: 1,
     });
 
