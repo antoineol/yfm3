@@ -22,6 +22,14 @@
 - `LastAddedCardHint` "−" button: disabled when no available copies (all in deck)
 - CollectionPanel "−" button was already guarded via display-qty subtraction
 
+### Follow-Up Hardening (DONE)
+
+- Collection UI ownership semantics are now centralized in a UI view model derived from the existing collection and deck queries
+- UI-facing collection rows expose `totalOwned`, `inDeck`, and `availableInCollection` explicitly
+- Collection UI displays and acts on `availableInCollection`
+- Ownership cap logic uses `totalOwned`
+- Components no longer recompute their own collection-minus-deck quantities
+
 ## Target Features
 
 ### A. Last Added Card Hint

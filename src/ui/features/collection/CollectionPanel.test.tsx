@@ -21,6 +21,7 @@ vi.mock("../../components/CardAutocomplete.tsx", () => ({
     return <input data-testid="card-autocomplete" placeholder={props.placeholder} />;
   },
 }));
+
 vi.mock("convex/react", () => ({
   useMutation: (ref: string) => {
     if (ref === "addCard") return mockAddCard;
@@ -37,12 +38,8 @@ vi.mock("../../../../convex/_generated/api", () => ({
   },
 }));
 
-vi.mock("./use-collection-entries.ts", () => ({
-  useCollectionEntries: vi.fn(),
-}));
-
-vi.mock("../../db/use-deck.ts", () => ({
-  useDeck: vi.fn(() => []),
+vi.mock("./use-collection-view-model.ts", () => ({
+  useCollectionViewModel: vi.fn(),
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
@@ -54,15 +51,17 @@ vi.mock("./LastAddedCardHint.tsx", () => ({
 }));
 
 import type { ReactNode } from "react";
-import { useDeck } from "../../db/use-deck.ts";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { CollectionPanel } from "./CollectionPanel.tsx";
-import { useCollectionEntries } from "./use-collection-entries.ts";
+import {
+  type CollectionCardViewModel,
+  useCollectionViewModel,
+} from "./use-collection-view-model.ts";
 
-const mockHook = useCollectionEntries as ReturnType<typeof vi.fn>;
-const mockUseDeck = useDeck as ReturnType<typeof vi.fn>;
+const mockUseCollectionViewModel = useCollectionViewModel as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
 const emptyCardDb = createCardDb();
+
 addCard(emptyCardDb, {
   id: 1,
   name: "Blue-Eyes",
@@ -71,6 +70,7 @@ addCard(emptyCardDb, {
   attack: 3000,
   defense: 2500,
 });
+
 addCard(emptyCardDb, {
   id: 2,
   name: "Dark Magician",
@@ -79,198 +79,265 @@ addCard(emptyCardDb, {
   attack: 2500,
   defense: 2100,
 });
+
 function Wrapper({ children }: { children: ReactNode }) {
   return <CardDbProvider cardDb={emptyCardDb}>{children}</CardDbProvider>;
+}
+
+function buildCollectionEntry({
+  id,
+  name = "Card",
+  atk = 100,
+  def = 100,
+  totalOwned = 1,
+  inDeck = 0,
+  availableInCollection = totalOwned - inDeck,
+}: {
+  id: number;
+  name?: string;
+  atk?: number;
+  def?: number;
+  totalOwned?: number;
+  inDeck?: number;
+  availableInCollection?: number;
+}): CollectionCardViewModel {
+  return {
+    id,
+    name,
+    atk,
+    def,
+    qty: availableInCollection,
+    totalOwned,
+    inDeck,
+    availableInCollection,
+  };
+}
+
+function buildCollectionViewModel({
+  entries = [],
+  deckLength = 0,
+  totalOwnedCards = entries.reduce((sum, entry) => sum + entry.totalOwned, 0),
+}: {
+  entries?: CollectionCardViewModel[];
+  deckLength?: number;
+  totalOwnedCards?: number;
+}) {
+  return {
+    entries,
+    entriesByCardId: new Map(entries.map((entry) => [entry.id, entry])),
+    totalOwnedCards,
+    uniqueOwnedCards: entries.length,
+    deckLength,
+  };
 }
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  mockUseDeck.mockReturnValue([]);
   mockDeckSize.mockReturnValue(40);
 });
 
 describe("CollectionPanel", () => {
   it("renders loading state when data is undefined", () => {
-    mockHook.mockReturnValue(undefined);
+    mockUseCollectionViewModel.mockReturnValue(undefined);
     const { container } = render(<CollectionPanel />, { wrapper: Wrapper });
     expect(container.querySelector(".animate-spin-gold")).not.toBeNull();
   });
 
-  it("renders empty state when totalCards is 0", () => {
-    mockHook.mockReturnValue({ entries: [], totalCards: 0, uniqueCards: 0 });
+  it("renders empty state when total owned cards is 0", () => {
+    mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByText("Your collection is empty")).toBeDefined();
   });
 
   it("renders card table when collection has cards", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
-      totalCards: 2,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500 })],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
   });
 
   it("renders action buttons per card row", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })] }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByTitle("Add copy")).toBeDefined();
     expect(screen.getByTitle("Remove copy")).toBeDefined();
     expect(screen.getByTitle("Add to deck")).toBeDefined();
   });
 
-  it("disables + button at max quantity (3)", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
-      totalCards: 3,
-      uniqueCards: 1,
-    });
+  it("disables + button when total owned reached 3 even if one copy is in deck", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({
+            id: 1,
+            name: "Blue-Eyes",
+            atk: 3000,
+            def: 2500,
+            totalOwned: 3,
+            inDeck: 1,
+            availableInCollection: 2,
+          }),
+        ],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    const addBtn = screen.getByTitle("Add copy");
-    expect(addBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Add copy").hasAttribute("disabled")).toBe(true);
   });
 
   it("calls addCard on + click", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 42, name: "Card", atk: 100, def: 100, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [buildCollectionEntry({ id: 42 })] }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     fireEvent.click(screen.getByTitle("Add copy"));
     expect(mockAddCard).toHaveBeenCalledWith({ cardId: 42 });
   });
 
   it("calls removeCard on − click", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 42, name: "Card", atk: 100, def: 100, qty: 2 }],
-      totalCards: 2,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [buildCollectionEntry({ id: 42, totalOwned: 2, availableInCollection: 2 })],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     fireEvent.click(screen.getByTitle("Remove copy"));
     expect(mockRemoveCard).toHaveBeenCalledWith({ cardId: 42 });
   });
 
   it("calls addToDeck on ▶ click", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 42, name: "Card", atk: 100, def: 100, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [buildCollectionEntry({ id: 42 })] }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     fireEvent.click(screen.getByTitle("Add to deck"));
     expect(mockAddToDeck).toHaveBeenCalledWith({ cardId: 42 });
   });
 
-  it("disables add-to-deck when all copies are in deck", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 42 }, { cardId: 42 }]);
-    mockHook.mockReturnValue({
-      entries: [{ id: 42, name: "Card", atk: 100, def: 100, qty: 2 }],
-      totalCards: 2,
-      uniqueCards: 1,
-    });
+  it("disables add-to-deck when no copies are available in collection", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 42, totalOwned: 2, inDeck: 2, availableInCollection: 0 }),
+        ],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    const deckBtn = screen.getByTitle("Add to deck");
-    expect(deckBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Add to deck").hasAttribute("disabled")).toBe(true);
   });
 
   it("disables add-to-deck when deck is full", () => {
-    const fullDeck = Array.from({ length: 40 }, (_, i) => ({ cardId: i }));
-    mockUseDeck.mockReturnValue(fullDeck);
     mockDeckSize.mockReturnValue(40);
-    mockHook.mockReturnValue({
-      entries: [{ id: 999, name: "Card", atk: 100, def: 100, qty: 3 }],
-      totalCards: 3,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [buildCollectionEntry({ id: 999, totalOwned: 3, availableInCollection: 3 })],
+        deckLength: 40,
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    const deckBtn = screen.getByTitle("Add to deck");
-    expect(deckBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Add to deck").hasAttribute("disabled")).toBe(true);
   });
 
   it("renders search autocomplete in header", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })] }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByPlaceholderText("Add card...")).toBeDefined();
   });
 
-  it("keeps autocomplete enabled when a copy is in deck but total owned is below 3", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
-      totalCards: 2,
-      uniqueCards: 1,
-    });
+  it("keeps autocomplete enabled when total owned is below 3", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({
+            id: 1,
+            name: "Blue-Eyes",
+            atk: 3000,
+            def: 2500,
+            totalOwned: 2,
+            inDeck: 1,
+            availableInCollection: 1,
+          }),
+        ],
+      }),
+    );
 
     render(<CollectionPanel />, { wrapper: Wrapper });
 
     const props = mockCardAutocomplete.mock.calls.at(-1)?.[0] as
       | { cards?: Array<{ id: number; disabled?: boolean }> }
       | undefined;
-    const cardInDeck = props?.cards?.find((card) => card.id === 1);
-    expect(cardInDeck?.disabled).toBe(false);
+    expect(props?.cards?.find((card) => card.id === 1)?.disabled).toBe(false);
   });
 
   it("disables autocomplete entries when total owned copies reached 3", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
-      totalCards: 3,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({
+            id: 1,
+            name: "Blue-Eyes",
+            atk: 3000,
+            def: 2500,
+            totalOwned: 3,
+            inDeck: 1,
+            availableInCollection: 2,
+          }),
+        ],
+      }),
+    );
 
     render(<CollectionPanel />, { wrapper: Wrapper });
 
     const props = mockCardAutocomplete.mock.calls.at(-1)?.[0] as
       | { cards?: Array<{ id: number; disabled?: boolean }> }
       | undefined;
-    const cappedCard = props?.cards?.find((card) => card.id === 1);
-    const notCappedCard = props?.cards?.find((card) => card.id === 2);
-    expect(cappedCard?.disabled).toBe(true);
-    expect(notCappedCard?.disabled).toBe(false);
+    expect(props?.cards?.find((card) => card.id === 1)?.disabled).toBe(true);
+    expect(props?.cards?.find((card) => card.id === 2)?.disabled).toBe(false);
   });
 
   it("disables remove button when no available copies", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 42 }]);
-    mockHook.mockReturnValue({
-      entries: [{ id: 42, name: "Card", atk: 100, def: 100, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 42, totalOwned: 1, inDeck: 1, availableInCollection: 0 }),
+        ],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    const removeBtn = screen.getByTitle("Remove copy");
-    expect(removeBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Remove copy").hasAttribute("disabled")).toBe(true);
   });
 
-  it("shows remaining copies (total minus in-deck)", () => {
-    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
-      totalCards: 3,
-      uniqueCards: 1,
-    });
+  it("shows available copies in collection", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({
+            id: 1,
+            name: "Blue-Eyes",
+            atk: 3000,
+            def: 2500,
+            totalOwned: 3,
+            inDeck: 1,
+            availableInCollection: 2,
+          }),
+        ],
+      }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    // qty displayed should be 3-1=2, shown as ×2
     expect(screen.getByText("×2")).toBeDefined();
   });
 
   it("renders the LastAddedCardHint", () => {
-    mockHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-      totalCards: 1,
-      uniqueCards: 1,
-    });
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })] }),
+    );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByTestId("last-added-hint")).toBeDefined();
   });

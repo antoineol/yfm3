@@ -36,14 +36,14 @@ export function countById(ids: number[]): Map<number, number> {
   return counts;
 }
 
-export function CardTable({
+export function CardTable<T extends CardEntry>({
   entries,
   actions,
   leftActions,
 }: {
-  entries: CardEntry[];
-  actions?: (entry: CardEntry) => ReactNode;
-  leftActions?: (entry: CardEntry) => ReactNode;
+  entries: T[];
+  actions?: (entry: T) => ReactNode;
+  leftActions?: (entry: T) => ReactNode;
 }) {
   const [animateRef] = useAutoAnimate();
 

@@ -21,3 +21,7 @@ You must always do below for all changes:
 - Write functions in reading order. If A calls B, write A then B.
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
+
+## Confusion points
+
+- `useCollection()` returns total owned copies from Convex, not copies still available outside the deck. UI code that needs collection-row actions must use the centralized collection view model semantics: `totalOwned`, `inDeck`, and `availableInCollection`. A prior bug came from components subtracting deck counts locally and treating one `qty` field as both meanings.
