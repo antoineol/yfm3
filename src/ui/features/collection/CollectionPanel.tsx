@@ -12,10 +12,12 @@ import {
 } from "../../components/panel-chrome.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import { useCollectionEntries } from "./use-collection-entries.ts";
 
 export function CollectionPanel() {
+  const { cards: allCards } = useCardDb();
   const data = useCollectionEntries();
   const deck = useDeck();
   const targetSize = useDeckSize();
@@ -30,15 +32,30 @@ export function CollectionPanel() {
 
   const deckLength = deck?.length ?? 0;
   const deckFull = deckLength >= targetSize;
-
-  if (data === undefined) return <PanelLoadingState />;
-
-  const { entries, totalCards } = data;
+  const entries = data?.entries ?? [];
+  const totalCards = data?.totalCards ?? 0;
 
   const displayEntries = entries.map((e) => ({
     ...e,
     qty: Math.max(0, e.qty - (deckCounts.get(e.id) ?? 0)),
   }));
+
+  const ownedCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const entry of entries) {
+      counts.set(entry.id, entry.qty + (deckCounts.get(entry.id) ?? 0));
+    }
+    return counts;
+  }, [deckCounts, entries]);
+
+  const autocompleteCards = useMemo(() => {
+    return allCards.map((card) => ({
+      ...card,
+      disabled: (ownedCounts.get(card.id) ?? 0) >= 3,
+    }));
+  }, [allCards, ownedCounts]);
+
+  if (data === undefined) return <PanelLoadingState />;
 
   function renderActions(entry: CardEntry) {
     const inDeck = deckCounts.get(entry.id) ?? 0;
@@ -86,6 +103,7 @@ export function CollectionPanel() {
     <>
       <PanelHeader stretch title="Collection">
         <CardAutocomplete
+          cards={autocompleteCards}
           onSelect={(card) => void addCard({ cardId: card.id })}
           placeholder="Add card..."
         />
