@@ -1,13 +1,26 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCardDb } from "../../../engine/data/game-db.ts";
+import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import { CardDbProvider } from "../../lib/card-db-context.tsx";
 
 const mockAddCard = vi.fn();
 const mockRemoveCard = vi.fn();
 const mockAddToDeck = vi.fn();
 
+const mockCardAutocomplete = vi.fn(({ placeholder }: { placeholder?: string }) => (
+  <input data-testid="card-autocomplete" placeholder={placeholder} />
+));
+
+vi.mock("../../components/CardAutocomplete.tsx", () => ({
+  CardAutocomplete: (props: {
+    placeholder?: string;
+    cards?: Array<{ id: number; disabled?: boolean }>;
+  }) => {
+    mockCardAutocomplete(props);
+    return <input data-testid="card-autocomplete" placeholder={props.placeholder} />;
+  },
+}));
 vi.mock("convex/react", () => ({
   useMutation: (ref: string) => {
     if (ref === "addCard") return mockAddCard;
@@ -50,6 +63,22 @@ const mockHook = useCollectionEntries as ReturnType<typeof vi.fn>;
 const mockUseDeck = useDeck as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
 const emptyCardDb = createCardDb();
+addCard(emptyCardDb, {
+  id: 1,
+  name: "Blue-Eyes",
+  kinds: ["Dragon"],
+  color: "blue",
+  attack: 3000,
+  defense: 2500,
+});
+addCard(emptyCardDb, {
+  id: 2,
+  name: "Dark Magician",
+  kinds: ["Spellcaster"],
+  color: "blue",
+  attack: 2500,
+  defense: 2100,
+});
 function Wrapper({ children }: { children: ReactNode }) {
   return <CardDbProvider cardDb={emptyCardDb}>{children}</CardDbProvider>;
 }
@@ -174,6 +203,42 @@ describe("CollectionPanel", () => {
     });
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByPlaceholderText("Add card...")).toBeDefined();
+  });
+
+  it("keeps autocomplete enabled when a copy is in deck but total owned is below 3", () => {
+    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
+      totalCards: 2,
+      uniqueCards: 1,
+    });
+
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    const props = mockCardAutocomplete.mock.calls.at(-1)?.[0] as
+      | { cards?: Array<{ id: number; disabled?: boolean }> }
+      | undefined;
+    const cardInDeck = props?.cards?.find((card) => card.id === 1);
+    expect(cardInDeck?.disabled).toBe(false);
+  });
+
+  it("disables autocomplete entries when total owned copies reached 3", () => {
+    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
+    mockHook.mockReturnValue({
+      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 3 }],
+      totalCards: 3,
+      uniqueCards: 1,
+    });
+
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    const props = mockCardAutocomplete.mock.calls.at(-1)?.[0] as
+      | { cards?: Array<{ id: number; disabled?: boolean }> }
+      | undefined;
+    const cappedCard = props?.cards?.find((card) => card.id === 1);
+    const notCappedCard = props?.cards?.find((card) => card.id === 2);
+    expect(cappedCard?.disabled).toBe(true);
+    expect(notCappedCard?.disabled).toBe(false);
   });
 
   it("disables remove button when no available copies", () => {

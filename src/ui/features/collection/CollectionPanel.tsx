@@ -1,5 +1,4 @@
 import { useMutation } from "convex/react";
-import { useMemo } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
@@ -12,10 +11,14 @@ import {
 } from "../../components/panel-chrome.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import { useCollectionEntries } from "./use-collection-entries.ts";
 
+const MAX_COPIES_PER_CARD = 3;
+
 export function CollectionPanel() {
+  const { cards: allCards } = useCardDb();
   const data = useCollectionEntries();
   const deck = useDeck();
   const targetSize = useDeckSize();
@@ -23,21 +26,25 @@ export function CollectionPanel() {
   const removeCard = useMutation(api.collection.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
 
-  const deckCounts = useMemo(() => {
-    if (!deck) return new Map<number, number>();
-    return countById(deck.map((d) => d.cardId));
-  }, [deck]);
+  if (data === undefined) return <PanelLoadingState />;
 
+  const deckCounts = countById((deck ?? []).map((d) => d.cardId));
   const deckLength = deck?.length ?? 0;
   const deckFull = deckLength >= targetSize;
 
-  if (data === undefined) return <PanelLoadingState />;
-
   const { entries, totalCards } = data;
+  const totalOwnedCounts = new Map(entries.map((entry) => [entry.id, entry.qty]));
 
-  const displayEntries = entries.map((e) => ({
-    ...e,
-    qty: Math.max(0, e.qty - (deckCounts.get(e.id) ?? 0)),
+  const autocompleteCards = allCards.map((card) => {
+    return {
+      ...card,
+      disabled: (totalOwnedCounts.get(card.id) ?? 0) >= MAX_COPIES_PER_CARD,
+    };
+  });
+
+  const displayEntries = entries.map((entry) => ({
+    ...entry,
+    qty: Math.max(0, entry.qty - (deckCounts.get(entry.id) ?? 0)),
   }));
 
   function renderActions(entry: CardEntry) {
@@ -48,7 +55,7 @@ export function CollectionPanel() {
     return (
       <span className="inline-flex items-center gap-0.5">
         <CardActionButton
-          disabled={totalOwned >= 3}
+          disabled={totalOwned >= MAX_COPIES_PER_CARD}
           onClick={() => void addCard({ cardId: entry.id })}
           title="Add copy"
           variant="add"
@@ -86,6 +93,7 @@ export function CollectionPanel() {
     <>
       <PanelHeader stretch title="Collection">
         <CardAutocomplete
+          cards={autocompleteCards}
           onSelect={(card) => void addCard({ cardId: card.id })}
           placeholder="Add card..."
         />

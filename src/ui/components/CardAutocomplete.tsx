@@ -4,9 +4,13 @@ import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { formatCardId } from "../lib/format.ts";
 
+export type AutocompleteCard = CardSpec & {
+  disabled?: boolean;
+};
+
 export type CardAutocompleteProps = {
   /** Cards available for selection. If omitted, uses all cards from CardDb. */
-  cards?: CardSpec[];
+  cards?: AutocompleteCard[];
   /** Called when user selects a card */
   onSelect: (card: CardSpec) => void;
   /** Placeholder text */
@@ -38,7 +42,7 @@ export function CardAutocomplete({
   }, []);
 
   const handleValueChange = useCallback(
-    (card: CardSpec | null) => {
+    (card: AutocompleteCard | null) => {
       if (!card) return;
       onSelect(card);
       setInputValue("");
@@ -48,7 +52,7 @@ export function CardAutocomplete({
   );
 
   return (
-    <Combobox.Root<CardSpec>
+    <Combobox.Root<AutocompleteCard>
       autoHighlight
       filter={cardFilter}
       inputValue={inputValue}
@@ -74,7 +78,7 @@ export function CardAutocomplete({
         <Combobox.Positioner align="start" sideOffset={4}>
           <Combobox.Popup className="z-50 w-(--anchor-width) overflow-hidden rounded-lg border border-border-accent bg-bg-panel shadow-dropdown origin-(--transform-origin) transition-[transform,opacity] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
             <Combobox.List className="peer overflow-y-auto max-h-64 p-1 scroll-py-1">
-              {(card: CardSpec) => <CardOption card={card} key={card.id} />}
+              {(card: AutocompleteCard) => <CardOption card={card} key={card.id} />}
             </Combobox.List>
             <p className="hidden peer-data-empty:block px-3 py-4 text-center text-xs text-text-muted">
               No cards found
@@ -86,10 +90,11 @@ export function CardAutocomplete({
   );
 }
 
-function CardOption({ card }: { card: CardSpec }) {
+function CardOption({ card }: { card: AutocompleteCard }) {
   return (
     <Combobox.Item
-      className="group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm select-none cursor-default data-highlighted:bg-bg-hover transition-colors duration-75"
+      className="group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm select-none cursor-default data-highlighted:bg-bg-hover data-disabled:opacity-45 data-disabled:saturate-0 transition-colors duration-75"
+      disabled={card.disabled === true}
       value={card}
     >
       <span className="shrink-0 w-7 font-mono text-xs tabular-nums text-text-muted">
