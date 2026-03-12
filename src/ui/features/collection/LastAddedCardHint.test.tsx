@@ -30,22 +30,25 @@ vi.mock("../../db/use-last-added-card.ts", () => ({
   useLastAddedCard: vi.fn(),
 }));
 
-vi.mock("../../db/use-deck.ts", () => ({
-  useDeck: vi.fn(() => []),
-}));
-
 vi.mock("../../lib/card-db-context.tsx", () => ({
   useCardDb: vi.fn(),
 }));
 
-import { useDeck } from "../../db/use-deck.ts";
+vi.mock("./use-collection-view-model.ts", () => ({
+  useCollectionViewModel: vi.fn(),
+}));
+
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
+import {
+  type CollectionCardViewModel,
+  useCollectionViewModel,
+} from "./use-collection-view-model.ts";
 
 const mockLastAdded = useLastAddedCard as ReturnType<typeof vi.fn>;
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
-const mockUseDeck = useDeck as ReturnType<typeof vi.fn>;
+const mockUseCollectionViewModel = useCollectionViewModel as ReturnType<typeof vi.fn>;
 
 const fakeCardDb: CardDb = {
   cards: [],
@@ -53,38 +56,97 @@ const fakeCardDb: CardDb = {
   cardsByName: new Map(),
 } as CardDb;
 
+function buildCollectionEntry({
+  totalOwned,
+  availableInCollection,
+}: {
+  totalOwned: number;
+  availableInCollection: number;
+}): CollectionCardViewModel {
+  return {
+    id: 1,
+    name: "Blue-Eyes",
+    atk: 3000,
+    def: 2500,
+    qty: availableInCollection,
+    totalOwned,
+    inDeck: totalOwned - availableInCollection,
+    availableInCollection,
+  };
+}
+
+function buildCollectionViewModel(entry: CollectionCardViewModel) {
+  return {
+    entries: [entry],
+    entriesByCardId: new Map([[entry.id, entry]]),
+    totalOwnedCards: entry.totalOwned,
+    uniqueOwnedCards: 1,
+    deckLength: entry.inDeck,
+  };
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  mockUseDeck.mockReturnValue([]);
 });
 
 describe("LastAddedCardHint", () => {
   it("renders nothing when no last added card", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 1,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue(null);
     const { container } = render(<LastAddedCardHint />);
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders card name and quantity", () => {
+  it("renders card name and total owned quantity", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 2,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
     render(<LastAddedCardHint />);
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
     expect(screen.getByText("(2/3)")).toBeDefined();
   });
 
-  it("disables + button at max quantity", () => {
+  it("disables + button when total owned is at the cap", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 3,
+          availableInCollection: 2,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 3 });
     render(<LastAddedCardHint />);
-    const addBtn = screen.getByTitle("Add another copy");
-    expect(addBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Add another copy").hasAttribute("disabled")).toBe(true);
   });
 
   it("calls addCard on + click", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 1,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
     render(<LastAddedCardHint />);
     fireEvent.click(screen.getByTitle("Add another copy"));
@@ -93,6 +155,14 @@ describe("LastAddedCardHint", () => {
 
   it("calls removeCard on − click", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 2,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
     render(<LastAddedCardHint />);
     fireEvent.click(screen.getByTitle("Remove one copy"));
@@ -101,27 +171,47 @@ describe("LastAddedCardHint", () => {
 
   it("calls clearLastAddedCard on dismiss", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 1,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
     render(<LastAddedCardHint />);
     fireEvent.click(screen.getByTitle("Dismiss"));
     expect(mockClearHint).toHaveBeenCalledWith({});
   });
 
-  it("disables − button when all copies are in deck", () => {
+  it("disables − button when no copies are available in collection", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 2,
+          availableInCollection: 0,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
-    mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 1 }]);
     render(<LastAddedCardHint />);
-    const removeBtn = screen.getByTitle("Remove one copy");
-    expect(removeBtn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTitle("Remove one copy").hasAttribute("disabled")).toBe(true);
   });
 
-  it("enables − button when copies are available", () => {
+  it("enables − button when a copy remains available in collection", () => {
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel(
+        buildCollectionEntry({
+          totalOwned: 2,
+          availableInCollection: 1,
+        }),
+      ),
+    );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
-    mockUseDeck.mockReturnValue([{ cardId: 1 }]);
     render(<LastAddedCardHint />);
-    const removeBtn = screen.getByTitle("Remove one copy");
-    expect(removeBtn.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByTitle("Remove one copy").hasAttribute("disabled")).toBe(false);
   });
 });
