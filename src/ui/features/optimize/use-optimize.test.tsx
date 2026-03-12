@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isOptimizingAtom, liveBestDeckAtom, resultAtom } from "../../lib/atoms.ts";
 
-vi.mock("../../db/use-collection.ts", () => ({
-  useCollection: vi.fn(),
+vi.mock("../../db/use-owned-card-totals.ts", () => ({
+  useOwnedCardTotals: vi.fn(),
 }));
 vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
@@ -20,12 +20,12 @@ vi.mock("../../../engine/index-browser.ts", () => ({
 }));
 
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
-import { useCollection } from "../../db/use-collection.ts";
 import { useDeck } from "../../db/use-deck.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { useOptimize } from "./use-optimize.ts";
 
-const mockCollection = useCollection as ReturnType<typeof vi.fn>;
+const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
 const mockOptimize = optimizeDeckParallel as ReturnType<typeof vi.fn>;
@@ -43,7 +43,7 @@ describe("useOptimize", () => {
 
   beforeEach(() => {
     store = createStore();
-    mockCollection.mockReturnValue(undefined);
+    mockOwnedCardTotals.mockReturnValue(undefined);
     mockDeck.mockReturnValue(undefined);
     mockDeckSize.mockReturnValue(40);
     mockOptimize.mockResolvedValue({
@@ -57,7 +57,7 @@ describe("useOptimize", () => {
 
   describe("canOptimize", () => {
     it("is false when collection is undefined", () => {
-      mockCollection.mockReturnValue(undefined);
+      mockOwnedCardTotals.mockReturnValue(undefined);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -65,7 +65,7 @@ describe("useOptimize", () => {
     });
 
     it("is false when total cards < deckSize", () => {
-      mockCollection.mockReturnValue({ 1: 10, 2: 10 }); // 20 cards
+      mockOwnedCardTotals.mockReturnValue({ 1: 10, 2: 10 }); // 20 cards
       mockDeckSize.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -74,7 +74,7 @@ describe("useOptimize", () => {
     });
 
     it("is true when total cards >= deckSize and not optimizing", () => {
-      mockCollection.mockReturnValue({ 1: 20, 2: 20 }); // 40 cards
+      mockOwnedCardTotals.mockReturnValue({ 1: 20, 2: 20 }); // 40 cards
       mockDeckSize.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -83,7 +83,7 @@ describe("useOptimize", () => {
     });
 
     it("is true when total cards > deckSize", () => {
-      mockCollection.mockReturnValue({ 1: 30, 2: 30 }); // 60 cards
+      mockOwnedCardTotals.mockReturnValue({ 1: 30, 2: 30 }); // 60 cards
       mockDeckSize.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -92,7 +92,7 @@ describe("useOptimize", () => {
     });
 
     it("is false when isOptimizing is true", () => {
-      mockCollection.mockReturnValue({ 1: 20, 2: 20 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 20, 2: 20 });
       store.set(isOptimizingAtom, true);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -103,7 +103,7 @@ describe("useOptimize", () => {
 
   describe("optimize", () => {
     it("does nothing when collection is undefined", async () => {
-      mockCollection.mockReturnValue(undefined);
+      mockOwnedCardTotals.mockReturnValue(undefined);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -112,7 +112,7 @@ describe("useOptimize", () => {
     });
 
     it("calls optimizeDeckParallel with correct args", async () => {
-      mockCollection.mockReturnValue({ 1: 20, 2: 20 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 20, 2: 20 });
       mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
       mockDeckSize.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
@@ -137,7 +137,7 @@ describe("useOptimize", () => {
           resolvePromise = r;
         }),
       );
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -175,7 +175,7 @@ describe("useOptimize", () => {
         improvement: null,
         elapsedMs: 0,
       });
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -194,7 +194,7 @@ describe("useOptimize", () => {
 
     it("sets isOptimizing to false on error", async () => {
       mockOptimize.mockRejectedValue(new Error("fail"));
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -208,7 +208,7 @@ describe("useOptimize", () => {
     });
 
     it("passes undefined currentDeck when deck is undefined", async () => {
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       mockDeck.mockReturnValue(undefined);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
@@ -243,7 +243,7 @@ describe("useOptimize", () => {
           };
         },
       );
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -256,7 +256,7 @@ describe("useOptimize", () => {
 
     it("clears liveBestDeck on optimization start", async () => {
       store.set(liveBestDeckAtom, [1, 2, 3]);
-      mockCollection.mockReturnValue({ 1: 40 });
+      mockOwnedCardTotals.mockReturnValue({ 1: 40 });
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });

@@ -25,6 +25,7 @@
 ### Follow-Up Hardening (DONE)
 
 - Collection UI ownership semantics are now centralized in a UI view model derived from the existing collection and deck queries
+- Raw owned totals are now named explicitly as owned-card totals (`ownedCards`, `getOwnedCardTotals`, `useOwnedCardTotals`)
 - UI-facing collection rows expose `totalOwned`, `inDeck`, and `availableInCollection` explicitly
 - Collection UI displays and acts on `availableInCollection`
 - Ownership cap logic uses `totalOwned`

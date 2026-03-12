@@ -6,8 +6,8 @@ import { handSourceModeValidator } from './userPreferences';
 export default defineSchema({
   ...authTables,
 
-  // User's card collection - tracks owned cards and their quantities
-  cardCollection: defineTable({
+  // User's owned cards - total copies owned regardless of deck assignment.
+  ownedCards: defineTable({
     userId: v.string(), // User identifier (could be session ID or auth user ID)
     cardId: v.number(), // CardId from the game
     quantity: v.number(), // Number of copies owned (max 3)

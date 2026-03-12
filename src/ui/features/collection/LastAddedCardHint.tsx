@@ -9,9 +9,9 @@ export function LastAddedCardHint() {
   const lastAdded = useLastAddedCard();
   const cardDb = useCardDb();
   const collection = useCollectionViewModel();
-  const addCard = useMutation(api.collection.addCard);
-  const removeCard = useMutation(api.collection.removeCard);
-  const clearHint = useMutation(api.collection.clearLastAddedCard);
+  const addCard = useMutation(api.ownedCards.addCard);
+  const removeCard = useMutation(api.ownedCards.removeCard);
+  const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
 
   if (!lastAdded || collection === undefined) return null;
 

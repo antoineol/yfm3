@@ -24,4 +24,4 @@ You must always do below for all changes:
 
 ## Confusion points
 
-- `useCollection()` returns total owned copies from Convex, not copies still available outside the deck. UI code that needs collection-row actions must use the centralized collection view model semantics: `totalOwned`, `inDeck`, and `availableInCollection`. A prior bug came from components subtracting deck counts locally and treating one `qty` field as both meanings.
+- Raw owned totals now live in the `ownedCards` Convex table and `useOwnedCardTotals()`. Collection UI that cares about deck-adjusted availability should use `useCollectionViewModel()`, which exposes `totalOwned`, `inDeck`, and `availableInCollection`.
