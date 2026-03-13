@@ -1,12 +1,8 @@
 import { useMutation } from "convex/react";
 import { useAtomValue } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
-import type {
-  DeckSwapSuggestion,
-  FindBestDeckSwapSuggestionOptions,
-} from "../../../engine/suggest-deck-swap.ts";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { useDeck } from "../../db/use-deck.ts";
@@ -16,11 +12,7 @@ import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useCollectionViewModel } from "./use-collection-view-model.ts";
-
-interface SuggestionWorkerResponse {
-  requestId: number;
-  suggestion: DeckSwapSuggestion | null;
-}
+import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 export function LastAddedCardHint() {
   const lastAdded = useLastAddedCard();
@@ -36,83 +28,24 @@ export function LastAddedCardHint() {
   const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
   const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
   const [applying, setApplying] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
-  const currentDeckScoreRef = useRef(currentDeckScore);
-  const workerRef = useRef<Worker | null>(null);
-  const requestIdRef = useRef(0);
-  const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
   const addedCardId = lastAdded?.cardId ?? null;
   const card = addedCardId === null ? undefined : cardDb.cardsById.get(addedCardId);
   const entry =
     addedCardId === null || collection === undefined
       ? undefined
       : collection.entriesByCardId.get(addedCardId);
+  const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
+    addedCardId,
+    currentDeckScore,
+    deck,
+    deckSize,
+    fusionDepth,
+    ownedCardTotals,
+  });
   const name = card?.name ?? (addedCardId === null ? "" : `#${addedCardId}`);
   const removedName = suggestion
     ? (cardDb.cardsById.get(suggestion.removedCardId)?.name ?? `#${suggestion.removedCardId}`)
     : "";
-  currentDeckScoreRef.current = currentDeckScore;
-
-  useEffect(() => {
-    workerRef.current = new Worker(
-      new URL("../../../engine/worker/suggestion-worker.ts", import.meta.url),
-      {
-        type: "module",
-      },
-    );
-
-    return () => workerRef.current?.terminate();
-  }, []);
-
-  useEffect(() => {
-    if (
-      addedCardId === null ||
-      deck === undefined ||
-      ownedCardTotals === undefined ||
-      deckCardIds.length !== deckSize
-    ) {
-      setLoading(false);
-      setSuggestion(null);
-      return;
-    }
-
-    const worker = workerRef.current;
-    if (!worker) return;
-    const request: FindBestDeckSwapSuggestionOptions = {
-      addedCardId,
-      collection: ownedCardTotals,
-      config: { deckSize, fusionDepth },
-      currentDeckScore: currentDeckScoreRef.current,
-      deck: deckCardIds,
-    };
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-
-    setLoading(true);
-    setSuggestion(null);
-
-    worker.onmessage = (event: MessageEvent<SuggestionWorkerResponse>) => {
-      if (event.data.requestId !== requestIdRef.current) return;
-      setLoading(false);
-      setSuggestion(event.data.suggestion);
-    };
-    worker.onerror = (error) => {
-      console.error("Suggestion lookup failed:", error);
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-        setSuggestion(null);
-      }
-    };
-
-    worker.postMessage({ requestId, options: request });
-
-    return () => {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    };
-  }, [addedCardId, deck, deckCardIds, deckSize, fusionDepth, ownedCardTotals]);
 
   if (addedCardId === null || collection === undefined || !entry) return null;
   const lastAddedCardId = addedCardId;
@@ -125,7 +58,7 @@ export function LastAddedCardHint() {
       removeCardId: suggestion.removedCardId,
     })
       .then(() => {
-        setSuggestion(null);
+        clearSuggestion();
         toast.success("Deck swap applied");
       })
       .catch((error) => {
@@ -173,12 +106,7 @@ export function LastAddedCardHint() {
             <span className="font-mono text-stat-up">{`(+${suggestion.improvement.toFixed(1)} ATK)`}</span>
           </p>
           <div className="flex items-center gap-1 shrink-0">
-            <Button
-              disabled={applying}
-              onClick={() => setSuggestion(null)}
-              size="sm"
-              variant="ghost"
-            >
+            <Button disabled={applying} onClick={clearSuggestion} size="sm" variant="ghost">
               Reject
             </Button>
             <Button disabled={applying} onClick={handleApplySuggestion} size="sm" variant="outline">
