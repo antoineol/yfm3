@@ -1,0 +1,6 @@
+interface:
+  display_name: "Autofix"
+  short_description: "Drive a PR to a review-clean state"
+  default_prompt: "Use $autofix to triage unresolved review threads, fix applicable issues, reply and resolve, wait for checks, and repeat until the PR is clean."
+policy:
+  allow_implicit_invocation: false
