@@ -21,7 +21,6 @@ You must always do below for all changes:
 - Write functions in reading order. If A calls B, write A then B.
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
+- Simple, concise code. Avoid indirection and unnecessary abstraction layers.
 
 ## Confusion points
-
-- Rebased branches from before the March 12, 2026 `collection` -> `ownedCards` / `userPreferences` rename can keep stale references even outside explicit merge conflicts. Search for `api.collection`, `cardCollection`, and `useCollection()` after resolving conflict markers.

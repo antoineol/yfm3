@@ -83,5 +83,7 @@ Return best deck + exact expected ATK
 | P4: Collection & Deck Editing (DONE) | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Last-added hint, collection actions, manual deck add/remove, centralized UI ownership semantics, explicit owned-card naming |
 | P4.5: Animate Generated Deck (DONE) | [`docs/steps/p5.5-animate-generated-deck.md`](steps/p5.5-animate-generated-deck.md) | Live deck preview with auto-animate during optimization |
 | P5: New Card Deck Swap Suggestion (DONE) | [`docs/steps/p6-new-card-suggest-to-deck.md`](steps/p6-new-card-suggest-to-deck.md) | Suggest and optionally apply the best one-card deck upgrade after adding a card |
+| P5.5: Simplify Deck Swap Suggestion | [`docs/steps/p6.5-refactor.md`](steps/p6.5-refactor.md) | Re-scope the feature around the minimal useful behavior and remove accidental complexity |
+| P5.6: Optimize Deck Swap Suggestion | [`docs/steps/p6.6-optimize.md`](steps/p6.6-optimize.md) | Add targeted performance optimizations only if the simplified exact scan is too slow |
 | P7: Shared Reference Data | [`docs/steps/p7-fusion-reference.md`](steps/p7-fusion-reference.md) | Google Sheets as canonical source, shared runtime store, permissions model, and backup snapshots |
 | P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
