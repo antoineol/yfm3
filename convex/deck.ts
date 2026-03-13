@@ -3,6 +3,7 @@ import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
 import { requireAuth } from './authHelper';
 import { deckAggregate } from './deckAggregate';
+import { validateSuggestedSwap } from './deckSwap';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
 export const getDeck = query({
@@ -369,5 +370,59 @@ export const acceptSuggestedDeck = mutation({
         if (doc) await deckAggregate.insert(ctx, doc);
       }),
     ]);
+  },
+});
+
+export const applySuggestedSwap = mutation({
+  args: {
+    addCardId: v.number(),
+    removeCardId: v.number(),
+  },
+  handler: async (ctx, { addCardId, removeCardId }) => {
+    const userId = await requireAuth(ctx);
+
+    const [deckCards, collectionEntry] = await Promise.all([
+      ctx.db
+        .query('deck')
+        .withIndex('by_user', q => q.eq('userId', userId))
+        .collect(),
+      ctx.db
+        .query('ownedCards')
+        .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', addCardId))
+        .first(),
+    ]);
+
+    const deckCopiesOfAddedCard = deckCards.filter(card => card.cardId === addCardId).length;
+    const removableCard = deckCards.find(card => card.cardId === removeCardId);
+    const deckCopiesOfRemovedCard = deckCards.filter(card => card.cardId === removeCardId).length;
+
+    const validationError = validateSuggestedSwap({
+      addCardId,
+      collectionQuantity: collectionEntry?.quantity ?? null,
+      deckCopiesOfAddedCard,
+      deckCopiesOfRemovedCard,
+      removeCardId,
+    });
+    if (validationError) {
+      throw new Error(validationError);
+    }
+    if (!removableCard) {
+      throw new Error('Card to remove not found in deck');
+    }
+
+    await ctx.db.delete(removableCard._id);
+    await deckAggregate.delete(ctx, removableCard).catch(e =>
+      console.warn('Record', removableCard._id, 'not found in aggregate', e),
+    );
+
+    const id = await ctx.db.insert('deck', {
+      userId,
+      cardId: addCardId,
+      order: removableCard.order,
+    });
+    const doc = await ctx.db.get(id);
+    if (doc) await deckAggregate.insert(ctx, doc);
+
+    return { success: true };
   },
 });

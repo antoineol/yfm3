@@ -23,3 +23,5 @@ You must always do below for all changes:
 - Adapt the plan, and current and next steps.
 
 ## Confusion points
+
+- Rebased branches from before the March 12, 2026 `collection` -> `ownedCards` / `userPreferences` rename can keep stale references even outside explicit merge conflicts. Search for `api.collection`, `cardCollection`, and `useCollection()` after resolving conflict markers.

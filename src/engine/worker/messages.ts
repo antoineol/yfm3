@@ -62,7 +62,32 @@ export type ExplainerResult = {
   distribution: { atk: number; count: number; probabilityMax: number }[];
 };
 
+/** Main thread → Suggestion Worker: find the best one-card deck upgrade. */
+export type SuggestionInit = {
+  type: "SUGGEST";
+  addedCardId: number;
+  collection: Record<number, number>;
+  deck: number[];
+  currentDeckScore?: number | null;
+  /** Engine configuration snapshot for this worker. */
+  config: EngineConfig;
+};
+
+/** Suggestion Worker → Main thread: best swap suggestion, if any. */
+export type SuggestionResult = {
+  type: "SUGGESTION_RESULT";
+  suggestion: {
+    addedCardId: number;
+    removedCardId: number;
+    currentDeckScore: number;
+    suggestedScore: number;
+    improvement: number;
+  } | null;
+};
+
 export type ScorerMessage = ScorerInit;
 export type ScorerResponse = ScorerResult;
 export type ExplainerMessage = ExplainerInit;
 export type ExplainerResponse = ExplainerResult;
+export type SuggestionMessage = SuggestionInit;
+export type SuggestionResponse = SuggestionResult;
