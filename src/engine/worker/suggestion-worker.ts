@@ -1,11 +1,9 @@
-import { findBestDeckSwapSuggestion } from "../suggest-deck-swap.ts";
-import type { SuggestionInit, SuggestionResult } from "./messages.ts";
+import {
+  type DeckSwapSuggestion,
+  type FindBestDeckSwapSuggestionOptions,
+  findBestDeckSwapSuggestion,
+} from "../suggest-deck-swap.ts";
 
-self.onmessage = (event: MessageEvent<SuggestionInit>) => {
-  const suggestion = findBestDeckSwapSuggestion(event.data);
-  const result: SuggestionResult = {
-    type: "SUGGESTION_RESULT",
-    suggestion,
-  };
-  self.postMessage(result);
+self.onmessage = (event: MessageEvent<FindBestDeckSwapSuggestionOptions>) => {
+  self.postMessage(findBestDeckSwapSuggestion(event.data) as DeckSwapSuggestion | null);
 };

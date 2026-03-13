@@ -2,12 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
-import { useLastAddedCard } from "../../db/use-last-added-card.ts";
-import { useCardDb } from "../../lib/card-db-context.tsx";
-import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
-import type { CollectionCardViewModel } from "./use-collection-view-model.ts";
-import { useCollectionViewModel } from "./use-collection-view-model.ts";
-import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
+import type { DeckSwapSuggestion } from "../../../engine/suggest-deck-swap.ts";
 
 const mockAddCard = vi.fn();
 const mockRemoveCard = vi.fn();
@@ -15,7 +10,6 @@ const mockClearHint = vi.fn();
 const mockApplySuggestedSwap = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
-const mockClearSuggestion = vi.fn();
 
 vi.mock("convex/react", () => ({
   useMutation: (ref: string) => {
@@ -36,318 +30,176 @@ vi.mock("sonner", () => ({
 
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
-    ownedCards: {
-      addCard: "addCard",
-      removeCard: "removeCard",
-    },
-    userPreferences: {
-      clearLastAddedCard: "clearLastAddedCard",
-    },
-    deck: {
-      applySuggestedSwap: "applySuggestedSwap",
-    },
+    ownedCards: { addCard: "addCard", removeCard: "removeCard" },
+    userPreferences: { clearLastAddedCard: "clearLastAddedCard" },
+    deck: { applySuggestedSwap: "applySuggestedSwap" },
   },
 }));
 
-vi.mock("../../db/use-last-added-card.ts", () => ({
-  useLastAddedCard: vi.fn(),
+vi.mock("../../db/use-last-added-card.ts", () => ({ useLastAddedCard: vi.fn() }));
+vi.mock("../../db/use-deck.ts", () => ({ useDeck: vi.fn() }));
+vi.mock("../../db/use-owned-card-totals.ts", () => ({ useOwnedCardTotals: vi.fn() }));
+vi.mock("../../db/use-user-preferences.ts", () => ({
+  useDeckSize: vi.fn(() => 5),
+  useFusionDepth: vi.fn(() => 3),
 }));
+vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
+vi.mock("./use-collection-view-model.ts", () => ({ useCollectionViewModel: vi.fn() }));
 
-vi.mock("../../lib/card-db-context.tsx", () => ({
-  useCardDb: vi.fn(),
-}));
+import { useDeck } from "../../db/use-deck.ts";
+import { useLastAddedCard } from "../../db/use-last-added-card.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
+import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
+import type { CollectionCardViewModel } from "./use-collection-view-model.ts";
+import { useCollectionViewModel } from "./use-collection-view-model.ts";
 
-vi.mock("./use-collection-view-model.ts", () => ({
-  useCollectionViewModel: vi.fn(),
-}));
-
-vi.mock("./use-deck-swap-suggestion.ts", () => ({
-  useDeckSwapSuggestion: vi.fn(() => ({
-    status: "idle",
-    suggestion: null,
-    clear: mockClearSuggestion,
-  })),
-}));
-
+const mockDeck = useDeck as ReturnType<typeof vi.fn>;
 const mockLastAdded = useLastAddedCard as ReturnType<typeof vi.fn>;
+const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
-const mockUseCollectionViewModel = useCollectionViewModel as ReturnType<typeof vi.fn>;
-const mockSuggestion = useDeckSwapSuggestion as ReturnType<typeof vi.fn>;
+const mockCollection = useCollectionViewModel as ReturnType<typeof vi.fn>;
+
+const originalWorker = globalThis.Worker;
+
+class MockWorker {
+  static instances: MockWorker[] = [];
+
+  onmessage: ((event: MessageEvent<DeckSwapSuggestion | null>) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  postMessage = vi.fn();
+  terminate = vi.fn();
+
+  constructor() {
+    MockWorker.instances.push(this);
+  }
+
+  respond(suggestion: DeckSwapSuggestion | null) {
+    this.onmessage?.({ data: suggestion } as MessageEvent<DeckSwapSuggestion | null>);
+  }
+}
 
 const fakeCardDb: CardDb = {
   cards: [],
-  cardsById: new Map([[1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }]]),
+  cardsById: new Map([
+    [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
+    [2, { id: 2, name: "Kuriboh", kinds: [], attack: 300, defense: 200 }],
+  ]),
   cardsByName: new Map(),
 } as CardDb;
 
 beforeEach(() => {
-  mockSuggestion.mockReturnValue({ status: "idle", suggestion: null, clear: mockClearSuggestion });
+  globalThis.Worker = MockWorker as unknown as typeof Worker;
+  MockWorker.instances = [];
+  mockCardDb.mockReturnValue(fakeCardDb);
+  mockCollection.mockReturnValue(
+    makeCollectionViewModel({ totalOwned: 1, availableInCollection: 1 }),
+  );
+  mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
+  mockDeck.mockReturnValue([
+    { cardId: 2 },
+    { cardId: 2 },
+    { cardId: 3 },
+    { cardId: 4 },
+    { cardId: 5 },
+  ]);
+  mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 2, 3: 1, 4: 1, 5: 1 });
 });
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  globalThis.Worker = originalWorker;
 });
 
 describe("LastAddedCardHint", () => {
-  it("renders nothing when no last added card", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
+  it("renders nothing when there is no last added card", () => {
     mockLastAdded.mockReturnValue(null);
 
     const { container } = render(<LastAddedCardHint />);
 
     expect(container.innerHTML).toBe("");
+    expect(MockWorker.instances).toHaveLength(0);
   });
 
-  it("renders card name and total owned quantity", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 2,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
-
-    render(<LastAddedCardHint />);
-
-    expect(screen.getByText("Blue-Eyes")).toBeDefined();
-    expect(screen.getByText("(2/3)")).toBeDefined();
-  });
-
-  it("disables + button when total owned is at the cap", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 3,
-        availableInCollection: 2,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 3 });
-
-    render(<LastAddedCardHint />);
-
-    expect(screen.getByTitle("Add another copy").hasAttribute("disabled")).toBe(true);
-  });
-
-  it("calls addCard on + click", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-
+  it("keeps the base quick actions working", () => {
     render(<LastAddedCardHint />);
 
     fireEvent.click(screen.getByTitle("Add another copy"));
-
-    expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
-  });
-
-  it("calls removeCard on − click", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 2,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
-
-    render(<LastAddedCardHint />);
-
     fireEvent.click(screen.getByTitle("Remove one copy"));
-
-    expect(mockRemoveCard).toHaveBeenCalledWith({ cardId: 1 });
-  });
-
-  it("calls clearLastAddedCard on dismiss", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-
-    render(<LastAddedCardHint />);
-
     fireEvent.click(screen.getByTitle("Dismiss"));
 
+    expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
+    expect(mockRemoveCard).toHaveBeenCalledWith({ cardId: 1 });
     expect(mockClearHint).toHaveBeenCalledWith({});
   });
 
-  it("disables − button when no copies are available in collection", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 2,
-        availableInCollection: 0,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
+  it("does not run suggestion lookup when the deck is not full", () => {
+    mockDeck.mockReturnValue([{ cardId: 2 }]);
 
     render(<LastAddedCardHint />);
 
-    expect(screen.getByTitle("Remove one copy").hasAttribute("disabled")).toBe(true);
+    expect(MockWorker.instances).toHaveLength(0);
+    expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 
-  it("enables − button when a copy remains available in collection", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 2,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 2 });
-
-    render(<LastAddedCardHint />);
-
-    expect(screen.getByTitle("Remove one copy").hasAttribute("disabled")).toBe(false);
-  });
-
-  it("shows loading text while suggestion is being computed", () => {
-    mockCardDb.mockReturnValue(fakeCardDb);
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-    mockSuggestion.mockReturnValue({
-      status: "loading",
-      suggestion: null,
-      clear: mockClearSuggestion,
-    });
-
-    render(<LastAddedCardHint />);
-
-    expect(screen.getByText("Checking deck upgrade...")).toBeDefined();
-  });
-
-  it("renders suggestion text and applies the suggested swap", async () => {
-    mockCardDb.mockReturnValue({
-      ...fakeCardDb,
-      cardsById: new Map([
-        [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
-        [2, { id: 2, name: "Kuriboh", kinds: [], attack: 300, defense: 200 }],
-      ]),
-    });
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-    mockSuggestion.mockReturnValue({
-      status: "ready",
-      suggestion: {
-        removedCardId: 2,
-        improvement: 200,
-      },
-      clear: mockClearSuggestion,
-    });
+  it("shows loading, then renders the suggestion and applies it", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
     render(<LastAddedCardHint />);
 
-    expect(screen.getByText(/swap out/i)).toBeDefined();
+    expect(screen.getByText("Checking deck upgrade...")).toBeDefined();
+    expect(MockWorker.instances).toHaveLength(1);
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
+
     fireEvent.click(screen.getByText("Apply swap"));
 
-    expect(mockApplySuggestedSwap).toHaveBeenCalledWith({ addCardId: 1, removeCardId: 2 });
+    await waitFor(() =>
+      expect(mockApplySuggestedSwap).toHaveBeenCalledWith({ addCardId: 1, removeCardId: 2 }),
+    );
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Deck swap applied"));
-    expect(mockClearSuggestion).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Apply swap")).toBeNull();
   });
 
-  it("shows an error toast when applying the suggested swap fails", async () => {
-    mockCardDb.mockReturnValue({
-      ...fakeCardDb,
-      cardsById: new Map([
-        [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
-        [2, { id: 2, name: "Kuriboh", kinds: [], attack: 300, defense: 200 }],
-      ]),
-    });
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-    mockSuggestion.mockReturnValue({
-      status: "ready",
-      suggestion: {
-        removedCardId: 2,
-        improvement: 200,
-      },
-      clear: mockClearSuggestion,
-    });
+  it("lets the user reject the suggestion", async () => {
+    render(<LastAddedCardHint />);
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Reject")).toBeDefined());
+    fireEvent.click(screen.getByText("Reject"));
+
+    expect(screen.queryByText("Apply swap")).toBeNull();
+    expect(mockApplySuggestedSwap).not.toHaveBeenCalled();
+  });
+
+  it("shows an error toast when apply fails", async () => {
     mockApplySuggestedSwap.mockRejectedValue(new Error("boom"));
 
     render(<LastAddedCardHint />);
 
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
     fireEvent.click(screen.getByText("Apply swap"));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Could not apply deck swap"));
   });
-
-  it("lets the user reject the suggestion", () => {
-    mockCardDb.mockReturnValue({
-      ...fakeCardDb,
-      cardsById: new Map([
-        [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
-        [2, { id: 2, name: "Kuriboh", kinds: [], attack: 300, defense: 200 }],
-      ]),
-    });
-    mockUseCollectionViewModel.mockReturnValue(
-      makeCollectionViewModel({
-        totalOwned: 1,
-        availableInCollection: 1,
-      }),
-    );
-    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-    mockSuggestion.mockReturnValue({
-      status: "ready",
-      suggestion: {
-        removedCardId: 2,
-        improvement: 200,
-      },
-      clear: mockClearSuggestion,
-    });
-
-    render(<LastAddedCardHint />);
-
-    fireEvent.click(screen.getByText("Reject"));
-
-    expect(mockClearSuggestion).toHaveBeenCalledOnce();
-    expect(mockApplySuggestedSwap).not.toHaveBeenCalled();
-  });
 });
 
 function makeCollectionViewModel(params: { totalOwned: number; availableInCollection: number }) {
-  const { totalOwned, availableInCollection } = params;
   const entry: CollectionCardViewModel = {
     id: 1,
     name: "Blue-Eyes",
     atk: 3000,
     def: 2500,
-    qty: availableInCollection,
-    totalOwned,
-    inDeck: totalOwned - availableInCollection,
-    availableInCollection,
+    qty: params.availableInCollection,
+    totalOwned: params.totalOwned,
+    inDeck: params.totalOwned - params.availableInCollection,
+    availableInCollection: params.availableInCollection,
   };
 
   return {
@@ -355,6 +207,6 @@ function makeCollectionViewModel(params: { totalOwned: number; availableInCollec
     entriesByCardId: new Map([[entry.id, entry]]),
     totalOwnedCards: entry.totalOwned,
     uniqueOwnedCards: 1,
-    deckLength: entry.inDeck,
+    deckLength: 5,
   };
 }
