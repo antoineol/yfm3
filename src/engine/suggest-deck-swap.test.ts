@@ -41,6 +41,23 @@ vi.mock("./scoring/fusion-scorer.ts", () => ({
   FusionScorer: class {},
 }));
 
+vi.mock("./scoring/delta-evaluator.ts", () => ({
+  DeltaEvaluator: class {
+    computeDelta(slotIndex: number) {
+      return (
+        {
+          0: 1,
+          1: 1,
+          2: 10,
+          3: 20,
+          4: 30,
+          5: 5,
+        }[slotIndex] ?? 0
+      );
+    }
+  },
+}));
+
 vi.mock("./scoring/exact-scorer.ts", () => ({
   exactScore: (buf: OptBuffers) => mockExactScore(buf),
 }));
@@ -102,6 +119,18 @@ describe("findBestDeckSwapSuggestion", () => {
         deck: [1, 2],
       }),
     ).toBeNull();
+  });
+
+  it("reuses a provided current deck score", () => {
+    findBestDeckSwapSuggestion({
+      addedCardId: 5,
+      collection: { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 },
+      config: { deckSize: 5, fusionDepth: 3 },
+      currentDeckScore: 18,
+      deck: [1, 1, 2, 3, 4],
+    });
+
+    expect(mockExactScore).toHaveBeenCalledTimes(2);
   });
 });
 

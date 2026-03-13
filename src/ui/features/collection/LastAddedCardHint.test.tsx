@@ -28,6 +28,14 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("jotai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("jotai")>();
+  return {
+    ...actual,
+    useAtomValue: vi.fn(() => null),
+  };
+});
+
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     ownedCards: { addCard: "addCard", removeCard: "removeCard" },
@@ -65,9 +73,14 @@ const originalWorker = globalThis.Worker;
 class MockWorker {
   static instances: MockWorker[] = [];
 
-  onmessage: ((event: MessageEvent<DeckSwapSuggestion | null>) => void) | null = null;
+  onmessage:
+    | ((event: MessageEvent<{ requestId: number; suggestion: DeckSwapSuggestion | null }>) => void)
+    | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
-  postMessage = vi.fn();
+  lastRequestId = 0;
+  postMessage = vi.fn((message: { requestId: number }) => {
+    this.lastRequestId = message.requestId;
+  });
   terminate = vi.fn();
 
   constructor() {
@@ -75,7 +88,9 @@ class MockWorker {
   }
 
   respond(suggestion: DeckSwapSuggestion | null) {
-    this.onmessage?.({ data: suggestion } as MessageEvent<DeckSwapSuggestion | null>);
+    this.onmessage?.({
+      data: { requestId: this.lastRequestId, suggestion },
+    } as MessageEvent<{ requestId: number; suggestion: DeckSwapSuggestion | null }>);
   }
 }
 
@@ -119,7 +134,8 @@ describe("LastAddedCardHint", () => {
     const { container } = render(<LastAddedCardHint />);
 
     expect(container.innerHTML).toBe("");
-    expect(MockWorker.instances).toHaveLength(0);
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
   });
 
   it("keeps the base quick actions working", () => {
@@ -139,7 +155,8 @@ describe("LastAddedCardHint", () => {
 
     render(<LastAddedCardHint />);
 
-    expect(MockWorker.instances).toHaveLength(0);
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 

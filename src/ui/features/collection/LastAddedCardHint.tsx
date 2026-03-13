@@ -1,5 +1,6 @@
 import { useMutation } from "convex/react";
-import { useEffect, useMemo, useState } from "react";
+import { useAtomValue } from "jotai";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import type {
@@ -12,8 +13,14 @@ import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
+import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useCollectionViewModel } from "./use-collection-view-model.ts";
+
+interface SuggestionWorkerResponse {
+  requestId: number;
+  suggestion: DeckSwapSuggestion | null;
+}
 
 export function LastAddedCardHint() {
   const lastAdded = useLastAddedCard();
@@ -23,6 +30,7 @@ export function LastAddedCardHint() {
   const ownedCardTotals = useOwnedCardTotals();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
+  const currentDeckScore = useAtomValue(currentDeckScoreAtom);
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
@@ -30,6 +38,9 @@ export function LastAddedCardHint() {
   const [applying, setApplying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
+  const currentDeckScoreRef = useRef(currentDeckScore);
+  const workerRef = useRef<Worker | null>(null);
+  const requestIdRef = useRef(0);
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
   const addedCardId = lastAdded?.cardId ?? null;
   const card = addedCardId === null ? undefined : cardDb.cardsById.get(addedCardId);
@@ -41,6 +52,18 @@ export function LastAddedCardHint() {
   const removedName = suggestion
     ? (cardDb.cardsById.get(suggestion.removedCardId)?.name ?? `#${suggestion.removedCardId}`)
     : "";
+  currentDeckScoreRef.current = currentDeckScore;
+
+  useEffect(() => {
+    workerRef.current = new Worker(
+      new URL("../../../engine/worker/suggestion-worker.ts", import.meta.url),
+      {
+        type: "module",
+      },
+    );
+
+    return () => workerRef.current?.terminate();
+  }, []);
 
   useEffect(() => {
     if (
@@ -54,44 +77,40 @@ export function LastAddedCardHint() {
       return;
     }
 
-    const worker = new Worker(
-      new URL("../../../engine/worker/suggestion-worker.ts", import.meta.url),
-      {
-        type: "module",
-      },
-    );
+    const worker = workerRef.current;
+    if (!worker) return;
     const request: FindBestDeckSwapSuggestionOptions = {
-      addedCardId: addedCardId,
+      addedCardId,
       collection: ownedCardTotals,
       config: { deckSize, fusionDepth },
+      currentDeckScore: currentDeckScoreRef.current,
       deck: deckCardIds,
     };
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
-    let cancelled = false;
     setLoading(true);
     setSuggestion(null);
 
-    worker.onmessage = (event: MessageEvent<DeckSwapSuggestion | null>) => {
-      if (!cancelled) {
-        setLoading(false);
-        setSuggestion(event.data);
-      }
-      worker.terminate();
+    worker.onmessage = (event: MessageEvent<SuggestionWorkerResponse>) => {
+      if (event.data.requestId !== requestIdRef.current) return;
+      setLoading(false);
+      setSuggestion(event.data.suggestion);
     };
     worker.onerror = (error) => {
       console.error("Suggestion lookup failed:", error);
-      if (!cancelled) {
+      if (requestId === requestIdRef.current) {
         setLoading(false);
         setSuggestion(null);
       }
-      worker.terminate();
     };
 
-    worker.postMessage(request);
+    worker.postMessage({ requestId, options: request });
 
     return () => {
-      cancelled = true;
-      worker.terminate();
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     };
   }, [addedCardId, deck, deckCardIds, deckSize, fusionDepth, ownedCardTotals]);
 

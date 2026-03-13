@@ -4,10 +4,11 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 
 ## Current State
 
-- A simplified end-to-end implementation exists: an exact worker scan for the last added card, a lightweight inline hint UI, and a direct Convex `applySuggestedSwap` mutation.
+- A simplified end-to-end implementation exists: a worker-based suggestion scan for the last added card, a lightweight inline hint UI, and a direct Convex `applySuggestedSwap` mutation.
 - The rebase onto `new-app` needs this feature to target the newer `ownedCards` and `userPreferences` APIs instead of the pre-rename collection names.
 - The current UX is intentionally lightweight and only surfaces a single best swap for the last card added.
-- The refactor removes the sampled-ranking layer, unused suggestion payload fields, deck-order preservation on apply, and the extra validation helper module.
+- The refactor removes unused suggestion payload fields, deck-order preservation on apply, and the extra validation helper module.
+- The slow pure exact scan was replaced with a faster ranked-then-exact worker path, and the UI now reuses a preloaded worker.
 
 ## Exit Criteria
 
@@ -18,4 +19,4 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 
 ## Next Step After This
 
-Only move on to [`docs/steps/p6.6-optimize.md`](p6.6-optimize.md) if measurement shows the simplified exact scan is too slow in practice. Otherwise keep the simpler version.
+No separate follow-up step is required. Treat any future work here as normal maintenance only if real latency or correctness issues show up again.
