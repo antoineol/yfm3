@@ -6,6 +6,11 @@ export interface SuggestedSwapValidationInput {
   removeCardId: number;
 }
 
+export interface SuggestedSwapDeckSizeValidationInput {
+  currentDeckSize: number;
+  expectedDeckSize: number;
+}
+
 export function validateSuggestedSwap(input: SuggestedSwapValidationInput): string | null {
   const {
     addCardId,
@@ -26,6 +31,18 @@ export function validateSuggestedSwap(input: SuggestedSwapValidationInput): stri
   }
   if (deckCopiesOfAddedCard >= collectionQuantity) {
     return 'No available copies in collection';
+  }
+
+  return null;
+}
+
+export function validateSuggestedSwapDeckSize(
+  input: SuggestedSwapDeckSizeValidationInput,
+): string | null {
+  const { currentDeckSize, expectedDeckSize } = input;
+
+  if (currentDeckSize !== expectedDeckSize) {
+    return `Deck must contain exactly ${expectedDeckSize} cards`;
   }
 
   return null;

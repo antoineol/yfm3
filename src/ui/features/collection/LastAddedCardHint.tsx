@@ -18,6 +18,7 @@ export function LastAddedCardHint() {
   const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
   const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
   const suggestionState = useDeckSwapSuggestion();
+  const { clear: clearSuggestion } = suggestionState;
   const [applying, setApplying] = useState(false);
 
   if (!lastAdded || collection === undefined) return null;
@@ -41,6 +42,7 @@ export function LastAddedCardHint() {
       removeCardId: suggestion.removedCardId,
     })
       .then(() => {
+        clearSuggestion();
         toast.success("Deck swap applied");
       })
       .catch((error) => {

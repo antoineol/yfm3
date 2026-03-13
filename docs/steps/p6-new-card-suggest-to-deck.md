@@ -7,6 +7,7 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 - A first end-to-end implementation exists: exact swap scoring logic, worker plumbing, Convex swap validation, and a `LastAddedCardHint` CTA to apply a suggested swap.
 - The rebase onto `new-app` needs this feature to target the newer `ownedCards` and `userPreferences` APIs instead of the pre-rename collection names.
 - The current UX is intentionally lightweight and only surfaces a single best swap for the last card added.
+- Review follow-up fixes have closed the main correctness gaps: the engine exact-scores every unique removable candidate while reusing buffers, the worker lifecycle handles pre-aborted and failed runs safely, the hint clears optimistically after a successful apply, and Convex now rejects swaps unless the deck is still at the configured size.
 
 ## Exit Criteria
 

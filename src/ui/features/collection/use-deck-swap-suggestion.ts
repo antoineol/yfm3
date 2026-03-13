@@ -1,5 +1,5 @@
 import { useAtomValue } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DeckSwapSuggestion } from "../../../engine/suggest-deck-swap.ts";
 import { findBestDeckSwapSuggestionInWorker } from "../../../engine/suggest-deck-swap.ts";
 import { useDeck } from "../../db/use-deck.ts";
@@ -11,9 +11,15 @@ import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 export interface DeckSwapSuggestionState {
   status: "idle" | "loading" | "ready";
   suggestion: DeckSwapSuggestion | null;
+  clear: () => void;
 }
 
-const IDLE_STATE: DeckSwapSuggestionState = { status: "idle", suggestion: null };
+interface DeckSwapSuggestionSnapshot {
+  status: "idle" | "loading" | "ready";
+  suggestion: DeckSwapSuggestion | null;
+}
+
+const IDLE_STATE: DeckSwapSuggestionSnapshot = { status: "idle", suggestion: null };
 
 export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
   const ownedCardTotals = useOwnedCardTotals();
@@ -22,12 +28,26 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
-  const [state, setState] = useState<DeckSwapSuggestionState>(IDLE_STATE);
+  const [state, setState] = useState<DeckSwapSuggestionSnapshot>(IDLE_STATE);
 
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
+  const ownedCardTotalsKey = useMemo(
+    () => serializeOwnedCardTotals(ownedCardTotals),
+    [ownedCardTotals],
+  );
+  const stableOwnedCardTotalsRef = useRef(ownedCardTotals);
+  const stableOwnedCardTotalsKeyRef = useRef(ownedCardTotalsKey);
+
+  if (stableOwnedCardTotalsKeyRef.current !== ownedCardTotalsKey) {
+    stableOwnedCardTotalsRef.current = ownedCardTotals;
+    stableOwnedCardTotalsKeyRef.current = ownedCardTotalsKey;
+  }
+
+  const stableOwnedCardTotals = stableOwnedCardTotalsRef.current;
+  const clear = () => setState(IDLE_STATE);
 
   useEffect(() => {
-    if (ownedCardTotals === undefined || deck === undefined || !lastAdded) {
+    if (stableOwnedCardTotals === undefined || deck === undefined || !lastAdded) {
       setState(IDLE_STATE);
       return;
     }
@@ -42,7 +62,7 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
     findBestDeckSwapSuggestionInWorker(
       {
         addedCardId: lastAdded.cardId,
-        collection: ownedCardTotals,
+        collection: stableOwnedCardTotals,
         config: { deckSize, fusionDepth },
         currentDeckScore,
         deck: deckCardIds,
@@ -55,11 +75,31 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
       .catch((error: Error) => {
         if (error.message !== "Suggestion aborted") {
           console.error("Suggestion lookup failed:", error);
+          setState(IDLE_STATE);
         }
       });
 
     return () => controller.abort();
-  }, [ownedCardTotals, currentDeckScore, deck, deckCardIds, deckSize, fusionDepth, lastAdded]);
+  }, [
+    stableOwnedCardTotals,
+    currentDeckScore,
+    deck,
+    deckCardIds,
+    deckSize,
+    fusionDepth,
+    lastAdded,
+  ]);
 
-  return state;
+  return { ...state, clear };
+}
+
+function serializeOwnedCardTotals(ownedCardTotals: Record<number, number> | undefined): string {
+  if (ownedCardTotals === undefined) {
+    return "";
+  }
+
+  return Object.entries(ownedCardTotals)
+    .sort(([leftId], [rightId]) => Number(leftId) - Number(rightId))
+    .map(([cardId, quantity]) => `${cardId}:${quantity}`)
+    .join(",");
 }

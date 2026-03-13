@@ -33,7 +33,6 @@ interface RankedCandidate {
   slotIndex: number;
 }
 
-const TOP_EXACT_CANDIDATES = 5;
 const SUGGESTION_SEED = 42;
 
 export function findBestDeckSwapSuggestion(
@@ -72,9 +71,8 @@ export function findBestDeckSwapSuggestion(
   let bestSuggestion: DeckSwapSuggestion | null = null;
   let bestSampledDelta = -Infinity;
 
-  for (const candidate of ranked.slice(0, TOP_EXACT_CANDIDATES)) {
-    const suggestedDeck = buildCandidateDeck(deck, candidate.slotIndex, addedCardId);
-    const suggestedScore = scoreDeckExactly(collectionMap, config, suggestedDeck);
+  for (const candidate of ranked) {
+    const suggestedScore = scoreCandidateDeckExactly(buf, scorer, candidate.slotIndex, addedCardId);
     const improvement = suggestedScore - exactCurrentScore;
 
     if (improvement <= 0) continue;
@@ -106,6 +104,11 @@ export function findBestDeckSwapSuggestionInWorker(
   signal?: AbortSignal,
 ): Promise<DeckSwapSuggestion | null> {
   return new Promise<DeckSwapSuggestion | null>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("Suggestion aborted"));
+      return;
+    }
+
     const worker = new Worker(new URL("./worker/suggestion-worker.ts", import.meta.url), {
       type: "module",
     });
@@ -171,21 +174,20 @@ function rankCandidates(
   );
 }
 
-function scoreDeckExactly(collection: Collection, config: EngineConfig, deck: number[]): number {
-  setConfig(config);
-  const buf = initializeBuffersBrowser(collection, mulberry32(SUGGESTION_SEED));
-  loadExplicitDeck(buf, deck);
-  return exactScore(buf, new FusionScorer());
-}
-
-function buildCandidateDeck(
-  deck: readonly number[],
+function scoreCandidateDeckExactly(
+  buf: OptBuffers,
+  scorer: FusionScorer,
   slotIndex: number,
   addedCardId: number,
-): number[] {
-  const nextDeck = deck.slice();
-  nextDeck[slotIndex] = addedCardId;
-  return nextDeck;
+): number {
+  const removedCardId = buf.deck[slotIndex] ?? 0;
+  buf.deck[slotIndex] = addedCardId;
+
+  try {
+    return exactScore(buf, scorer);
+  } finally {
+    buf.deck[slotIndex] = removedCardId;
+  }
 }
 
 function toCollectionMap(collection: Record<number, number>): Collection {

@@ -65,7 +65,7 @@ describe("useDeckSwapSuggestion", () => {
       wrapper: makeWrapper(store),
     });
 
-    expect(result.current).toEqual({ status: "idle", suggestion: null });
+    expect(result.current).toMatchObject({ status: "idle", suggestion: null });
     expect(mockFindSuggestion).not.toHaveBeenCalled();
   });
 
@@ -85,7 +85,7 @@ describe("useDeckSwapSuggestion", () => {
       wrapper: makeWrapper(store),
     });
 
-    expect(result.current).toEqual({ status: "loading", suggestion: null });
+    expect(result.current).toMatchObject({ status: "loading", suggestion: null });
     expect(mockFindSuggestion).toHaveBeenCalledOnce();
 
     resolveSuggestion({
@@ -97,7 +97,7 @@ describe("useDeckSwapSuggestion", () => {
     });
 
     await waitFor(() =>
-      expect(result.current).toEqual({
+      expect(result.current).toMatchObject({
         status: "ready",
         suggestion: {
           addedCardId: 5,
@@ -108,6 +108,39 @@ describe("useDeckSwapSuggestion", () => {
         },
       }),
     );
+  });
+
+  it("returns to idle when the worker fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFindSuggestion.mockRejectedValue(new Error("boom"));
+
+    const store = createStore();
+
+    const { result } = renderHook(() => useDeckSwapSuggestion(), {
+      wrapper: makeWrapper(store),
+    });
+
+    expect(result.current).toMatchObject({ status: "loading", suggestion: null });
+
+    await waitFor(() => expect(result.current).toMatchObject({ status: "idle", suggestion: null }));
+    expect(consoleError).toHaveBeenCalledWith("Suggestion lookup failed:", expect.any(Error));
+    consoleError.mockRestore();
+  });
+
+  it("does not restart when owned card totals keep the same data", async () => {
+    mockFindSuggestion.mockResolvedValue(null);
+
+    const store = createStore();
+    const { rerender } = renderHook(() => useDeckSwapSuggestion(), {
+      wrapper: makeWrapper(store),
+    });
+
+    await waitFor(() => expect(mockFindSuggestion).toHaveBeenCalledOnce());
+
+    mockOwnedCardTotals.mockReturnValue({ 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 });
+    rerender();
+
+    expect(mockFindSuggestion).toHaveBeenCalledOnce();
   });
 });
 

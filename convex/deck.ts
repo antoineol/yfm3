@@ -3,7 +3,7 @@ import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
 import { requireAuth } from './authHelper';
 import { deckAggregate } from './deckAggregate';
-import { validateSuggestedSwap } from './deckSwap';
+import { validateSuggestedSwap, validateSuggestedSwapDeckSize } from './deckSwap';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
 export const getDeck = query({
@@ -381,7 +381,7 @@ export const applySuggestedSwap = mutation({
   handler: async (ctx, { addCardId, removeCardId }) => {
     const userId = await requireAuth(ctx);
 
-    const [deckCards, collectionEntry] = await Promise.all([
+    const [deckCards, collectionEntry, prefs] = await Promise.all([
       ctx.db
         .query('deck')
         .withIndex('by_user', q => q.eq('userId', userId))
@@ -390,11 +390,24 @@ export const applySuggestedSwap = mutation({
         .query('ownedCards')
         .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', addCardId))
         .first(),
+      ctx.db
+        .query('userPreferences')
+        .withIndex('by_user', q => q.eq('userId', userId))
+        .first(),
     ]);
+    const expectedDeckSize = prefs?.deckSize ?? 40;
 
     const deckCopiesOfAddedCard = deckCards.filter(card => card.cardId === addCardId).length;
     const removableCard = deckCards.find(card => card.cardId === removeCardId);
     const deckCopiesOfRemovedCard = deckCards.filter(card => card.cardId === removeCardId).length;
+
+    const deckSizeValidationError = validateSuggestedSwapDeckSize({
+      currentDeckSize: deckCards.length,
+      expectedDeckSize,
+    });
+    if (deckSizeValidationError) {
+      throw new Error(deckSizeValidationError);
+    }
 
     const validationError = validateSuggestedSwap({
       addCardId,
@@ -411,9 +424,7 @@ export const applySuggestedSwap = mutation({
     }
 
     await ctx.db.delete(removableCard._id);
-    await deckAggregate.delete(ctx, removableCard).catch(e =>
-      console.warn('Record', removableCard._id, 'not found in aggregate', e),
-    );
+    await deckAggregate.delete(ctx, removableCard);
 
     const id = await ctx.db.insert('deck', {
       userId,

@@ -15,6 +15,7 @@ const mockClearHint = vi.fn();
 const mockApplySuggestedSwap = vi.fn();
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
+const mockClearSuggestion = vi.fn();
 
 vi.mock("convex/react", () => ({
   useMutation: (ref: string) => {
@@ -61,7 +62,11 @@ vi.mock("./use-collection-view-model.ts", () => ({
 }));
 
 vi.mock("./use-deck-swap-suggestion.ts", () => ({
-  useDeckSwapSuggestion: vi.fn(() => ({ status: "idle", suggestion: null })),
+  useDeckSwapSuggestion: vi.fn(() => ({
+    status: "idle",
+    suggestion: null,
+    clear: mockClearSuggestion,
+  })),
 }));
 
 const mockLastAdded = useLastAddedCard as ReturnType<typeof vi.fn>;
@@ -76,7 +81,7 @@ const fakeCardDb: CardDb = {
 } as CardDb;
 
 beforeEach(() => {
-  mockSuggestion.mockReturnValue({ status: "idle", suggestion: null });
+  mockSuggestion.mockReturnValue({ status: "idle", suggestion: null, clear: mockClearSuggestion });
 });
 
 afterEach(() => {
@@ -221,7 +226,11 @@ describe("LastAddedCardHint", () => {
       }),
     );
     mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
-    mockSuggestion.mockReturnValue({ status: "loading", suggestion: null });
+    mockSuggestion.mockReturnValue({
+      status: "loading",
+      suggestion: null,
+      clear: mockClearSuggestion,
+    });
 
     render(<LastAddedCardHint />);
 
@@ -252,6 +261,7 @@ describe("LastAddedCardHint", () => {
         suggestedScore: 1200,
         improvement: 200,
       },
+      clear: mockClearSuggestion,
     });
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
@@ -262,6 +272,7 @@ describe("LastAddedCardHint", () => {
 
     expect(mockApplySuggestedSwap).toHaveBeenCalledWith({ addCardId: 1, removeCardId: 2 });
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Deck swap applied"));
+    expect(mockClearSuggestion).toHaveBeenCalledOnce();
   });
 
   it("shows an error toast when applying the suggested swap fails", async () => {
@@ -288,6 +299,7 @@ describe("LastAddedCardHint", () => {
         suggestedScore: 1200,
         improvement: 200,
       },
+      clear: mockClearSuggestion,
     });
     mockApplySuggestedSwap.mockRejectedValue(new Error("boom"));
 
