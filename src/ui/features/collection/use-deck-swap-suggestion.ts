@@ -1,4 +1,3 @@
-import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DeckSwapSuggestion } from "../../../engine/suggest-deck-swap.ts";
 import { findBestDeckSwapSuggestionInWorker } from "../../../engine/suggest-deck-swap.ts";
@@ -6,7 +5,6 @@ import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
-import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 
 export interface DeckSwapSuggestionState {
   status: "idle" | "loading" | "ready";
@@ -27,22 +25,29 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
   const lastAdded = useLastAddedCard();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
-  const currentDeckScore = useAtomValue(currentDeckScoreAtom);
   const [state, setState] = useState<DeckSwapSuggestionSnapshot>(IDLE_STATE);
 
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
+  const deckCardIdsKey = useMemo(() => serializeCardIds(deckCardIds), [deckCardIds]);
   const ownedCardTotalsKey = useMemo(
     () => serializeOwnedCardTotals(ownedCardTotals),
     [ownedCardTotals],
   );
+  const stableDeckCardIdsRef = useRef(deckCardIds);
+  const stableDeckCardIdsKeyRef = useRef(deckCardIdsKey);
   const stableOwnedCardTotalsRef = useRef(ownedCardTotals);
   const stableOwnedCardTotalsKeyRef = useRef(ownedCardTotalsKey);
 
+  if (stableDeckCardIdsKeyRef.current !== deckCardIdsKey) {
+    stableDeckCardIdsRef.current = deckCardIds;
+    stableDeckCardIdsKeyRef.current = deckCardIdsKey;
+  }
   if (stableOwnedCardTotalsKeyRef.current !== ownedCardTotalsKey) {
     stableOwnedCardTotalsRef.current = ownedCardTotals;
     stableOwnedCardTotalsKeyRef.current = ownedCardTotalsKey;
   }
 
+  const stableDeckCardIds = stableDeckCardIdsRef.current;
   const stableOwnedCardTotals = stableOwnedCardTotalsRef.current;
   const clear = () => setState(IDLE_STATE);
 
@@ -51,7 +56,7 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
       setState(IDLE_STATE);
       return;
     }
-    if (deckCardIds.length !== deckSize) {
+    if (stableDeckCardIds.length !== deckSize) {
       setState(IDLE_STATE);
       return;
     }
@@ -64,8 +69,7 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
         addedCardId: lastAdded.cardId,
         collection: stableOwnedCardTotals,
         config: { deckSize, fusionDepth },
-        currentDeckScore,
-        deck: deckCardIds,
+        deck: stableDeckCardIds,
       },
       controller.signal,
     )
@@ -80,17 +84,16 @@ export function useDeckSwapSuggestion(): DeckSwapSuggestionState {
       });
 
     return () => controller.abort();
-  }, [
-    stableOwnedCardTotals,
-    currentDeckScore,
-    deck,
-    deckCardIds,
-    deckSize,
-    fusionDepth,
-    lastAdded,
-  ]);
+  }, [deck, deckSize, fusionDepth, lastAdded, stableDeckCardIds, stableOwnedCardTotals]);
 
   return { ...state, clear };
+}
+
+function serializeCardIds(cardIds: readonly number[]): string {
+  return cardIds
+    .slice()
+    .sort((leftId, rightId) => leftId - rightId)
+    .join(",");
 }
 
 function serializeOwnedCardTotals(ownedCardTotals: Record<number, number> | undefined): string {

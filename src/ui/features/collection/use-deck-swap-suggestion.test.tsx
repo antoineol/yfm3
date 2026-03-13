@@ -3,7 +3,6 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 
 vi.mock("../../db/use-owned-card-totals.ts", () => ({
   useOwnedCardTotals: vi.fn(),
@@ -78,21 +77,15 @@ describe("useDeckSwapSuggestion", () => {
         }),
     );
 
-    const store = createStore();
-    store.set(currentDeckScoreAtom, 18);
-
     const { result } = renderHook(() => useDeckSwapSuggestion(), {
-      wrapper: makeWrapper(store),
+      wrapper: makeWrapper(createStore()),
     });
 
     expect(result.current).toMatchObject({ status: "loading", suggestion: null });
     expect(mockFindSuggestion).toHaveBeenCalledOnce();
 
     resolveSuggestion({
-      addedCardId: 5,
       removedCardId: 4,
-      currentDeckScore: 18,
-      suggestedScore: 28,
       improvement: 10,
     });
 
@@ -100,10 +93,7 @@ describe("useDeckSwapSuggestion", () => {
       expect(result.current).toMatchObject({
         status: "ready",
         suggestion: {
-          addedCardId: 5,
           removedCardId: 4,
-          currentDeckScore: 18,
-          suggestedScore: 28,
           improvement: 10,
         },
       }),

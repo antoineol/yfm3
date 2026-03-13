@@ -5,17 +5,13 @@ import { initializeBuffersBrowser } from "./initialize-buffers-browser.ts";
 import { loadExplicitDeck } from "./load-explicit-deck.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { computeInitialScores } from "./scoring/compute-initial-scores.ts";
-import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
 import { exactScore } from "./scoring/exact-scorer.ts";
 import { FusionScorer } from "./scoring/fusion-scorer.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import type { SuggestionResponse } from "./worker/messages.ts";
 
 export interface DeckSwapSuggestion {
-  addedCardId: number;
   removedCardId: number;
-  currentDeckScore: number;
-  suggestedScore: number;
   improvement: number;
 }
 
@@ -23,14 +19,7 @@ export interface FindBestDeckSwapSuggestionOptions {
   addedCardId: number;
   collection: Record<number, number>;
   config: EngineConfig;
-  currentDeckScore?: number | null;
   deck: number[];
-}
-
-interface RankedCandidate {
-  removedCardId: number;
-  sampledDelta: number;
-  slotIndex: number;
 }
 
 const SUGGESTION_SEED = 42;
@@ -38,7 +27,7 @@ const SUGGESTION_SEED = 42;
 export function findBestDeckSwapSuggestion(
   options: FindBestDeckSwapSuggestionOptions,
 ): DeckSwapSuggestion | null {
-  const { addedCardId, collection, config, currentDeckScore, deck } = options;
+  const { addedCardId, collection, config, deck } = options;
 
   if ((collection[addedCardId] ?? 0) <= 0) {
     return null;
@@ -61,38 +50,26 @@ export function findBestDeckSwapSuggestion(
 
   const scorer = new FusionScorer();
   computeInitialScores(buf, scorer);
-
-  const ranked = rankCandidates(buf, scorer, addedCardId);
-  if (ranked.length === 0) {
-    return null;
-  }
-
-  const exactCurrentScore = currentDeckScore ?? exactScore(buf, scorer);
+  const currentDeckScore = exactScore(buf, scorer);
   let bestSuggestion: DeckSwapSuggestion | null = null;
-  let bestSampledDelta = -Infinity;
+  const seenRemovedCardIds = new Set<number>();
 
-  for (const candidate of ranked) {
-    const suggestedScore = scoreCandidateDeckExactly(buf, scorer, candidate.slotIndex, addedCardId);
-    const improvement = suggestedScore - exactCurrentScore;
+  for (let slotIndex = 0; slotIndex < buf.deck.length; slotIndex++) {
+    const removedCardId = buf.deck[slotIndex] ?? 0;
+    if (removedCardId === addedCardId || seenRemovedCardIds.has(removedCardId)) {
+      continue;
+    }
+    seenRemovedCardIds.add(removedCardId);
 
+    const improvement =
+      scoreCandidateDeckExactly(buf, scorer, slotIndex, addedCardId) - currentDeckScore;
     if (improvement <= 0) continue;
 
-    if (
-      bestSuggestion === null ||
-      improvement > bestSuggestion.improvement ||
-      (improvement === bestSuggestion.improvement &&
-        (candidate.sampledDelta > bestSampledDelta ||
-          (candidate.sampledDelta === bestSampledDelta &&
-            candidate.removedCardId < bestSuggestion.removedCardId)))
-    ) {
+    if (bestSuggestion === null || improvement > bestSuggestion.improvement) {
       bestSuggestion = {
-        addedCardId,
-        removedCardId: candidate.removedCardId,
-        currentDeckScore: exactCurrentScore,
-        suggestedScore,
+        removedCardId,
         improvement,
       };
-      bestSampledDelta = candidate.sampledDelta;
     }
   }
 
@@ -137,41 +114,6 @@ export function findBestDeckSwapSuggestionInWorker(
     signal?.addEventListener("abort", handleAbort, { once: true });
     worker.postMessage({ type: "SUGGEST", ...options });
   });
-}
-
-function rankCandidates(
-  buf: OptBuffers,
-  scorer: FusionScorer,
-  addedCardId: number,
-): RankedCandidate[] {
-  const deltaEvaluator = new DeltaEvaluator();
-  const rankedByRemoved = new Map<number, RankedCandidate>();
-
-  for (let slotIndex = 0; slotIndex < buf.deck.length; slotIndex++) {
-    const removedCardId = buf.deck[slotIndex] ?? 0;
-    if (removedCardId === addedCardId) continue;
-
-    buf.deck[slotIndex] = addedCardId;
-    buf.cardCounts[removedCardId] = (buf.cardCounts[removedCardId] ?? 0) - 1;
-    buf.cardCounts[addedCardId] = (buf.cardCounts[addedCardId] ?? 0) + 1;
-    const sampledDelta = deltaEvaluator.computeDelta(slotIndex, buf, scorer);
-    buf.deck[slotIndex] = removedCardId;
-    buf.cardCounts[removedCardId] = (buf.cardCounts[removedCardId] ?? 0) + 1;
-    buf.cardCounts[addedCardId] = (buf.cardCounts[addedCardId] ?? 0) - 1;
-
-    const existing = rankedByRemoved.get(removedCardId);
-    if (
-      !existing ||
-      sampledDelta > existing.sampledDelta ||
-      (sampledDelta === existing.sampledDelta && slotIndex < existing.slotIndex)
-    ) {
-      rankedByRemoved.set(removedCardId, { removedCardId, sampledDelta, slotIndex });
-    }
-  }
-
-  return Array.from(rankedByRemoved.values()).sort(
-    (a, b) => b.sampledDelta - a.sampledDelta || a.removedCardId - b.removedCardId,
-  );
 }
 
 function scoreCandidateDeckExactly(

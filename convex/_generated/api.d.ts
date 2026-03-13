@@ -12,7 +12,6 @@ import type * as auth from "../auth.js";
 import type * as authHelper from "../authHelper.js";
 import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
-import type * as deckSwap from "../deckSwap.js";
 import type * as hand from "../hand.js";
 import type * as http from "../http.js";
 import type * as ownedCards from "../ownedCards.js";
@@ -30,7 +29,6 @@ declare const fullApi: ApiFromModules<{
   authHelper: typeof authHelper;
   deck: typeof deck;
   deckAggregate: typeof deckAggregate;
-  deckSwap: typeof deckSwap;
   hand: typeof hand;
   http: typeof http;
   ownedCards: typeof ownedCards;

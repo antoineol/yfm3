@@ -68,7 +68,6 @@ export type SuggestionInit = {
   addedCardId: number;
   collection: Record<number, number>;
   deck: number[];
-  currentDeckScore?: number | null;
   /** Engine configuration snapshot for this worker. */
   config: EngineConfig;
 };
@@ -77,10 +76,7 @@ export type SuggestionInit = {
 export type SuggestionResult = {
   type: "SUGGESTION_RESULT";
   suggestion: {
-    addedCardId: number;
     removedCardId: number;
-    currentDeckScore: number;
-    suggestedScore: number;
     improvement: number;
   } | null;
 };

@@ -28,6 +28,7 @@ export function LastAddedCardHint() {
 
   if (!entry) return null;
 
+  const addedCardId = lastAdded.cardId;
   const name = card?.name ?? `#${lastAdded.cardId}`;
   const suggestion = suggestionState.suggestion;
   const removedName = suggestion
@@ -38,7 +39,7 @@ export function LastAddedCardHint() {
     if (!suggestion) return;
     setApplying(true);
     applySuggestedSwap({
-      addCardId: suggestion.addedCardId,
+      addCardId: addedCardId,
       removeCardId: suggestion.removedCardId,
     })
       .then(() => {
@@ -91,9 +92,14 @@ export function LastAddedCardHint() {
             <span className="text-text-primary font-medium">{name}</span>{" "}
             <span className="font-mono text-stat-up">{`(+${suggestion.improvement.toFixed(1)} ATK)`}</span>
           </p>
-          <Button disabled={applying} onClick={handleApplySuggestion} size="sm" variant="outline">
-            Apply swap
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button disabled={applying} onClick={clearSuggestion} size="sm" variant="ghost">
+              Reject
+            </Button>
+            <Button disabled={applying} onClick={handleApplySuggestion} size="sm" variant="outline">
+              Apply swap
+            </Button>
+          </div>
         </div>
       )}
     </div>

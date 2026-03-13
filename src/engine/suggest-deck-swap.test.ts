@@ -60,16 +60,6 @@ vi.mock("./scoring/fusion-scorer.ts", () => ({
   FusionScorer: class {},
 }));
 
-vi.mock("./scoring/delta-evaluator.ts", () => ({
-  DeltaEvaluator: class {
-    computeDelta(slotIndex: number, buf: OptBuffers & { baselineDeck?: number[] }) {
-      const removedCardId = buf.baselineDeck?.[slotIndex] ?? 0;
-      const addedCardId = buf.deck[slotIndex] ?? 0;
-      return deltaScore(addedCardId) - deltaScore(removedCardId);
-    }
-  },
-}));
-
 vi.mock("./scoring/exact-scorer.ts", () => ({
   exactScore: (buf: OptBuffers) => mockExactScore(buf),
 }));
@@ -101,10 +91,7 @@ describe("findBestDeckSwapSuggestion", () => {
     });
 
     expect(suggestion).toEqual({
-      addedCardId: 5,
       removedCardId: 4,
-      currentDeckScore: 18,
-      suggestedScore: 32,
       improvement: 14,
     });
   });
@@ -133,7 +120,7 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(suggestion?.removedCardId).toBe(4);
   });
 
-  it("collapses duplicate outgoing copies before exact scoring", () => {
+  it("exact-scores the current deck and each unique removable card once", () => {
     findBestDeckSwapSuggestion({
       addedCardId: 5,
       collection: { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 },
@@ -200,20 +187,6 @@ describe("findBestDeckSwapSuggestionInWorker", () => {
     expect(workerSpy).not.toHaveBeenCalled();
   });
 });
-
-function deltaScore(cardId: number): number {
-  return (
-    {
-      1: 0,
-      2: 1,
-      3: 2,
-      4: 3,
-      5: 14,
-      6: 4,
-      7: 13,
-    }[cardId] ?? 0
-  );
-}
 
 function exactScore(cardId: number): number {
   return (

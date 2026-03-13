@@ -255,10 +255,7 @@ describe("LastAddedCardHint", () => {
     mockSuggestion.mockReturnValue({
       status: "ready",
       suggestion: {
-        addedCardId: 1,
         removedCardId: 2,
-        currentDeckScore: 1000,
-        suggestedScore: 1200,
         improvement: 200,
       },
       clear: mockClearSuggestion,
@@ -293,10 +290,7 @@ describe("LastAddedCardHint", () => {
     mockSuggestion.mockReturnValue({
       status: "ready",
       suggestion: {
-        addedCardId: 1,
         removedCardId: 2,
-        currentDeckScore: 1000,
-        suggestedScore: 1200,
         improvement: 200,
       },
       clear: mockClearSuggestion,
@@ -308,6 +302,38 @@ describe("LastAddedCardHint", () => {
     fireEvent.click(screen.getByText("Apply swap"));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Could not apply deck swap"));
+  });
+
+  it("lets the user reject the suggestion", () => {
+    mockCardDb.mockReturnValue({
+      ...fakeCardDb,
+      cardsById: new Map([
+        [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
+        [2, { id: 2, name: "Kuriboh", kinds: [], attack: 300, defense: 200 }],
+      ]),
+    });
+    mockUseCollectionViewModel.mockReturnValue(
+      makeCollectionViewModel({
+        totalOwned: 1,
+        availableInCollection: 1,
+      }),
+    );
+    mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
+    mockSuggestion.mockReturnValue({
+      status: "ready",
+      suggestion: {
+        removedCardId: 2,
+        improvement: 200,
+      },
+      clear: mockClearSuggestion,
+    });
+
+    render(<LastAddedCardHint />);
+
+    fireEvent.click(screen.getByText("Reject"));
+
+    expect(mockClearSuggestion).toHaveBeenCalledOnce();
+    expect(mockApplySuggestedSwap).not.toHaveBeenCalled();
   });
 });
 

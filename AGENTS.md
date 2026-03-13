@@ -24,3 +24,5 @@ You must always do below for all changes:
 - Simple, concise code. Avoid indirection and unnecessary abstraction layers.
 
 ## Confusion points
+
+- `api.deck.getDeck` currently sorts returned rows by `cardId`, not by the fractional `order` field from the schema. If deck order matters for a change, do not assume the query preserves it.
