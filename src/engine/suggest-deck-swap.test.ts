@@ -9,9 +9,9 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
   const { getConfig } = await import("./config.ts");
 
   return {
-    initializeBuffersBrowser: (collection: ReadonlyMap<number, number>) => {
+    initializeSuggestionBuffersBrowser: () => {
       const { deckSize } = getConfig();
-      const buf = {
+      return {
         fusionTable: new Int16Array(0),
         cardAtk: new Int16Array(16),
         deck: new Int16Array(deckSize),
@@ -23,12 +23,6 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
         affectedHandOffsets: new Uint32Array(deckSize),
         affectedHandCounts: new Uint16Array(deckSize),
       };
-
-      for (const [cardId, quantity] of collection) {
-        buf.availableCounts[cardId] = quantity;
-      }
-
-      return buf;
     },
   };
 });
@@ -81,34 +75,23 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        collection: { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 },
         config: { deckSize: 5, fusionDepth: 3 },
         deck: [1, 1, 2, 3, 4],
       }),
     ).toEqual({ removedCardId: 4, improvement: 14 });
   });
 
-  it("returns null when the deck is not full or no copy is available", () => {
+  it("returns null when the deck is not full", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        collection: { 1: 1, 5: 1 },
         config: { deckSize: 3, fusionDepth: 3 },
         deck: [1, 1],
       }),
     ).toBeNull();
-
-    expect(
-      findBestDeckSwapSuggestion({
-        addedCardId: 5,
-        collection: { 1: 1, 5: 1 },
-        config: { deckSize: 2, fusionDepth: 3 },
-        deck: [1, 5],
-      }),
-    ).toBeNull();
   });
 
-  it("exact-scores the full shortlist before picking the suggestion", () => {
+  it("exact-scores the shortlisted candidates before picking the suggestion", () => {
     mockExactScore.mockImplementation((buf) => {
       const deck = Array.from(buf.deck);
       if (!deck.includes(6)) return 150;
@@ -122,11 +105,10 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        collection: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 },
         config: { deckSize: 6, fusionDepth: 3 },
         deck: [1, 7, 2, 3, 4, 6],
       }),
-    ).toEqual({ removedCardId: 6, improvement: 50 });
+    ).toEqual({ removedCardId: 4, improvement: 25 });
   });
 
   it("returns null when no swap strictly improves the score", () => {
@@ -135,7 +117,6 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        collection: { 1: 1, 2: 1, 5: 1 },
         config: { deckSize: 2, fusionDepth: 3 },
         deck: [1, 2],
       }),
@@ -145,13 +126,12 @@ describe("findBestDeckSwapSuggestion", () => {
   it("reuses a provided current deck score", () => {
     findBestDeckSwapSuggestion({
       addedCardId: 5,
-      collection: { 1: 2, 2: 1, 3: 1, 4: 1, 5: 1 },
       config: { deckSize: 5, fusionDepth: 3 },
       currentDeckScore: 18,
       deck: [1, 1, 2, 3, 4],
     });
 
-    expect(mockExactScore).toHaveBeenCalledTimes(4);
+    expect(mockExactScore).toHaveBeenCalledTimes(2);
   });
 });
 

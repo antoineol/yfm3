@@ -26,30 +26,28 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   const requestIdRef = useRef(0);
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
   const deckCardIdsKey = useMemo(() => deckCardIds.join(","), [deckCardIds]);
-  const ownedCardTotalsKey = useMemo(
-    () => serializeOwnedCardTotals(ownedCardTotals),
-    [ownedCardTotals],
-  );
   const stableDeckCardIdsRef = useRef(deckCardIds);
   const stableDeckCardIdsKeyRef = useRef(deckCardIdsKey);
-  const stableOwnedCardTotalsRef = useRef(ownedCardTotals);
-  const stableOwnedCardTotalsKeyRef = useRef(ownedCardTotalsKey);
 
   if (stableDeckCardIdsKeyRef.current !== deckCardIdsKey) {
     stableDeckCardIdsRef.current = deckCardIds;
     stableDeckCardIdsKeyRef.current = deckCardIdsKey;
   }
-  if (stableOwnedCardTotalsKeyRef.current !== ownedCardTotalsKey) {
-    stableOwnedCardTotalsRef.current = ownedCardTotals;
-    stableOwnedCardTotalsKeyRef.current = ownedCardTotalsKey;
-  }
 
   const stableDeckCardIds = stableDeckCardIdsRef.current;
-  const stableOwnedCardTotals = stableOwnedCardTotalsRef.current;
+  const addedCardOwnedCopies =
+    addedCardId === null || ownedCardTotals === undefined
+      ? null
+      : (ownedCardTotals[addedCardId] ?? 0);
+  const addedCardAvailableCopies = useMemo(() => {
+    if (addedCardId === null || addedCardOwnedCopies === null) return null;
+    return addedCardOwnedCopies - countCardCopies(stableDeckCardIds, addedCardId);
+  }, [addedCardId, addedCardOwnedCopies, stableDeckCardIds]);
   const request = useMemo<FindBestDeckSwapSuggestionOptions | null>(() => {
     if (
       addedCardId === null ||
-      stableOwnedCardTotals === undefined ||
+      addedCardAvailableCopies === null ||
+      addedCardAvailableCopies <= 0 ||
       stableDeckCardIds.length !== deckSize
     ) {
       return null;
@@ -57,7 +55,6 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
 
     return {
       addedCardId,
-      collection: stableOwnedCardTotals,
       config: { deckSize, fusionDepth },
       currentDeckScore,
       deck: stableDeckCardIds,
@@ -67,8 +64,8 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     currentDeckScore,
     deckSize,
     fusionDepth,
+    addedCardAvailableCopies,
     stableDeckCardIds,
-    stableOwnedCardTotals,
   ]);
 
   useEffect(() => {
@@ -119,11 +116,12 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   return { loading, suggestion, clearSuggestion: () => setSuggestion(null) };
 }
 
-function serializeOwnedCardTotals(ownedCardTotals: Record<number, number> | undefined) {
-  if (ownedCardTotals === undefined) return "";
+function countCardCopies(deckCardIds: number[], cardId: number) {
+  let copies = 0;
 
-  return Object.entries(ownedCardTotals)
-    .sort(([leftCardId], [rightCardId]) => Number(leftCardId) - Number(rightCardId))
-    .map(([cardId, quantity]) => `${cardId}:${quantity}`)
-    .join(",");
+  for (const currentCardId of deckCardIds) {
+    if (currentCardId === cardId) copies++;
+  }
+
+  return copies;
 }

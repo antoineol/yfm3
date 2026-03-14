@@ -9,12 +9,14 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 - The current UX is intentionally lightweight and only surfaces a single recommended swap for the last card added.
 - The refactor removes unused suggestion payload fields, deck-order preservation on apply, and the extra validation helper module.
 - The slow pure exact scan was replaced with a faster ranked-then-exact worker path that exact-scores a small shortlist and stays comfortably under one second on a full deck.
+- The UI now checks whether the last added card still has an extra available copy before spawning the worker, so the worker request only carries deck-scoring inputs.
 
 ## Exit Criteria
 
 - Adding a card can surface a one-for-one deck swap suggestion when the deck is already full.
 - Suggestions respect owned-card totals, current deck contents, and the active deck-size and fusion-depth preferences.
 - Suggestions rerun when the deck or owned-card totals actually change, but not when Convex only returns fresh references for the same data.
+- Suggestions do not spawn the worker when the added card has no extra copy available beyond what is already in deck.
 - Applying the suggestion performs a validated swap in Convex.
 - Engine, Convex, and UI behavior are covered by tests.
 

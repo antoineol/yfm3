@@ -160,25 +160,55 @@ describe("LastAddedCardHint", () => {
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 
-  it("does not restart the worker for identical deck and collection contents", () => {
-    const { rerender } = render(<LastAddedCardHint />);
-
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
-
+  it("does not run suggestion lookup when no extra copy of the added card is available", () => {
     mockDeck.mockReturnValue([
-      { cardId: 2 },
+      { cardId: 1 },
       { cardId: 2 },
       { cardId: 3 },
       { cardId: 4 },
       { cardId: 5 },
     ]);
-    mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 2, 3: 1, 4: 1, 5: 1 });
+    mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
+    mockCollection.mockReturnValue(
+      makeCollectionViewModel({ totalOwned: 1, availableInCollection: 0 }),
+    );
+
+    render(<LastAddedCardHint />);
+
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
+    expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
+  });
+
+  it("does not restart the worker when unrelated owned totals change", () => {
+    const { rerender } = render(<LastAddedCardHint />);
+
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
+
+    mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 2, 3: 1, 4: 1, 5: 1, 9: 2 });
 
     rerender(<LastAddedCardHint />);
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("recalculates when the added card availability changes", () => {
+    const { rerender } = render(<LastAddedCardHint />);
+
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
+
+    mockOwnedCardTotals.mockReturnValue({ 1: 2, 2: 2, 3: 1, 4: 1, 5: 1 });
+    mockCollection.mockReturnValue(
+      makeCollectionViewModel({ totalOwned: 2, availableInCollection: 2 }),
+    );
+
+    rerender(<LastAddedCardHint />);
+
+    expect(MockWorker.instances).toHaveLength(1);
+    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
   });
 
   it("recalculates when the deck contents change", () => {

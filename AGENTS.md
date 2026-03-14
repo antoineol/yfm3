@@ -22,6 +22,7 @@ You must always do below for all changes:
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
 - Simple, concise code. Avoid indirection and unnecessary abstraction layers.
+- Do not assume the architecture in place is correct. Challenge it as any architect would do.
 
 ## Confusion points
 

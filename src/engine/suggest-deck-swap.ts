@@ -1,6 +1,6 @@
 import type { EngineConfig } from "./config.ts";
 import { setConfig } from "./config.ts";
-import { initializeBuffersBrowser } from "./initialize-buffers-browser.ts";
+import { initializeSuggestionBuffersBrowser } from "./initialize-buffers-browser.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { computeInitialScores } from "./scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
@@ -15,7 +15,6 @@ export interface DeckSwapSuggestion {
 
 export interface FindBestDeckSwapSuggestionOptions {
   addedCardId: number;
-  collection: Record<number, number>;
   config: EngineConfig;
   currentDeckScore?: number | null;
   deck: number[];
@@ -38,16 +37,13 @@ const SUGGESTION_SEED = 42;
 export function findBestDeckSwapSuggestion(
   options: FindBestDeckSwapSuggestionOptions,
 ): DeckSwapSuggestion | null {
-  const { addedCardId, collection, config, currentDeckScore, deck } = options;
-  if (deck.length !== config.deckSize || (collection[addedCardId] ?? 0) <= 0) {
+  const { addedCardId, config, currentDeckScore, deck } = options;
+  if (deck.length !== config.deckSize) {
     return null;
   }
 
   setConfig(config);
-  const buf = initializeBuffersBrowser(
-    new Map(Object.entries(collection).map(([cardId, quantity]) => [Number(cardId), quantity])),
-    mulberry32(SUGGESTION_SEED),
-  );
+  const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED));
 
   buf.cardCounts.fill(0);
   for (let i = 0; i < deck.length; i++) {
@@ -55,7 +51,6 @@ export function findBestDeckSwapSuggestion(
     buf.deck[i] = cardId;
     buf.cardCounts[cardId] = (buf.cardCounts[cardId] ?? 0) + 1;
   }
-  if ((buf.cardCounts[addedCardId] ?? 0) >= (buf.availableCounts[addedCardId] ?? 0)) return null;
 
   const scorer = new FusionScorer();
   computeInitialScores(buf, scorer);
