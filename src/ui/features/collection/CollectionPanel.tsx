@@ -1,4 +1,5 @@
 import { useMutation } from "convex/react";
+import { useCallback, useMemo } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
@@ -26,55 +27,62 @@ export function CollectionPanel() {
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
+  const entriesByCardId = data?.entriesByCardId;
+  const deckFull = data !== undefined && data.deckLength >= targetSize;
+
+  const autocompleteCards = useMemo(
+    () =>
+      allCards.map((card) => ({
+        ...card,
+        disabled: (entriesByCardId?.get(card.id)?.totalOwned ?? 0) >= MAX_COPIES_PER_CARD,
+      })),
+    [allCards, entriesByCardId],
+  );
+
+  const renderActions = useCallback(
+    (entry: CollectionCardViewModel) => {
+      const canAddToDeck = entry.availableInCollection > 0 && !deckFull;
+
+      return (
+        <span className="inline-flex items-center gap-0.5">
+          <CardActionButton
+            disabled={entry.totalOwned >= MAX_COPIES_PER_CARD}
+            onClick={() => void addCard({ cardId: entry.id })}
+            title="Add copy"
+            variant="add"
+          >
+            +
+          </CardActionButton>
+          <CardActionButton
+            disabled={entry.availableInCollection <= 0}
+            onClick={() => void removeCard({ cardId: entry.id })}
+            title="Remove copy"
+            variant="remove"
+          >
+            −
+          </CardActionButton>
+          <CardActionButton
+            disabled={!canAddToDeck}
+            onClick={() => void addToDeck({ cardId: entry.id })}
+            title="Add to deck"
+            variant="to-deck"
+          >
+            <svg
+              aria-hidden="true"
+              className="w-3.5 h-3.5 inline-block"
+              fill="currentColor"
+              viewBox="0 0 16 16"
+            >
+              <path d="M6 3l5 5-5 5V3z" />
+            </svg>
+          </CardActionButton>
+        </span>
+      );
+    },
+    [addCard, addToDeck, deckFull, removeCard],
+  );
 
   if (data === undefined) return <PanelLoadingState />;
-
-  const deckFull = data.deckLength >= targetSize;
-
-  const autocompleteCards = allCards.map((card) => ({
-    ...card,
-    disabled: (data.entriesByCardId.get(card.id)?.totalOwned ?? 0) >= MAX_COPIES_PER_CARD,
-  }));
-
-  function renderActions(entry: CollectionCardViewModel) {
-    const canAddToDeck = entry.availableInCollection > 0 && !deckFull;
-
-    return (
-      <span className="inline-flex items-center gap-0.5">
-        <CardActionButton
-          disabled={entry.totalOwned >= MAX_COPIES_PER_CARD}
-          onClick={() => void addCard({ cardId: entry.id })}
-          title="Add copy"
-          variant="add"
-        >
-          +
-        </CardActionButton>
-        <CardActionButton
-          disabled={entry.availableInCollection <= 0}
-          onClick={() => void removeCard({ cardId: entry.id })}
-          title="Remove copy"
-          variant="remove"
-        >
-          −
-        </CardActionButton>
-        <CardActionButton
-          disabled={!canAddToDeck}
-          onClick={() => void addToDeck({ cardId: entry.id })}
-          title="Add to deck"
-          variant="to-deck"
-        >
-          <svg
-            aria-hidden="true"
-            className="w-3.5 h-3.5 inline-block"
-            fill="currentColor"
-            viewBox="0 0 16 16"
-          >
-            <path d="M6 3l5 5-5 5V3z" />
-          </svg>
-        </CardActionButton>
-      </span>
-    );
-  }
 
   return (
     <>

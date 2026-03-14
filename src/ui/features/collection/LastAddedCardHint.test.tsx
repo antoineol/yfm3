@@ -134,8 +134,7 @@ describe("LastAddedCardHint", () => {
     const { container } = render(<LastAddedCardHint />);
 
     expect(container.innerHTML).toBe("");
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
+    expect(MockWorker.instances).toHaveLength(0);
   });
 
   it("keeps the base quick actions working", () => {
@@ -155,8 +154,7 @@ describe("LastAddedCardHint", () => {
 
     render(<LastAddedCardHint />);
 
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
+    expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 
@@ -175,8 +173,7 @@ describe("LastAddedCardHint", () => {
 
     render(<LastAddedCardHint />);
 
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).not.toHaveBeenCalled();
+    expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DeckSwapSuggestion,
   FindBestDeckSwapSuggestionOptions,
@@ -11,19 +11,21 @@ interface SuggestionWorkerResponse {
 
 interface UseDeckSwapSuggestionOptions {
   addedCardId: number | null;
+  addedCardAvailableCopies: number;
   currentDeckScore: number | null;
   deck: Array<{ cardId: number }> | undefined;
   deckSize: number;
   fusionDepth: number;
-  ownedCardTotals: Record<number, number> | undefined;
 }
 
 export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
-  const { addedCardId, currentDeckScore, deck, deckSize, fusionDepth, ownedCardTotals } = options;
+  const { addedCardId, addedCardAvailableCopies, currentDeckScore, deck, deckSize, fusionDepth } =
+    options;
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
+
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
   const deckCardIdsKey = useMemo(() => deckCardIds.join(","), [deckCardIds]);
   const stableDeckCardIdsRef = useRef(deckCardIds);
@@ -35,18 +37,9 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   }
 
   const stableDeckCardIds = stableDeckCardIdsRef.current;
-  const addedCardOwnedCopies =
-    addedCardId === null || ownedCardTotals === undefined
-      ? null
-      : (ownedCardTotals[addedCardId] ?? 0);
-  const addedCardAvailableCopies = useMemo(() => {
-    if (addedCardId === null || addedCardOwnedCopies === null) return null;
-    return addedCardOwnedCopies - countCardCopies(stableDeckCardIds, addedCardId);
-  }, [addedCardId, addedCardOwnedCopies, stableDeckCardIds]);
   const request = useMemo<FindBestDeckSwapSuggestionOptions | null>(() => {
     if (
       addedCardId === null ||
-      addedCardAvailableCopies === null ||
       addedCardAvailableCopies <= 0 ||
       stableDeckCardIds.length !== deckSize
     ) {
@@ -69,11 +62,6 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   ]);
 
   useEffect(() => {
-    workerRef.current = new Worker(
-      new URL("../../../engine/worker/suggestion-worker.ts", import.meta.url),
-      { type: "module" },
-    );
-
     return () => workerRef.current?.terminate();
   }, []);
 
@@ -84,8 +72,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       return;
     }
 
-    const worker = workerRef.current;
-    if (!worker) return;
+    const worker = getSuggestionWorker(workerRef);
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
@@ -113,15 +100,20 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     };
   }, [request]);
 
-  return { loading, suggestion, clearSuggestion: () => setSuggestion(null) };
+  const clearSuggestion = useCallback(() => setSuggestion(null), []);
+
+  return { loading, suggestion, clearSuggestion };
 }
 
-function countCardCopies(deckCardIds: number[], cardId: number) {
-  let copies = 0;
+function getSuggestionWorker(workerRef: { current: Worker | null }) {
+  if (workerRef.current) return workerRef.current;
 
-  for (const currentCardId of deckCardIds) {
-    if (currentCardId === cardId) copies++;
-  }
+  workerRef.current = new Worker(
+    new URL("../../../engine/worker/suggestion-worker.ts", import.meta.url),
+    {
+      type: "module",
+    },
+  );
 
-  return copies;
+  return workerRef.current;
 }
