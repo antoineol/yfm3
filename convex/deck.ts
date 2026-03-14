@@ -371,3 +371,51 @@ export const acceptSuggestedDeck = mutation({
     ]);
   },
 });
+
+export const applySuggestedSwap = mutation({
+  args: {
+    addCardId: v.number(),
+    removeCardId: v.number(),
+  },
+  handler: async (ctx, { addCardId, removeCardId }) => {
+    const userId = await requireAuth(ctx);
+
+    const [deckCards, collectionEntry] = await Promise.all([
+      ctx.db
+        .query('deck')
+        .withIndex('by_user', q => q.eq('userId', userId))
+        .collect(),
+      ctx.db
+        .query('ownedCards')
+        .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', addCardId))
+        .first(),
+    ]);
+    const deckCopiesOfAddedCard = deckCards.filter(card => card.cardId === addCardId).length;
+    const removableCard = deckCards.find(card => card.cardId === removeCardId);
+
+    if (addCardId === removeCardId) {
+      throw new Error('Suggested swap must change the deck');
+    }
+    if (!removableCard) {
+      throw new Error('Card to remove not found in deck');
+    }
+    if (!collectionEntry || collectionEntry.quantity <= 0) {
+      throw new Error('Card to add not found in collection');
+    }
+    if (deckCopiesOfAddedCard >= collectionEntry.quantity) {
+      throw new Error('No available copies in collection');
+    }
+
+    await ctx.db.delete(removableCard._id);
+    await deckAggregate.delete(ctx, removableCard);
+
+    const id = await ctx.db.insert('deck', {
+      userId,
+      cardId: addCardId,
+    });
+    const doc = await ctx.db.get(id);
+    if (doc) await deckAggregate.insert(ctx, doc);
+
+    return { success: true };
+  },
+});

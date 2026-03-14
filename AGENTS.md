@@ -21,5 +21,8 @@ You must always do below for all changes:
 - Write functions in reading order. If A calls B, write A then B.
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
+- Simple, concise code. Avoid indirection and unnecessary abstraction layers.
 
 ## Confusion points
+
+- `api.deck.getDeck` currently sorts returned rows by `cardId`, not by the fractional `order` field from the schema. If deck order matters for a change, do not assume the query preserves it.
