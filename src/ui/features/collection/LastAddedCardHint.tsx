@@ -1,6 +1,6 @@
 import { useMutation } from "convex/react";
 import { useAtomValue } from "jotai";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
@@ -34,13 +34,20 @@ export function LastAddedCardHint() {
     addedCardId === null || collection === undefined
       ? undefined
       : collection.entriesByCardId.get(addedCardId);
+  const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
+  const addedCardDeckCopies = useMemo(
+    () => (addedCardId === null ? 0 : countCardCopies(deckCardIds, addedCardId)),
+    [addedCardId, deckCardIds],
+  );
+  const addedCardOwnedCopies = addedCardId === null ? 0 : (ownedCardTotals?.[addedCardId] ?? 0);
+  const addedCardAvailableCopies = Math.max(addedCardOwnedCopies - addedCardDeckCopies, 0);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,
+    addedCardAvailableCopies,
     currentDeckScore,
     deck,
     deckSize,
     fusionDepth,
-    ownedCardTotals,
   });
   const name = card?.name ?? (addedCardId === null ? "" : `#${addedCardId}`);
   const removedName = suggestion
@@ -117,4 +124,14 @@ export function LastAddedCardHint() {
       )}
     </div>
   );
+}
+
+function countCardCopies(deckCardIds: number[], cardId: number) {
+  let copies = 0;
+
+  for (const currentCardId of deckCardIds) {
+    if (currentCardId === cardId) copies++;
+  }
+
+  return copies;
 }
