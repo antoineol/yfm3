@@ -25,24 +25,51 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   const workerRef = useRef<Worker | null>(null);
   const requestIdRef = useRef(0);
   const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
+  const deckCardIdsKey = useMemo(() => deckCardIds.join(","), [deckCardIds]);
+  const ownedCardTotalsKey = useMemo(
+    () => serializeOwnedCardTotals(ownedCardTotals),
+    [ownedCardTotals],
+  );
+  const stableDeckCardIdsRef = useRef(deckCardIds);
+  const stableDeckCardIdsKeyRef = useRef(deckCardIdsKey);
+  const stableOwnedCardTotalsRef = useRef(ownedCardTotals);
+  const stableOwnedCardTotalsKeyRef = useRef(ownedCardTotalsKey);
+
+  if (stableDeckCardIdsKeyRef.current !== deckCardIdsKey) {
+    stableDeckCardIdsRef.current = deckCardIds;
+    stableDeckCardIdsKeyRef.current = deckCardIdsKey;
+  }
+  if (stableOwnedCardTotalsKeyRef.current !== ownedCardTotalsKey) {
+    stableOwnedCardTotalsRef.current = ownedCardTotals;
+    stableOwnedCardTotalsKeyRef.current = ownedCardTotalsKey;
+  }
+
+  const stableDeckCardIds = stableDeckCardIdsRef.current;
+  const stableOwnedCardTotals = stableOwnedCardTotalsRef.current;
   const request = useMemo<FindBestDeckSwapSuggestionOptions | null>(() => {
     if (
       addedCardId === null ||
-      deck === undefined ||
-      ownedCardTotals === undefined ||
-      deckCardIds.length !== deckSize
+      stableOwnedCardTotals === undefined ||
+      stableDeckCardIds.length !== deckSize
     ) {
       return null;
     }
 
     return {
       addedCardId,
-      collection: ownedCardTotals,
+      collection: stableOwnedCardTotals,
       config: { deckSize, fusionDepth },
       currentDeckScore,
-      deck: deckCardIds,
+      deck: stableDeckCardIds,
     };
-  }, [addedCardId, currentDeckScore, deck, deckCardIds, deckSize, fusionDepth, ownedCardTotals]);
+  }, [
+    addedCardId,
+    currentDeckScore,
+    deckSize,
+    fusionDepth,
+    stableDeckCardIds,
+    stableOwnedCardTotals,
+  ]);
 
   useEffect(() => {
     workerRef.current = new Worker(
@@ -90,4 +117,13 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   }, [request]);
 
   return { loading, suggestion, clearSuggestion: () => setSuggestion(null) };
+}
+
+function serializeOwnedCardTotals(ownedCardTotals: Record<number, number> | undefined) {
+  if (ownedCardTotals === undefined) return "";
+
+  return Object.entries(ownedCardTotals)
+    .sort(([leftCardId], [rightCardId]) => Number(leftCardId) - Number(rightCardId))
+    .map(([cardId, quantity]) => `${cardId}:${quantity}`)
+    .join(",");
 }

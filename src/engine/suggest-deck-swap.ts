@@ -30,6 +30,11 @@ interface RankedCandidate {
 const TOP_EXACT_CANDIDATES = 2;
 const SUGGESTION_SEED = 42;
 
+/**
+ * Rank all one-for-one swaps by sampled delta, then exact-score a small shortlist.
+ * This keeps the worker fast enough for inline UX while still picking the final
+ * suggestion by real score instead of the sampled estimate alone.
+ */
 export function findBestDeckSwapSuggestion(
   options: FindBestDeckSwapSuggestionOptions,
 ): DeckSwapSuggestion | null {

@@ -108,6 +108,27 @@ describe("findBestDeckSwapSuggestion", () => {
     ).toBeNull();
   });
 
+  it("exact-scores the full shortlist before picking the suggestion", () => {
+    mockExactScore.mockImplementation((buf) => {
+      const deck = Array.from(buf.deck);
+      if (!deck.includes(6)) return 150;
+      if (!deck.includes(4)) return 125;
+      if (!deck.includes(3)) return 120;
+      if (!deck.includes(2)) return 110;
+      if (!deck.includes(7)) return 105;
+      return 100;
+    });
+
+    expect(
+      findBestDeckSwapSuggestion({
+        addedCardId: 5,
+        collection: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 },
+        config: { deckSize: 6, fusionDepth: 3 },
+        deck: [1, 7, 2, 3, 4, 6],
+      }),
+    ).toEqual({ removedCardId: 6, improvement: 50 });
+  });
+
   it("returns null when no swap strictly improves the score", () => {
     mockExactScore.mockImplementation(() => 100);
 
@@ -130,7 +151,7 @@ describe("findBestDeckSwapSuggestion", () => {
       deck: [1, 1, 2, 3, 4],
     });
 
-    expect(mockExactScore).toHaveBeenCalledTimes(2);
+    expect(mockExactScore).toHaveBeenCalledTimes(4);
   });
 });
 
