@@ -1,23 +1,26 @@
 import { useMutation } from "convex/react";
 import { useAtomValue } from "jotai";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
-import { useDeck } from "../../db/use-deck.ts";
-import { useLastAddedCard } from "../../db/use-last-added-card.ts";
-import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import {
+  useDeckRowsFromState,
+  useHydrateCollectionState,
+  useLastAddedCollectionState,
+} from "./collection-state.ts";
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 export function LastAddedCardHint() {
-  const lastAdded = useLastAddedCard();
+  useHydrateCollectionState();
+
+  const deck = useDeckRowsFromState();
   const cardDb = useCardDb();
-  const deck = useDeck();
-  const ownedCardTotals = useOwnedCardTotals();
+  const { addedCardId, availableInCollection, card, totalOwned } = useLastAddedCollectionState();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
@@ -26,12 +29,6 @@ export function LastAddedCardHint() {
   const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
   const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
   const [applying, setApplying] = useState(false);
-  const addedCardId = lastAdded?.cardId ?? null;
-  const card = addedCardId === null ? undefined : cardDb.cardsById.get(addedCardId);
-  const deckCardIds = useMemo(() => deck?.map((entry) => entry.cardId) ?? [], [deck]);
-  const inDeck = addedCardId === null ? 0 : countCardCopies(deckCardIds, addedCardId);
-  const totalOwned = addedCardId === null ? 0 : (ownedCardTotals?.[addedCardId] ?? 0);
-  const availableInCollection = Math.max(totalOwned - inDeck, 0);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,
     addedCardAvailableCopies: availableInCollection,
@@ -41,7 +38,7 @@ export function LastAddedCardHint() {
     fusionDepth,
   });
 
-  if (addedCardId === null || !card || ownedCardTotals === undefined || totalOwned <= 0) return null;
+  if (addedCardId === null || !card || totalOwned <= 0) return null;
 
   const lastAddedCardId = addedCardId;
   const name = card.name;
@@ -116,14 +113,4 @@ export function LastAddedCardHint() {
       )}
     </div>
   );
-}
-
-function countCardCopies(deckCardIds: number[], cardId: number) {
-  let copies = 0;
-
-  for (const currentCardId of deckCardIds) {
-    if (currentCardId === cardId) copies++;
-  }
-
-  return copies;
 }

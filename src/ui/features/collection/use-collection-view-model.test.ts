@@ -1,20 +1,28 @@
 // @vitest-environment happy-dom
 import { renderHook } from "@testing-library/react";
+import { Provider } from "jotai";
+import type { ReactNode } from "react";
+import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
-import { buildCollectionViewModel, useCollectionViewModel } from "./use-collection-view-model.ts";
 
 vi.mock("../../db/use-owned-card-totals.ts", () => ({ useOwnedCardTotals: vi.fn() }));
 vi.mock("../../db/use-deck.ts", () => ({ useDeck: vi.fn() }));
+vi.mock("../../db/use-last-added-card.ts", () => ({ useLastAddedCard: vi.fn(() => null) }));
 vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
 
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { buildCollectionViewModel, useCollectionViewModel } from "./use-collection-view-model.ts";
 
 const mockUseDeck = useDeck as ReturnType<typeof vi.fn>;
 const mockUseOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 const mockUseCardDb = useCardDb as ReturnType<typeof vi.fn>;
+
+function TestWrapper({ children }: { children: ReactNode }) {
+  return createElement(Provider, null, children);
+}
 
 const fakeCardDb: CardDb = {
   cards: [],
@@ -67,7 +75,9 @@ describe("useCollectionViewModel", () => {
     mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
     mockUseOwnedCardTotals.mockReturnValue({ 1: 2, 2: 1 });
 
-    const { result, rerender } = renderHook(() => useCollectionViewModel());
+    const { result, rerender } = renderHook(() => useCollectionViewModel(), {
+      wrapper: TestWrapper,
+    });
     const firstResult = result.current;
 
     mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
@@ -83,7 +93,9 @@ describe("useCollectionViewModel", () => {
     mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
     mockUseOwnedCardTotals.mockReturnValue({ 1: 2, 2: 1 });
 
-    const { result, rerender } = renderHook(() => useCollectionViewModel());
+    const { result, rerender } = renderHook(() => useCollectionViewModel(), {
+      wrapper: TestWrapper,
+    });
     const firstResult = result.current;
 
     mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 1 }]);
