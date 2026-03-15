@@ -1,7 +1,5 @@
 import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
-import { useDeck } from "../../db/use-deck.ts";
-import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useCardDb } from "../../lib/card-db-context.tsx";
+import { useCollectionViewModelFromState, useHydrateCollectionState } from "./collection-state.ts";
 
 export interface OwnedCardQuantities {
   totalOwned: number;
@@ -20,17 +18,8 @@ export interface CollectionViewModel {
 }
 
 export function useCollectionViewModel(): CollectionViewModel | undefined {
-  const ownedCardTotals = useOwnedCardTotals();
-  const deck = useDeck();
-  const cardDb = useCardDb();
-
-  if (ownedCardTotals === undefined) return undefined;
-
-  return buildCollectionViewModel(
-    ownedCardTotals,
-    (deck ?? []).map((entry) => entry.cardId),
-    cardDb,
-  );
+  useHydrateCollectionState();
+  return useCollectionViewModelFromState();
 }
 
 export function buildCollectionViewModel(

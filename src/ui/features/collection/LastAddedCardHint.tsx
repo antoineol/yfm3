@@ -1,25 +1,26 @@
 import { useMutation } from "convex/react";
 import { useAtomValue } from "jotai";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
-import { useDeck } from "../../db/use-deck.ts";
-import { useLastAddedCard } from "../../db/use-last-added-card.ts";
-import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { useCollectionViewModel } from "./use-collection-view-model.ts";
+import {
+  useDeckRowsFromState,
+  useHydrateCollectionState,
+  useLastAddedCollectionState,
+} from "./collection-state.ts";
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 export function LastAddedCardHint() {
-  const lastAdded = useLastAddedCard();
+  useHydrateCollectionState();
+
+  const deck = useDeckRowsFromState();
   const cardDb = useCardDb();
-  const collection = useCollectionViewModel();
-  const deck = useDeck();
-  const ownedCardTotals = useOwnedCardTotals();
+  const { addedCardId, availableInCollection, card, totalOwned } = useLastAddedCollectionState();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
@@ -28,34 +29,22 @@ export function LastAddedCardHint() {
   const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
   const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
   const [applying, setApplying] = useState(false);
-  const addedCardId = lastAdded?.cardId ?? null;
-  const card = addedCardId === null ? undefined : cardDb.cardsById.get(addedCardId);
-  const entry =
-    addedCardId === null || collection === undefined
-      ? undefined
-      : collection.entriesByCardId.get(addedCardId);
-  const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
-  const addedCardDeckCopies = useMemo(
-    () => (addedCardId === null ? 0 : countCardCopies(deckCardIds, addedCardId)),
-    [addedCardId, deckCardIds],
-  );
-  const addedCardOwnedCopies = addedCardId === null ? 0 : (ownedCardTotals?.[addedCardId] ?? 0);
-  const addedCardAvailableCopies = Math.max(addedCardOwnedCopies - addedCardDeckCopies, 0);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,
-    addedCardAvailableCopies,
+    addedCardAvailableCopies: availableInCollection,
     currentDeckScore,
     deck,
     deckSize,
     fusionDepth,
   });
-  const name = card?.name ?? (addedCardId === null ? "" : `#${addedCardId}`);
+
+  if (addedCardId === null || !card || totalOwned <= 0) return null;
+
+  const lastAddedCardId = addedCardId;
+  const name = card.name;
   const removedName = suggestion
     ? (cardDb.cardsById.get(suggestion.removedCardId)?.name ?? `#${suggestion.removedCardId}`)
     : "";
-
-  if (addedCardId === null || collection === undefined || !entry) return null;
-  const lastAddedCardId = addedCardId;
 
   function handleApplySuggestion() {
     if (!suggestion) return;
@@ -80,10 +69,10 @@ export function LastAddedCardHint() {
       <div className="flex items-center gap-1">
         <span className="text-text-secondary">Last added:</span>
         <span className="text-text-primary font-medium truncate">{name}</span>
-        <span className="text-text-muted font-mono">({entry.totalOwned}/3)</span>
+        <span className="text-text-muted font-mono">({totalOwned}/3)</span>
         <div className="flex items-center gap-0.5 ml-auto shrink-0">
           <CardActionButton
-            disabled={entry.totalOwned >= 3}
+            disabled={totalOwned >= 3}
             onClick={() => void addCard({ cardId: lastAddedCardId })}
             title="Add another copy"
             variant="add"
@@ -91,7 +80,7 @@ export function LastAddedCardHint() {
             +
           </CardActionButton>
           <CardActionButton
-            disabled={entry.availableInCollection <= 0}
+            disabled={availableInCollection <= 0}
             onClick={() => void removeCard({ cardId: lastAddedCardId })}
             title="Remove one copy"
             variant="remove"
@@ -124,14 +113,4 @@ export function LastAddedCardHint() {
       )}
     </div>
   );
-}
-
-function countCardCopies(deckCardIds: number[], cardId: number) {
-  let copies = 0;
-
-  for (const currentCardId of deckCardIds) {
-    if (currentCardId === cardId) copies++;
-  }
-
-  return copies;
 }

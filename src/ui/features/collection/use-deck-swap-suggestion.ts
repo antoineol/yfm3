@@ -11,7 +11,7 @@ interface SuggestionWorkerResponse {
 
 interface UseDeckSwapSuggestionOptions {
   addedCardId: number | null;
-  addedCardAvailableCopies: number;
+  addedCardAvailableCopies: number | null;
   currentDeckScore: number | null;
   deck: Array<{ cardId: number }> | undefined;
   deckSize: number;
@@ -40,6 +40,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
   const request = useMemo<FindBestDeckSwapSuggestionOptions | null>(() => {
     if (
       addedCardId === null ||
+      addedCardAvailableCopies === null ||
       addedCardAvailableCopies <= 0 ||
       stableDeckCardIds.length !== deckSize
     ) {
@@ -54,26 +55,24 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     };
   }, [
     addedCardId,
+    addedCardAvailableCopies,
     currentDeckScore,
     deckSize,
     fusionDepth,
-    addedCardAvailableCopies,
     stableDeckCardIds,
   ]);
 
   useEffect(() => {
-    return () => workerRef.current?.terminate();
-  }, []);
-
-  useEffect(() => {
     if (!request) {
+      requestIdRef.current += 1;
       setLoading(false);
       setSuggestion(null);
+      workerRef.current?.terminate();
+      workerRef.current = null;
       return;
     }
 
     const worker = getSuggestionWorker(workerRef);
-
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
@@ -84,6 +83,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       setLoading(false);
       setSuggestion(event.data.suggestion);
     };
+
     worker.onerror = (error) => {
       console.error("Suggestion lookup failed:", error);
       if (requestId === requestIdRef.current) {
@@ -91,14 +91,17 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
         setSuggestion(null);
       }
     };
-    worker.postMessage({ requestId, options: request });
 
-    return () => {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    };
+    worker.postMessage({ requestId, options: request });
   }, [request]);
+
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1;
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
 
   const clearSuggestion = useCallback(() => setSuggestion(null), []);
 
