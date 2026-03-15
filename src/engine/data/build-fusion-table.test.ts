@@ -1,17 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import { buildFusionTable } from "./build-fusion-table.ts";
 import type { CardSpec, FusionMaterials } from "./card-model.ts";
 
-function makeFusionTable(cards: CardSpec[], fusions: FusionMaterials[]) {
+function makeFusionTable(
+  cards: CardSpec[],
+  fusions: FusionMaterials[],
+  nonMonsterMaterialNames?: ReadonlySet<string>,
+) {
   const { fusionTable, cardAtk } = createBuffers();
   for (const c of cards) {
     cardAtk[c.id] = c.attack;
   }
-  buildFusionTable(cards, fusions, fusionTable, cardAtk);
+  buildFusionTable(cards, fusions, fusionTable, cardAtk, nonMonsterMaterialNames);
   return fusionTable;
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("buildFusionTable – FUSION_ALIASES", () => {
   const timeWizard: CardSpec = {
@@ -71,5 +79,68 @@ describe("buildFusionTable – FUSION_ALIASES", () => {
     const ft = makeFusionTable(cards, [fusion]);
 
     expect(ft[babyDragon.id * MAX_CARD_ID + timeWizardOfTomorrow.id]).toBe(thousandDragon.id);
+  });
+});
+
+describe("buildFusionTable – missing material warnings", () => {
+  const dragon: CardSpec = {
+    id: 1,
+    name: "Baby Dragon",
+    kinds: ["Dragon"],
+    attack: 1200,
+    defense: 700,
+  };
+  const fusionResult: CardSpec = {
+    id: 600,
+    name: "The Flame Swordsman",
+    kinds: ["Warrior"],
+    attack: 4800,
+    defense: 4600,
+  };
+
+  it("does not warn for unresolved non-monster materials", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fusion: FusionMaterials = {
+      name: "The Flame Swordsman",
+      materials: new Set(["Baby Dragon:Salamandra"]),
+      attack: 4800,
+      defense: 4600,
+    };
+
+    makeFusionTable([dragon, fusionResult], [fusion], new Set(["Salamandra"]));
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("still warns for unexpected unresolved name-based materials", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fusion: FusionMaterials = {
+      name: "The Flame Swordsman",
+      materials: new Set(["Baby Dragon:Missing Material"]),
+      attack: 4800,
+      defense: 4600,
+    };
+
+    makeFusionTable([dragon, fusionResult], [fusion]);
+
+    expect(warn).toHaveBeenCalledWith(
+      'Material "Missing Material" resolved to no cards for fusion The Flame Swordsman',
+    );
+  });
+
+  it("still warns for unresolved monster materials", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fusion: FusionMaterials = {
+      name: "The Flame Swordsman",
+      materials: new Set(["Baby Dragon:Ryu-Kishin"]),
+      attack: 4800,
+      defense: 4600,
+    };
+
+    makeFusionTable([dragon, fusionResult], [fusion], new Set(["Salamandra"]));
+
+    expect(warn).toHaveBeenCalledWith(
+      'Material "Ryu-Kishin" resolved to no cards for fusion The Flame Swordsman',
+    );
   });
 });

@@ -3,7 +3,7 @@ import cardsCsvRaw from "../../../data/rp-cards.csv?raw";
 import fusionsCsvRaw from "../../../data/rp-fusions1.csv?raw";
 import { buildFusionTable } from "../../engine/data/build-fusion-table.ts";
 import { addCard, type CardDb } from "../../engine/data/game-db.ts";
-import { parseCardCsv } from "../../engine/data/parse-cards.ts";
+import { parseReferenceCardsCsv } from "../../engine/data/parse-cards.ts";
 import { parseFusionCsv } from "../../engine/data/parse-fusions.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../../engine/types/constants.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
@@ -21,20 +21,26 @@ export interface FusionTableData {
  * the full OptBuffers allocation (only fusionTable + cardAtk are needed).
  */
 export function buildFusionTableData(): FusionTableData {
-  const cardDb = parseCardCsv(cardsCsvRaw);
+  const { monsterCardDb, nonMonsterMaterialNames } = parseReferenceCardsCsv(cardsCsvRaw);
   const fusionDb = parseFusionCsv(fusionsCsvRaw);
-  registerFusionOnlyCards(cardDb, fusionDb.fusions);
+  registerFusionOnlyCards(monsterCardDb, fusionDb.fusions);
 
   const cardAtk = new Int16Array(MAX_CARD_ID);
-  for (const card of cardDb.cards) {
+  for (const card of monsterCardDb.cards) {
     cardAtk[card.id] = card.attack;
   }
 
   const fusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
   fusionTable.fill(FUSION_NONE);
-  buildFusionTable(cardDb.cards, fusionDb.fusions, fusionTable, cardAtk);
+  buildFusionTable(
+    monsterCardDb.cards,
+    fusionDb.fusions,
+    fusionTable,
+    cardAtk,
+    nonMonsterMaterialNames,
+  );
 
-  return { fusionTable, cardAtk, cardDb, maxCardId: MAX_CARD_ID };
+  return { fusionTable, cardAtk, cardDb: monsterCardDb, maxCardId: MAX_CARD_ID };
 }
 
 /**

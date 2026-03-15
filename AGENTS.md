@@ -24,6 +24,7 @@ You must always do below for all changes:
 - Business-oriented, simple, concise answers.
 - Simple, concise, minimalist code. Avoid indirection and unnecessary abstraction layers.
 - Do not assume the architecture in place is correct. Challenge it as any architect would do.
+- Don't think local. Always consider the whole architecture and workflows.
 
 ## Confusion points
 

@@ -2,6 +2,8 @@ import { MAX_CARD_ID } from "../types/constants.ts";
 import type { AttackValue, CardId, CardSpec, FusionMaterials } from "./card-model.ts";
 import { isValidCardKind } from "./parser-utils.ts";
 
+const EMPTY_NAME_SET: ReadonlySet<string> = new Set();
+
 /**
  * Build the flat fusion lookup table with 3-pass priority resolution.
  *
@@ -20,10 +22,19 @@ export function buildFusionTable(
   fusions: FusionMaterials[],
   fusionTable: Int16Array,
   cardAtk: Int16Array,
+  nonMonsterMaterialNames: ReadonlySet<string> = EMPTY_NAME_SET,
 ): void {
   const { nameToIds, kindToIds, colorKindToIds } = buildLookupMaps(cards);
   const nameToId = buildNameToIdMap(cards);
-  const tiers = classifyFusions(fusions, nameToId, cardAtk, nameToIds, kindToIds, colorKindToIds);
+  const tiers = classifyFusions(
+    fusions,
+    nameToId,
+    cardAtk,
+    nameToIds,
+    kindToIds,
+    colorKindToIds,
+    nonMonsterMaterialNames,
+  );
 
   // Tier tracking: 0 = unset, 1/2/3 = which pass wrote it
   const written = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
@@ -67,6 +78,7 @@ function classifyFusions(
   nameToIds: Map<string, CardId[]>,
   kindToIds: Map<string, CardId[]>,
   colorKindToIds: Map<string, CardId[]>,
+  nonMonsterMaterialNames: ReadonlySet<string>,
 ): [TieredEntry[], TieredEntry[], TieredEntry[]] {
   const tiers: [TieredEntry[], TieredEntry[], TieredEntry[]] = [[], [], []];
 
@@ -92,20 +104,14 @@ function classifyFusions(
       const leftIds = resolveKeyPart(left, nameToIds, kindToIds, colorKindToIds);
       const rightIds = resolveKeyPart(right, nameToIds, kindToIds, colorKindToIds);
 
-      // Warn for name-based parts that don't resolve (could be a data issue
-      // like a typo or a spell/trap referenced as a monster).
-      // Kind-based gaps are silently skipped — expected when the RP mod
-      // doesn't have cards of that kind/color combo.
+      // Warn for unexpected unresolved monster names. Known non-monster card
+      // names and kind-based gaps are intentionally ignored.
       if (leftIds.length === 0) {
-        if (classifyPart(left) === PART_NAME) {
-          console.warn(`Material "${left}" resolved to no cards for fusion ${fusion.name}`);
-        }
+        warnIfUnexpectedMissingMaterial(left, fusion.name, nonMonsterMaterialNames);
         continue;
       }
       if (rightIds.length === 0) {
-        if (classifyPart(right) === PART_NAME) {
-          console.warn(`Material "${right}" resolved to no cards for fusion ${fusion.name}`);
-        }
+        warnIfUnexpectedMissingMaterial(right, fusion.name, nonMonsterMaterialNames);
         continue;
       }
 
@@ -119,6 +125,16 @@ function classifyFusions(
   }
 
   return tiers;
+}
+
+function warnIfUnexpectedMissingMaterial(
+  part: string,
+  fusionName: string,
+  nonMonsterMaterialNames: ReadonlySet<string>,
+): void {
+  if (classifyPart(part) !== PART_NAME) return;
+  if (nonMonsterMaterialNames.has(part)) return;
+  console.warn(`Material "${part}" resolved to no cards for fusion ${fusionName}`);
 }
 
 // --- Entry application ---

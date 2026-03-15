@@ -3,7 +3,7 @@ import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
 import { buildFusionTable } from "./build-fusion-table.ts";
 import type { CardSpec, FusionDb } from "./card-model.ts";
 import { addCard, type CardDb } from "./game-db.ts";
-import { parseCardCsv } from "./parse-cards.ts";
+import { parseReferenceCardsCsv } from "./parse-cards.ts";
 import { parseFusionCsv } from "./parse-fusions.ts";
 
 /**
@@ -19,18 +19,24 @@ export function loadGameDataFromStrings(
   cardsCsvContent: string,
   fusionsCsvContent: string,
 ): CardSpec[] {
-  const cardDb = parseCardCsv(cardsCsvContent);
-  const baseCards = [...cardDb.cards];
+  const { monsterCardDb, nonMonsterMaterialNames } = parseReferenceCardsCsv(cardsCsvContent);
+  const baseCards = [...monsterCardDb.cards];
 
   const fusionDb = parseFusionCsv(fusionsCsvContent);
-  registerFusionOnlyCards(cardDb, fusionDb);
+  registerFusionOnlyCards(monsterCardDb, fusionDb);
 
-  for (const card of cardDb.cards) {
+  for (const card of monsterCardDb.cards) {
     buf.cardAtk[card.id] = card.attack;
   }
 
   buf.fusionTable.fill(FUSION_NONE);
-  buildFusionTable(cardDb.cards, fusionDb.fusions, buf.fusionTable, buf.cardAtk);
+  buildFusionTable(
+    monsterCardDb.cards,
+    fusionDb.fusions,
+    buf.fusionTable,
+    buf.cardAtk,
+    nonMonsterMaterialNames,
+  );
 
   return baseCards;
 }

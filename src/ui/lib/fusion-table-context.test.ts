@@ -1,9 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { FUSION_NONE, MAX_CARD_ID } from "../../engine/types/constants.ts";
-import { buildFusionTableData } from "./fusion-table-context.tsx";
+import { buildFusionTableData, type FusionTableData } from "./fusion-table-context.tsx";
 
 describe("buildFusionTableData", () => {
-  const data = buildFusionTableData();
+  let data: FusionTableData;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeAll(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  beforeEach(() => {
+    data = buildFusionTableData();
+  });
+
+  afterAll(() => {
+    warnSpy.mockRestore();
+  });
 
   it("returns a fusionTable of expected size", () => {
     expect(data.fusionTable).toBeInstanceOf(Int16Array);

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import type { FusionDb } from "./card-model.ts";
@@ -16,6 +16,16 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("loadGameDataFromStrings", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeAll(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    warnSpy.mockRestore();
+  });
+
   it("produces identical buffers and cards as loadGameData", () => {
     const buf1 = createBuffers();
     const cards1 = loadGameData(buf1);

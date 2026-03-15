@@ -266,6 +266,7 @@ Cover:
 
 - Cards and fusions are loaded from static bundled CSV files.
 - Fusion-only cards are synthesized in `FusionTableContext`.
+- The runtime fusion table is intentionally monster-only today; unresolved non-monster materials are ignored based on the card data, while unresolved monster names still surface as data issues.
 - There is no shared mutable reference store across dev and prod.
 - There is no lightweight workflow for capturing newly discovered data during gameplay.
 - YFM2 already has a partial Google Sheets integration for cards, but not an obvious equivalent for fusions.
@@ -284,7 +285,7 @@ This step is complete when:
 
 ## Next Step After This
 
-Once the shared dataset exists, the next logical feature is a lightweight admin or review surface for recent discoveries and validation status, not a public fusion browser. That UI should be built on top of this data pipeline instead of inventing another storage path.
+Once the shared dataset exists, the next logical feature is a lightweight admin or review surface for recent discoveries and validation status, not a public fusion browser. That UI should be built on top of this data pipeline instead of inventing another storage path. Only after that should we consider widening the runtime model beyond the current monster-only fusion scope.
 
 ## Files Changed or Created
 
