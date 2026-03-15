@@ -33,7 +33,7 @@ Port YFM2's best UX features to YFM3, prioritized by impact on the copilot exper
 
 | Priority | Step                       | File                                                                | What It Builds                                                                 |
 | -------- | -------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **P0a**  | **Authentication** (DONE)  | [`p1.1-auth.md`](p1.1-auth.md)                                     | Convex Auth + Google OAuth, replace manual userId with real cross-device auth  |
+| **P0a**  | **Authentication** (DONE)  | [`p1.1-auth.md`](p1.1-auth.md)                                     | Clerk + Google OAuth, replace manual userId with real cross-device auth  |
 | **P0b**  | **Baseline UX Polish** (DONE) | [`p1.5-baseline-ux-polish.md`](p1.5-baseline-ux-polish.md)      | Fix broken config inputs, visual hierarchy, card display, empty/loading states |
 | **P0c**  | **Shared Infrastructure**  | [`p1.9-shared-infrastructure.md`](p1.9-shared-infrastructure.md)    | FusionTable context, CardAutocomplete component, tab navigation shell          |
 | P1       | Hand Fusion Calculator     | [`p2-hand-fusion-calculator.md`](p2-hand-fusion-calculator.md)      | 5-card hand simulation, real-time fusion chains, play fusion (consume materials) |

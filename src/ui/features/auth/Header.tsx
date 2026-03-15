@@ -1,6 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useClerk } from "@clerk/clerk-react";
 import { useState } from "react";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
@@ -10,7 +10,7 @@ const tabClass =
   "relative py-2.5 font-display text-sm font-bold uppercase tracking-widest text-text-secondary transition-colors duration-200 hover:text-text-primary cursor-pointer data-active:text-gold-bright no-underline";
 
 export function Header() {
-  const { signOut } = useAuthActions();
+  const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
 
   return (
@@ -34,7 +34,7 @@ export function Header() {
         >
           Hand
         </Tabs.Tab>
-        <Tabs.Indicator className="absolute bottom-0 left-0 h-[3px] rounded-full bg-gold transition-all duration-250 ease-out" />
+        <Tabs.Indicator className="absolute bottom-0 left-0 h-0.75 rounded-full bg-gold transition-all duration-250 ease-out" />
       </Tabs.List>
 
       <div className="flex items-center gap-3 justify-end">
@@ -62,7 +62,7 @@ function HeaderMenu({ onSettings, onSignOut }: { onSettings: () => void; onSignO
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup className="z-50 bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-[140px]">
+          <Menu.Popup className="z-50 bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-35">
             <Menu.Item className={menuItemClass} onClick={onSettings}>
               Settings
             </Menu.Item>

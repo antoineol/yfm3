@@ -8,12 +8,10 @@
  * @module
  */
 
-import type * as auth from "../auth.js";
 import type * as authHelper from "../authHelper.js";
 import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as hand from "../hand.js";
-import type * as http from "../http.js";
 import type * as ownedCards from "../ownedCards.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as utils from "../utils.js";
@@ -25,12 +23,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  auth: typeof auth;
   authHelper: typeof authHelper;
   deck: typeof deck;
   deckAggregate: typeof deckAggregate;
   hand: typeof hand;
-  http: typeof http;
   ownedCards: typeof ownedCards;
   userPreferences: typeof userPreferences;
   utils: typeof utils;

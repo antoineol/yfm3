@@ -1,9 +1,7 @@
+import { SignInButton } from "@clerk/clerk-react";
 import { Button } from "../../components/Button.tsx";
-import { useGoogleSignIn } from "./use-google-sign-in.ts";
 
 export function SignIn() {
-  const { signingIn, error, handleSignIn } = useGoogleSignIn();
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 relative">
       <div
@@ -19,10 +17,11 @@ export function SignIn() {
           Forbidden Memories &middot; Remastered Perfected
         </p>
       </div>
-      <Button disabled={signingIn} onClick={handleSignIn} size="lg" variant="outline">
-        {signingIn ? "Signing in\u2026" : "Sign in with Google"}
-      </Button>
-      {error && <p className="text-stat-atk text-sm">{error}</p>}
+      <SignInButton mode="modal">
+        <Button size="lg" variant="outline">
+          Sign in with Google
+        </Button>
+      </SignInButton>
     </div>
   );
 }

@@ -22,7 +22,7 @@ You must always do below for all changes:
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
 - Business-oriented, simple, concise answers.
-- Simple, concise code. Avoid indirection and unnecessary abstraction layers.
+- Simple, concise, minimalist code. Avoid indirection and unnecessary abstraction layers.
 - Do not assume the architecture in place is correct. Challenge it as any architect would do.
 
 ## Confusion points

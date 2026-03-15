@@ -2,44 +2,26 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./use-google-sign-in.ts", () => ({
-  useGoogleSignIn: vi.fn(),
+vi.mock("@clerk/clerk-react", () => ({
+  SignInButton: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 import { SignIn } from "./SignIn.tsx";
-import { useGoogleSignIn } from "./use-google-sign-in.ts";
-
-const mockUseGoogleSignIn = useGoogleSignIn as ReturnType<typeof vi.fn>;
 
 afterEach(cleanup);
 
 describe("SignIn", () => {
-  it("renders sign-in button when not signing in", () => {
-    mockUseGoogleSignIn.mockReturnValue({ signingIn: false, error: null, handleSignIn: vi.fn() });
+  it("renders the sign-in button", () => {
     render(<SignIn />);
     expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeDefined();
   });
 
-  it("renders signing-in state", () => {
-    mockUseGoogleSignIn.mockReturnValue({ signingIn: true, error: null, handleSignIn: vi.fn() });
+  it("renders the product title", () => {
     render(<SignIn />);
-    const btn = screen.getByRole("button", { name: /signing in/i });
-    expect(btn).toBeDefined();
-    expect(btn.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("YFM Deck Optimizer")).toBeDefined();
   });
 
-  it("renders error message when error is present", () => {
-    mockUseGoogleSignIn.mockReturnValue({
-      signingIn: false,
-      error: "Sign-in failed. Please try again.",
-      handleSignIn: vi.fn(),
-    });
-    render(<SignIn />);
-    expect(screen.getByText("Sign-in failed. Please try again.")).toBeDefined();
-  });
-
-  it("hides error message when no error", () => {
-    mockUseGoogleSignIn.mockReturnValue({ signingIn: false, error: null, handleSignIn: vi.fn() });
+  it("does not render a local sign-in error message", () => {
     render(<SignIn />);
     expect(screen.queryByText("Sign-in failed. Please try again.")).toBeNull();
   });

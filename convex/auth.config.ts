@@ -1,7 +1,8 @@
 export default {
   providers: [
     {
-      domain: process.env.CONVEX_SITE_URL,
+      // Convex reads this from deployment env, not the Vite client env.
+      domain: process.env.CLERK_FRONTEND_API_URL,
       applicationID: 'convex',
     },
   ],

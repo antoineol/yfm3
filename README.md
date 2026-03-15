@@ -16,6 +16,35 @@ Deck optimizer for Yu-Gi-Oh! Forbidden Memories (Remastered Perfected mod). Gene
 | `bun run build` | Production build |
 | `bun run bench` | Run benchmarks |
 
+## Auth Setup
+
+Authentication uses Clerk with Google sign-in and Convex-backed data access.
+
+Local `.env.local`:
+
+```bash
+VITE_CONVEX_URL=https://<deployment>.convex.cloud
+VITE_CLERK_PUBLISHABLE_KEY=pk_...
+```
+
+Use [`.env.example`](/home/ubuntu/perso/yfm3/.env.example) as the local template.
+
+Do not add `CLERK_FRONTEND_API_URL` to the Vite app config unless you have a separate reason to keep it locally. The frontend does not use it.
+
+Convex deployment env only:
+
+```bash
+CLERK_FRONTEND_API_URL=https://<your-instance>.clerk.accounts.dev
+```
+
+Clerk dashboard requirements:
+
+1. Create a React app
+2. Enable Google auth
+3. Create a JWT template named exactly `convex`
+
+If the `convex` JWT template is missing, Clerk sign-in may succeed while the app still loops on the sign-in screen because Convex stays unauthenticated.
+
 ## Reference fixture workflow
 
 The reference scorer is the ground truth for evaluating all production components.

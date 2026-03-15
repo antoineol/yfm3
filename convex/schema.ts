@@ -1,14 +1,11 @@
-import { authTables } from '@convex-dev/auth/server';
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { handSourceModeValidator } from './userPreferences';
 
 export default defineSchema({
-  ...authTables,
-
   // User's owned cards - total copies owned regardless of deck assignment.
   ownedCards: defineTable({
-    userId: v.string(), // User identifier (could be session ID or auth user ID)
+    userId: v.string(), // Stable auth identity from Clerk via Convex
     cardId: v.number(), // CardId from the game
     quantity: v.number(), // Number of copies owned (max 3)
   })
