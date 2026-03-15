@@ -13,7 +13,7 @@ import {
 } from "./collection-state.ts";
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
-type AppliedSwap = { addedCardId: number; removedCardId: number };
+type AppliedSwap = { addedCardId: number; removedCardId: number; available: number };
 
 export interface LastAddedCardHintHeaderModel {
   name: string;
@@ -48,7 +48,12 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
   useHydrateCollectionState();
   const deck = useDeckRowsFromState();
   const cardDb = useCardDb();
-  const { addedCardId, availableInCollection, card, totalOwned } = useLastAddedCollectionState();
+  const {
+    addedCardId,
+    availableInCollection: available,
+    card,
+    totalOwned,
+  } = useLastAddedCollectionState();
   const [appliedSwap, setAppliedSwap] = useState<AppliedSwap | null>(null);
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
@@ -57,7 +62,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
   const [applying, setApplying] = useState(false);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,
-    addedCardAvailableCopies: availableInCollection,
+    addedCardAvailableCopies: available,
     currentDeckScore: useAtomValue(currentDeckScoreAtom),
     deck,
     deckSize: useDeckSize(),
@@ -67,11 +72,16 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
   useEffect(() => {
     if (
       appliedSwap &&
-      (addedCardId === null || !card || totalOwned <= 0 || addedCardId !== appliedSwap.addedCardId)
+      (addedCardId === null ||
+        !card ||
+        totalOwned <= 0 ||
+        addedCardId !== appliedSwap.addedCardId ||
+        available > appliedSwap.available ||
+        available < appliedSwap.available - 1)
     ) {
       setAppliedSwap(null);
     }
-  }, [addedCardId, appliedSwap, card, totalOwned]);
+  }, [addedCardId, appliedSwap, available, card, totalOwned]);
 
   if (addedCardId === null || !card || totalOwned <= 0) return null;
 
@@ -112,7 +122,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
       name: card.name,
       totalOwned,
       disableAdd: totalOwned >= 3,
-      disableRemove: availableInCollection <= 0,
+      disableRemove: available <= 0,
       onAdd: () => void addCard({ cardId: addedCardId }),
       onRemove: () => void removeCard({ cardId: addedCardId }),
       onDismiss: () => {
@@ -149,7 +159,11 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
                 errorPrefix: "Suggested swap failed:",
                 onSuccess: () => {
                   clearSuggestion();
-                  setAppliedSwap({ addedCardId, removedCardId: suggestion.removedCardId });
+                  setAppliedSwap({
+                    addedCardId,
+                    removedCardId: suggestion.removedCardId,
+                    available,
+                  });
                 },
               }),
             onReject: clearSuggestion,
