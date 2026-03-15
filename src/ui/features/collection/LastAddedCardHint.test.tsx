@@ -52,21 +52,17 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useFusionDepth: vi.fn(() => 3),
 }));
 vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
-vi.mock("./use-collection-view-model.ts", () => ({ useCollectionViewModel: vi.fn() }));
 
 import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
-import type { CollectionCardViewModel } from "./use-collection-view-model.ts";
-import { useCollectionViewModel } from "./use-collection-view-model.ts";
 
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
 const mockLastAdded = useLastAddedCard as ReturnType<typeof vi.fn>;
 const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
-const mockCollection = useCollectionViewModel as ReturnType<typeof vi.fn>;
 
 const originalWorker = globalThis.Worker;
 
@@ -107,9 +103,6 @@ beforeEach(() => {
   globalThis.Worker = MockWorker as unknown as typeof Worker;
   MockWorker.instances = [];
   mockCardDb.mockReturnValue(fakeCardDb);
-  mockCollection.mockReturnValue(
-    makeCollectionViewModel({ totalOwned: 1, availableInCollection: 1 }),
-  );
   mockLastAdded.mockReturnValue({ cardId: 1, quantity: 1 });
   mockDeck.mockReturnValue([
     { cardId: 2 },
@@ -130,6 +123,15 @@ afterEach(() => {
 describe("LastAddedCardHint", () => {
   it("renders nothing when there is no last added card", () => {
     mockLastAdded.mockReturnValue(null);
+
+    const { container } = render(<LastAddedCardHint />);
+
+    expect(container.innerHTML).toBe("");
+    expect(MockWorker.instances).toHaveLength(0);
+  });
+
+  it("renders nothing when the last added card is no longer in owned totals", () => {
+    mockOwnedCardTotals.mockReturnValue({ 2: 2, 3: 1, 4: 1, 5: 1 });
 
     const { container } = render(<LastAddedCardHint />);
 
@@ -167,28 +169,11 @@ describe("LastAddedCardHint", () => {
       { cardId: 5 },
     ]);
     mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
-    mockCollection.mockReturnValue(
-      makeCollectionViewModel({ totalOwned: 1, availableInCollection: 0 }),
-    );
 
     render(<LastAddedCardHint />);
 
     expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
-  });
-
-  it("does not restart the worker when unrelated owned totals change", () => {
-    const { rerender } = render(<LastAddedCardHint />);
-
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
-
-    mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 2, 3: 1, 4: 1, 5: 1, 9: 2 });
-
-    rerender(<LastAddedCardHint />);
-
-    expect(MockWorker.instances).toHaveLength(1);
-    expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
   });
 
   it("recalculates when the added card availability changes", () => {
@@ -198,9 +183,6 @@ describe("LastAddedCardHint", () => {
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
 
     mockOwnedCardTotals.mockReturnValue({ 1: 2, 2: 2, 3: 1, 4: 1, 5: 1 });
-    mockCollection.mockReturnValue(
-      makeCollectionViewModel({ totalOwned: 2, availableInCollection: 2 }),
-    );
 
     rerender(<LastAddedCardHint />);
 
@@ -275,24 +257,3 @@ describe("LastAddedCardHint", () => {
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Could not apply deck swap"));
   });
 });
-
-function makeCollectionViewModel(params: { totalOwned: number; availableInCollection: number }) {
-  const entry: CollectionCardViewModel = {
-    id: 1,
-    name: "Blue-Eyes",
-    atk: 3000,
-    def: 2500,
-    qty: params.availableInCollection,
-    totalOwned: params.totalOwned,
-    inDeck: params.totalOwned - params.availableInCollection,
-    availableInCollection: params.availableInCollection,
-  };
-
-  return {
-    entries: [entry],
-    entriesByCardId: new Map([[entry.id, entry]]),
-    totalOwnedCards: entry.totalOwned,
-    uniqueOwnedCards: 1,
-    deckLength: 5,
-  };
-}

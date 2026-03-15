@@ -11,13 +11,11 @@ import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { useCollectionViewModel } from "./use-collection-view-model.ts";
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 export function LastAddedCardHint() {
   const lastAdded = useLastAddedCard();
   const cardDb = useCardDb();
-  const collection = useCollectionViewModel();
   const deck = useDeck();
   const ownedCardTotals = useOwnedCardTotals();
   const deckSize = useDeckSize();
@@ -30,32 +28,26 @@ export function LastAddedCardHint() {
   const [applying, setApplying] = useState(false);
   const addedCardId = lastAdded?.cardId ?? null;
   const card = addedCardId === null ? undefined : cardDb.cardsById.get(addedCardId);
-  const entry =
-    addedCardId === null || collection === undefined
-      ? undefined
-      : collection.entriesByCardId.get(addedCardId);
-  const deckCardIds = useMemo(() => deck?.map((card) => card.cardId) ?? [], [deck]);
-  const addedCardDeckCopies = useMemo(
-    () => (addedCardId === null ? 0 : countCardCopies(deckCardIds, addedCardId)),
-    [addedCardId, deckCardIds],
-  );
-  const addedCardOwnedCopies = addedCardId === null ? 0 : (ownedCardTotals?.[addedCardId] ?? 0);
-  const addedCardAvailableCopies = Math.max(addedCardOwnedCopies - addedCardDeckCopies, 0);
+  const deckCardIds = useMemo(() => deck?.map((entry) => entry.cardId) ?? [], [deck]);
+  const inDeck = addedCardId === null ? 0 : countCardCopies(deckCardIds, addedCardId);
+  const totalOwned = addedCardId === null ? 0 : (ownedCardTotals?.[addedCardId] ?? 0);
+  const availableInCollection = Math.max(totalOwned - inDeck, 0);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,
-    addedCardAvailableCopies,
+    addedCardAvailableCopies: availableInCollection,
     currentDeckScore,
     deck,
     deckSize,
     fusionDepth,
   });
-  const name = card?.name ?? (addedCardId === null ? "" : `#${addedCardId}`);
+
+  if (addedCardId === null || !card || ownedCardTotals === undefined || totalOwned <= 0) return null;
+
+  const lastAddedCardId = addedCardId;
+  const name = card.name;
   const removedName = suggestion
     ? (cardDb.cardsById.get(suggestion.removedCardId)?.name ?? `#${suggestion.removedCardId}`)
     : "";
-
-  if (addedCardId === null || collection === undefined || !entry) return null;
-  const lastAddedCardId = addedCardId;
 
   function handleApplySuggestion() {
     if (!suggestion) return;
@@ -80,10 +72,10 @@ export function LastAddedCardHint() {
       <div className="flex items-center gap-1">
         <span className="text-text-secondary">Last added:</span>
         <span className="text-text-primary font-medium truncate">{name}</span>
-        <span className="text-text-muted font-mono">({entry.totalOwned}/3)</span>
+        <span className="text-text-muted font-mono">({totalOwned}/3)</span>
         <div className="flex items-center gap-0.5 ml-auto shrink-0">
           <CardActionButton
-            disabled={entry.totalOwned >= 3}
+            disabled={totalOwned >= 3}
             onClick={() => void addCard({ cardId: lastAddedCardId })}
             title="Add another copy"
             variant="add"
@@ -91,7 +83,7 @@ export function LastAddedCardHint() {
             +
           </CardActionButton>
           <CardActionButton
-            disabled={entry.availableInCollection <= 0}
+            disabled={availableInCollection <= 0}
             onClick={() => void removeCard({ cardId: lastAddedCardId })}
             title="Remove one copy"
             variant="remove"

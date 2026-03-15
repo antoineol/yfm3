@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
-import { buildCollectionViewModel } from "./use-collection-view-model.ts";
+import { buildCollectionViewModel, useCollectionViewModel } from "./use-collection-view-model.ts";
+
+vi.mock("../../db/use-owned-card-totals.ts", () => ({ useOwnedCardTotals: vi.fn() }));
+vi.mock("../../db/use-deck.ts", () => ({ useDeck: vi.fn() }));
+vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
+
+import { useDeck } from "../../db/use-deck.ts";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
+
+const mockUseDeck = useDeck as ReturnType<typeof vi.fn>;
+const mockUseOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
+const mockUseCardDb = useCardDb as ReturnType<typeof vi.fn>;
 
 const fakeCardDb: CardDb = {
   cards: [],
@@ -44,5 +58,43 @@ describe("buildCollectionViewModel", () => {
       availableInCollection: 0,
       qty: 0,
     });
+  });
+});
+
+describe("useCollectionViewModel", () => {
+  it("returns the same view model object when deck and owned totals content is unchanged", () => {
+    mockUseCardDb.mockReturnValue(fakeCardDb);
+    mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    mockUseOwnedCardTotals.mockReturnValue({ 1: 2, 2: 1 });
+
+    const { result, rerender } = renderHook(() => useCollectionViewModel());
+    const firstResult = result.current;
+
+    mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    mockUseOwnedCardTotals.mockReturnValue({ 2: 1, 1: 2 });
+
+    rerender();
+
+    expect(result.current).toBe(firstResult);
+  });
+
+  it("returns a new object when deck or owned totals content changes", () => {
+    mockUseCardDb.mockReturnValue(fakeCardDb);
+    mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    mockUseOwnedCardTotals.mockReturnValue({ 1: 2, 2: 1 });
+
+    const { result, rerender } = renderHook(() => useCollectionViewModel());
+    const firstResult = result.current;
+
+    mockUseDeck.mockReturnValue([{ cardId: 1 }, { cardId: 1 }]);
+    rerender();
+    const secondResult = result.current;
+
+    expect(secondResult).not.toBe(firstResult);
+
+    mockUseOwnedCardTotals.mockReturnValue({ 1: 2, 2: 2 });
+    rerender();
+
+    expect(result.current).not.toBe(secondResult);
   });
 });

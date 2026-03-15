@@ -9,7 +9,7 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 - The current UX is intentionally lightweight and only surfaces a single recommended swap for the last card added.
 - The refactor removes unused suggestion payload fields, deck-order preservation on apply, and the extra validation helper module.
 - The slow pure exact scan was replaced with a faster ranked-then-exact worker path that exact-scores a small shortlist and stays comfortably under one second on a full deck.
-- The UI now checks whether the last added card still has an extra available copy before spawning the worker, so the worker request only carries deck-scoring inputs.
+- The UI now computes last-added availability locally (`totalOwned`, `inDeck`, `availableInCollection`) and passes only `addedCardAvailableCopies` into the suggestion hook, so the worker request only carries deck-scoring inputs.
 
 ## Exit Criteria
 
@@ -22,4 +22,4 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 
 ## Next Step After This
 
-No separate follow-up step is required. Treat any future work here as normal maintenance only if real latency or correctness issues show up again.
+Keep follow-up scoped to measurement only: profile render and suggestion latency in real usage before considering any further optimization work.

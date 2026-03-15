@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
@@ -23,14 +24,33 @@ export function useCollectionViewModel(): CollectionViewModel | undefined {
   const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
   const cardDb = useCardDb();
+  const previousResultRef = useRef<{
+    deckCardIdsKey: string;
+    ownedCardTotalsKey: string;
+    value: CollectionViewModel;
+  } | null>(null);
 
-  if (ownedCardTotals === undefined) return undefined;
+  if (ownedCardTotals === undefined) {
+    previousResultRef.current = null;
+    return undefined;
+  }
 
-  return buildCollectionViewModel(
-    ownedCardTotals,
-    (deck ?? []).map((entry) => entry.cardId),
-    cardDb,
-  );
+  const deckCardIds = (deck ?? []).map((entry) => entry.cardId);
+  const deckCardIdsKey = createDeckCardIdsKey(deckCardIds);
+  const ownedCardTotalsKey = createOwnedCardTotalsKey(ownedCardTotals);
+  const previousResult = previousResultRef.current;
+
+  if (
+    previousResult &&
+    previousResult.deckCardIdsKey === deckCardIdsKey &&
+    previousResult.ownedCardTotalsKey === ownedCardTotalsKey
+  ) {
+    return previousResult.value;
+  }
+
+  const value = buildCollectionViewModel(ownedCardTotals, deckCardIds, cardDb);
+  previousResultRef.current = { deckCardIdsKey, ownedCardTotalsKey, value };
+  return value;
 }
 
 export function buildCollectionViewModel(
@@ -67,4 +87,16 @@ export function buildCollectionViewModel(
     uniqueOwnedCards: entries.length,
     deckLength: deckCardIds.length,
   };
+}
+
+function createDeckCardIdsKey(deckCardIds: number[]) {
+  return deckCardIds.join(",");
+}
+
+function createOwnedCardTotalsKey(ownedCardTotals: Record<number, number>) {
+  const cardIds = Object.keys(ownedCardTotals)
+    .map((cardId) => Number(cardId))
+    .sort((first, second) => first - second);
+
+  return cardIds.map((cardId) => `${cardId}:${ownedCardTotals[cardId] ?? 0}`).join("|");
 }
