@@ -7,6 +7,8 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 - A simplified end-to-end implementation exists: a worker-based suggestion scan for the last added card, a lightweight inline hint UI, and a direct Convex `applySuggestedSwap` mutation.
 - The rebase onto `new-app` needs this feature to target the newer `ownedCards` and `userPreferences` APIs instead of the pre-rename collection names.
 - The current UX is intentionally lightweight and only surfaces a single recommended swap for the last card added.
+- After a successful apply, the hint now swaps to a single visible `Revert` action for that applied swap instead of keeping the suggestion actions visible.
+- The undo is local to the current hint lifecycle only: no persistent history, and it is cleared when the last-added card context changes.
 - The refactor removes unused suggestion payload fields, deck-order preservation on apply, and the extra validation helper module.
 - The slow pure exact scan was replaced with a faster ranked-then-exact worker path that exact-scores a small shortlist and stays comfortably under one second on a full deck.
 - The UI now computes last-added availability locally (`totalOwned`, `inDeck`, `availableInCollection`) and passes only `addedCardAvailableCopies` into the suggestion hook, so the worker request only carries deck-scoring inputs.
@@ -18,6 +20,7 @@ If a swap is found (suggest the most interesting one, of course), then the swap 
 - Suggestions rerun when the deck or owned-card totals actually change, but not when Convex only returns fresh references for the same data.
 - Suggestions do not spawn the worker when the added card has no extra copy available beyond what is already in deck.
 - Applying the suggestion performs a validated swap in Convex.
+- A successful apply exposes a single-step revert for that swap.
 - Engine, Convex, and UI behavior are covered by tests.
 
 ## Next Step After This

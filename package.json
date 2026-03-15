@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm-run-all2 --parallel dev:backend dev:frontend",
+    "dev": "bun install && npm-run-all2 --parallel dev:backend dev:frontend",
     "dev:backend": "convex dev",
     "dev:frontend": "vite",
     "build": "vite build",

@@ -209,7 +209,7 @@ describe("LastAddedCardHint", () => {
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("shows loading, then renders the suggestion and applies it", async () => {
+  it("shows revert after a successful apply", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
     render(<LastAddedCardHint />, { wrapper: TestWrapper });
@@ -228,6 +228,8 @@ describe("LastAddedCardHint", () => {
     );
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Deck swap applied"));
     expect(screen.queryByText("Apply swap")).toBeNull();
+    expect(screen.queryByText("Reject")).toBeNull();
+    expect(screen.getByText("Revert")).toBeDefined();
   });
 
   it("lets the user reject the suggestion", async () => {
@@ -253,5 +255,82 @@ describe("LastAddedCardHint", () => {
     fireEvent.click(screen.getByText("Apply swap"));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Could not apply deck swap"));
+  });
+
+  it("reverts an applied swap with reversed card ids", async () => {
+    mockApplySuggestedSwap.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({
+      success: true,
+    });
+
+    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
+    fireEvent.click(screen.getByText("Apply swap"));
+
+    await waitFor(() => expect(screen.getByText("Revert")).toBeDefined());
+    fireEvent.click(screen.getByText("Revert"));
+
+    await waitFor(() =>
+      expect(mockApplySuggestedSwap).toHaveBeenNthCalledWith(2, { addCardId: 2, removeCardId: 1 }),
+    );
+  });
+
+  it("clears the undo UI after a successful revert", async () => {
+    mockApplySuggestedSwap.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({
+      success: true,
+    });
+
+    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
+    fireEvent.click(screen.getByText("Apply swap"));
+
+    await waitFor(() => expect(screen.getByText("Revert")).toBeDefined());
+    fireEvent.click(screen.getByText("Revert"));
+
+    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Deck swap reverted"));
+    expect(screen.queryByText("Revert")).toBeNull();
+  });
+
+  it("keeps the undo UI visible when revert fails", async () => {
+    mockApplySuggestedSwap
+      .mockResolvedValueOnce({ success: true })
+      .mockRejectedValueOnce(new Error("boom"));
+
+    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
+    fireEvent.click(screen.getByText("Apply swap"));
+
+    await waitFor(() => expect(screen.getByText("Revert")).toBeDefined());
+    fireEvent.click(screen.getByText("Revert"));
+
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Could not revert deck swap"));
+    expect(screen.getByText("Revert")).toBeDefined();
+  });
+
+  it("clears undo state when the last added card changes", async () => {
+    mockApplySuggestedSwap.mockResolvedValue({ success: true });
+
+    const { rerender } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+
+    MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
+
+    await waitFor(() => expect(screen.getByText("Apply swap")).toBeDefined());
+    fireEvent.click(screen.getByText("Apply swap"));
+
+    await waitFor(() => expect(screen.getByText("Revert")).toBeDefined());
+
+    mockLastAdded.mockReturnValue(null);
+
+    rerender(<LastAddedCardHint />);
+
+    await waitFor(() => expect(screen.queryByText("Revert")).toBeNull());
   });
 });
