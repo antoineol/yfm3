@@ -1,9 +1,9 @@
 import { useMutation } from "convex/react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
-import { CardTable } from "../../components/CardTable.tsx";
+import { CardTable, type SortKey, type SortState } from "../../components/CardTable.tsx";
 import {
   PanelBody,
   PanelEmptyState,
@@ -30,6 +30,27 @@ export function CollectionPanel() {
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
+  const [sort, setSort] = useState<SortState>(null);
+
+  const handleSortChange = useCallback((key: SortKey) => {
+    setSort((prev) => {
+      const firstDir = key === "atk" ? "desc" : "asc";
+      const secondDir = firstDir === "asc" ? "desc" : "asc";
+      if (prev?.key !== key) return { key, dir: firstDir };
+      if (prev.dir === firstDir) return { key, dir: secondDir };
+      return null;
+    });
+  }, []);
+
+  const sortedEntries = useMemo(() => {
+    if (!data) return [];
+    if (!sort) return data.entries;
+    const sorted = [...data.entries];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    if (sort.key === "id") sorted.sort((a, b) => dir * (a.id - b.id));
+    else sorted.sort((a, b) => dir * (a.atk - b.atk));
+    return sorted;
+  }, [data, sort]);
 
   const autocompleteCards = useMemo(
     () =>
@@ -103,7 +124,12 @@ export function CollectionPanel() {
         />
       ) : (
         <PanelBody>
-          <CardTable actions={renderActions} entries={data.entries} />
+          <CardTable
+            actions={renderActions}
+            entries={sortedEntries}
+            onSortChange={handleSortChange}
+            sort={sort}
+          />
         </PanelBody>
       )}
     </>

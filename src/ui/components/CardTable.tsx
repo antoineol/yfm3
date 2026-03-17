@@ -36,16 +36,25 @@ export function countById(ids: number[]): Map<number, number> {
   return counts;
 }
 
+export type SortKey = "id" | "atk";
+export type SortDir = "asc" | "desc";
+export type SortState = { key: SortKey; dir: SortDir } | null;
+
 export function CardTable<T extends CardEntry>({
   entries,
   actions,
   leftActions,
+  sort,
+  onSortChange,
 }: {
   entries: T[];
   actions?: (entry: T) => ReactNode;
   leftActions?: (entry: T) => ReactNode;
+  sort?: SortState;
+  onSortChange?: (key: SortKey) => void;
 }) {
   const [animateRef] = useAutoAnimate();
+  const sortable = onSortChange !== undefined;
 
   return (
     <div className="overflow-x-auto">
@@ -53,9 +62,18 @@ export function CardTable<T extends CardEntry>({
         <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle">
           <tr className="text-text-secondary text-xs uppercase tracking-wide">
             {leftActions && <th className="py-2 px-1 font-normal" />}
-            <th className="text-left py-2 px-1 font-normal">#</th>
+            <SortableHeader
+              dir={sort?.key === "id" ? sort.dir : undefined}
+              label="#"
+              onClick={sortable ? () => onSortChange("id") : undefined}
+            />
             <th className="text-left py-2 px-1 font-normal">Card</th>
-            <th className="text-left py-2 px-2 font-normal">ATK</th>
+            <SortableHeader
+              dir={sort?.key === "atk" ? sort.dir : undefined}
+              label="ATK"
+              onClick={sortable ? () => onSortChange("atk") : undefined}
+              px="px-2"
+            />
             <th className="text-left py-2 px-2 font-normal">DEF</th>
             {actions && <th className="py-2 px-1 font-normal" />}
           </tr>
@@ -87,5 +105,30 @@ export function CardTable<T extends CardEntry>({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  dir,
+  onClick,
+  px = "px-1",
+}: {
+  label: string;
+  dir?: SortDir;
+  onClick?: () => void;
+  px?: string;
+}) {
+  if (!onClick) {
+    return <th className={`text-left py-2 ${px} font-normal`}>{label}</th>;
+  }
+  return (
+    <th
+      className={`text-left py-2 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
+      onClick={onClick}
+    >
+      {label}
+      {dir && <span className="ml-0.5">{dir === "asc" ? "\u25B4" : "\u25BE"}</span>}
+    </th>
   );
 }

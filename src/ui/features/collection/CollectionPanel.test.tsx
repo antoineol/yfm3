@@ -1,6 +1,17 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+beforeAll(() => {
+  // auto-animate calls el.animate() which happy-dom doesn't support
+  Element.prototype.animate = vi.fn().mockReturnValue({
+    onfinish: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    cancel: vi.fn(),
+  }) as never;
+});
+
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import { CardDbProvider } from "../../lib/card-db-context.tsx";
 
@@ -136,6 +147,13 @@ afterEach(() => {
   vi.clearAllMocks();
   mockDeckSize.mockReturnValue(40);
 });
+
+function getRowTexts() {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((r) => r.textContent);
+}
 
 describe("CollectionPanel", () => {
   it("renders loading state when data is undefined", () => {
@@ -340,5 +358,117 @@ describe("CollectionPanel", () => {
     );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByTestId("last-added-hint")).toBeDefined();
+  });
+
+  it("preserves entry order by default (no sort active)", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 2, name: "Dark Magician", atk: 2500 }),
+          buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000 }),
+        ],
+      }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+    const rowTexts = getRowTexts();
+    expect(rowTexts).toEqual([
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Blue-Eyes"),
+    ]);
+  });
+
+  it("sorts by ID ascending on first # click, descending on second, off on third", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 5, name: "Mystical Elf", atk: 800 }),
+          buildCollectionEntry({ id: 2, name: "Dark Magician", atk: 2500 }),
+          buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000 }),
+        ],
+      }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    // 1st click: asc
+    fireEvent.click(screen.getByText("#"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Mystical Elf"),
+    ]);
+
+    // 2nd click: desc
+    fireEvent.click(screen.getByText("#"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Mystical Elf"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Blue-Eyes"),
+    ]);
+
+    // 3rd click: off (back to original order)
+    fireEvent.click(screen.getByText("#"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Mystical Elf"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Blue-Eyes"),
+    ]);
+  });
+
+  it("sorts by ATK descending on first click, ascending on second, off on third", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000 }),
+          buildCollectionEntry({ id: 5, name: "Mystical Elf", atk: 800 }),
+          buildCollectionEntry({ id: 2, name: "Dark Magician", atk: 2500 }),
+        ],
+      }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    // 1st click: desc
+    fireEvent.click(screen.getByText("ATK"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Mystical Elf"),
+    ]);
+
+    // 2nd click: asc
+    fireEvent.click(screen.getByText("ATK"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Mystical Elf"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Blue-Eyes"),
+    ]);
+
+    // 3rd click: off (back to original order)
+    fireEvent.click(screen.getByText("ATK"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Mystical Elf"),
+      expect.stringContaining("Dark Magician"),
+    ]);
+  });
+
+  it("switches columns: clicking ATK while sorted by # resets to ATK desc", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({
+        entries: [
+          buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000 }),
+          buildCollectionEntry({ id: 5, name: "Mystical Elf", atk: 800 }),
+          buildCollectionEntry({ id: 2, name: "Dark Magician", atk: 2500 }),
+        ],
+      }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+
+    fireEvent.click(screen.getByText("#"));
+    fireEvent.click(screen.getByText("ATK"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Mystical Elf"),
+    ]);
   });
 });
