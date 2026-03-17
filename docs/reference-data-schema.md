@@ -1,55 +1,38 @@
 # Reference Data Schema
 
-This document freezes the canonical Google Sheets schema for shared reference data used by YFM3.
+This document describes the canonical Google Sheets schema for shared reference data used by YFM3.
 
 ## Tabs
 
 - `Cards`
 - `Fusions`
-- `Meta` (optional; import metadata/log notes)
 
 ## Cards columns
 
-Required headers in reading order:
+Headers used by the sync parser (`syncReferenceData.ts`):
 
-1. `cardId`
-2. `name`
-3. `attack`
-4. `defense`
-5. `kind1`
-6. `kind2`
-7. `source`
-8. `status`
-9. `notes`
+1. `id` — positive integer, globally unique
+2. `name` — non-empty, unique (case-insensitive after trimming)
+3. `attack` — integer >= 0 (rows without attack/defense are skipped as non-monster)
+4. `defense` — integer >= 0
+5. `kind1` — optional card kind
+6. `kind2` — optional card kind
+7. `kind3` — optional card kind
+8. `color` — optional card color
 
-Rules:
-
-- `cardId` must be a positive integer and globally unique.
-- `name` must be non-empty and unique (case-insensitive after trimming).
-- `attack` and `defense` must be integers >= 0.
-- `kind1`/`kind2` are optional, but when present they should match in-game card kind names.
-- `status` must be one of: `confirmed`, `unverified`, `needs_review`.
+Additional columns in the sheet (e.g. `source`, `status`, `notes`) are ignored by the parser.
 
 ## Fusions columns
 
-Required headers in reading order:
+Headers used by the sync parser:
 
-1. `materialA`
-2. `materialB`
-3. `resultName`
-4. `resultAttack`
-5. `resultDefense`
-6. `source`
-7. `status`
-8. `notes`
+1. `materialA` — non-empty card-name reference
+2. `materialB` — non-empty card-name reference
+3. `resultName` — non-empty card-name reference
+4. `resultAttack` — integer >= 0
+5. `resultDefense` — integer >= 0
 
-Rules:
-
-- `materialA` and `materialB` must be non-empty card-name references.
-- Material pairs are normalized in alphabetical order for duplicate checks.
-- `resultName` must be non-empty.
-- `resultAttack` and `resultDefense` must be integers >= 0.
-- `status` must be one of: `confirmed`, `unverified`, `needs_review`.
+Material pairs are normalized in alphabetical order for duplicate checks at the domain layer (`parse-reference-fusions.ts`).
 
 ## Naming rules for card references
 

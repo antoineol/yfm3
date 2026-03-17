@@ -43,13 +43,8 @@ export const replaceReferenceData = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    for (const card of await ctx.db.query("referenceCards").collect()) {
-      await ctx.db.delete(card._id);
-    }
-    for (const fusion of await ctx.db.query("referenceFusions").collect()) {
-      await ctx.db.delete(fusion._id);
-    }
-
+    // Epoch-based replace: insert new rows first, then delete old ones.
+    // If the mutation fails mid-way, old data remains intact.
     for (const card of args.cards) {
       await ctx.db.insert("referenceCards", { ...card, importedAt: now });
     }
@@ -57,11 +52,12 @@ export const replaceReferenceData = internalMutation({
       await ctx.db.insert("referenceFusions", { ...fusion, importedAt: now });
     }
 
-    await ctx.db.insert("referenceImports", {
-      importedAt: now,
-      cardsCount: args.cards.length,
-      fusionsCount: args.fusions.length,
-    });
+    for (const card of await ctx.db.query("referenceCards").collect()) {
+      if (card.importedAt < now) await ctx.db.delete(card._id);
+    }
+    for (const fusion of await ctx.db.query("referenceFusions").collect()) {
+      if (fusion.importedAt < now) await ctx.db.delete(fusion._id);
+    }
 
     return { importedAt: now };
   },

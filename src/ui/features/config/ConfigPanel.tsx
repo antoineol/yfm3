@@ -9,7 +9,6 @@ import { SyncReferenceButton } from "../../components/SyncReferenceButton.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
-import { useFusionTableLoadState } from "../../lib/fusion-table-context.tsx";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 
 export function ConfigPanel() {
@@ -17,7 +16,6 @@ export function ConfigPanel() {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const save = useUpdatePreferences();
-  const loadState = useFusionTableLoadState();
 
   const form = useForm<ConfigFormValues>({
     resolver: zodResolver(configSchema),
@@ -60,9 +58,7 @@ export function ConfigPanel() {
       </Form>
       <div className="flex flex-col gap-2">
         <span className="text-xs text-text-secondary uppercase tracking-wide">Reference Data</span>
-        <p className="text-xs text-text-muted">
-          Source: {loadState === "runtime" ? "Google Sheets (synced)" : "bundled snapshot"}
-        </p>
+        <p className="text-xs text-text-muted">Source: Google Sheets (synced)</p>
         <SyncReferenceButton />
       </div>
     </div>

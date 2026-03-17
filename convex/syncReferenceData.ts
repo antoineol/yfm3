@@ -48,6 +48,10 @@ export const syncFromSheets = action({
   },
 });
 
+// Grid → typed-row parsing (Sheets structure). Domain-level validation
+// (duplicates, name normalization, fusion registration) happens in
+// parse-reference-cards.ts / parse-reference-fusions.ts after Convex stores
+// these intermediate rows.
 function parseCardsGrid(grid: string[][]): CardRow[] {
   const [headerRow = [], ...dataRows] = grid;
   const headers = headerRow.map((h) => h.trim());
