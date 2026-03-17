@@ -86,3 +86,4 @@ Return best deck + exact expected ATK
 | P5.5: Simplify Deck Swap Suggestion (DONE) | [`docs/steps/p6.5-refactor.md`](steps/p6.5-refactor.md) | Keep suggestion worker lifecycle lazy/stable, caller-side availability gating, and resilience to reference-only data churn |
 | P7: Shared Reference Data (DONE) | [`docs/steps/p7-fusion-reference.md`](steps/p7-fusion-reference.md) | Google Sheets as canonical source, shared runtime store, permissions model, and backup snapshots |
 | P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
+| P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |

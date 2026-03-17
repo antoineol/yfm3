@@ -36,3 +36,73 @@ export const replaceReferenceData = internalMutation({
     return { importedAt: now };
   },
 });
+
+// --- Single-row CRUD mutations (called by referenceDataCrud actions) ---
+
+export const insertCard = internalMutation({
+  args: referenceCardFields,
+  handler: async (ctx, args) => {
+    await ctx.db.insert("referenceCards", { ...args, importedAt: Date.now() });
+  },
+});
+
+export const patchCard = internalMutation({
+  args: referenceCardFields,
+  handler: async (ctx, args) => {
+    const doc = await ctx.db
+      .query("referenceCards")
+      .withIndex("by_cardId", (q) => q.eq("cardId", args.cardId))
+      .unique();
+    if (!doc) throw new Error(`Card ${args.cardId} not found in Convex`);
+    await ctx.db.patch(doc._id, { ...args, importedAt: Date.now() });
+  },
+});
+
+export const deleteCard = internalMutation({
+  args: { cardId: v.number() },
+  handler: async (ctx, { cardId }) => {
+    const doc = await ctx.db
+      .query("referenceCards")
+      .withIndex("by_cardId", (q) => q.eq("cardId", cardId))
+      .unique();
+    if (!doc) throw new Error(`Card ${cardId} not found in Convex`);
+    await ctx.db.delete(doc._id);
+  },
+});
+
+export const insertFusion = internalMutation({
+  args: referenceFusionFields,
+  handler: async (ctx, args) => {
+    await ctx.db.insert("referenceFusions", { ...args, importedAt: Date.now() });
+  },
+});
+
+export const patchFusion = internalMutation({
+  args: {
+    ...referenceFusionFields,
+    originalMaterialA: v.string(),
+    originalMaterialB: v.string(),
+  },
+  handler: async (ctx, { originalMaterialA, originalMaterialB, ...fields }) => {
+    const doc = await ctx.db
+      .query("referenceFusions")
+      .withIndex("by_materials", (q) =>
+        q.eq("materialA", originalMaterialA).eq("materialB", originalMaterialB),
+      )
+      .unique();
+    if (!doc) throw new Error(`Fusion ${originalMaterialA} + ${originalMaterialB} not found`);
+    await ctx.db.patch(doc._id, { ...fields, importedAt: Date.now() });
+  },
+});
+
+export const deleteFusion = internalMutation({
+  args: { materialA: v.string(), materialB: v.string() },
+  handler: async (ctx, { materialA, materialB }) => {
+    const doc = await ctx.db
+      .query("referenceFusions")
+      .withIndex("by_materials", (q) => q.eq("materialA", materialA).eq("materialB", materialB))
+      .unique();
+    if (!doc) throw new Error(`Fusion ${materialA} + ${materialB} not found`);
+    await ctx.db.delete(doc._id);
+  },
+});

@@ -34,6 +34,14 @@ export function Header() {
         >
           Hand
         </Tabs.Tab>
+        <Tabs.Tab
+          className={tabClass}
+          nativeButton={false}
+          render={(props) => <a {...props} href="#data" />}
+          value="data"
+        >
+          Data
+        </Tabs.Tab>
         <Tabs.Indicator className="absolute bottom-0 left-0 h-0.75 rounded-full bg-gold transition-all duration-250 ease-out" />
       </Tabs.List>
 

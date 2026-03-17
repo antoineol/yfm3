@@ -11,9 +11,12 @@
 import type * as authHelper from "../authHelper.js";
 import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
+import type * as googleAuth from "../googleAuth.js";
 import type * as hand from "../hand.js";
 import type * as ownedCards from "../ownedCards.js";
 import type * as referenceData from "../referenceData.js";
+import type * as referenceDataCrud from "../referenceDataCrud.js";
+import type * as sheetsWriter from "../sheetsWriter.js";
 import type * as syncReferenceData from "../syncReferenceData.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as utils from "../utils.js";
@@ -28,9 +31,12 @@ declare const fullApi: ApiFromModules<{
   authHelper: typeof authHelper;
   deck: typeof deck;
   deckAggregate: typeof deckAggregate;
+  googleAuth: typeof googleAuth;
   hand: typeof hand;
   ownedCards: typeof ownedCards;
   referenceData: typeof referenceData;
+  referenceDataCrud: typeof referenceDataCrud;
+  sheetsWriter: typeof sheetsWriter;
   syncReferenceData: typeof syncReferenceData;
   userPreferences: typeof userPreferences;
   utils: typeof utils;

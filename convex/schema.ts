@@ -53,8 +53,10 @@ export default defineSchema({
 
 
   // Shared reference data imported from Google Sheets.
-  referenceCards: defineTable({ ...referenceCardFields, importedAt: v.number() }),
-  referenceFusions: defineTable({ ...referenceFusionFields, importedAt: v.number() }),
+  referenceCards: defineTable({ ...referenceCardFields, importedAt: v.number() })
+    .index('by_cardId', ['cardId']),
+  referenceFusions: defineTable({ ...referenceFusionFields, importedAt: v.number() })
+    .index('by_materials', ['materialA', 'materialB']),
   userPreferences: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints

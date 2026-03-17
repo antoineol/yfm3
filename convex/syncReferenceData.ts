@@ -3,6 +3,7 @@
 import { GoogleAuth } from "google-auth-library";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { buildGoogleAuth } from "./googleAuth";
 
 export type SyncResult = { importedAt: number; skipped: boolean };
 
@@ -33,19 +34,6 @@ export const syncFromSheets = action({
     return { ...result, skipped: false };
   },
 });
-
-function buildGoogleAuth(): GoogleAuth {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
-  const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
-  if (!email || !key) throw new Error("Missing Google service account credentials");
-  return new GoogleAuth({
-    credentials: { client_email: email, private_key: key },
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets.readonly",
-      "https://www.googleapis.com/auth/drive.metadata.readonly",
-    ],
-  });
-}
 
 async function fetchSpreadsheetModifiedTime(spreadsheetId: string, auth: GoogleAuth): Promise<number> {
   const client = await auth.getClient();

@@ -5,12 +5,13 @@ import { PanelCard } from "./components/panel-chrome.tsx";
 import { Header } from "./features/auth/Header.tsx";
 import { SignIn } from "./features/auth/SignIn.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
+import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
-const TABS = ["deck", "hand"] as const;
+const TABS = ["deck", "hand", "data"] as const;
 
 export default function App() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -49,6 +50,10 @@ export default function App() {
 
       <Tabs.Panel className="flex-1 px-3 pt-4 pb-6 overflow-y-auto" value="hand">
         <HandFusionCalculator />
+      </Tabs.Panel>
+
+      <Tabs.Panel className="flex-1 px-3 pt-2 pb-3 overflow-y-auto" value="data">
+        <DataPanel />
       </Tabs.Panel>
     </Tabs.Root>
   );
