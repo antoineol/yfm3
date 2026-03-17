@@ -31,7 +31,7 @@ export function CollectionPanel() {
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
-  const [sort, setSort] = useState<SortState>(null);
+  const [sort, setSort] = useState<SortState>({ key: "id", dir: "asc" });
 
   const handleSortChange = useCallback((key: SortKey) => {
     setSort((prev) => {

@@ -360,7 +360,7 @@ describe("CollectionPanel", () => {
     expect(screen.getByTestId("last-added-hint")).toBeDefined();
   });
 
-  it("preserves entry order by default (no sort active)", () => {
+  it("sorts by ID ascending by default", () => {
     mockUseCollectionViewModel.mockReturnValue(
       buildCollectionViewModel({
         entries: [
@@ -372,12 +372,12 @@ describe("CollectionPanel", () => {
     render(<CollectionPanel />, { wrapper: Wrapper });
     const rowTexts = getRowTexts();
     expect(rowTexts).toEqual([
-      expect.stringContaining("Dark Magician"),
       expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Dark Magician"),
     ]);
   });
 
-  it("sorts by ID ascending on first # click, descending on second, off on third", () => {
+  it("cycles # sort: default asc, click → desc, click → off, click → asc", () => {
     mockUseCollectionViewModel.mockReturnValue(
       buildCollectionViewModel({
         entries: [
@@ -389,15 +389,7 @@ describe("CollectionPanel", () => {
     );
     render(<CollectionPanel />, { wrapper: Wrapper });
 
-    // 1st click: asc
-    fireEvent.click(screen.getByText("#"));
-    expect(getRowTexts()).toEqual([
-      expect.stringContaining("Blue-Eyes"),
-      expect.stringContaining("Dark Magician"),
-      expect.stringContaining("Mystical Elf"),
-    ]);
-
-    // 2nd click: desc
+    // 1st click: desc
     fireEvent.click(screen.getByText("#"));
     expect(getRowTexts()).toEqual([
       expect.stringContaining("Mystical Elf"),
@@ -405,12 +397,20 @@ describe("CollectionPanel", () => {
       expect.stringContaining("Blue-Eyes"),
     ]);
 
-    // 3rd click: off (back to original order)
+    // 2nd click: off (original entry order)
     fireEvent.click(screen.getByText("#"));
     expect(getRowTexts()).toEqual([
       expect.stringContaining("Mystical Elf"),
       expect.stringContaining("Dark Magician"),
       expect.stringContaining("Blue-Eyes"),
+    ]);
+
+    // 3rd click: asc again
+    fireEvent.click(screen.getByText("#"));
+    expect(getRowTexts()).toEqual([
+      expect.stringContaining("Blue-Eyes"),
+      expect.stringContaining("Dark Magician"),
+      expect.stringContaining("Mystical Elf"),
     ]);
   });
 
