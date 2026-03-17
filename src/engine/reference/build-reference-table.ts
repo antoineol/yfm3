@@ -12,30 +12,31 @@ export interface ReferenceTableData {
   maxCardId: number;
 }
 
+interface RefCard {
+  cardId: number;
+  name: string;
+  attack: number;
+  defense: number;
+  kind1?: string;
+  kind2?: string;
+  kind3?: string;
+  color?: string;
+}
+interface RefFusion {
+  materialA: string;
+  materialB: string;
+  resultName: string;
+  resultAttack: number;
+  resultDefense: number;
+}
+
 export function buildReferenceTableData(rows: {
-  cards: {
-    cardId: number;
-    name: string;
-    attack: number;
-    defense: number;
-    kind1?: string;
-    kind2?: string;
-    kind3?: string;
-    color?: string;
-  }[];
-  fusions: {
-    materialA: string;
-    materialB: string;
-    resultName: string;
-    resultAttack: number;
-    resultDefense: number;
-  }[];
+  cards: RefCard[];
+  fusions: RefFusion[];
 }): ReferenceTableData {
   const cardDb = createCardDb();
   for (const c of rows.cards) {
-    if (c.cardId < 1 || c.cardId >= MAX_CARD_ID) {
-      throw new Error(`cardId ${c.cardId} out of range [1, ${MAX_CARD_ID})`);
-    }
+    if (c.cardId < 1 || c.cardId >= MAX_CARD_ID) throw new Error(`cardId ${c.cardId} out of range`);
     const color = c.color?.toLowerCase();
     addCard(cardDb, {
       id: c.cardId,
@@ -80,7 +81,6 @@ export function buildReferenceTableData(rows: {
   const fusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
   fusionTable.fill(FUSION_NONE);
   buildFusionTable(cardDb.cards, fusions, fusionTable, cardAtk);
-
   return { fusionTable, cardAtk, cardDb, maxCardId: MAX_CARD_ID };
 }
 

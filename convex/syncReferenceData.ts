@@ -25,7 +25,6 @@ async function fetchSheetValues(spreadsheetId: string, range: string): Promise<s
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
   const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
   if (!email || !key) throw new Error("Missing Google service account credentials");
-
   const auth = new GoogleAuth({
     credentials: { client_email: email, private_key: key },
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
@@ -36,71 +35,65 @@ async function fetchSheetValues(spreadsheetId: string, range: string): Promise<s
   return res.data.values ?? [];
 }
 
-// --- Grid parsing helpers ---
+// --- Grid parsing: cell helpers then flat parsers ---
 
-function norm(s: string): string {
-  return s.trim().replace(/\s+/g, " ");
+function cell(row: string[], headers: string[], col: string): string {
+  return row[headers.indexOf(col)]?.trim() ?? "";
 }
 
-function cellStr(get: (col: string) => string, ln: number, col: string): string {
-  const v = norm(get(col));
+function str(row: string[], headers: string[], col: string, ln: number): string {
+  const v = cell(row, headers, col).replace(/\s+/g, " ");
   if (!v) throw new Error(`Row ${ln}: missing ${col}`);
   return v;
 }
 
-function cellInt(get: (col: string) => string, ln: number, col: string): number {
-  const v = Number.parseInt(get(col), 10);
+function int(row: string[], headers: string[], col: string, ln: number): number {
+  const v = Number.parseInt(cell(row, headers, col), 10);
   if (Number.isNaN(v)) throw new Error(`Row ${ln}: invalid ${col}`);
   return v;
 }
 
-// --- Parsers ---
-
-function parseCardsGrid(grid: string[][]) {
+/** @internal exported for tests */
+export function parseCardsGrid(grid: string[][]) {
   const [headerRow = [], ...rows] = grid;
-  const headers = headerRow.map((h) => h.trim());
+  const h = headerRow.map((v) => v.trim());
   const seenIds = new Set<number>();
   const seenNames = new Set<string>();
-
-  return rows.flatMap((row, i) => {
-    const ln = i + 2;
-    if (!row.some((c) => c.trim())) return [];
-    const get = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
-
-    if (!get("id")) return []; // skip rows without an assigned id
-    const cardId = cellInt(get, ln, "id");
+  const cards = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!, ln = i + 2;
+    if (!r.some((c) => c.trim())) continue;
+    if (!cell(r, h, "id")) continue;
+    const cardId = int(r, h, "id", ln);
     if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
     seenIds.add(cardId);
-
-    const name = cellStr(get, ln, "name");
+    const name = str(r, h, "name", ln);
     if (seenNames.has(name.toLowerCase())) throw new Error(`Row ${ln}: duplicate name "${name}"`);
     seenNames.add(name.toLowerCase());
-
-    if (!get("attack") || !get("defense")) return []; // skip non-monsters
-    return [{
-      cardId, name, attack: cellInt(get, ln, "attack"), defense: cellInt(get, ln, "defense"),
-      kind1: norm(get("kind1")) || undefined,
-      kind2: norm(get("kind2")) || undefined,
-      kind3: norm(get("kind3")) || undefined,
-      color: get("color").toLowerCase() || undefined,
-    }];
-  });
+    if (!cell(r, h, "attack") || !cell(r, h, "defense")) continue;
+    const opt = (col: string) => cell(r, h, col).replace(/\s+/g, " ") || undefined;
+    cards.push({
+      cardId, name, attack: int(r, h, "attack", ln), defense: int(r, h, "defense", ln),
+      kind1: opt("kind1"), kind2: opt("kind2"), kind3: opt("kind3"),
+      color: cell(r, h, "color").toLowerCase() || undefined,
+    });
+  }
+  return cards;
 }
 
-function parseFusionsGrid(grid: string[][]) {
+/** @internal exported for tests */
+export function parseFusionsGrid(grid: string[][]) {
   const [headerRow = [], ...rows] = grid;
-  const headers = headerRow.map((h) => h.trim());
-
-  return rows.flatMap((row, i) => {
-    const ln = i + 2;
-    if (!row.some((c) => c.trim())) return [];
-    const get = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
-    return [{
-      materialA: cellStr(get, ln, "materialA"),
-      materialB: cellStr(get, ln, "materialB"),
-      resultName: cellStr(get, ln, "resultName"),
-      resultAttack: cellInt(get, ln, "resultAttack"),
-      resultDefense: cellInt(get, ln, "resultDefense"),
-    }];
-  });
+  const h = headerRow.map((v) => v.trim());
+  const fusions = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!, ln = i + 2;
+    if (!r.some((c) => c.trim())) continue;
+    fusions.push({
+      materialA: str(r, h, "materialA", ln), materialB: str(r, h, "materialB", ln),
+      resultName: str(r, h, "resultName", ln),
+      resultAttack: int(r, h, "resultAttack", ln), resultDefense: int(r, h, "resultDefense", ln),
+    });
+  }
+  return fusions;
 }
