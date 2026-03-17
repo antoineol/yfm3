@@ -13,6 +13,7 @@ import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as googleAuth from "../googleAuth.js";
 import type * as hand from "../hand.js";
+import type * as importExport from "../importExport.js";
 import type * as ownedCards from "../ownedCards.js";
 import type * as referenceData from "../referenceData.js";
 import type * as referenceDataCrud from "../referenceDataCrud.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   deckAggregate: typeof deckAggregate;
   googleAuth: typeof googleAuth;
   hand: typeof hand;
+  importExport: typeof importExport;
   ownedCards: typeof ownedCards;
   referenceData: typeof referenceData;
   referenceDataCrud: typeof referenceDataCrud;

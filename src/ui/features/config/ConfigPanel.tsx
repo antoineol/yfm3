@@ -5,12 +5,17 @@ import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Form } from "../../components/Form.tsx";
 import { Input } from "../../components/Input.tsx";
+import { ImportExportButtons } from "./ImportExportButtons.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 
-export function ConfigPanel() {
+interface ConfigPanelProps {
+  onClose: () => void;
+}
+
+export function ConfigPanel({ onClose }: ConfigPanelProps) {
   const isOptimizing = useAtomValue(isOptimizingAtom);
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
@@ -38,22 +43,26 @@ export function ConfigPanel() {
   };
 
   return (
-    <Form form={form} onSubmit={saveWithToast}>
-      <div className="grid grid-cols-2 gap-4">
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Deck size"
-          name="deckSize"
-          onBlur={submitOnBlur}
-        />
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Fusion depth"
-          name="fusionDepth"
-          onBlur={submitOnBlur}
-        />
-      </div>
-    </Form>
+    <>
+      <Form form={form} onSubmit={saveWithToast}>
+        <div className="grid grid-cols-2 gap-4">
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Deck size"
+            name="deckSize"
+            onBlur={submitOnBlur}
+          />
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Fusion depth"
+            name="fusionDepth"
+            onBlur={submitOnBlur}
+          />
+        </div>
+      </Form>
+      <hr className="my-4 border-border-subtle" />
+      <ImportExportButtons onImportDone={onClose} />
+    </>
   );
 }
 
