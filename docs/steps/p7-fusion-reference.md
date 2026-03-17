@@ -287,18 +287,11 @@ This step is complete when:
 
 Once the shared dataset exists, the next logical feature is a lightweight admin or review surface for recent discoveries and validation status, not a public fusion browser. That UI should be built on top of this data pipeline instead of inventing another storage path. Only after that should we consider widening the runtime model beyond the current monster-only fusion scope.
 
-## Files Changed or Created
+## Implementation Status (Final)
 
-| Action | File |
-|--------|------|
-| Create | `docs/reference-data-schema.md` |
-| Create | `src/shared/reference-data-config.ts` |
-| Create or port | `src/server/reference/google-sheets-client.ts` |
-| Modify | `convex/schema.ts` |
-| Create | `convex/referenceData.ts` |
-| Create | `src/engine/reference/load-reference-csv.ts` |
-| Create | `src/engine/reference/parse-reference-cards.ts` |
-| Create | `src/engine/reference/parse-reference-fusions.ts` |
-| Modify | `src/ui/lib/fusion-table-context.tsx` |
-| Create | `scripts/sync-reference-data.ts` |
-| Create | `src/engine/reference/load-reference-csv.test.ts` |
+- ✅ `convex/schema.ts` — referenceCards + referenceFusions tables.
+- ✅ `convex/referenceData.ts` — query + transactional replace mutation.
+- ✅ `convex/syncReferenceData.ts` — Sheets fetch via google-auth-library, grid parsing with validation.
+- ✅ `src/engine/reference/build-reference-table.ts` — CardDb + fusion table from Convex rows.
+- ✅ `src/ui/lib/fusion-table-context.tsx` — reads Convex data, ref-cached on importedAt.
+- ✅ Sync button in `ConfigPanel.tsx`.

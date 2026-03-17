@@ -1,0 +1,99 @@
+"use node";
+
+import { GoogleAuth } from "google-auth-library";
+import { action } from "./_generated/server";
+import { internal } from "./_generated/api";
+
+export const syncFromSheets = action({
+  args: {},
+  handler: async (ctx): Promise<{ importedAt: number }> => {
+    const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE ?? "";
+    if (!spreadsheetId) throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE");
+    const [cardsGrid, fusionsGrid] = await Promise.all([
+      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
+      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
+    ]);
+    const cards = parseCardsGrid(cardsGrid);
+    const fusions = parseFusionsGrid(fusionsGrid);
+    if (cards.length === 0) throw new Error("Parsed zero cards — check sheet column headers");
+    if (fusions.length === 0) throw new Error("Parsed zero fusions — check sheet column headers");
+    return await ctx.runMutation(internal.referenceData.replaceReferenceData, { cards, fusions });
+  },
+});
+
+async function fetchSheetValues(spreadsheetId: string, range: string): Promise<string[][]> {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
+  const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
+  if (!email || !key) throw new Error("Missing Google service account credentials");
+  const auth = new GoogleAuth({
+    credentials: { client_email: email, private_key: key },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+  const client = await auth.getClient();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+  const res = await client.request<{ values?: string[][] }>({ url });
+  return res.data.values ?? [];
+}
+
+// --- Grid parsing: cell helpers then flat parsers ---
+
+function cell(row: string[], headers: string[], col: string): string {
+  return row[headers.indexOf(col)]?.trim() ?? "";
+}
+
+function str(row: string[], headers: string[], col: string, ln: number): string {
+  const v = cell(row, headers, col).replace(/\s+/g, " ");
+  if (!v) throw new Error(`Row ${ln}: missing ${col}`);
+  return v;
+}
+
+function int(row: string[], headers: string[], col: string, ln: number): number {
+  const v = Number.parseInt(cell(row, headers, col), 10);
+  if (Number.isNaN(v)) throw new Error(`Row ${ln}: invalid ${col}`);
+  return v;
+}
+
+/** @internal exported for tests */
+export function parseCardsGrid(grid: string[][]) {
+  const [headerRow = [], ...rows] = grid;
+  const h = headerRow.map((v) => v.trim());
+  const seenIds = new Set<number>();
+  const seenNames = new Set<string>();
+  const cards = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!, ln = i + 2;
+    if (!r.some((c) => c.trim())) continue;
+    if (!cell(r, h, "id")) continue;
+    const cardId = int(r, h, "id", ln);
+    if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
+    seenIds.add(cardId);
+    const name = str(r, h, "name", ln);
+    if (seenNames.has(name.toLowerCase())) throw new Error(`Row ${ln}: duplicate name "${name}"`);
+    seenNames.add(name.toLowerCase());
+    if (!cell(r, h, "attack") || !cell(r, h, "defense")) continue;
+    const opt = (col: string) => cell(r, h, col).replace(/\s+/g, " ") || undefined;
+    cards.push({
+      cardId, name, attack: int(r, h, "attack", ln), defense: int(r, h, "defense", ln),
+      kind1: opt("kind1"), kind2: opt("kind2"), kind3: opt("kind3"),
+      color: cell(r, h, "color").toLowerCase() || undefined,
+    });
+  }
+  return cards;
+}
+
+/** @internal exported for tests */
+export function parseFusionsGrid(grid: string[][]) {
+  const [headerRow = [], ...rows] = grid;
+  const h = headerRow.map((v) => v.trim());
+  const fusions = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!, ln = i + 2;
+    if (!r.some((c) => c.trim())) continue;
+    fusions.push({
+      materialA: str(r, h, "materialA", ln), materialB: str(r, h, "materialB", ln),
+      resultName: str(r, h, "resultName", ln),
+      resultAttack: int(r, h, "resultAttack", ln), resultDefense: int(r, h, "resultDefense", ln),
+    });
+  }
+  return fusions;
+}

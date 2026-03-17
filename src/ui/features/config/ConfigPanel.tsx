@@ -1,8 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAction } from "convex/react";
 import { useAtomValue } from "jotai";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
+import { api } from "../../../../convex/_generated/api";
+import { Button } from "../../components/Button.tsx";
 import { Form } from "../../components/Form.tsx";
 import { Input } from "../../components/Input.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
@@ -15,6 +18,8 @@ export function ConfigPanel() {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const save = useUpdatePreferences();
+  const sync = useAction(api.syncReferenceData.syncFromSheets);
+  const [syncing, setSyncing] = useState(false);
 
   const form = useForm<ConfigFormValues>({
     resolver: zodResolver(configSchema),
@@ -37,23 +42,43 @@ export function ConfigPanel() {
     void form.handleSubmit(saveWithToast)();
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await sync({});
+      toast.success("Reference data synced");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
-    <Form form={form} onSubmit={saveWithToast}>
-      <div className="grid grid-cols-2 gap-4">
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Deck size"
-          name="deckSize"
-          onBlur={submitOnBlur}
-        />
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Fusion depth"
-          name="fusionDepth"
-          onBlur={submitOnBlur}
-        />
+    <div className="flex flex-col gap-6">
+      <Form form={form} onSubmit={saveWithToast}>
+        <div className="grid grid-cols-2 gap-4">
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Deck size"
+            name="deckSize"
+            onBlur={submitOnBlur}
+          />
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Fusion depth"
+            name="fusionDepth"
+            onBlur={submitOnBlur}
+          />
+        </div>
+      </Form>
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-text-secondary uppercase tracking-wide">Reference Data</span>
+        <Button disabled={syncing} onClick={handleSync} size="sm" variant="outline">
+          {syncing ? "Syncing\u2026" : "Sync from Google Sheets"}
+        </Button>
       </div>
-    </Form>
+    </div>
   );
 }
 
@@ -69,7 +94,6 @@ export function ConfigInput({ name, label, disabled, onBlur }: ConfigInputProps)
     register,
     formState: { errors },
   } = useFormContext<ConfigFormValues>();
-
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs text-text-secondary uppercase tracking-wide">{label}</span>

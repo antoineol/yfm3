@@ -13,6 +13,8 @@ import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as hand from "../hand.js";
 import type * as ownedCards from "../ownedCards.js";
+import type * as referenceData from "../referenceData.js";
+import type * as syncReferenceData from "../syncReferenceData.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as utils from "../utils.js";
 
@@ -28,6 +30,8 @@ declare const fullApi: ApiFromModules<{
   deckAggregate: typeof deckAggregate;
   hand: typeof hand;
   ownedCards: typeof ownedCards;
+  referenceData: typeof referenceData;
+  syncReferenceData: typeof syncReferenceData;
   userPreferences: typeof userPreferences;
   utils: typeof utils;
 }>;
