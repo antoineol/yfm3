@@ -4,15 +4,6 @@ import { GoogleAuth } from "google-auth-library";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-type CardRow = {
-  cardId: number; name: string; attack: number; defense: number;
-  kind1?: string; kind2?: string; kind3?: string; color?: string;
-};
-type FusionRow = {
-  materialA: string; materialB: string; resultName: string;
-  resultAttack: number; resultDefense: number;
-};
-
 export const syncFromSheets = action({
   args: {},
   handler: async (ctx): Promise<{ importedAt: number }> => {
@@ -45,67 +36,75 @@ async function fetchSheetValues(spreadsheetId: string, range: string): Promise<s
   return res.data.values ?? [];
 }
 
-// --- Grid parsing (validates + normalizes for Convex storage) ---
+// --- Grid parsing ---
 
 function norm(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
-function parseCardsGrid(grid: string[][]): CardRow[] {
+interface RowReader {
+  /** Trimmed raw cell value, "" if column missing. */
+  raw: (col: string) => string;
+  /** Normalized string, throws if empty. */
+  str: (col: string) => string;
+  /** Parsed integer, throws if missing or NaN. */
+  int: (col: string) => number;
+  /** 1-based sheet row number. */
+  ln: number;
+}
+
+function parseGrid<T>(grid: string[][], parseRow: (r: RowReader) => T | null): T[] {
   const [headerRow = [], ...rows] = grid;
   const headers = headerRow.map((h) => h.trim());
-  const get = (row: string[], name: string) => row[headers.indexOf(name)]?.trim() ?? "";
-  const seenIds = new Set<number>();
-  const seenNames = new Set<string>();
-
   return rows.flatMap((row, i) => {
     const ln = i + 2;
     if (!row.some((c) => c.trim())) return [];
-    const idStr = get(row, "id");
-    if (!idStr) return [];
-    const cardId = Number.parseInt(idStr, 10);
-    if (Number.isNaN(cardId)) throw new Error(`Row ${ln}: invalid id "${idStr}"`);
-    if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
-    seenIds.add(cardId);
-
-    const name = norm(get(row, "name"));
-    if (!name) throw new Error(`Row ${ln}: missing name`);
-    const lower = name.toLowerCase();
-    if (seenNames.has(lower)) throw new Error(`Row ${ln}: duplicate name "${name}"`);
-    seenNames.add(lower);
-
-    const attack = Number.parseInt(get(row, "attack"), 10);
-    const defense = Number.parseInt(get(row, "defense"), 10);
-    if (Number.isNaN(attack) || Number.isNaN(defense)) return [];
-
-    return [{
-      cardId, name, attack, defense,
-      kind1: norm(get(row, "kind1")) || undefined,
-      kind2: norm(get(row, "kind2")) || undefined,
-      kind3: norm(get(row, "kind3")) || undefined,
-      color: get(row, "color").toLowerCase() || undefined,
-    }];
+    const raw = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
+    const str = (col: string) => {
+      const v = norm(raw(col));
+      if (!v) throw new Error(`Row ${ln}: missing ${col}`);
+      return v;
+    };
+    const int = (col: string) => {
+      const v = Number.parseInt(raw(col), 10);
+      if (Number.isNaN(v)) throw new Error(`Row ${ln}: invalid ${col}`);
+      return v;
+    };
+    const result = parseRow({ raw, str, int, ln });
+    return result ? [result] : [];
   });
 }
 
-function parseFusionsGrid(grid: string[][]): FusionRow[] {
-  const [headerRow = [], ...rows] = grid;
-  const headers = headerRow.map((h) => h.trim());
-  const get = (row: string[], name: string) => row[headers.indexOf(name)]?.trim() ?? "";
+function parseCardsGrid(grid: string[][]) {
+  const seenIds = new Set<number>();
+  const seenNames = new Set<string>();
+  return parseGrid(grid, ({ raw, str, int, ln }) => {
+    if (!raw("id")) return null; // skip rows without an assigned id
+    const cardId = int("id");
+    if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
+    seenIds.add(cardId);
 
-  return rows.flatMap((row, i) => {
-    const ln = i + 2;
-    if (!row.some((c) => c.trim())) return [];
-    const materialA = norm(get(row, "materialA"));
-    if (!materialA) throw new Error(`Row ${ln}: missing materialA`);
-    const materialB = norm(get(row, "materialB"));
-    if (!materialB) throw new Error(`Row ${ln}: missing materialB`);
-    const resultName = norm(get(row, "resultName"));
-    if (!resultName) throw new Error(`Row ${ln}: missing resultName`);
-    const resultAttack = Number.parseInt(get(row, "resultAttack"), 10);
-    if (Number.isNaN(resultAttack)) throw new Error(`Row ${ln}: invalid resultAttack`);
-    const resultDefense = Number.parseInt(get(row, "resultDefense"), 10);
-    if (Number.isNaN(resultDefense)) throw new Error(`Row ${ln}: invalid resultDefense`);
-    return [{ materialA, materialB, resultName, resultAttack, resultDefense }];
+    const name = str("name");
+    if (seenNames.has(name.toLowerCase())) throw new Error(`Row ${ln}: duplicate name "${name}"`);
+    seenNames.add(name.toLowerCase());
+
+    if (!raw("attack") || !raw("defense")) return null; // skip non-monsters
+    return {
+      cardId, name, attack: int("attack"), defense: int("defense"),
+      kind1: norm(raw("kind1")) || undefined,
+      kind2: norm(raw("kind2")) || undefined,
+      kind3: norm(raw("kind3")) || undefined,
+      color: raw("color").toLowerCase() || undefined,
+    };
   });
+}
+
+function parseFusionsGrid(grid: string[][]) {
+  return parseGrid(grid, ({ str, int }) => ({
+    materialA: str("materialA"),
+    materialB: str("materialB"),
+    resultName: str("resultName"),
+    resultAttack: int("resultAttack"),
+    resultDefense: int("resultDefense"),
+  }));
 }
