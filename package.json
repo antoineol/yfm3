@@ -16,8 +16,7 @@
     "lint": "biome check . --fix",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc -b",
-    "gen:ref": "bun run scripts/generate-fixtures.ts",
-    "sync:reference": "bun run scripts/sync-reference-data.ts"
+    "gen:ref": "bun run scripts/generate-fixtures.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

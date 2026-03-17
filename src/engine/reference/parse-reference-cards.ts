@@ -1,5 +1,6 @@
+import type { Color } from "../data/card-model.ts";
 import { addCard, type CardDb, createCardDb } from "../data/game-db.ts";
-import { cardKinds } from "../data/rp-types.ts";
+import { cardKinds, colors } from "../data/rp-types.ts";
 
 export interface ReferenceCardRow {
   cardId: number;
@@ -8,6 +9,8 @@ export interface ReferenceCardRow {
   defense: number;
   kind1?: string;
   kind2?: string;
+  kind3?: string;
+  color?: string;
 }
 
 export function parseReferenceCards(rows: ReferenceCardRow[]): CardDb {
@@ -26,15 +29,17 @@ export function parseReferenceCards(rows: ReferenceCardRow[]): CardDb {
     seenIds.add(row.cardId);
     seenNames.add(normalizedName);
 
+    const color = row.color?.trim().toLowerCase();
     addCard(cardDb, {
       id: row.cardId,
       name: normalizeName(row.name),
       attack: row.attack,
       defense: row.defense,
-      kinds: [row.kind1, row.kind2]
+      kinds: [row.kind1, row.kind2, row.kind3]
         .filter((v): v is string => Boolean(v))
         .map(normalizeName)
         .filter(isCardKind),
+      ...(color && isColor(color) ? { color } : {}),
     });
   }
 
@@ -47,4 +52,8 @@ function normalizeName(name: string): string {
 
 function isCardKind(value: string): value is (typeof cardKinds)[number] {
   return (cardKinds as readonly string[]).includes(value);
+}
+
+function isColor(value: string): value is Color {
+  return (colors as readonly string[]).includes(value);
 }

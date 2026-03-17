@@ -41,9 +41,8 @@ export default defineSchema({
     defense: v.number(),
     kind1: v.optional(v.string()),
     kind2: v.optional(v.string()),
-    source: v.optional(v.string()),
-    status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
-    notes: v.optional(v.string()),
+    kind3: v.optional(v.string()),
+    color: v.optional(v.string()),
     importedAt: v.number(),
   })
     .index("by_card_id", ["cardId"])
@@ -55,9 +54,6 @@ export default defineSchema({
     resultName: v.string(),
     resultAttack: v.number(),
     resultDefense: v.number(),
-    source: v.optional(v.string()),
-    status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
-    notes: v.optional(v.string()),
     importedAt: v.number(),
   }).index("by_materials", ["materialA", "materialB"]),
 

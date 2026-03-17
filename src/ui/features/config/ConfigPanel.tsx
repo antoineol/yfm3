@@ -5,9 +5,11 @@ import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Form } from "../../components/Form.tsx";
 import { Input } from "../../components/Input.tsx";
+import { SyncReferenceButton } from "../../components/SyncReferenceButton.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
+import { useFusionTableLoadState } from "../../lib/fusion-table-context.tsx";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 
 export function ConfigPanel() {
@@ -15,6 +17,7 @@ export function ConfigPanel() {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const save = useUpdatePreferences();
+  const loadState = useFusionTableLoadState();
 
   const form = useForm<ConfigFormValues>({
     resolver: zodResolver(configSchema),
@@ -38,22 +41,31 @@ export function ConfigPanel() {
   };
 
   return (
-    <Form form={form} onSubmit={saveWithToast}>
-      <div className="grid grid-cols-2 gap-4">
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Deck size"
-          name="deckSize"
-          onBlur={submitOnBlur}
-        />
-        <ConfigInput
-          disabled={isOptimizing}
-          label="Fusion depth"
-          name="fusionDepth"
-          onBlur={submitOnBlur}
-        />
+    <div className="flex flex-col gap-6">
+      <Form form={form} onSubmit={saveWithToast}>
+        <div className="grid grid-cols-2 gap-4">
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Deck size"
+            name="deckSize"
+            onBlur={submitOnBlur}
+          />
+          <ConfigInput
+            disabled={isOptimizing}
+            label="Fusion depth"
+            name="fusionDepth"
+            onBlur={submitOnBlur}
+          />
+        </div>
+      </Form>
+      <div className="flex flex-col gap-2">
+        <span className="text-xs text-text-secondary uppercase tracking-wide">Reference Data</span>
+        <p className="text-xs text-text-muted">
+          Source: {loadState === "runtime" ? "Google Sheets (synced)" : "bundled snapshot"}
+        </p>
+        <SyncReferenceButton />
       </div>
-    </Form>
+    </div>
   );
 }
 

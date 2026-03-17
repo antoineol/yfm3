@@ -304,21 +304,14 @@ Once the shared dataset exists, the next logical feature is a lightweight admin 
 | Create | `src/engine/reference/load-reference-csv.test.ts` |
 
 
-## Implementation Status (Updated)
+## Implementation Status (Final)
 
 - ✅ Added reference schema documentation in `docs/reference-data-schema.md`.
-- ✅ Added shared config in `src/shared/reference-data-config.ts`.
+- ✅ Added shared config in `src/shared/reference-data-config.ts` (simplified — no filesystem paths).
 - ✅ Added Google Sheets service-account reader in `src/server/reference/google-sheets-client.ts`.
-- ✅ Added shared runtime tables and import/query functions via `convex/schema.ts` and `convex/referenceData.ts`.
-- ✅ Added reference parsing/loading pipeline in `src/engine/reference/*`.
-- ✅ Integrated `FusionTableContext` with runtime reference query + snapshot fallback.
-- ✅ Added snapshot sync script in `scripts/sync-reference-data.ts`.
-- ✅ Added loader tests in `src/engine/reference/load-reference-csv.test.ts`.
-
-### Current Step
-
-- Runtime reference reads are wired through `convex/referenceData.getReferenceData` with CSV fallback still available.
-
-### Next Step
-
-- Hook the sync/import command to call `replaceReferenceData` so sheet updates can populate Convex tables in one command.
+- ✅ Added shared runtime tables via `convex/schema.ts`; `replaceReferenceData` is an `internalMutation`.
+- ✅ Added Convex action `convex/syncReferenceData.ts` (Node.js runtime) that fetches from Google Sheets and calls `replaceReferenceData` — triggered from the UI, no bun script.
+- ✅ Added reference parsing/building pipeline in `src/engine/reference/build-reference-table.ts` (no CSV I/O).
+- ✅ Integrated `FusionTableContext` with `api.referenceData.getReferenceData` (direct, no cast) + legacy CSV snapshot fallback.
+- ✅ Added `SyncReferenceButton` UI component in `src/ui/components/SyncReferenceButton.tsx`.
+- ✅ Added tests in `src/engine/reference/build-reference-table.test.ts`.

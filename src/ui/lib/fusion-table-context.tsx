@@ -7,10 +7,7 @@ import { buildFusionTable } from "../../engine/data/build-fusion-table.ts";
 import { addCard, type CardDb } from "../../engine/data/game-db.ts";
 import { parseReferenceCardsCsv } from "../../engine/data/parse-cards.ts";
 import { parseFusionCsv } from "../../engine/data/parse-fusions.ts";
-import {
-  buildReferenceTableData,
-  type ReferenceDataRows,
-} from "../../engine/reference/load-reference-csv.ts";
+import { buildReferenceTableData } from "../../engine/reference/build-reference-table.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../../engine/types/constants.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
 
@@ -27,15 +24,9 @@ interface FusionTableContextValue {
 }
 
 /**
- * Build the fusion table and cardAtk arrays from CSV data.
- * Mirrors the data-loading path in load-game-data-core.ts but without
- * the full OptBuffers allocation (only fusionTable + cardAtk are needed).
+ * Build the fusion table from the legacy bundled CSV files (snapshot fallback).
  */
-export function buildFusionTableData(rows?: ReferenceDataRows): FusionTableData {
-  if (rows) {
-    return buildReferenceTableData(rows);
-  }
-
+export function buildFusionTableData(): FusionTableData {
   const { monsterCardDb, nonMonsterMaterialNames } = parseReferenceCardsCsv(cardsCsvRaw);
   const fusionDb = parseFusionCsv(fusionsCsvRaw);
   registerFusionOnlyCards(monsterCardDb, fusionDb.fusions);
@@ -99,17 +90,15 @@ function registerFusionOnlyCards(
 const FusionTableContext = createContext<FusionTableContextValue | null>(null);
 
 export function FusionTableProvider({ children }: { children: ReactNode }) {
-  const referenceQuery = (api as Record<string, { getReferenceData?: unknown }>).referenceData
-    ?.getReferenceData as Parameters<typeof useQuery>[0] | undefined;
-  const referenceData = useQuery(
-    referenceQuery ?? ({} as Parameters<typeof useQuery>[0]),
-    referenceQuery ? {} : "skip",
-  );
+  const referenceData = useQuery(api.referenceData.getReferenceData);
 
   const contextValue = useMemo<FusionTableContextValue>(() => {
     if (referenceData && referenceData.cards.length > 0 && referenceData.fusions.length > 0) {
       return {
-        data: buildFusionTableData({ cards: referenceData.cards, fusions: referenceData.fusions }),
+        data: buildReferenceTableData({
+          cards: referenceData.cards,
+          fusions: referenceData.fusions,
+        }),
         loadState: "runtime",
       };
     }

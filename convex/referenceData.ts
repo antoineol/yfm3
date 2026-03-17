@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 
 export const getReferenceData = query({
   args: {},
@@ -16,7 +16,7 @@ export const getReferenceData = query({
   },
 });
 
-export const replaceReferenceData = mutation({
+export const replaceReferenceData = internalMutation({
   args: {
     cards: v.array(
       v.object({
@@ -26,9 +26,8 @@ export const replaceReferenceData = mutation({
         defense: v.number(),
         kind1: v.optional(v.string()),
         kind2: v.optional(v.string()),
-        source: v.optional(v.string()),
-        status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
-        notes: v.optional(v.string()),
+        kind3: v.optional(v.string()),
+        color: v.optional(v.string()),
       }),
     ),
     fusions: v.array(
@@ -38,9 +37,6 @@ export const replaceReferenceData = mutation({
         resultName: v.string(),
         resultAttack: v.number(),
         resultDefense: v.number(),
-        source: v.optional(v.string()),
-        status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
-        notes: v.optional(v.string()),
       }),
     ),
   },
