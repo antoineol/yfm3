@@ -36,75 +36,71 @@ async function fetchSheetValues(spreadsheetId: string, range: string): Promise<s
   return res.data.values ?? [];
 }
 
-// --- Grid parsing ---
+// --- Grid parsing helpers ---
 
 function norm(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
-interface RowReader {
-  /** Trimmed raw cell value, "" if column missing. */
-  raw: (col: string) => string;
-  /** Normalized string, throws if empty. */
-  str: (col: string) => string;
-  /** Parsed integer, throws if missing or NaN. */
-  int: (col: string) => number;
-  /** 1-based sheet row number. */
-  ln: number;
+function cellStr(get: (col: string) => string, ln: number, col: string): string {
+  const v = norm(get(col));
+  if (!v) throw new Error(`Row ${ln}: missing ${col}`);
+  return v;
 }
 
-function parseGrid<T>(grid: string[][], parseRow: (r: RowReader) => T | null): T[] {
+function cellInt(get: (col: string) => string, ln: number, col: string): number {
+  const v = Number.parseInt(get(col), 10);
+  if (Number.isNaN(v)) throw new Error(`Row ${ln}: invalid ${col}`);
+  return v;
+}
+
+// --- Parsers ---
+
+function parseCardsGrid(grid: string[][]) {
   const [headerRow = [], ...rows] = grid;
   const headers = headerRow.map((h) => h.trim());
+  const seenIds = new Set<number>();
+  const seenNames = new Set<string>();
+
   return rows.flatMap((row, i) => {
     const ln = i + 2;
     if (!row.some((c) => c.trim())) return [];
-    const raw = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
-    const str = (col: string) => {
-      const v = norm(raw(col));
-      if (!v) throw new Error(`Row ${ln}: missing ${col}`);
-      return v;
-    };
-    const int = (col: string) => {
-      const v = Number.parseInt(raw(col), 10);
-      if (Number.isNaN(v)) throw new Error(`Row ${ln}: invalid ${col}`);
-      return v;
-    };
-    const result = parseRow({ raw, str, int, ln });
-    return result ? [result] : [];
-  });
-}
+    const get = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
 
-function parseCardsGrid(grid: string[][]) {
-  const seenIds = new Set<number>();
-  const seenNames = new Set<string>();
-  return parseGrid(grid, ({ raw, str, int, ln }) => {
-    if (!raw("id")) return null; // skip rows without an assigned id
-    const cardId = int("id");
+    if (!get("id")) return []; // skip rows without an assigned id
+    const cardId = cellInt(get, ln, "id");
     if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
     seenIds.add(cardId);
 
-    const name = str("name");
+    const name = cellStr(get, ln, "name");
     if (seenNames.has(name.toLowerCase())) throw new Error(`Row ${ln}: duplicate name "${name}"`);
     seenNames.add(name.toLowerCase());
 
-    if (!raw("attack") || !raw("defense")) return null; // skip non-monsters
-    return {
-      cardId, name, attack: int("attack"), defense: int("defense"),
-      kind1: norm(raw("kind1")) || undefined,
-      kind2: norm(raw("kind2")) || undefined,
-      kind3: norm(raw("kind3")) || undefined,
-      color: raw("color").toLowerCase() || undefined,
-    };
+    if (!get("attack") || !get("defense")) return []; // skip non-monsters
+    return [{
+      cardId, name, attack: cellInt(get, ln, "attack"), defense: cellInt(get, ln, "defense"),
+      kind1: norm(get("kind1")) || undefined,
+      kind2: norm(get("kind2")) || undefined,
+      kind3: norm(get("kind3")) || undefined,
+      color: get("color").toLowerCase() || undefined,
+    }];
   });
 }
 
 function parseFusionsGrid(grid: string[][]) {
-  return parseGrid(grid, ({ str, int }) => ({
-    materialA: str("materialA"),
-    materialB: str("materialB"),
-    resultName: str("resultName"),
-    resultAttack: int("resultAttack"),
-    resultDefense: int("resultDefense"),
-  }));
+  const [headerRow = [], ...rows] = grid;
+  const headers = headerRow.map((h) => h.trim());
+
+  return rows.flatMap((row, i) => {
+    const ln = i + 2;
+    if (!row.some((c) => c.trim())) return [];
+    const get = (col: string) => row[headers.indexOf(col)]?.trim() ?? "";
+    return [{
+      materialA: cellStr(get, ln, "materialA"),
+      materialB: cellStr(get, ln, "materialB"),
+      resultName: cellStr(get, ln, "resultName"),
+      resultAttack: cellInt(get, ln, "resultAttack"),
+      resultDefense: cellInt(get, ln, "resultDefense"),
+    }];
+  });
 }
