@@ -33,6 +33,9 @@ export function buildReferenceTableData(rows: {
 }): ReferenceTableData {
   const cardDb = createCardDb();
   for (const c of rows.cards) {
+    if (c.cardId < 1 || c.cardId >= MAX_CARD_ID) {
+      throw new Error(`cardId ${c.cardId} out of range [1, ${MAX_CARD_ID})`);
+    }
     const color = c.color?.toLowerCase();
     addCard(cardDb, {
       id: c.cardId,

@@ -1,6 +1,6 @@
 "use node";
 
-import { createSign } from "node:crypto";
+import { GoogleAuth } from "google-auth-library";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
@@ -22,48 +22,27 @@ export const syncFromSheets = action({
       fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
       fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
     ]);
-    return await ctx.runMutation(internal.referenceData.replaceReferenceData, {
-      cards: parseCardsGrid(cardsGrid),
-      fusions: parseFusionsGrid(fusionsGrid),
-    });
+    const cards = parseCardsGrid(cardsGrid);
+    const fusions = parseFusionsGrid(fusionsGrid);
+    if (cards.length === 0) throw new Error("Parsed zero cards — check sheet column headers");
+    if (fusions.length === 0) throw new Error("Parsed zero fusions — check sheet column headers");
+    return await ctx.runMutation(internal.referenceData.replaceReferenceData, { cards, fusions });
   },
 });
-
-// --- Google Sheets fetch via service-account JWT ---
-
-function base64Url(input: string | Buffer): string {
-  return Buffer.from(input).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
 
 async function fetchSheetValues(spreadsheetId: string, range: string): Promise<string[][]> {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
   const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
   if (!email || !key) throw new Error("Missing Google service account credentials");
 
-  const now = Math.floor(Date.now() / 1000);
-  const h = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const p = base64Url(JSON.stringify({
-    iss: email, scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
-    aud: "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now,
-  }));
-  const signer = createSign("RSA-SHA256");
-  signer.update(`${h}.${p}`);
-  const assertion = `${h}.${p}.${base64Url(signer.sign(key))}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
+  const auth = new GoogleAuth({
+    credentials: { client_email: email, private_key: key },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
-  if (!tokenRes.ok) throw new Error(`Google token error: ${tokenRes.status}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-  const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-    { headers: { Authorization: `Bearer ${access_token}` } },
-  );
-  if (!res.ok) throw new Error(`Google Sheets error: ${res.status}`);
-  return ((await res.json()) as { values?: string[][] }).values ?? [];
+  const client = await auth.getClient();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+  const res = await client.request<{ values?: string[][] }>({ url });
+  return res.data.values ?? [];
 }
 
 // --- Grid parsing (validates + normalizes for Convex storage) ---
@@ -79,8 +58,9 @@ function parseCardsGrid(grid: string[][]): CardRow[] {
   const seenIds = new Set<number>();
   const seenNames = new Set<string>();
 
-  return rows.filter((r) => r.some((c) => c.trim())).flatMap((row, i) => {
+  return rows.flatMap((row, i) => {
     const ln = i + 2;
+    if (!row.some((c) => c.trim())) return [];
     const idStr = get(row, "id");
     if (!idStr) return [];
     const cardId = Number.parseInt(idStr, 10);
@@ -113,8 +93,9 @@ function parseFusionsGrid(grid: string[][]): FusionRow[] {
   const headers = headerRow.map((h) => h.trim());
   const get = (row: string[], name: string) => row[headers.indexOf(name)]?.trim() ?? "";
 
-  return rows.filter((r) => r.some((c) => c.trim())).map((row, i) => {
+  return rows.flatMap((row, i) => {
     const ln = i + 2;
+    if (!row.some((c) => c.trim())) return [];
     const materialA = norm(get(row, "materialA"));
     if (!materialA) throw new Error(`Row ${ln}: missing materialA`);
     const materialB = norm(get(row, "materialB"));
@@ -125,6 +106,6 @@ function parseFusionsGrid(grid: string[][]): FusionRow[] {
     if (Number.isNaN(resultAttack)) throw new Error(`Row ${ln}: invalid resultAttack`);
     const resultDefense = Number.parseInt(get(row, "resultDefense"), 10);
     if (Number.isNaN(resultDefense)) throw new Error(`Row ${ln}: invalid resultDefense`);
-    return { materialA, materialB, resultName, resultAttack, resultDefense };
+    return [{ materialA, materialB, resultName, resultAttack, resultDefense }];
   });
 }

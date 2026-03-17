@@ -37,7 +37,13 @@ export function FusionTableProvider({ children }: { children: ReactNode }) {
   }
 
   const data = cache.current.data;
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-screen text-text-muted">
+        Loading reference data…
+      </div>
+    );
+  }
 
   return (
     <FusionTableContext.Provider value={data}>
