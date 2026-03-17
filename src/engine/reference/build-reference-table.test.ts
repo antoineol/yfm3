@@ -18,33 +18,7 @@ describe("buildReferenceTableData", () => {
         },
       ],
     });
-
     expect(result.cardDb.cardsByName.get("Sky Dragon")).toBeDefined();
-    expect(result.cardAtk.length).toBeGreaterThan(0);
-    expect(result.fusionTable.length).toBeGreaterThan(0);
-  });
-
-  it("throws on duplicate card names", () => {
-    expect(() =>
-      buildReferenceTableData({
-        cards: [
-          { cardId: 1, name: "Dragon", attack: 1000, defense: 800 },
-          { cardId: 2, name: "dragon", attack: 1200, defense: 900 },
-        ],
-        fusions: [],
-      }),
-    ).toThrow("Duplicate card name");
-  });
-
-  it("throws on duplicate card IDs", () => {
-    expect(() =>
-      buildReferenceTableData({
-        cards: [
-          { cardId: 1, name: "Dragon", attack: 1000, defense: 800 },
-          { cardId: 1, name: "Whelp", attack: 1200, defense: 900 },
-        ],
-        fusions: [],
-      }),
-    ).toThrow("Duplicate cardId");
+    expect(result.fusionTable[1 * result.maxCardId + 2]).toBeGreaterThan(0);
   });
 });

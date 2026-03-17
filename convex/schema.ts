@@ -44,10 +44,7 @@ export default defineSchema({
     kind3: v.optional(v.string()),
     color: v.optional(v.string()),
     importedAt: v.number(),
-  })
-    .index("by_card_id", ["cardId"])
-    .index("by_name", ["name"]),
-
+  }),
   referenceFusions: defineTable({
     materialA: v.string(),
     materialB: v.string(),
@@ -55,13 +52,7 @@ export default defineSchema({
     resultAttack: v.number(),
     resultDefense: v.number(),
     importedAt: v.number(),
-  }).index("by_materials", ["materialA", "materialB"]),
-
-  referenceImports: defineTable({
-    importedAt: v.number(),
-    cardsCount: v.number(),
-    fusionsCount: v.number(),
-  }).index("by_imported_at", ["importedAt"]),
+  }),
   userPreferences: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints

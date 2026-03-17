@@ -8,57 +8,36 @@ export const getReferenceData = query({
       ctx.db.query("referenceCards").collect(),
       ctx.db.query("referenceFusions").collect(),
     ]);
-    return {
-      cards,
-      fusions,
-      importedAt: cards[0]?.importedAt ?? null,
-    };
+    return { cards, fusions, importedAt: cards[0]?.importedAt ?? null };
   },
 });
 
+type CardRow = {
+  cardId: number; name: string; attack: number; defense: number;
+  kind1?: string; kind2?: string; kind3?: string; color?: string;
+};
+type FusionRow = {
+  materialA: string; materialB: string; resultName: string;
+  resultAttack: number; resultDefense: number;
+};
+
 export const replaceReferenceData = internalMutation({
-  args: {
-    cards: v.array(
-      v.object({
-        cardId: v.number(),
-        name: v.string(),
-        attack: v.number(),
-        defense: v.number(),
-        kind1: v.optional(v.string()),
-        kind2: v.optional(v.string()),
-        kind3: v.optional(v.string()),
-        color: v.optional(v.string()),
-      }),
-    ),
-    fusions: v.array(
-      v.object({
-        materialA: v.string(),
-        materialB: v.string(),
-        resultName: v.string(),
-        resultAttack: v.number(),
-        resultDefense: v.number(),
-      }),
-    ),
-  },
+  // Schema validates individual fields on insert; typed locally via CardRow/FusionRow.
+  args: { cards: v.any(), fusions: v.any() },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const cards = args.cards as CardRow[];
+    const fusions = args.fusions as FusionRow[];
 
-    // Epoch-based replace: insert new rows first, then delete old ones.
-    // If the mutation fails mid-way, old data remains intact.
-    for (const card of args.cards) {
-      await ctx.db.insert("referenceCards", { ...card, importedAt: now });
+    // Epoch-based replace: insert new first, then delete old.
+    for (const c of cards) await ctx.db.insert("referenceCards", { ...c, importedAt: now });
+    for (const f of fusions) await ctx.db.insert("referenceFusions", { ...f, importedAt: now });
+    for (const c of await ctx.db.query("referenceCards").collect()) {
+      if (c.importedAt < now) await ctx.db.delete(c._id);
     }
-    for (const fusion of args.fusions) {
-      await ctx.db.insert("referenceFusions", { ...fusion, importedAt: now });
+    for (const f of await ctx.db.query("referenceFusions").collect()) {
+      if (f.importedAt < now) await ctx.db.delete(f._id);
     }
-
-    for (const card of await ctx.db.query("referenceCards").collect()) {
-      if (card.importedAt < now) await ctx.db.delete(card._id);
-    }
-    for (const fusion of await ctx.db.query("referenceFusions").collect()) {
-      if (fusion.importedAt < now) await ctx.db.delete(fusion._id);
-    }
-
     return { importedAt: now };
   },
 });

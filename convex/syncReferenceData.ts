@@ -1,29 +1,16 @@
 "use node";
 
+import { createSign } from "node:crypto";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import {
-  createGoogleSheetsClient,
-  readServiceAccountFromEnv,
-} from "../src/server/reference/google-sheets-client";
 
 type CardRow = {
-  cardId: number;
-  name: string;
-  attack: number;
-  defense: number;
-  kind1?: string;
-  kind2?: string;
-  kind3?: string;
-  color?: string;
+  cardId: number; name: string; attack: number; defense: number;
+  kind1?: string; kind2?: string; kind3?: string; color?: string;
 };
-
 type FusionRow = {
-  materialA: string;
-  materialB: string;
-  resultName: string;
-  resultAttack: number;
-  resultDefense: number;
+  materialA: string; materialB: string; resultName: string;
+  resultAttack: number; resultDefense: number;
 };
 
 export const syncFromSheets = action({
@@ -31,90 +18,113 @@ export const syncFromSheets = action({
   handler: async (ctx): Promise<{ importedAt: number }> => {
     const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE ?? "";
     if (!spreadsheetId) throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE");
-
-    const client = createGoogleSheetsClient(readServiceAccountFromEnv(process.env));
-    const cardsRange = process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z";
-    const fusionsRange = process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z";
-
     const [cardsGrid, fusionsGrid] = await Promise.all([
-      client.getValues(spreadsheetId, cardsRange),
-      client.getValues(spreadsheetId, fusionsRange),
+      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
+      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
     ]);
-
-    const cards = parseCardsGrid(cardsGrid);
-    const fusions = parseFusionsGrid(fusionsGrid);
-
-    return await ctx.runMutation(internal.referenceData.replaceReferenceData, { cards, fusions });
+    return await ctx.runMutation(internal.referenceData.replaceReferenceData, {
+      cards: parseCardsGrid(cardsGrid),
+      fusions: parseFusionsGrid(fusionsGrid),
+    });
   },
 });
 
-// Grid → typed-row parsing (Sheets structure). Domain-level validation
-// (duplicates, name normalization, fusion registration) happens in
-// parse-reference-cards.ts / parse-reference-fusions.ts after Convex stores
-// these intermediate rows.
+// --- Google Sheets fetch via service-account JWT ---
+
+function base64Url(input: string | Buffer): string {
+  return Buffer.from(input).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+async function fetchSheetValues(spreadsheetId: string, range: string): Promise<string[][]> {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
+  const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
+  if (!email || !key) throw new Error("Missing Google service account credentials");
+
+  const now = Math.floor(Date.now() / 1000);
+  const h = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const p = base64Url(JSON.stringify({
+    iss: email, scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
+    aud: "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now,
+  }));
+  const signer = createSign("RSA-SHA256");
+  signer.update(`${h}.${p}`);
+  const assertion = `${h}.${p}.${base64Url(signer.sign(key))}`;
+
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
+  });
+  if (!tokenRes.ok) throw new Error(`Google token error: ${tokenRes.status}`);
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+    { headers: { Authorization: `Bearer ${access_token}` } },
+  );
+  if (!res.ok) throw new Error(`Google Sheets error: ${res.status}`);
+  return ((await res.json()) as { values?: string[][] }).values ?? [];
+}
+
+// --- Grid parsing (validates + normalizes for Convex storage) ---
+
+function norm(s: string): string {
+  return s.trim().replace(/\s+/g, " ");
+}
+
 function parseCardsGrid(grid: string[][]): CardRow[] {
-  const [headerRow = [], ...dataRows] = grid;
+  const [headerRow = [], ...rows] = grid;
   const headers = headerRow.map((h) => h.trim());
-
+  const get = (row: string[], name: string) => row[headers.indexOf(name)]?.trim() ?? "";
   const seenIds = new Set<number>();
-  return dataRows
-    .filter((row) => row.some((cell) => cell.trim() !== ""))
-    .flatMap((row, i) => {
-      const get = (name: string) => row[headers.indexOf(name)]?.trim() ?? "";
-      const lineNum = i + 2;
+  const seenNames = new Set<string>();
 
-      const idStr = get("id");
-      if (!idStr) return []; // skip rows without an assigned id
-      const cardId = Number.parseInt(idStr, 10);
-      if (Number.isNaN(cardId)) throw new Error(`Row ${lineNum}: invalid id "${idStr}"`);
-      if (seenIds.has(cardId)) throw new Error(`Row ${lineNum}: duplicate id ${cardId}`);
-      seenIds.add(cardId);
+  return rows.filter((r) => r.some((c) => c.trim())).flatMap((row, i) => {
+    const ln = i + 2;
+    const idStr = get(row, "id");
+    if (!idStr) return [];
+    const cardId = Number.parseInt(idStr, 10);
+    if (Number.isNaN(cardId)) throw new Error(`Row ${ln}: invalid id "${idStr}"`);
+    if (seenIds.has(cardId)) throw new Error(`Row ${ln}: duplicate id ${cardId}`);
+    seenIds.add(cardId);
 
-      const name = get("name");
-      if (!name) throw new Error(`Row ${lineNum}: missing name`);
+    const name = norm(get(row, "name"));
+    if (!name) throw new Error(`Row ${ln}: missing name`);
+    const lower = name.toLowerCase();
+    if (seenNames.has(lower)) throw new Error(`Row ${ln}: duplicate name "${name}"`);
+    seenNames.add(lower);
 
-      const attackStr = get("attack");
-      const attack = Number.parseInt(attackStr, 10);
-      if (!attackStr || Number.isNaN(attack)) return []; // skip non-monster cards (no attack)
+    const attack = Number.parseInt(get(row, "attack"), 10);
+    const defense = Number.parseInt(get(row, "defense"), 10);
+    if (Number.isNaN(attack) || Number.isNaN(defense)) return [];
 
-      const defenseStr = get("defense");
-      const defense = Number.parseInt(defenseStr, 10);
-      if (!defenseStr || Number.isNaN(defense)) return []; // skip non-monster cards (no defense)
-
-      const kind1 = get("kind1") || undefined;
-      const kind2 = get("kind2") || undefined;
-      const kind3 = get("kind3") || undefined;
-      const color = get("color") || undefined;
-
-      return [{ cardId, name, attack, defense, kind1, kind2, kind3, color }];
-    });
+    return [{
+      cardId, name, attack, defense,
+      kind1: norm(get(row, "kind1")) || undefined,
+      kind2: norm(get(row, "kind2")) || undefined,
+      kind3: norm(get(row, "kind3")) || undefined,
+      color: get(row, "color").toLowerCase() || undefined,
+    }];
+  });
 }
 
 function parseFusionsGrid(grid: string[][]): FusionRow[] {
-  const [headerRow = [], ...dataRows] = grid;
+  const [headerRow = [], ...rows] = grid;
   const headers = headerRow.map((h) => h.trim());
+  const get = (row: string[], name: string) => row[headers.indexOf(name)]?.trim() ?? "";
 
-  return dataRows
-    .filter((row) => row.some((cell) => cell.trim() !== ""))
-    .map((row, i) => {
-      const get = (name: string) => row[headers.indexOf(name)]?.trim() ?? "";
-      const lineNum = i + 2;
-
-      const materialA = get("materialA");
-      if (!materialA) throw new Error(`Row ${lineNum}: missing materialA`);
-
-      const materialB = get("materialB");
-      if (!materialB) throw new Error(`Row ${lineNum}: missing materialB`);
-
-      const resultName = get("resultName");
-      if (!resultName) throw new Error(`Row ${lineNum}: missing resultName`);
-
-      const resultAttack = Number.parseInt(get("resultAttack"), 10);
-      if (Number.isNaN(resultAttack)) throw new Error(`Row ${lineNum}: invalid resultAttack`);
-
-      const resultDefense = Number.parseInt(get("resultDefense"), 10);
-      if (Number.isNaN(resultDefense)) throw new Error(`Row ${lineNum}: invalid resultDefense`);
-
-      return { materialA, materialB, resultName, resultAttack, resultDefense };
-    });
+  return rows.filter((r) => r.some((c) => c.trim())).map((row, i) => {
+    const ln = i + 2;
+    const materialA = norm(get(row, "materialA"));
+    if (!materialA) throw new Error(`Row ${ln}: missing materialA`);
+    const materialB = norm(get(row, "materialB"));
+    if (!materialB) throw new Error(`Row ${ln}: missing materialB`);
+    const resultName = norm(get(row, "resultName"));
+    if (!resultName) throw new Error(`Row ${ln}: missing resultName`);
+    const resultAttack = Number.parseInt(get(row, "resultAttack"), 10);
+    if (Number.isNaN(resultAttack)) throw new Error(`Row ${ln}: invalid resultAttack`);
+    const resultDefense = Number.parseInt(get(row, "resultDefense"), 10);
+    if (Number.isNaN(resultDefense)) throw new Error(`Row ${ln}: invalid resultDefense`);
+    return { materialA, materialB, resultName, resultAttack, resultDefense };
+  });
 }

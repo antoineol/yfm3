@@ -306,12 +306,9 @@ Once the shared dataset exists, the next logical feature is a lightweight admin 
 
 ## Implementation Status (Final)
 
-- ✅ Added reference schema documentation in `docs/reference-data-schema.md`.
-- ✅ Added shared config in `src/shared/reference-data-config.ts` (simplified — no filesystem paths).
-- ✅ Added Google Sheets service-account reader in `src/server/reference/google-sheets-client.ts`.
-- ✅ Added shared runtime tables via `convex/schema.ts`; `replaceReferenceData` is an `internalMutation`.
-- ✅ Added Convex action `convex/syncReferenceData.ts` (Node.js runtime) that fetches from Google Sheets and calls `replaceReferenceData` — triggered from the UI, no bun script.
-- ✅ Added reference parsing/building pipeline in `src/engine/reference/build-reference-table.ts` (no CSV I/O).
-- ✅ Integrated `FusionTableContext` with `api.referenceData.getReferenceData` (direct, no cast) + legacy CSV snapshot fallback.
-- ✅ Added `SyncReferenceButton` UI component in `src/ui/components/SyncReferenceButton.tsx`.
-- ✅ Added tests in `src/engine/reference/build-reference-table.test.ts`.
+- ✅ `convex/schema.ts` — referenceCards + referenceFusions tables.
+- ✅ `convex/referenceData.ts` — query + epoch-based replace mutation.
+- ✅ `convex/syncReferenceData.ts` — Sheets fetch (inline JWT client), grid parsing with validation/normalization.
+- ✅ `src/engine/reference/build-reference-table.ts` — CardDb + fusion table construction from Convex rows.
+- ✅ `src/ui/lib/fusion-table-context.tsx` — reads Convex data, ref-cached on importedAt.
+- ✅ Sync button inlined in `ConfigPanel.tsx`.
