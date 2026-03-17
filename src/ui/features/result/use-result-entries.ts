@@ -60,7 +60,7 @@ function buildDiffEntries(
     const da = DIFF_ORDER[a.diffStatus ?? "kept"];
     const db = DIFF_ORDER[b.diffStatus ?? "kept"];
     if (da !== db) return da - db;
-    return b.atk - a.atk;
+    return a.id - b.id;
   });
 
   return entries;
