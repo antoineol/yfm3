@@ -1,15 +1,39 @@
 import type { RefObject } from "react";
+import { useEffect } from "react";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import type { LastAddedCardHintHeaderModel } from "./use-last-added-card-hint.ts";
 
 export function LastAddedCardHintHeader({
+  comboboxOpen,
   header,
   inputRef,
 }: {
+  comboboxOpen: boolean;
   header: LastAddedCardHintHeaderModel;
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const focusInput = () => inputRef.current?.focus();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "+" && !header.disableAdd) {
+        e.preventDefault();
+        header.onAdd();
+        inputRef.current?.focus();
+      } else if (e.key === "-" && !header.disableRemove) {
+        e.preventDefault();
+        header.onRemove();
+        inputRef.current?.focus();
+      } else if (e.key === "Escape" && !comboboxOpen) {
+        e.preventDefault();
+        header.onDismiss();
+        inputRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [comboboxOpen, header, inputRef]);
 
   return (
     <div className="flex items-center gap-1">
@@ -27,7 +51,7 @@ export function LastAddedCardHintHeader({
             header.onAdd();
             focusInput();
           }}
-          title="Add another copy"
+          title="Add another copy (+)"
           variant="add"
         >
           +
@@ -38,7 +62,7 @@ export function LastAddedCardHintHeader({
             header.onRemove();
             focusInput();
           }}
-          title="Remove one copy"
+          title="Remove one copy (-)"
           variant="remove"
         >
           −
@@ -48,7 +72,7 @@ export function LastAddedCardHintHeader({
             header.onDismiss();
             focusInput();
           }}
-          title="Dismiss"
+          title="Dismiss (Esc)"
           variant="dismiss"
         >
           ×

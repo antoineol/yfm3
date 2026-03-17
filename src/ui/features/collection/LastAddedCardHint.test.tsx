@@ -124,9 +124,12 @@ describe("LastAddedCardHint", () => {
   it("renders nothing when there is no last added card", () => {
     mockLastAdded.mockReturnValue(null);
 
-    const { container } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
-      wrapper: TestWrapper,
-    });
+    const { container } = render(
+      <LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />,
+      {
+        wrapper: TestWrapper,
+      },
+    );
 
     expect(container.innerHTML).toBe("");
     expect(MockWorker.instances).toHaveLength(0);
@@ -135,30 +138,107 @@ describe("LastAddedCardHint", () => {
   it("renders nothing when the last added card is no longer in owned totals", () => {
     mockOwnedCardTotals.mockReturnValue({ 2: 2, 3: 1, 4: 1, 5: 1 });
 
-    const { container } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
-      wrapper: TestWrapper,
-    });
+    const { container } = render(
+      <LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />,
+      {
+        wrapper: TestWrapper,
+      },
+    );
 
     expect(container.innerHTML).toBe("");
     expect(MockWorker.instances).toHaveLength(0);
   });
 
   it("keeps the base quick actions working", () => {
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
-    fireEvent.click(screen.getByTitle("Add another copy"));
-    fireEvent.click(screen.getByTitle("Remove one copy"));
-    fireEvent.click(screen.getByTitle("Dismiss"));
+    fireEvent.click(screen.getByTitle("Add another copy (+)"));
+    fireEvent.click(screen.getByTitle("Remove one copy (-)"));
+    fireEvent.click(screen.getByTitle("Dismiss (Esc)"));
 
     expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
     expect(mockRemoveCard).toHaveBeenCalledWith({ cardId: 1 });
     expect(mockClearHint).toHaveBeenCalledWith({});
   });
 
+  it("adds a card when pressing +", () => {
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
+
+    fireEvent.keyDown(document, { key: "+" });
+
+    expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
+  });
+
+  it("removes a card when pressing -", () => {
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
+
+    fireEvent.keyDown(document, { key: "-" });
+
+    expect(mockRemoveCard).toHaveBeenCalledWith({ cardId: 1 });
+  });
+
+  it("dismisses when pressing Escape", () => {
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(mockClearHint).toHaveBeenCalledWith({});
+  });
+
+  it("handles + even when focus is on an input", () => {
+    const inputRef = createRef<HTMLInputElement>();
+    const { container } = render(
+      <>
+        <input ref={inputRef} />
+        <LastAddedCardHint comboboxOpen={false} inputRef={inputRef} />
+      </>,
+      { wrapper: TestWrapper },
+    );
+
+    const input = container.querySelector("input");
+    if (!input) throw new Error("input not found");
+    input.focus();
+    fireEvent.keyDown(input, { key: "+" });
+
+    expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
+  });
+
+  it("does not dismiss on Escape when combobox is open", () => {
+    render(<LastAddedCardHint comboboxOpen={true} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(mockClearHint).not.toHaveBeenCalled();
+  });
+
+  it("does not add when + is pressed and add is disabled", () => {
+    mockOwnedCardTotals.mockReturnValue({ 1: 3, 2: 2, 3: 1, 4: 1, 5: 1 });
+
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
+
+    fireEvent.keyDown(document, { key: "+" });
+
+    expect(mockAddCard).not.toHaveBeenCalled();
+  });
+
   it("does not run suggestion lookup when the deck is not full", () => {
     mockDeck.mockReturnValue([{ cardId: 2 }]);
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
@@ -174,32 +254,40 @@ describe("LastAddedCardHint", () => {
     ]);
     mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 
   it("recalculates when the added card availability changes", () => {
-    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
-      wrapper: TestWrapper,
-    });
+    const { rerender } = render(
+      <LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />,
+      {
+        wrapper: TestWrapper,
+      },
+    );
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
 
     mockOwnedCardTotals.mockReturnValue({ 1: 2, 2: 2, 3: 1, 4: 1, 5: 1 });
 
-    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
+    rerender(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />);
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
   });
 
   it("recalculates when the deck contents change", () => {
-    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
-      wrapper: TestWrapper,
-    });
+    const { rerender } = render(
+      <LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />,
+      {
+        wrapper: TestWrapper,
+      },
+    );
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
@@ -213,7 +301,7 @@ describe("LastAddedCardHint", () => {
     ]);
     mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 2, 4: 1, 5: 1 });
 
-    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
+    rerender(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />);
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
@@ -222,7 +310,9 @@ describe("LastAddedCardHint", () => {
   it("shows revert after a successful apply", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(screen.getByText("Checking deck upgrade...")).toBeDefined();
     expect(MockWorker.instances).toHaveLength(1);
@@ -243,7 +333,9 @@ describe("LastAddedCardHint", () => {
   });
 
   it("lets the user reject the suggestion", async () => {
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -257,7 +349,9 @@ describe("LastAddedCardHint", () => {
   it("shows an error toast when apply fails", async () => {
     mockApplySuggestedSwap.mockRejectedValue(new Error("boom"));
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -272,7 +366,9 @@ describe("LastAddedCardHint", () => {
       success: true,
     });
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -292,7 +388,9 @@ describe("LastAddedCardHint", () => {
       success: true,
     });
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -311,7 +409,9 @@ describe("LastAddedCardHint", () => {
       .mockResolvedValueOnce({ success: true })
       .mockRejectedValueOnce(new Error("boom"));
 
-    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -328,9 +428,12 @@ describe("LastAddedCardHint", () => {
   it("clears undo state when the last added card changes", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
-    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
-      wrapper: TestWrapper,
-    });
+    const { rerender } = render(
+      <LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />,
+      {
+        wrapper: TestWrapper,
+      },
+    );
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -341,7 +444,7 @@ describe("LastAddedCardHint", () => {
 
     mockLastAdded.mockReturnValue(null);
 
-    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
+    rerender(<LastAddedCardHint comboboxOpen={false} inputRef={dummyInputRef} />);
 
     await waitFor(() => expect(screen.queryByText("Revert")).toBeNull());
   });

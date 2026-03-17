@@ -21,6 +21,8 @@ export type CardAutocompleteProps = {
   inputRef?: RefObject<HTMLInputElement | null>;
   /** Auto-focus the input on mount. */
   autoFocus?: boolean;
+  /** Called when the combobox popup opens or closes. */
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function CardAutocomplete({
@@ -30,6 +32,7 @@ export function CardAutocomplete({
   disabled = false,
   inputRef,
   autoFocus = false,
+  onOpenChange,
 }: CardAutocompleteProps) {
   const { cards: allCards } = useCardDb();
   const sourceCards = useMemo(() => cards ?? allCards, [cards, allCards]);
@@ -60,6 +63,7 @@ export function CardAutocomplete({
       itemToStringLabel={(card) => card.name}
       limit={50}
       onInputValueChange={handleInputValueChange}
+      onOpenChange={onOpenChange}
       onValueChange={handleValueChange}
       value={null}
     >

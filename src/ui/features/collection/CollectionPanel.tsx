@@ -30,6 +30,7 @@ export function CollectionPanel() {
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const [sort, setSort] = useState<SortState>(null);
 
   const handleSortChange = useCallback((key: SortKey) => {
@@ -112,11 +113,12 @@ export function CollectionPanel() {
         <CardAutocomplete
           cards={autocompleteCards}
           inputRef={inputRef}
+          onOpenChange={setComboboxOpen}
           onSelect={(card) => void addCard({ cardId: card.id })}
           placeholder="Add card..."
         />
       </PanelHeader>
-      <LastAddedCardHint inputRef={inputRef} />
+      <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />
       {data.totalOwnedCards === 0 ? (
         <PanelEmptyState
           subtitle="Search above to add cards to your collection"
