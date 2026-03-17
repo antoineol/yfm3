@@ -54,7 +54,8 @@ export function FusionFormDialog({ open, onClose, mode, defaultValues }: FusionF
         await create(createValues);
         toast.success("Fusion created");
       } else {
-        if (defaultValues?.fusionId == null) throw new Error("Fusion ID missing — re-sync reference data");
+        if (defaultValues?.fusionId == null)
+          throw new Error("Fusion ID missing — re-sync reference data");
         await update({
           fusionId: defaultValues.fusionId,
           materialA: values.materialA,
