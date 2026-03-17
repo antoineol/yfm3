@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { referenceCardFields, referenceFusionFields } from "./schema";
 
 export const getReferenceData = query({
@@ -10,6 +10,14 @@ export const getReferenceData = query({
       ctx.db.query("referenceFusions").collect(),
     ]);
     return { cards, fusions, importedAt: cards[0]?.importedAt ?? null };
+  },
+});
+
+export const getLastImportedAt = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<number | null> => {
+    const card = await ctx.db.query("referenceCards").first();
+    return card?.importedAt ?? null;
   },
 });
 

@@ -45,8 +45,12 @@ export function ConfigPanel() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await sync({});
-      toast.success("Reference data synced");
+      const result = await sync({});
+      if (result.skipped) {
+        toast.info("Already up to date");
+      } else {
+        toast.success("Reference data synced");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     } finally {

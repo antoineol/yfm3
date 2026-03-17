@@ -4,31 +4,57 @@ import { GoogleAuth } from "google-auth-library";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+export type SyncResult = { importedAt: number; skipped: boolean };
+
 export const syncFromSheets = action({
   args: {},
-  handler: async (ctx): Promise<{ importedAt: number }> => {
+  handler: async (ctx): Promise<SyncResult> => {
     const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE ?? "";
     if (!spreadsheetId) throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE");
+    const auth = buildGoogleAuth();
+
+    const lastImportedAt = await ctx.runQuery(internal.referenceData.getLastImportedAt);
+    if (lastImportedAt !== null) {
+      const modifiedMs = await fetchSpreadsheetModifiedTime(spreadsheetId, auth);
+      if (modifiedMs <= lastImportedAt) {
+        return { importedAt: lastImportedAt, skipped: true };
+      }
+    }
+
     const [cardsGrid, fusionsGrid] = await Promise.all([
-      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
-      fetchSheetValues(spreadsheetId, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
+      fetchSheetValues(spreadsheetId, auth, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
+      fetchSheetValues(spreadsheetId, auth, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
     ]);
     const cards = parseCardsGrid(cardsGrid);
     const fusions = parseFusionsGrid(fusionsGrid);
     if (cards.length === 0) throw new Error("Parsed zero cards — check sheet column headers");
     if (fusions.length === 0) throw new Error("Parsed zero fusions — check sheet column headers");
-    return await ctx.runMutation(internal.referenceData.replaceReferenceData, { cards, fusions });
+    const result = await ctx.runMutation(internal.referenceData.replaceReferenceData, { cards, fusions });
+    return { ...result, skipped: false };
   },
 });
 
-async function fetchSheetValues(spreadsheetId: string, range: string): Promise<string[][]> {
+function buildGoogleAuth(): GoogleAuth {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
   const key = (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
   if (!email || !key) throw new Error("Missing Google service account credentials");
-  const auth = new GoogleAuth({
+  return new GoogleAuth({
     credentials: { client_email: email, private_key: key },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "https://www.googleapis.com/auth/drive.metadata.readonly",
+    ],
   });
+}
+
+async function fetchSpreadsheetModifiedTime(spreadsheetId: string, auth: GoogleAuth): Promise<number> {
+  const client = await auth.getClient();
+  const url = `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`;
+  const res = await client.request<{ modifiedTime: string }>({ url });
+  return new Date(res.data.modifiedTime).getTime();
+}
+
+async function fetchSheetValues(spreadsheetId: string, auth: GoogleAuth, range: string): Promise<string[][]> {
   const client = await auth.getClient();
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   const res = await client.request<{ values?: string[][] }>({ url });
