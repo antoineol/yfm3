@@ -1,10 +1,16 @@
-import { createContext, type ReactNode, useContext, useRef } from "react";
+import { useQuery } from "convex/react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
+import { api } from "../../../convex/_generated/api";
 import cardsCsvRaw from "../../../data/rp-cards.csv?raw";
 import fusionsCsvRaw from "../../../data/rp-fusions1.csv?raw";
 import { buildFusionTable } from "../../engine/data/build-fusion-table.ts";
 import { addCard, type CardDb } from "../../engine/data/game-db.ts";
 import { parseReferenceCardsCsv } from "../../engine/data/parse-cards.ts";
 import { parseFusionCsv } from "../../engine/data/parse-fusions.ts";
+import {
+  buildReferenceTableData,
+  type ReferenceDataRows,
+} from "../../engine/reference/load-reference-csv.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../../engine/types/constants.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
 
@@ -15,12 +21,21 @@ export interface FusionTableData {
   maxCardId: number;
 }
 
+interface FusionTableContextValue {
+  data: FusionTableData;
+  loadState: "runtime" | "snapshot";
+}
+
 /**
  * Build the fusion table and cardAtk arrays from CSV data.
  * Mirrors the data-loading path in load-game-data-core.ts but without
  * the full OptBuffers allocation (only fusionTable + cardAtk are needed).
  */
-export function buildFusionTableData(): FusionTableData {
+export function buildFusionTableData(rows?: ReferenceDataRows): FusionTableData {
+  if (rows) {
+    return buildReferenceTableData(rows);
+  }
+
   const { monsterCardDb, nonMonsterMaterialNames } = parseReferenceCardsCsv(cardsCsvRaw);
   const fusionDb = parseFusionCsv(fusionsCsvRaw);
   registerFusionOnlyCards(monsterCardDb, fusionDb.fusions);
@@ -43,11 +58,6 @@ export function buildFusionTableData(): FusionTableData {
   return { fusionTable, cardAtk, cardDb: monsterCardDb, maxCardId: MAX_CARD_ID };
 }
 
-/**
- * Register fusion-only cards (results that don't appear in rp-cards.csv)
- * so they get valid IDs and can participate in fusions.
- * Simplified version of registerFusionOnlyCards from load-game-data-core.ts.
- */
 function registerFusionOnlyCards(
   cardDb: CardDb,
   fusions: { name: string; attack: number; defense: number }[],
@@ -86,25 +96,49 @@ function registerFusionOnlyCards(
   }
 }
 
-const FusionTableContext = createContext<FusionTableData | null>(null);
+const FusionTableContext = createContext<FusionTableContextValue | null>(null);
 
 export function FusionTableProvider({ children }: { children: ReactNode }) {
-  const dataRef = useRef<FusionTableData | null>(null);
-  if (!dataRef.current) {
-    dataRef.current = buildFusionTableData();
-  }
+  const referenceQuery = (api as Record<string, { getReferenceData?: unknown }>).referenceData
+    ?.getReferenceData as Parameters<typeof useQuery>[0] | undefined;
+  const referenceData = useQuery(
+    referenceQuery ?? ({} as Parameters<typeof useQuery>[0]),
+    referenceQuery ? {} : "skip",
+  );
+
+  const contextValue = useMemo<FusionTableContextValue>(() => {
+    if (referenceData && referenceData.cards.length > 0 && referenceData.fusions.length > 0) {
+      return {
+        data: buildFusionTableData({ cards: referenceData.cards, fusions: referenceData.fusions }),
+        loadState: "runtime",
+      };
+    }
+
+    return {
+      data: buildFusionTableData(),
+      loadState: "snapshot",
+    };
+  }, [referenceData]);
 
   return (
-    <FusionTableContext.Provider value={dataRef.current}>
-      <CardDbProvider cardDb={dataRef.current.cardDb}>{children}</CardDbProvider>
+    <FusionTableContext.Provider value={contextValue}>
+      <CardDbProvider cardDb={contextValue.data.cardDb}>{children}</CardDbProvider>
     </FusionTableContext.Provider>
   );
 }
 
 export function useFusionTable(): FusionTableData {
-  const data = useContext(FusionTableContext);
-  if (!data) {
+  const context = useContext(FusionTableContext);
+  if (!context) {
     throw new Error("useFusionTable must be used within a FusionTableProvider");
   }
-  return data;
+  return context.data;
+}
+
+export function useFusionTableLoadState() {
+  const context = useContext(FusionTableContext);
+  if (!context) {
+    throw new Error("useFusionTableLoadState must be used within a FusionTableProvider");
+  }
+  return context.loadState;
 }

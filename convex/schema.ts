@@ -31,6 +31,41 @@ export default defineSchema({
   }).index('by_user', ['userId']),
 
   // User metadata and preferences
+
+
+  // Shared reference data imported from Google Sheets.
+  referenceCards: defineTable({
+    cardId: v.number(),
+    name: v.string(),
+    attack: v.number(),
+    defense: v.number(),
+    kind1: v.optional(v.string()),
+    kind2: v.optional(v.string()),
+    source: v.optional(v.string()),
+    status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
+    notes: v.optional(v.string()),
+    importedAt: v.number(),
+  })
+    .index("by_card_id", ["cardId"])
+    .index("by_name", ["name"]),
+
+  referenceFusions: defineTable({
+    materialA: v.string(),
+    materialB: v.string(),
+    resultName: v.string(),
+    resultAttack: v.number(),
+    resultDefense: v.number(),
+    source: v.optional(v.string()),
+    status: v.union(v.literal("confirmed"), v.literal("unverified"), v.literal("needs_review")),
+    notes: v.optional(v.string()),
+    importedAt: v.number(),
+  }).index("by_materials", ["materialA", "materialB"]),
+
+  referenceImports: defineTable({
+    importedAt: v.number(),
+    cardsCount: v.number(),
+    fusionsCount: v.number(),
+  }).index("by_imported_at", ["importedAt"]),
   userPreferences: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints

@@ -302,3 +302,23 @@ Once the shared dataset exists, the next logical feature is a lightweight admin 
 | Modify | `src/ui/lib/fusion-table-context.tsx` |
 | Create | `scripts/sync-reference-data.ts` |
 | Create | `src/engine/reference/load-reference-csv.test.ts` |
+
+
+## Implementation Status (Updated)
+
+- ✅ Added reference schema documentation in `docs/reference-data-schema.md`.
+- ✅ Added shared config in `src/shared/reference-data-config.ts`.
+- ✅ Added Google Sheets service-account reader in `src/server/reference/google-sheets-client.ts`.
+- ✅ Added shared runtime tables and import/query functions via `convex/schema.ts` and `convex/referenceData.ts`.
+- ✅ Added reference parsing/loading pipeline in `src/engine/reference/*`.
+- ✅ Integrated `FusionTableContext` with runtime reference query + snapshot fallback.
+- ✅ Added snapshot sync script in `scripts/sync-reference-data.ts`.
+- ✅ Added loader tests in `src/engine/reference/load-reference-csv.test.ts`.
+
+### Current Step
+
+- Runtime reference reads are wired through `convex/referenceData.getReferenceData` with CSV fallback still available.
+
+### Next Step
+
+- Hook the sync/import command to call `replaceReferenceData` so sheet updates can populate Convex tables in one command.
