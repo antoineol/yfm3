@@ -49,7 +49,7 @@ export function Header() {
         <HeaderMenu onSettings={() => setConfigOpen(true)} onSignOut={() => void signOut()} />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
-        <ConfigPanel />
+        <ConfigPanel onClose={() => setConfigOpen(false)} />
       </Dialog>
     </div>
   );
