@@ -29,15 +29,11 @@ export const replaceReferenceData = internalMutation({
     const cards = args.cards as CardRow[];
     const fusions = args.fusions as FusionRow[];
 
-    // Epoch-based replace: insert new first, then delete old.
+    // Convex mutations are transactional — delete-then-insert is safe.
+    for (const c of await ctx.db.query("referenceCards").collect()) await ctx.db.delete(c._id);
+    for (const f of await ctx.db.query("referenceFusions").collect()) await ctx.db.delete(f._id);
     for (const c of cards) await ctx.db.insert("referenceCards", { ...c, importedAt: now });
     for (const f of fusions) await ctx.db.insert("referenceFusions", { ...f, importedAt: now });
-    for (const c of await ctx.db.query("referenceCards").collect()) {
-      if (c.importedAt < now) await ctx.db.delete(c._id);
-    }
-    for (const f of await ctx.db.query("referenceFusions").collect()) {
-      if (f.importedAt < now) await ctx.db.delete(f._id);
-    }
     return { importedAt: now };
   },
 });
