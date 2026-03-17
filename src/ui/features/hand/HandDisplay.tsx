@@ -40,7 +40,7 @@ export function HandDisplay({
 
 function FilledSlot({ card, onRemove }: { card: CardSpec | undefined; onRemove: () => void }) {
   return (
-    <li className="group relative flex flex-col rounded-lg border border-gold-dim/60 bg-bg-surface overflow-hidden shadow-glow-gold-xs hover:border-gold hover:shadow-glow-gold-hover transition-all duration-200">
+    <li className="group relative flex flex-col rounded-lg border border-gold-dim/60 bg-bg-surface overflow-hidden shadow-glow-gold-xs hover:border-gold hover:shadow-glow-gold-hover transition-all duration-200 min-h-18">
       {/* Top accent bar */}
       <div className="h-0.5 bg-linear-to-r from-transparent via-gold-dim to-transparent" />
 
@@ -73,7 +73,7 @@ function EmptySlot({ index }: { index: number }) {
   return (
     <li
       aria-label={`Empty slot ${String(index)}`}
-      className="flex items-center justify-center rounded-lg border border-dashed border-border-subtle/60 bg-bg-panel/40"
+      className="flex items-center justify-center rounded-lg border border-dashed border-border-subtle/60 bg-bg-panel/40 min-h-18"
     >
       <span className="text-text-muted/40 text-xs font-mono">{index}</span>
     </li>
