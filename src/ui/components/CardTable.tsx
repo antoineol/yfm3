@@ -4,12 +4,15 @@ import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { formatCardId } from "../lib/format.ts";
 
+export type DiffStatus = "added" | "removed" | "kept";
+
 export interface CardEntry {
   id: number;
   name: string;
   atk: number;
   def: number;
   qty: number;
+  diffStatus?: DiffStatus;
 }
 
 export function buildCardEntries(
@@ -79,29 +82,69 @@ export function CardTable<T extends CardEntry>({
           </tr>
         </thead>
         <tbody ref={animateRef}>
-          {entries.map((e) => (
-            <tr
-              className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
-                even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}`}
-              key={e.id}
-            >
-              {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
-              <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
-                {formatCardId(e.id)}
-              </td>
-              <td className="py-1.5 px-1 text-text-primary">
-                <span>{e.name}</span>
-                {e.qty > 1 && (
-                  <span className="text-gold text-xs font-mono ml-1.5">{`\u00d7${e.qty}`}</span>
+          {entries.map((e) => {
+            const diff = e.diffStatus;
+            const rowDiff =
+              diff === "removed"
+                ? " bg-red-950/20 opacity-60"
+                : diff === "added"
+                  ? " bg-green-950/20"
+                  : "";
+            const idColor =
+              diff === "removed"
+                ? "text-red-400/70"
+                : diff === "added"
+                  ? "text-green-400/70"
+                  : "text-text-muted";
+            const nameColor =
+              diff === "removed"
+                ? "text-red-400"
+                : diff === "added"
+                  ? "text-green-400"
+                  : "text-text-primary";
+            const atkColor =
+              diff === "removed"
+                ? "text-red-400"
+                : diff === "added"
+                  ? "text-green-400"
+                  : "text-stat-atk";
+            const defColor =
+              diff === "removed"
+                ? "text-red-400/70"
+                : diff === "added"
+                  ? "text-green-400/70"
+                  : "text-stat-def";
+            const qtyColor =
+              diff === "removed"
+                ? "text-red-400/70"
+                : diff === "added"
+                  ? "text-green-400/70"
+                  : "text-gold";
+
+            return (
+              <tr
+                className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
+                  even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${rowDiff}`}
+                key={e.id}
+              >
+                {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
+                <td className={`py-1.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
+                <td className={`py-1.5 px-1 ${nameColor}`}>
+                  <span>{e.name}</span>
+                  {e.qty > 1 && (
+                    <span
+                      className={`${qtyColor} text-xs font-mono ml-1.5`}
+                    >{`\u00d7${e.qty}`}</span>
+                  )}
+                </td>
+                <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>{e.atk}</td>
+                <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>{e.def}</td>
+                {actions && (
+                  <td className="py-0.5 px-1 text-right whitespace-nowrap">{actions(e)}</td>
                 )}
-              </td>
-              <td className="py-1.5 px-2 text-left font-mono font-bold text-stat-atk">{e.atk}</td>
-              <td className="py-1.5 px-2 text-left font-mono text-xs text-stat-def">{e.def}</td>
-              {actions && (
-                <td className="py-0.5 px-1 text-right whitespace-nowrap">{actions(e)}</td>
-              )}
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

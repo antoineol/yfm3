@@ -10,16 +10,23 @@ vi.mock("../../lib/card-db-context.tsx", () => ({
   useCardDb: vi.fn(),
 }));
 
+vi.mock("../../db/use-deck.ts", () => ({
+  useDeck: vi.fn(),
+}));
+
+import { useDeck } from "../../db/use-deck.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
+const mockDeck = useDeck as ReturnType<typeof vi.fn>;
 
 const fakeCardDb: CardDb = {
   cards: [],
   cardsById: new Map([
     [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
     [2, { id: 2, name: "Dark Magician", kinds: [], attack: 2500, defense: 2100 }],
+    [3, { id: 3, name: "Red-Eyes", kinds: [], attack: 2400, defense: 2000 }],
   ]),
   cardsByName: new Map(),
 } as CardDb;
@@ -38,6 +45,7 @@ describe("useResultEntries", () => {
   beforeEach(() => {
     store = createStore();
     mockCardDb.mockReturnValue(fakeCardDb);
+    mockDeck.mockReturnValue(undefined);
   });
 
   it("returns null when result is null", () => {
@@ -48,6 +56,7 @@ describe("useResultEntries", () => {
   });
 
   it("returns entries and result when result is present", () => {
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
     store.set(resultAtom, {
       deck: [1, 1, 2],
       expectedAtk: 2500,
@@ -61,5 +70,45 @@ describe("useResultEntries", () => {
     expect(result.current).not.toBeNull();
     expect(result.current?.entries).toHaveLength(2);
     expect(result.current?.result.expectedAtk).toBe(2500);
+  });
+
+  it("tags entries with diffStatus: added, removed, kept", () => {
+    // Current deck: [1, 2], Suggested: [1, 3] → 1=kept, 2=removed, 3=added
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    store.set(resultAtom, {
+      deck: [1, 3],
+      expectedAtk: 2700,
+      currentDeckScore: null,
+      improvement: null,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    expect(result.current).not.toBeNull();
+    const entries = result.current?.entries ?? [];
+    expect(entries).toHaveLength(3);
+
+    const byId = (id: number) => entries.find((e) => e.id === id);
+    expect(byId(2)?.diffStatus).toBe("removed");
+    expect(byId(3)?.diffStatus).toBe("added");
+    expect(byId(1)?.diffStatus).toBe("kept");
+  });
+
+  it("sorts entries: removed first, then added, then kept", () => {
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    store.set(resultAtom, {
+      deck: [1, 3],
+      expectedAtk: 2700,
+      currentDeckScore: null,
+      improvement: null,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    expect(result.current).not.toBeNull();
+    const statuses = (result.current?.entries ?? []).map((e) => e.diffStatus);
+    expect(statuses).toEqual(["removed", "added", "kept"]);
   });
 });
