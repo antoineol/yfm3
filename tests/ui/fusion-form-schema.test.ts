@@ -3,6 +3,7 @@ import { fusionFormSchema } from "../../src/ui/features/data/fusion-form-schema.
 
 describe("fusionFormSchema", () => {
   const valid = {
+    fusionId: 1,
     materialA: "Dragon",
     materialB: "Eagle",
     resultName: "Sky Dragon",

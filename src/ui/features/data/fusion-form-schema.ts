@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const fusionFormSchema = z.object({
+  fusionId: z.number().optional(),
   materialA: z.string().min(1, "Material A is required"),
   materialB: z.string().min(1, "Material B is required"),
   resultName: z.string().min(1, "Result name is required"),

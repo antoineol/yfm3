@@ -7,6 +7,7 @@ import { FusionFormDialog } from "./FusionFormDialog.tsx";
 import type { FusionFormValues } from "./fusion-form-schema.ts";
 
 interface ReferenceFusion {
+  fusionId: number;
   materialA: string;
   materialB: string;
   resultName: string;
@@ -21,14 +22,13 @@ interface FusionsTableProps {
 export function FusionsTable({ fusions }: FusionsTableProps) {
   const deleteFusion = useAction(api.referenceDataCrud.deleteFusion);
   const [editFusion, setEditFusion] = useState<FusionFormValues | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const handleDelete = async (f: ReferenceFusion) => {
     if (!window.confirm(`Delete fusion "${f.materialA} + ${f.materialB}"?`)) return;
-    const key = `${f.materialA}|${f.materialB}`;
-    setDeleting(key);
+    setDeleting(f.fusionId);
     try {
-      await deleteFusion({ materialA: f.materialA, materialB: f.materialB });
+      await deleteFusion({ fusionId: f.fusionId, materialA: f.materialA, materialB: f.materialB });
       toast.success("Fusion deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
@@ -52,42 +52,37 @@ export function FusionsTable({ fusions }: FusionsTableProps) {
             </tr>
           </thead>
           <tbody>
-            {fusions.map((f) => {
-              const key = `${f.materialA}|${f.materialB}`;
-              return (
-                <tr
-                  className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
-                  key={key}
-                >
-                  <td className="py-1.5 px-1 text-text-primary">{f.materialA}</td>
-                  <td className="py-1.5 px-1 text-text-primary">{f.materialB}</td>
-                  <td className="py-1.5 px-1 text-gold">{f.resultName}</td>
-                  <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
-                    {f.resultAttack}
-                  </td>
-                  <td className="py-1.5 px-2 font-mono text-xs text-stat-def">{f.resultDefense}</td>
-                  <td className="py-0.5 px-1">
-                    <div className="flex items-center gap-1 justify-end">
-                      <IconButton
-                        className="size-9"
-                        label="Edit"
-                        onClick={() => setEditFusion({ ...f })}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        className="size-9"
-                        disabled={deleting === key}
-                        label="Delete"
-                        onClick={() => void handleDelete(f)}
-                      >
-                        <TrashIcon />
-                      </IconButton>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {fusions.map((f) => (
+              <tr
+                className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
+                key={f.fusionId}
+              >
+                <td className="py-1.5 px-1 text-text-primary">{f.materialA}</td>
+                <td className="py-1.5 px-1 text-text-primary">{f.materialB}</td>
+                <td className="py-1.5 px-1 text-gold">{f.resultName}</td>
+                <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">{f.resultAttack}</td>
+                <td className="py-1.5 px-2 font-mono text-xs text-stat-def">{f.resultDefense}</td>
+                <td className="py-0.5 px-1">
+                  <div className="flex items-center gap-1 justify-end">
+                    <IconButton
+                      className="size-9"
+                      label="Edit"
+                      onClick={() => setEditFusion({ ...f })}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      className="size-9"
+                      disabled={deleting === f.fusionId}
+                      label="Delete"
+                      onClick={() => void handleDelete(f)}
+                    >
+                      <TrashIcon />
+                    </IconButton>
+                  </div>
+                </td>
+              </tr>
+            ))}
             {fusions.length === 0 && (
               <tr>
                 <td className="py-8 text-center text-text-muted" colSpan={6}>

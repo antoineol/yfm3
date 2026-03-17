@@ -50,14 +50,21 @@ export const deleteCard = action({
 });
 
 export const createFusion = action({
-  args: referenceFusionFields,
+  args: {
+    materialA: v.string(),
+    materialB: v.string(),
+    resultName: v.string(),
+    resultAttack: v.number(),
+    resultDefense: v.number(),
+  },
   handler: async (ctx, args) => {
     await requireActionAuth(ctx);
     const { spreadsheetId, token } = await getSheetsConfig();
     const existing = await findFusionRow(spreadsheetId, token, args.materialA, args.materialB);
     if (existing) throw new Error(`Fusion ${args.materialA} + ${args.materialB} already exists`);
     await appendRow(spreadsheetId, token, "Fusions!A:E", fusionToRow(args));
-    await ctx.runMutation(internal.referenceData.insertFusion, args);
+    const maxId = await ctx.runQuery(internal.referenceData.getMaxFusionId);
+    await ctx.runMutation(internal.referenceData.insertFusion, { ...args, fusionId: maxId + 1 });
   },
 });
 
@@ -73,23 +80,19 @@ export const updateFusion = action({
     const row = await findFusionRow(spreadsheetId, token, originalMaterialA, originalMaterialB);
     if (!row) throw new Error(`Fusion ${originalMaterialA} + ${originalMaterialB} not found`);
     await updateRow(spreadsheetId, token, `Fusions!A${row}:E${row}`, fusionToRow(fields));
-    await ctx.runMutation(internal.referenceData.patchFusion, {
-      originalMaterialA,
-      originalMaterialB,
-      ...fields,
-    });
+    await ctx.runMutation(internal.referenceData.patchFusion, fields);
   },
 });
 
 export const deleteFusion = action({
-  args: { materialA: v.string(), materialB: v.string() },
-  handler: async (ctx, { materialA, materialB }) => {
+  args: { fusionId: v.number(), materialA: v.string(), materialB: v.string() },
+  handler: async (ctx, { fusionId, materialA, materialB }) => {
     await requireActionAuth(ctx);
     const { spreadsheetId, token } = await getSheetsConfig();
     const row = await findFusionRow(spreadsheetId, token, materialA, materialB);
     if (!row) throw new Error(`Fusion ${materialA} + ${materialB} not found in sheet`);
     await deleteRow(spreadsheetId, token, "Fusions", row);
-    await ctx.runMutation(internal.referenceData.deleteFusion, { materialA, materialB });
+    await ctx.runMutation(internal.referenceData.deleteFusion, { fusionId });
   },
 });
 

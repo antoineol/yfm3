@@ -50,13 +50,20 @@ export function FusionFormDialog({ open, onClose, mode, defaultValues }: FusionF
     setSaving(true);
     try {
       if (mode === "create") {
-        await create(values);
+        const { fusionId: _, ...createValues } = values;
+        await create(createValues);
         toast.success("Fusion created");
       } else {
+        if (defaultValues?.fusionId == null) throw new Error("Fusion ID missing — re-sync reference data");
         await update({
-          ...values,
-          originalMaterialA: defaultValues?.materialA ?? "",
-          originalMaterialB: defaultValues?.materialB ?? "",
+          fusionId: defaultValues.fusionId,
+          materialA: values.materialA,
+          materialB: values.materialB,
+          resultName: values.resultName,
+          resultAttack: values.resultAttack,
+          resultDefense: values.resultDefense,
+          originalMaterialA: defaultValues.materialA,
+          originalMaterialB: defaultValues.materialB,
         });
         toast.success("Fusion updated");
       }
@@ -73,18 +80,10 @@ export function FusionFormDialog({ open, onClose, mode, defaultValues }: FusionF
       <form className="flex flex-col gap-3" onSubmit={form.handleSubmit(onSubmit)}>
         <div className="grid grid-cols-2 gap-3">
           <Field error={form.formState.errors.materialA?.message} label="Material A">
-            <Input
-              {...form.register("materialA")}
-              disabled={mode === "edit"}
-              error={!!form.formState.errors.materialA}
-            />
+            <Input {...form.register("materialA")} error={!!form.formState.errors.materialA} />
           </Field>
           <Field error={form.formState.errors.materialB?.message} label="Material B">
-            <Input
-              {...form.register("materialB")}
-              disabled={mode === "edit"}
-              error={!!form.formState.errors.materialB}
-            />
+            <Input {...form.register("materialB")} error={!!form.formState.errors.materialB} />
           </Field>
         </div>
         <Field error={form.formState.errors.resultName?.message} label="Result Name">

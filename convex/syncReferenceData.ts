@@ -99,10 +99,12 @@ export function parseFusionsGrid(grid: string[][]) {
   const [headerRow = [], ...rows] = grid;
   const h = headerRow.map((v) => v.trim());
   const fusions = [];
+  let nextId = 1;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!, ln = i + 2;
     if (!r.some((c) => c.trim())) continue;
     fusions.push({
+      fusionId: nextId++,
       materialA: str(r, h, "materialA", ln), materialB: str(r, h, "materialB", ln),
       resultName: str(r, h, "resultName", ln),
       resultAttack: int(r, h, "resultAttack", ln), resultDefense: int(r, h, "resultDefense", ln),

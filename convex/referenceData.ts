@@ -70,6 +70,14 @@ export const deleteCard = internalMutation({
   },
 });
 
+export const getMaxFusionId = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    const fusions = await ctx.db.query("referenceFusions").collect();
+    return fusions.reduce((max, f) => Math.max(max, f.fusionId), 0);
+  },
+});
+
 export const insertFusion = internalMutation({
   args: referenceFusionFields,
   handler: async (ctx, args) => {
@@ -78,31 +86,25 @@ export const insertFusion = internalMutation({
 });
 
 export const patchFusion = internalMutation({
-  args: {
-    ...referenceFusionFields,
-    originalMaterialA: v.string(),
-    originalMaterialB: v.string(),
-  },
-  handler: async (ctx, { originalMaterialA, originalMaterialB, ...fields }) => {
+  args: referenceFusionFields,
+  handler: async (ctx, fields) => {
     const doc = await ctx.db
       .query("referenceFusions")
-      .withIndex("by_materials", (q) =>
-        q.eq("materialA", originalMaterialA).eq("materialB", originalMaterialB),
-      )
+      .withIndex("by_fusionId", (q) => q.eq("fusionId", fields.fusionId))
       .unique();
-    if (!doc) throw new Error(`Fusion ${originalMaterialA} + ${originalMaterialB} not found`);
+    if (!doc) throw new Error(`Fusion ${fields.fusionId} not found in Convex`);
     await ctx.db.patch(doc._id, { ...fields, importedAt: Date.now() });
   },
 });
 
 export const deleteFusion = internalMutation({
-  args: { materialA: v.string(), materialB: v.string() },
-  handler: async (ctx, { materialA, materialB }) => {
+  args: { fusionId: v.number() },
+  handler: async (ctx, { fusionId }) => {
     const doc = await ctx.db
       .query("referenceFusions")
-      .withIndex("by_materials", (q) => q.eq("materialA", materialA).eq("materialB", materialB))
+      .withIndex("by_fusionId", (q) => q.eq("fusionId", fusionId))
       .unique();
-    if (!doc) throw new Error(`Fusion ${materialA} + ${materialB} not found`);
+    if (!doc) throw new Error(`Fusion ${fusionId} not found in Convex`);
     await ctx.db.delete(doc._id);
   },
 });

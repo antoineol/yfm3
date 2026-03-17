@@ -118,6 +118,7 @@ describe("parseFusionsGrid", () => {
     );
     expect(fusions).toEqual([
       {
+        fusionId: 1,
         materialA: "Dragon",
         materialB: "Eagle",
         resultName: "Sky Dragon",

@@ -14,6 +14,7 @@ export const referenceCardFields = {
 };
 
 export const referenceFusionFields = {
+  fusionId: v.number(),
   materialA: v.string(),
   materialB: v.string(),
   resultName: v.string(),
@@ -56,6 +57,7 @@ export default defineSchema({
   referenceCards: defineTable({ ...referenceCardFields, importedAt: v.number() })
     .index('by_cardId', ['cardId']),
   referenceFusions: defineTable({ ...referenceFusionFields, importedAt: v.number() })
+    .index('by_fusionId', ['fusionId'])
     .index('by_materials', ['materialA', 'materialB']),
   userPreferences: defineTable({
     userId: v.string(),
