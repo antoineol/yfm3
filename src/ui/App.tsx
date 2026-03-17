@@ -26,11 +26,7 @@ export default function App() {
   }
 
   return (
-    <Tabs.Root
-      className="min-h-screen xl:h-screen flex flex-col"
-      onValueChange={setTab}
-      value={tab}
-    >
+    <Tabs.Root className="h-screen xl:h-screen flex flex-col" onValueChange={setTab} value={tab}>
       <Header />
 
       <Tabs.Panel
