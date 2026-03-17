@@ -2,6 +2,25 @@ import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 import { handSourceModeValidator } from './userPreferences';
 
+export const referenceCardFields = {
+  cardId: v.number(),
+  name: v.string(),
+  attack: v.number(),
+  defense: v.number(),
+  kind1: v.optional(v.string()),
+  kind2: v.optional(v.string()),
+  kind3: v.optional(v.string()),
+  color: v.optional(v.string()),
+};
+
+export const referenceFusionFields = {
+  materialA: v.string(),
+  materialB: v.string(),
+  resultName: v.string(),
+  resultAttack: v.number(),
+  resultDefense: v.number(),
+};
+
 export default defineSchema({
   // User's owned cards - total copies owned regardless of deck assignment.
   ownedCards: defineTable({
@@ -34,25 +53,8 @@ export default defineSchema({
 
 
   // Shared reference data imported from Google Sheets.
-  referenceCards: defineTable({
-    cardId: v.number(),
-    name: v.string(),
-    attack: v.number(),
-    defense: v.number(),
-    kind1: v.optional(v.string()),
-    kind2: v.optional(v.string()),
-    kind3: v.optional(v.string()),
-    color: v.optional(v.string()),
-    importedAt: v.number(),
-  }),
-  referenceFusions: defineTable({
-    materialA: v.string(),
-    materialB: v.string(),
-    resultName: v.string(),
-    resultAttack: v.number(),
-    resultDefense: v.number(),
-    importedAt: v.number(),
-  }),
+  referenceCards: defineTable({ ...referenceCardFields, importedAt: v.number() }),
+  referenceFusions: defineTable({ ...referenceFusionFields, importedAt: v.number() }),
   userPreferences: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints
