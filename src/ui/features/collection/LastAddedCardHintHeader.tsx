@@ -14,7 +14,11 @@ export function LastAddedCardHintHeader({
   return (
     <div className="flex items-center gap-1">
       <span className="text-text-secondary">Last added:</span>
+      <span className="text-text-muted font-mono text-xs">#{header.id}</span>
       <span className="text-text-primary font-medium truncate">{header.name}</span>
+      <span className="text-text-muted font-mono">
+        {header.attack}/{header.defense}
+      </span>
       <span className="text-text-muted font-mono">({header.totalOwned}/3)</span>
       <div className="flex items-center gap-0.5 ml-auto shrink-0">
         <CardActionButton

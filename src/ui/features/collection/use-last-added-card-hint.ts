@@ -16,7 +16,10 @@ import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 type AppliedSwap = { addedCardId: number; removedCardId: number; available: number };
 
 export interface LastAddedCardHintHeaderModel {
+  id: number;
   name: string;
+  attack: number;
+  defense: number;
   totalOwned: number;
   disableAdd: boolean;
   disableRemove: boolean;
@@ -119,7 +122,10 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
 
   return {
     header: {
+      id: card.id,
       name: card.name,
+      attack: card.attack,
+      defense: card.defense,
       totalOwned,
       disableAdd: totalOwned >= 3,
       disableRemove: available <= 0,
