@@ -1,9 +1,6 @@
-"use node";
-
-import { GoogleAuth } from "google-auth-library";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { buildGoogleAuth } from "./googleAuth";
+import { getGoogleAccessToken } from "./googleAuth";
 
 export type SyncResult = { importedAt: number; skipped: boolean };
 
@@ -12,19 +9,19 @@ export const syncFromSheets = action({
   handler: async (ctx): Promise<SyncResult> => {
     const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE ?? "";
     if (!spreadsheetId) throw new Error("Missing GOOGLE_SHEETS_SPREADSHEET_ID_REFERENCE");
-    const auth = buildGoogleAuth();
+    const token = await getGoogleAccessToken();
 
     const lastImportedAt = await ctx.runQuery(internal.referenceData.getLastImportedAt);
     if (lastImportedAt !== null) {
-      const modifiedMs = await fetchSpreadsheetModifiedTime(spreadsheetId, auth);
+      const modifiedMs = await fetchSpreadsheetModifiedTime(spreadsheetId, token);
       if (modifiedMs <= lastImportedAt) {
         return { importedAt: lastImportedAt, skipped: true };
       }
     }
 
     const [cardsGrid, fusionsGrid] = await Promise.all([
-      fetchSheetValues(spreadsheetId, auth, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
-      fetchSheetValues(spreadsheetId, auth, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
+      fetchSheetValues(spreadsheetId, token, process.env.GOOGLE_SHEETS_CARDS_RANGE ?? "Cards!A:Z"),
+      fetchSheetValues(spreadsheetId, token, process.env.GOOGLE_SHEETS_FUSIONS_RANGE ?? "Fusions!A:Z"),
     ]);
     const cards = parseCardsGrid(cardsGrid);
     const fusions = parseFusionsGrid(fusionsGrid);
@@ -35,18 +32,20 @@ export const syncFromSheets = action({
   },
 });
 
-async function fetchSpreadsheetModifiedTime(spreadsheetId: string, auth: GoogleAuth): Promise<number> {
-  const client = await auth.getClient();
+async function fetchSpreadsheetModifiedTime(spreadsheetId: string, token: string): Promise<number> {
   const url = `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=modifiedTime`;
-  const res = await client.request<{ modifiedTime: string }>({ url });
-  return new Date(res.data.modifiedTime).getTime();
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Drive API failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as { modifiedTime: string };
+  return new Date(data.modifiedTime).getTime();
 }
 
-async function fetchSheetValues(spreadsheetId: string, auth: GoogleAuth, range: string): Promise<string[][]> {
-  const client = await auth.getClient();
+async function fetchSheetValues(spreadsheetId: string, token: string, range: string): Promise<string[][]> {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
-  const res = await client.request<{ values?: string[][] }>({ url });
-  return res.data.values ?? [];
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Sheets API failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as { values?: string[][] };
+  return data.values ?? [];
 }
 
 // --- Grid parsing: cell helpers then flat parsers ---

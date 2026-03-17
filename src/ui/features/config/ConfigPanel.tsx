@@ -5,11 +5,11 @@ import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
 import { Form } from "../../components/Form.tsx";
 import { Input } from "../../components/Input.tsx";
-import { ImportExportButtons } from "./ImportExportButtons.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
+import { ImportExportButtons } from "./ImportExportButtons.tsx";
 
 interface ConfigPanelProps {
   onClose: () => void;

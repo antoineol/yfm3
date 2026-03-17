@@ -1,27 +1,23 @@
-"use node";
-
-import type { GoogleAuth } from "google-auth-library";
-
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
 // --- Public helpers: find, append, update, delete ---
 
 export async function findCardRow(
   spreadsheetId: string,
-  auth: GoogleAuth,
+  token: string,
   name: string,
 ): Promise<number | null> {
-  const values = await fetchColumn(spreadsheetId, auth, "Cards!B:B");
+  const values = await fetchRange(spreadsheetId, token, "Cards!B:B");
   return findRowIndex(values, (cell) => cell.trim().toLowerCase() === name.trim().toLowerCase());
 }
 
 export async function findFusionRow(
   spreadsheetId: string,
-  auth: GoogleAuth,
+  token: string,
   materialA: string,
   materialB: string,
 ): Promise<number | null> {
-  const values = await fetchColumns(spreadsheetId, auth, "Fusions!A:B");
+  const values = await fetchRange(spreadsheetId, token, "Fusions!A:B");
   const a = materialA.trim().toLowerCase();
   const b = materialB.trim().toLowerCase();
   return findRowIndex(values, (_, row) => {
@@ -33,74 +29,54 @@ export async function findFusionRow(
 
 export async function appendRow(
   spreadsheetId: string,
-  auth: GoogleAuth,
+  token: string,
   sheetRange: string,
   values: string[],
 ): Promise<void> {
-  const client = await auth.getClient();
   const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetRange)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-  await client.request({ url, method: "POST", body: JSON.stringify({ values: [values] }) });
+  await sheetsRequest(url, token, "POST", { values: [values] });
 }
 
 export async function updateRow(
   spreadsheetId: string,
-  auth: GoogleAuth,
+  token: string,
   sheetRange: string,
   values: string[],
 ): Promise<void> {
-  const client = await auth.getClient();
   const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(sheetRange)}?valueInputOption=RAW`;
-  await client.request({ url, method: "PUT", body: JSON.stringify({ values: [values] }) });
+  await sheetsRequest(url, token, "PUT", { values: [values] });
 }
 
 export async function deleteRow(
   spreadsheetId: string,
-  auth: GoogleAuth,
+  token: string,
   sheetName: string,
   rowIndex: number,
 ): Promise<void> {
-  const sheetId = await resolveSheetId(spreadsheetId, auth, sheetName);
-  const client = await auth.getClient();
+  const sheetId = await resolveSheetId(spreadsheetId, token, sheetName);
   const url = `${SHEETS_BASE}/${spreadsheetId}:batchUpdate`;
-  await client.request({
-    url,
-    method: "POST",
-    body: JSON.stringify({
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId,
-              dimension: "ROWS",
-              startIndex: rowIndex - 1, // 0-based inclusive
-              endIndex: rowIndex, // 0-based exclusive
-            },
+  await sheetsRequest(url, token, "POST", {
+    requests: [
+      {
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: "ROWS",
+            startIndex: rowIndex - 1, // 0-based inclusive
+            endIndex: rowIndex, // 0-based exclusive
           },
         },
-      ],
-    }),
+      },
+    ],
   });
 }
 
 // --- Internal helpers ---
 
-async function fetchColumn(
-  spreadsheetId: string,
-  auth: GoogleAuth,
-  range: string,
-): Promise<string[][]> {
-  const client = await auth.getClient();
+async function fetchRange(spreadsheetId: string, token: string, range: string): Promise<string[][]> {
   const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`;
-  const res = await client.request<{ values?: string[][] }>({ url });
-  return res.data.values ?? [];
-}
-
-async function fetchColumns(
-  spreadsheetId: string,
-  auth: GoogleAuth,
-  range: string,
-): Promise<string[][]> {
-  return fetchColumn(spreadsheetId, auth, range);
+  const data = await sheetsRequest<{ values?: string[][] }>(url, token);
+  return data.values ?? [];
 }
 
 /** Find the 1-based row number of a match (skips header row). Returns null if not found. */
@@ -116,19 +92,30 @@ export function findRowIndex(
   return null;
 }
 
-async function resolveSheetId(
-  spreadsheetId: string,
-  auth: GoogleAuth,
-  sheetName: string,
-): Promise<number> {
-  const client = await auth.getClient();
+async function resolveSheetId(spreadsheetId: string, token: string, sheetName: string): Promise<number> {
   const url = `${SHEETS_BASE}/${spreadsheetId}?fields=sheets.properties`;
-  const res = await client.request<{
+  const data = await sheetsRequest<{
     sheets: { properties: { title: string; sheetId: number } }[];
-  }>({ url });
-  const sheet = res.data.sheets.find(
-    (s) => s.properties.title.toLowerCase() === sheetName.toLowerCase(),
-  );
+  }>(url, token);
+  const sheet = data.sheets.find((s) => s.properties.title.toLowerCase() === sheetName.toLowerCase());
   if (!sheet) throw new Error(`Sheet "${sheetName}" not found`);
   return sheet.properties.sheetId;
+}
+
+async function sheetsRequest<T = unknown>(
+  url: string,
+  token: string,
+  method = "GET",
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!res.ok) throw new Error(`Sheets API ${method} failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T>;
 }
