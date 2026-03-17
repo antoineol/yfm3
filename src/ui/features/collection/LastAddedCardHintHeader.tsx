@@ -1,7 +1,16 @@
+import type { RefObject } from "react";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import type { LastAddedCardHintHeaderModel } from "./use-last-added-card-hint.ts";
 
-export function LastAddedCardHintHeader({ header }: { header: LastAddedCardHintHeaderModel }) {
+export function LastAddedCardHintHeader({
+  header,
+  inputRef,
+}: {
+  header: LastAddedCardHintHeaderModel;
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
+  const focusInput = () => inputRef.current?.focus();
+
   return (
     <div className="flex items-center gap-1">
       <span className="text-text-secondary">Last added:</span>
@@ -10,7 +19,10 @@ export function LastAddedCardHintHeader({ header }: { header: LastAddedCardHintH
       <div className="flex items-center gap-0.5 ml-auto shrink-0">
         <CardActionButton
           disabled={header.disableAdd}
-          onClick={header.onAdd}
+          onClick={() => {
+            header.onAdd();
+            focusInput();
+          }}
           title="Add another copy"
           variant="add"
         >
@@ -18,13 +30,23 @@ export function LastAddedCardHintHeader({ header }: { header: LastAddedCardHintH
         </CardActionButton>
         <CardActionButton
           disabled={header.disableRemove}
-          onClick={header.onRemove}
+          onClick={() => {
+            header.onRemove();
+            focusInput();
+          }}
           title="Remove one copy"
           variant="remove"
         >
           −
         </CardActionButton>
-        <CardActionButton onClick={header.onDismiss} title="Dismiss" variant="dismiss">
+        <CardActionButton
+          onClick={() => {
+            header.onDismiss();
+            focusInput();
+          }}
+          title="Dismiss"
+          variant="dismiss"
+        >
           ×
         </CardActionButton>
       </div>

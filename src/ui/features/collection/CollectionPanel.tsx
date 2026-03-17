@@ -1,5 +1,5 @@
 import { useMutation } from "convex/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
@@ -29,6 +29,7 @@ export function CollectionPanel() {
   const addToDeck = useMutation(api.deck.addToDeck);
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const autocompleteCards = useMemo(
     () =>
@@ -89,11 +90,12 @@ export function CollectionPanel() {
       <PanelHeader stretch title="Collection">
         <CardAutocomplete
           cards={autocompleteCards}
+          inputRef={inputRef}
           onSelect={(card) => void addCard({ cardId: card.id })}
           placeholder="Add card..."
         />
       </PanelHeader>
-      <LastAddedCardHint />
+      <LastAddedCardHint inputRef={inputRef} />
       {data.totalOwnedCards === 0 ? (
         <PanelEmptyState
           subtitle="Search above to add cards to your collection"

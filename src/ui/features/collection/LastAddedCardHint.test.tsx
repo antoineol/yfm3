@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "jotai";
-import type { ReactNode } from "react";
+import { createRef, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { DeckSwapSuggestion } from "../../../engine/suggest-deck-swap.ts";
@@ -114,6 +114,8 @@ afterEach(() => {
   globalThis.Worker = originalWorker;
 });
 
+const dummyInputRef = createRef<HTMLInputElement>();
+
 function TestWrapper({ children }: { children: ReactNode }) {
   return <Provider>{children}</Provider>;
 }
@@ -122,7 +124,9 @@ describe("LastAddedCardHint", () => {
   it("renders nothing when there is no last added card", () => {
     mockLastAdded.mockReturnValue(null);
 
-    const { container } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    const { container } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(container.innerHTML).toBe("");
     expect(MockWorker.instances).toHaveLength(0);
@@ -131,14 +135,16 @@ describe("LastAddedCardHint", () => {
   it("renders nothing when the last added card is no longer in owned totals", () => {
     mockOwnedCardTotals.mockReturnValue({ 2: 2, 3: 1, 4: 1, 5: 1 });
 
-    const { container } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    const { container } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(container.innerHTML).toBe("");
     expect(MockWorker.instances).toHaveLength(0);
   });
 
   it("keeps the base quick actions working", () => {
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     fireEvent.click(screen.getByTitle("Add another copy"));
     fireEvent.click(screen.getByTitle("Remove one copy"));
@@ -152,7 +158,7 @@ describe("LastAddedCardHint", () => {
   it("does not run suggestion lookup when the deck is not full", () => {
     mockDeck.mockReturnValue([{ cardId: 2 }]);
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
@@ -168,28 +174,32 @@ describe("LastAddedCardHint", () => {
     ]);
     mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 });
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     expect(MockWorker.instances).toHaveLength(0);
     expect(screen.queryByText("Checking deck upgrade...")).toBeNull();
   });
 
   it("recalculates when the added card availability changes", () => {
-    const { rerender } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
 
     mockOwnedCardTotals.mockReturnValue({ 1: 2, 2: 2, 3: 1, 4: 1, 5: 1 });
 
-    rerender(<LastAddedCardHint />);
+    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
   });
 
   it("recalculates when the deck contents change", () => {
-    const { rerender } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(1);
@@ -203,7 +213,7 @@ describe("LastAddedCardHint", () => {
     ]);
     mockOwnedCardTotals.mockReturnValue({ 1: 1, 2: 1, 3: 2, 4: 1, 5: 1 });
 
-    rerender(<LastAddedCardHint />);
+    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
 
     expect(MockWorker.instances).toHaveLength(1);
     expect(MockWorker.instances[0]?.postMessage).toHaveBeenCalledTimes(2);
@@ -212,7 +222,7 @@ describe("LastAddedCardHint", () => {
   it("shows revert after a successful apply", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     expect(screen.getByText("Checking deck upgrade...")).toBeDefined();
     expect(MockWorker.instances).toHaveLength(1);
@@ -233,7 +243,7 @@ describe("LastAddedCardHint", () => {
   });
 
   it("lets the user reject the suggestion", async () => {
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -247,7 +257,7 @@ describe("LastAddedCardHint", () => {
   it("shows an error toast when apply fails", async () => {
     mockApplySuggestedSwap.mockRejectedValue(new Error("boom"));
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -262,7 +272,7 @@ describe("LastAddedCardHint", () => {
       success: true,
     });
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -282,7 +292,7 @@ describe("LastAddedCardHint", () => {
       success: true,
     });
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -301,7 +311,7 @@ describe("LastAddedCardHint", () => {
       .mockResolvedValueOnce({ success: true })
       .mockRejectedValueOnce(new Error("boom"));
 
-    render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    render(<LastAddedCardHint inputRef={dummyInputRef} />, { wrapper: TestWrapper });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -318,7 +328,9 @@ describe("LastAddedCardHint", () => {
   it("clears undo state when the last added card changes", async () => {
     mockApplySuggestedSwap.mockResolvedValue({ success: true });
 
-    const { rerender } = render(<LastAddedCardHint />, { wrapper: TestWrapper });
+    const { rerender } = render(<LastAddedCardHint inputRef={dummyInputRef} />, {
+      wrapper: TestWrapper,
+    });
 
     MockWorker.instances[0]?.respond({ removedCardId: 2, improvement: 200 });
 
@@ -329,7 +341,7 @@ describe("LastAddedCardHint", () => {
 
     mockLastAdded.mockReturnValue(null);
 
-    rerender(<LastAddedCardHint />);
+    rerender(<LastAddedCardHint inputRef={dummyInputRef} />);
 
     await waitFor(() => expect(screen.queryByText("Revert")).toBeNull());
   });
