@@ -1,7 +1,9 @@
 import { useAction } from "convex/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import type { CardEntry } from "../../components/CardTable.tsx";
+import { CardTable } from "../../components/CardTable.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import { CardFormDialog } from "./CardFormDialog.tsx";
 import type { CardFormValues } from "./card-form-schema.ts";
@@ -26,11 +28,27 @@ export function CardsTable({ cards }: CardsTableProps) {
   const [editCard, setEditCard] = useState<CardFormValues | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  const handleDelete = async (card: ReferenceCard) => {
-    if (!window.confirm(`Delete "${card.name}"?`)) return;
-    setDeleting(card.cardId);
+  const entries = useMemo(
+    (): CardEntry[] =>
+      cards.map((c) => ({
+        id: c.cardId,
+        name: c.name,
+        atk: c.attack,
+        def: c.defense,
+        qty: 1,
+        kind1: c.kind1,
+        kind2: c.kind2,
+        kind3: c.kind3,
+        color: c.color,
+      })),
+    [cards],
+  );
+
+  const handleDelete = async (entry: CardEntry) => {
+    if (!window.confirm(`Delete "${entry.name}"?`)) return;
+    setDeleting(entry.id);
     try {
-      await deleteCard({ cardId: card.cardId, name: card.name });
+      await deleteCard({ cardId: entry.id, name: entry.name });
       toast.success("Card deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
@@ -39,87 +57,42 @@ export function CardsTable({ cards }: CardsTableProps) {
     }
   };
 
+  function renderActions(entry: CardEntry) {
+    return (
+      <div className="flex items-center gap-1 justify-end">
+        <IconButton
+          className="size-9"
+          label="Edit"
+          onClick={() =>
+            setEditCard({
+              cardId: entry.id,
+              name: entry.name,
+              attack: entry.atk,
+              defense: entry.def,
+              kind1: entry.kind1 ?? "",
+              kind2: entry.kind2 ?? "",
+              kind3: entry.kind3 ?? "",
+              color: entry.color ?? "",
+            })
+          }
+        >
+          <EditIcon />
+        </IconButton>
+        <IconButton
+          className="size-9"
+          disabled={deleting === entry.id}
+          label="Delete"
+          onClick={() => void handleDelete(entry)}
+        >
+          <TrashIcon />
+        </IconButton>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle">
-            <tr className="text-text-secondary text-xs uppercase tracking-wide">
-              <th className="text-left py-2 px-1 font-normal">ID</th>
-              <th className="text-left py-2 px-1 font-normal">Name</th>
-              <th className="text-left py-2 px-2 font-normal">ATK</th>
-              <th className="text-left py-2 px-2 font-normal">DEF</th>
-              <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind1</th>
-              <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind2</th>
-              <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Kind3</th>
-              <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Color</th>
-              <th className="py-2 px-1 font-normal" />
-            </tr>
-          </thead>
-          <tbody>
-            {cards.map((card) => (
-              <tr
-                className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
-                key={card.cardId}
-              >
-                <td className="py-1.5 px-1 font-mono text-xs text-text-muted">{card.cardId}</td>
-                <td className="py-1.5 px-1 text-text-primary">{card.name}</td>
-                <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">{card.attack}</td>
-                <td className="py-1.5 px-2 font-mono text-xs text-stat-def">{card.defense}</td>
-                <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
-                  {card.kind1}
-                </td>
-                <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
-                  {card.kind2}
-                </td>
-                <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
-                  {card.kind3}
-                </td>
-                <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
-                  {card.color}
-                </td>
-                <td className="py-0.5 px-1">
-                  <div className="flex items-center gap-1 justify-end">
-                    <IconButton
-                      className="size-9"
-                      label="Edit"
-                      onClick={() =>
-                        setEditCard({
-                          cardId: card.cardId,
-                          name: card.name,
-                          attack: card.attack,
-                          defense: card.defense,
-                          kind1: card.kind1 ?? "",
-                          kind2: card.kind2 ?? "",
-                          kind3: card.kind3 ?? "",
-                          color: card.color ?? "",
-                        })
-                      }
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      className="size-9"
-                      disabled={deleting === card.cardId}
-                      label="Delete"
-                      onClick={() => void handleDelete(card)}
-                    >
-                      <TrashIcon />
-                    </IconButton>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {cards.length === 0 && (
-              <tr>
-                <td className="py-8 text-center text-text-muted" colSpan={9}>
-                  No cards yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <CardTable actions={renderActions} entries={entries} showKinds />
       <CardFormDialog
         defaultValues={editCard ?? undefined}
         mode="edit"

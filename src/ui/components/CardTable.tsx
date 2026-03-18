@@ -1,8 +1,14 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
+
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { formatCardId } from "../lib/format.ts";
+import type { SortKey, SortState } from "./sortable-header.tsx";
+import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
+
+export type { SortKey, SortState };
 
 export type DiffStatus = "added" | "removed" | "kept";
 
@@ -12,6 +18,10 @@ export interface CardEntry {
   atk: number;
   def: number;
   qty: number;
+  kind1?: string;
+  kind2?: string;
+  kind3?: string;
+  color?: string;
   diffStatus?: DiffStatus;
 }
 
@@ -39,25 +49,29 @@ export function countById(ids: number[]): Map<number, number> {
   return counts;
 }
 
-export type SortKey = "id" | "atk";
-export type SortDir = "asc" | "desc";
-export type SortState = { key: SortKey; dir: SortDir } | null;
+const cardSortGetters = { id: (e: CardEntry) => e.id, atk: (e: CardEntry) => e.atk };
 
 export function CardTable<T extends CardEntry>({
   entries,
   actions,
   leftActions,
-  sort,
-  onSortChange,
+  defaultSort,
+  showKinds,
 }: {
   entries: T[];
   actions?: (entry: T) => ReactNode;
   leftActions?: (entry: T) => ReactNode;
-  sort?: SortState;
-  onSortChange?: (key: SortKey) => void;
+  defaultSort?: SortState;
+  showKinds?: boolean;
 }) {
   const [animateRef] = useAutoAnimate();
-  const sortable = onSortChange !== undefined;
+  const [sort, setSort] = useState<SortState>(defaultSort ?? { key: "id", dir: "asc" });
+
+  const handleSortChange = useCallback((key: SortKey) => {
+    setSort((prev) => toggleSort(prev, key));
+  }, []);
+
+  const sorted = useMemo(() => sortEntries(entries, sort, cardSortGetters) as T[], [entries, sort]);
 
   return (
     <div className="overflow-x-auto">
@@ -68,21 +82,29 @@ export function CardTable<T extends CardEntry>({
             <SortableHeader
               dir={sort?.key === "id" ? sort.dir : undefined}
               label="#"
-              onClick={sortable ? () => onSortChange("id") : undefined}
+              onClick={() => handleSortChange("id")}
             />
             <th className="text-left py-2 px-1 font-normal">Card</th>
             <SortableHeader
               dir={sort?.key === "atk" ? sort.dir : undefined}
               label="ATK"
-              onClick={sortable ? () => onSortChange("atk") : undefined}
+              onClick={() => handleSortChange("atk")}
               px="px-2"
             />
             <th className="text-left py-2 px-2 font-normal">DEF</th>
+            {showKinds && (
+              <>
+                <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind1</th>
+                <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind2</th>
+                <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Kind3</th>
+                <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Color</th>
+              </>
+            )}
             {actions && <th className="py-2 px-1 font-normal" />}
           </tr>
         </thead>
         <tbody ref={animateRef}>
-          {entries.map((e) => {
+          {sorted.map((e) => {
             const diff = e.diffStatus;
             const rowDiff =
               diff === "removed"
@@ -139,6 +161,22 @@ export function CardTable<T extends CardEntry>({
                 </td>
                 <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>{e.atk}</td>
                 <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>{e.def}</td>
+                {showKinds && (
+                  <>
+                    <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+                      {e.kind1}
+                    </td>
+                    <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+                      {e.kind2}
+                    </td>
+                    <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
+                      {e.kind3}
+                    </td>
+                    <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
+                      {e.color}
+                    </td>
+                  </>
+                )}
                 {actions && (
                   <td className="py-0.5 px-1 text-right whitespace-nowrap">{actions(e)}</td>
                 )}
@@ -148,30 +186,5 @@ export function CardTable<T extends CardEntry>({
         </tbody>
       </table>
     </div>
-  );
-}
-
-function SortableHeader({
-  label,
-  dir,
-  onClick,
-  px = "px-1",
-}: {
-  label: string;
-  dir?: SortDir;
-  onClick?: () => void;
-  px?: string;
-}) {
-  if (!onClick) {
-    return <th className={`text-left py-2 ${px} font-normal`}>{label}</th>;
-  }
-  return (
-    <th
-      className={`text-left py-2 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
-      onClick={onClick}
-    >
-      {label}
-      {dir && <span className="ml-0.5">{dir === "asc" ? "\u25B4" : "\u25BE"}</span>}
-    </th>
   );
 }
