@@ -3,7 +3,7 @@
  * PS1 disc image (.bin file, MODE2/2352 format).
  *
  * Outputs two CSV files:
- *   - cards-from-bin.csv:   id, atk, def, guardian_star_1, guardian_star_2, type
+ *   - cards-from-bin.csv:   id, name, atk, def, guardian_star_1, guardian_star_2, type, color
  *   - fusions-from-bin.csv: material1_id, material2_id, result_id, result_atk
  *
  * Usage:
@@ -36,47 +36,161 @@ const PVD_SECTOR = 16;
 /** Card stats in SLUS_014.11 (the PS1 executable) */
 const CARD_STATS_OFFSET = 0x1c_4a44;
 
+/** Card name offset table in SLUS_014.11: 722 × uint16LE offsets into text pool */
+const NAME_OFFSET_TABLE = 0x1c_6002;
+/** Text pool base address in SLUS_014.11 (offsets are added to this) */
+const TEXT_POOL_BASE = 0x1c_0800;
+
+/** Card name color codes: byte XX in the {F8 0A XX} prefix before card name text. */
+const CARD_COLORS: Record<number, string> = {
+  1: "yellow",
+  2: "blue",
+  3: "green",
+  4: "purple",
+  5: "orange",
+  6: "red",
+};
+
 /** Fusion table in WA_MRG.MRG */
 const FUSION_TABLE_OFFSET = 0xb8_7800;
 const FUSION_TABLE_SIZE = 0x1_0000;
 
+/** Guardian star encoding matches the name table at SLUS offset 0x1C9380. */
 const GUARDIAN_STARS: Record<number, string> = {
   0: "None",
-  1: "Sun",
-  2: "Moon",
-  3: "Mercury",
-  4: "Venus",
-  5: "Mars",
-  6: "Jupiter",
-  7: "Saturn",
-  8: "Uranus",
-  9: "Neptune",
-  10: "Pluto",
+  1: "Mars",
+  2: "Jupiter",
+  3: "Saturn",
+  4: "Uranus",
+  5: "Pluto",
+  6: "Neptune",
+  7: "Mercury",
+  8: "Sun",
+  9: "Moon",
+  10: "Venus",
 };
 
+/** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator. */
+// prettier-ignore
+const CHAR_TABLE: string[] = (() => {
+  const t: string[] = [];
+  const m: [number, string][] = [
+    [0, " "],
+    [1, "e"],
+    [2, "t"],
+    [3, "a"],
+    [4, "o"],
+    [5, "i"],
+    [6, "n"],
+    [7, "s"],
+    [8, "r"],
+    [9, "h"],
+    [10, "l"],
+    [11, "."],
+    [12, "d"],
+    [13, "u"],
+    [14, "m"],
+    [15, "c"],
+    [16, "g"],
+    [17, "y"],
+    [18, "w"],
+    [19, "f"],
+    [20, "p"],
+    [21, "b"],
+    [22, "k"],
+    [23, "!"],
+    [24, "A"],
+    [25, "v"],
+    [26, "I"],
+    [27, "'"],
+    [28, "T"],
+    [29, "S"],
+    [30, "M"],
+    [31, ","],
+    [32, "D"],
+    [33, "O"],
+    [34, "W"],
+    [35, "H"],
+    [36, "Y"],
+    [37, "E"],
+    [38, "R"],
+    [39, "<"],
+    [40, ">"],
+    [41, "G"],
+    [42, "L"],
+    [43, "C"],
+    [44, "N"],
+    [45, "B"],
+    [46, "?"],
+    [47, "P"],
+    [48, "-"],
+    [49, "F"],
+    [50, "z"],
+    [51, "K"],
+    [52, "j"],
+    [53, "U"],
+    [54, "x"],
+    [55, "q"],
+    [56, "0"],
+    [57, "V"],
+    [58, "2"],
+    [59, "J"],
+    [60, "#"],
+    [61, "1"],
+    [62, "Q"],
+    [63, "Z"],
+    [64, '"'],
+    [65, "3"],
+    [66, "5"],
+    [67, "&"],
+    [68, "/"],
+    [69, "7"],
+    [70, "X"],
+    [72, ":"],
+    [74, "4"],
+    [75, ")"],
+    [76, "("],
+    [78, "6"],
+    [80, "*"],
+    [86, "+"],
+    [87, "8"],
+    [89, "9"],
+    [91, "%"],
+  ];
+  for (const [i, ch] of m) t[i] = ch;
+  return t;
+})();
+
+/**
+ * Card type mapping extracted from the type name table at SLUS offset 0x1C92CE.
+ * 24 consecutive 0xFF-terminated TBL strings. Types 4 (Beast-Warrior) and 13
+ * (Sea Serpent) exist in the table but have zero cards in the game.
+ */
 const CARD_TYPES: Record<number, string> = {
   0: "Dragon",
   1: "Spellcaster",
   2: "Zombie",
   3: "Warrior",
-  4: "Beast",
-  5: "Winged Beast",
-  6: "Fiend",
-  7: "Fairy",
-  8: "Insect",
-  9: "Dinosaur",
-  10: "Reptile",
-  11: "Fish",
-  12: "Aqua",
-  13: "Machine",
-  14: "Thunder",
-  15: "Pyro",
-  16: "Rock",
-  17: "Plant",
-  18: "Equip",
-  19: "Magic",
-  20: "Trap",
-  21: "Ritual",
+  4: "Beast-Warrior",
+  5: "Beast",
+  6: "Winged Beast",
+  7: "Fiend",
+  8: "Fairy",
+  9: "Insect",
+  10: "Dinosaur",
+  11: "Reptile",
+  12: "Fish",
+  13: "Sea Serpent",
+  14: "Machine",
+  15: "Thunder",
+  16: "Aqua",
+  17: "Pyro",
+  18: "Rock",
+  19: "Plant",
+  20: "Magic",
+  21: "Trap",
+  22: "Ritual",
+  23: "Equip",
 };
 
 // ---------------------------------------------------------------------------
@@ -188,30 +302,76 @@ function findFile(bin: Buffer, rootFiles: IsoFile[], filePath: string): Buffer {
 }
 
 // ---------------------------------------------------------------------------
+// Text decoding
+// ---------------------------------------------------------------------------
+
+/** Decode a TBL-encoded string from `buf` at `start` until 0xFF or `maxLen`. */
+function decodeTblString(buf: Buffer, start: number, maxLen: number): string {
+  let result = "";
+  for (let i = start; i < start + maxLen && i < buf.length; i++) {
+    const b = buf[i] ?? 0;
+    if (b === 0xff) break;
+    result += CHAR_TABLE[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Card name extraction
+// ---------------------------------------------------------------------------
+
+interface CardText {
+  name: string;
+  color: string;
+}
+
+function extractCardTexts(slus: Buffer): CardText[] {
+  const results: CardText[] = [];
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const off = slus.readUInt16LE(NAME_OFFSET_TABLE + i * 2);
+    let addr = TEXT_POOL_BASE + off;
+    let color = "";
+    // {F8 0A XX} prefix encodes the card's UI color
+    if ((slus[addr] ?? 0) === 0xf8) {
+      color = CARD_COLORS[slus[addr + 2] ?? 0] ?? "";
+      addr += 3;
+    }
+    results.push({ name: decodeTblString(slus, addr, 100), color });
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Card stats extraction
 // ---------------------------------------------------------------------------
 
 interface CardStats {
   id: number;
+  name: string;
   atk: number;
   def: number;
   gs1: string;
   gs2: string;
   type: string;
+  color: string;
 }
 
 function extractCards(slus: Buffer): CardStats[] {
+  const texts = extractCardTexts(slus);
   const cards: CardStats[] = [];
 
   for (let i = 0; i < NUM_CARDS; i++) {
     const raw = slus.readUInt32LE(CARD_STATS_OFFSET + i * 4);
+    const text = texts[i] ?? { name: "", color: "" };
     cards.push({
       id: i + 1,
+      name: text.name,
       atk: (raw & 0x1ff) * 10,
       def: ((raw >> 9) & 0x1ff) * 10,
-      gs1: GUARDIAN_STARS[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
-      gs2: GUARDIAN_STARS[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
+      gs1: GUARDIAN_STARS[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
+      gs2: GUARDIAN_STARS[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
       type: CARD_TYPES[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
+      color: text.color,
     });
   }
 
@@ -279,8 +439,11 @@ function extractFusions(waMrg: Buffer): Fusion[] {
 // ---------------------------------------------------------------------------
 
 function cardsToCsv(cards: CardStats[]): string {
-  const header = "id,atk,def,guardian_star_1,guardian_star_2,type";
-  const rows = cards.map((c) => `${c.id},${c.atk},${c.def},${c.gs1},${c.gs2},${c.type}`);
+  const header = "id,name,atk,def,guardian_star_1,guardian_star_2,type,color";
+  const rows = cards.map(
+    (c) =>
+      `${c.id},"${c.name.replace(/"/g, '""')}",${c.atk},${c.def},${c.gs1},${c.gs2},${c.type},${c.color}`,
+  );
   return `${header}\n${rows.join("\n")}\n`;
 }
 
