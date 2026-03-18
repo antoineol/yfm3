@@ -1,5 +1,5 @@
-import cardsCsvRaw from "../../gamedata/cards-from-bin.csv?raw";
-import fusionsCsvRaw from "../../gamedata/fusions-from-bin.csv?raw";
+import cardsCsvRaw from "../../public/data/cards.csv?raw";
+import fusionsCsvRaw from "../../public/data/fusions.csv?raw";
 import type { Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";

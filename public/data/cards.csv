@@ -1,723 +1,723 @@
-id,atk,def,guardian_star_1,guardian_star_2,type
-1,1200,700,Uranus,Mercury,Dragon
-2,1400,1200,Neptune,Mercury,Dragon
-3,900,600,Sun,Saturn,Dragon
-4,1300,2000,Mars,Mercury,Dragon
-5,1500,800,Mercury,Sun,Dragon
-6,600,700,Uranus,Mercury,Dragon
-7,1200,1000,Mercury,Neptune,Dragon
-8,1500,1250,Pluto,Sun,Dragon
-9,700,1300,Mars,Mercury,Dragon
-10,1600,1400,Uranus,Venus,Dragon
-11,1200,1100,Saturn,Jupiter,Spellcaster
-12,500,400,Uranus,Pluto,Spellcaster
-13,1600,1800,Pluto,Uranus,Spellcaster
-14,1900,1700,Neptune,Saturn,Spellcaster
-15,1700,1900,Pluto,Uranus,Spellcaster
-16,1000,700,Neptune,Saturn,Spellcaster
-17,200,300,Moon,Saturn,Spellcaster
-18,200,300,Mercury,Saturn,Spellcaster
-19,200,300,Venus,Saturn,Spellcaster
-20,200,300,Mars,Saturn,Spellcaster
-21,1000,1000,Jupiter,Saturn,Spellcaster
-22,800,2000,Pluto,Uranus,Spellcaster
-23,0,0,Pluto,Uranus,Spellcaster
-24,1600,1000,Neptune,Saturn,Spellcaster
-25,1550,1400,Pluto,Uranus,Spellcaster
-26,300,200,Jupiter,Neptune,Zombie
-27,500,200,Mercury,Neptune,Zombie
-28,1500,0,Mars,Neptune,Zombie
-29,1200,900,Mars,Neptune,Zombie
-30,1350,0,Mars,Neptune,Zombie
-31,500,400,Mercury,Neptune,Zombie
-32,300,200,Mars,Neptune,Zombie
-33,700,500,Uranus,Sun,Zombie
-34,800,600,Mars,Neptune,Zombie
-35,1000,800,Mars,Neptune,Zombie
-36,1400,1200,Venus,Uranus,Warrior
-37,1800,1600,Pluto,Venus,Warrior
-38,100,2600,Venus,Pluto,Warrior
-39,1500,1200,Neptune,Venus,Warrior
-40,1700,1150,Saturn,Venus,Warrior
-41,1000,500,Neptune,Venus,Warrior
-42,1200,400,Pluto,Venus,Warrior
-43,250,250,Pluto,Venus,Warrior
-44,1550,2500,Sun,Uranus,Warrior
-45,1500,1000,Sun,Saturn,Warrior
-46,1750,1550,Saturn,Venus,Winged Beast
-47,1550,1800,Uranus,Venus,Winged Beast
-48,1700,1300,Mars,Moon,Winged Beast
-49,1800,1500,Venus,Moon,Winged Beast
-50,1400,700,Pluto,Venus,Winged Beast
-51,1500,1200,Pluto,Mars,Winged Beast
-52,1400,1800,Saturn,Neptune,Winged Beast
-53,800,900,Uranus,Venus,Winged Beast
-54,1600,900,Mercury,Pluto,Winged Beast
-55,1400,1000,Mars,Mercury,Winged Beast
-56,1100,1200,Jupiter,Mercury,Fiend
-57,1300,1400,Neptune,Mercury,Fiend
-58,900,600,Moon,Uranus,Fiend
-59,800,800,Jupiter,Mercury,Fiend
-60,1800,1500,Saturn,Mercury,Fiend
-61,1800,600,Neptune,Mercury,Fiend
-62,1400,1200,Neptune,Mercury,Fiend
-63,1200,2000,Neptune,Mercury,Fiend
-64,1000,900,Sun,Mercury,Fiend
-65,600,400,Uranus,Mercury,Fiend
-66,1000,500,Venus,Neptune,Fairy
-67,600,900,Neptune,Saturn,Fairy
-68,0,0,Venus,Saturn,Fairy
-69,1300,1400,Moon,Neptune,Fairy
-70,1700,800,Saturn,Neptune,Fairy
-71,1200,1200,Saturn,Moon,Fairy
-72,1000,500,Jupiter,Saturn,Fairy
-73,300,200,Moon,Saturn,Fairy
-74,1300,1000,Venus,Saturn,Fairy
-75,1800,1000,Mercury,Saturn,Fairy
-76,400,1500,Pluto,Venus,Insect
-77,400,300,Mercury,Uranus,Insect
-78,800,500,Venus,Uranus,Insect
-79,750,1100,Pluto,Neptune,Insect
-80,300,200,Uranus,Moon,Insect
-81,1200,1700,Venus,Uranus,Insect
-82,1500,1300,Sun,Uranus,Insect
-83,1400,800,Pluto,Uranus,Insect
-84,1900,900,Venus,Uranus,Insect
-85,800,1500,Venus,Uranus,Insect
-86,1500,2000,Jupiter,Moon,Dinosaur
-87,300,200,Uranus,Moon,Dinosaur
-88,500,400,Saturn,Moon,Dinosaur
-89,0,2000,Pluto,Moon,Dinosaur
-90,700,1400,Mars,Moon,Dinosaur
-91,450,600,Mars,Moon,Dinosaur
-92,1400,1700,Uranus,Moon,Dinosaur
-93,750,600,Mars,Moon,Dinosaur
-94,1600,1400,Pluto,Moon,Dinosaur
-95,300,350,Neptune,Moon,Dinosaur
-96,1100,700,Saturn,Venus,Reptile
-97,1730,2030,Jupiter,Venus,Reptile
-98,1800,1100,Mars,Saturn,Reptile
-99,1800,2000,Jupiter,Venus,Reptile
-100,1500,800,Sun,Venus,Reptile
-101,1600,1200,Mars,Neptune,Reptile
-102,1400,1200,Jupiter,Venus,Reptile
-103,1300,800,Pluto,Venus,Reptile
-104,1500,1200,Neptune,Venus,Reptile
-105,500,400,Pluto,Venus,Reptile
-106,1400,1500,Mercury,Jupiter,Fish
-107,100,2000,Moon,Jupiter,Fish
-108,300,250,Moon,Jupiter,Fish
-109,700,600,Uranus,Jupiter,Fish
-110,800,1600,Sun,Jupiter,Fish
-111,800,600,Mercury,Jupiter,Fish
-112,1200,900,Neptune,Jupiter,Fish
-113,900,800,Pluto,Jupiter,Fish
-114,1400,1100,Mercury,Jupiter,Fish
-115,800,900,Moon,Jupiter,Fish
-116,900,800,Pluto,Jupiter,Aqua
-117,1600,800,Neptune,Jupiter,Aqua
-118,1800,800,Moon,Jupiter,Aqua
-119,500,400,Moon,Jupiter,Aqua
-120,1650,1300,Uranus,Jupiter,Aqua
-121,1600,1300,Uranus,Jupiter,Aqua
-122,1700,1650,Moon,Jupiter,Aqua
-123,1400,1600,Uranus,Jupiter,Aqua
-124,1400,1100,Uranus,Jupiter,Aqua
-125,1800,1500,Saturn,Jupiter,Aqua
-126,1400,1200,Neptune,Jupiter,Rock
-127,1200,1400,Saturn,Jupiter,Rock
-128,1200,900,Saturn,Jupiter,Rock
-129,850,700,Uranus,Jupiter,Rock
-130,900,400,Saturn,Jupiter,Rock
-131,1400,1500,Uranus,Jupiter,Rock
-132,1150,900,Jupiter,Venus,Rock
-133,1600,800,Sun,Jupiter,Rock
-134,1150,1300,Moon,Jupiter,Rock
-135,800,1000,Mercury,Jupiter,Rock
-136,900,1600,Moon,Venus,Thunder
-137,1600,1800,Venus,Neptune,Thunder
-138,1750,2000,Jupiter,Saturn,Thunder
-139,1800,1500,Jupiter,Neptune,Thunder
-140,1500,1600,Neptune,Sun,Thunder
-141,400,500,Saturn,Moon,Thunder
-142,1300,1500,Jupiter,Pluto,Thunder
-143,700,500,Jupiter,Neptune,Thunder
-144,1500,1300,Uranus,Venus,Thunder
-145,1500,1300,Mars,Saturn,Thunder
-146,1000,500,Uranus,Mars,Pyro
-147,600,600,Neptune,Mars,Pyro
-148,700,600,Pluto,Mars,Pyro
-149,1100,800,Neptune,Mars,Pyro
-150,1600,1500,Moon,Mars,Pyro
-151,1500,1300,Uranus,Mars,Pyro
-152,800,900,Sun,Mars,Pyro
-153,1200,1300,Mercury,Mars,Pyro
-154,1400,1500,Moon,Mars,Pyro
-155,850,800,Uranus,Mars,Pyro
-156,300,200,Neptune,Sun,Plant
-157,1300,1500,Mercury,Sun,Plant
-158,1100,800,Venus,Sun,Plant
-159,1500,1000,Mercury,Sun,Plant
-160,600,500,Venus,Sun,Plant
-161,1300,1000,Mercury,Sun,Plant
-162,1700,1100,Pluto,Sun,Plant
-163,1700,1150,Mars,Sun,Plant
-164,400,450,Mars,Sun,Plant
-165,1100,1000,Mercury,Sun,Plant
-166,800,1200,Saturn,Venus,Equip
-167,400,200,Jupiter,Venus,Equip
-168,1300,2000,Pluto,Venus,Equip
-169,800,800,Uranus,Venus,Equip
-170,700,1400,Uranus,Venus,Equip
-171,0,3000,Moon,Venus,Equip
-172,1200,1000,Moon,Venus,Equip
-173,1500,1000,Uranus,Venus,Equip
-174,900,1000,Uranus,Venus,Equip
-175,1000,1300,Neptune,Venus,Equip
-176,300,400,Moon,Neptune,Magic
-177,800,600,Venus,Moon,Magic
-178,800,1000,Jupiter,Moon,Magic
-179,800,600,Neptune,Moon,Magic
-180,600,1500,Mars,Moon,Magic
-181,350,300,Jupiter,Moon,Magic
-182,1400,1300,Venus,Moon,Magic
-183,500,600,Mars,Moon,Magic
-184,800,600,Moon,Venus,Magic
-185,400,500,Neptune,Moon,Magic
-186,2000,1500,Sun,Saturn,Dragon
-187,2900,2500,Saturn,Sun,Dragon
-188,4200,1400,Sun,Venus,Dragon
-189,2300,2000,Sun,Uranus,Dragon
-190,3000,3000,Sun,Uranus,Dragon
-191,2200,1700,Sun,Venus,Dragon
-192,3000,0,Saturn,Sun,Dragon
-193,4000,3000,Saturn,Mars,Pyro
-194,2000,1700,Jupiter,Neptune,Dragon
-195,2900,2500,Jupiter,Neptune,Dragon
-196,3700,3000,Saturn,Neptune,Dragon
-197,3800,3400,Uranus,Sun,Dragon
-198,4000,3500,Mercury,Jupiter,Rock
-199,3000,2500,Sun,Uranus,Dragon
-200,4000,3500,Sun,Uranus,Dragon
-201,4500,3800,Sun,Uranus,Dragon
-202,5000,5000,Sun,Uranus,Dragon
-203,5000,5000,Pluto,Uranus,Dragon
-204,4000,3500,Sun,Uranus,Dragon
-205,3000,2500,Sun,Neptune,Dragon
-206,2400,1700,Sun,Mercury,Dragon
-207,2800,1000,Sun,Mercury,Dragon
-208,3500,3000,Mars,Mercury,Thunder
-209,4000,1000,Saturn,Neptune,Dragon
-210,2100,1500,Sun,Mars,Dragon
-211,2800,2100,Sun,Mars,Dragon
-212,4000,2800,Mars,Saturn,Dragon
-213,2500,2200,Moon,Venus,Fish
-214,3350,2850,Saturn,Neptune,Dragon
-215,2900,2500,Mars,Sun,Dragon
-216,4000,3500,Saturn,Neptune,Dragon
-217,3000,3300,Sun,Venus,Equip
-218,3700,3000,Sun,Venus,Dragon
-219,2400,2000,Pluto,Uranus,Dragon
-220,3500,3100,Pluto,Uranus,Dragon
-221,4500,4100,Pluto,Sun,Dragon
-222,3250,2900,Mercury,Jupiter,Dragon
-223,3900,3500,Saturn,Jupiter,Spellcaster
-224,3000,3500,Mercury,Sun,Dragon
-225,3000,2500,Mercury,Pluto,Dragon
-226,4000,4000,Mercury,Pluto,Dragon
-227,4000,0,Mercury,Pluto,Dragon
-228,5000,0,Pluto,Mercury,Dragon
-229,2500,2200,Neptune,Saturn,Spellcaster
-230,3900,3450,Neptune,Saturn,Spellcaster
-231,3300,3100,Saturn,Neptune,Spellcaster
-232,2500,2100,Neptune,Saturn,Spellcaster
-233,3800,4200,Neptune,Saturn,Spellcaster
-234,4400,3900,Neptune,Saturn,Spellcaster
-235,3700,3300,Neptune,Saturn,Spellcaster
-236,2200,2000,Venus,Neptune,Zombie
-237,3300,3500,Venus,Neptune,Zombie
-238,4200,3200,Neptune,Saturn,Fairy
-239,3000,1700,Mars,Neptune,Zombie
-240,4000,2700,Mars,Neptune,Zombie
-241,2600,2900,Neptune,Saturn,Zombie
-242,3200,1700,Neptune,Saturn,Zombie
-243,2000,1500,Mercury,Neptune,Zombie
-244,3000,2100,Mercury,Neptune,Zombie
-245,2200,1900,Neptune,Saturn,Zombie
-246,3150,2750,Neptune,Saturn,Fairy
-247,3000,2200,Venus,Neptune,Zombie
-248,4000,3900,Mars,Neptune,Zombie
-249,2200,2400,Jupiter,Pluto,Warrior
-250,3200,2800,Neptune,Jupiter,Zombie
-251,2550,3000,Uranus,Pluto,Thunder
-252,2200,2400,Mercury,Neptune,Zombie
-253,2900,2000,Mercury,Neptune,Zombie
-254,3700,2800,Mercury,Neptune,Zombie
-255,2000,1500,Mercury,Neptune,Zombie
-256,3000,0,Mercury,Neptune,Zombie
-257,2000,1500,Uranus,Pluto,Warrior
-258,3000,2500,Neptune,Saturn,Warrior
-259,4000,3500,Pluto,Uranus,Warrior
-260,2300,2100,Pluto,Venus,Warrior
-261,3000,2300,Uranus,Pluto,Warrior
-262,3100,2600,Pluto,Mercury,Dragon
-263,2300,2100,Pluto,Venus,Warrior
-264,3100,2500,Venus,Pluto,Warrior
-265,4400,4000,Pluto,Venus,Warrior
-266,3800,3600,Pluto,Sun,Warrior
-267,3600,3300,Jupiter,Saturn,Warrior
-268,3800,2400,Uranus,Mars,Pyro
-269,2400,2000,Venus,Saturn,Fairy
-270,2900,2500,Neptune,Saturn,Fairy
-271,2200,2800,Saturn,Neptune,Fairy
-272,2500,2300,Moon,Neptune,Magic
-273,3300,2800,Saturn,Mercury,Fairy
-274,2100,700,Saturn,Neptune,Fairy
-275,4000,0,Mercury,Saturn,Fairy
-276,4000,3500,Sun,Saturn,Fairy
-277,2900,2400,Mercury,Saturn,Fairy
-278,3500,3000,Saturn,Neptune,Fairy
-279,3000,2530,Moon,Saturn,Fairy
-280,3800,3700,Mars,Saturn,Fairy
-281,2600,2200,Mercury,Saturn,Fairy
-282,4400,3800,Neptune,Saturn,Fairy
-283,3110,2960,Sun,Saturn,Fairy
-284,3800,3000,Moon,Saturn,Fairy
-285,2400,2150,Mercury,Saturn,Winged Beast
-286,4900,4400,Neptune,Saturn,Fairy
-287,2650,2150,Saturn,Neptune,Fairy
-288,2300,1900,Mars,Venus,Reptile
-289,3300,1400,Mars,Venus,Reptile
-290,2600,1800,Moon,Venus,Reptile
-291,3500,2700,Moon,Venus,Reptile
-292,2500,1000,Saturn,Venus,Zombie
-293,2500,2000,Mercury,Pluto,Insect
-294,3500,3500,Saturn,Mercury,Fairy
-295,2300,1700,Pluto,Uranus,Insect
-296,2750,2400,Pluto,Uranus,Insect
-297,3800,3500,Mercury,Saturn,Insect
-298,2300,2500,Pluto,Uranus,Insect
-299,2800,2000,Pluto,Uranus,Warrior
-300,2800,1000,Mercury,Uranus,Insect
-301,0,0,None,None,23
-302,0,0,None,None,23
-303,0,0,None,None,23
-304,0,0,None,None,23
-305,0,0,None,None,23
-306,0,0,None,None,23
-307,0,0,None,None,23
-308,0,0,None,None,23
-309,0,0,None,None,23
-310,0,0,None,None,23
-311,0,0,None,None,23
-312,0,0,None,None,23
-313,0,0,None,None,23
-314,0,0,None,None,23
-315,0,0,None,None,23
-316,0,0,None,None,23
-317,0,0,None,None,23
-318,0,0,None,None,23
-319,0,0,None,None,23
-320,0,0,None,None,Trap
-321,0,0,None,None,23
-322,0,0,None,None,23
-323,0,0,None,None,23
-324,0,0,None,None,23
-325,0,0,None,None,23
-326,0,0,None,None,23
-327,0,0,None,None,23
-328,0,0,None,None,23
-329,0,0,None,None,Trap
-330,0,0,None,None,Trap
-331,0,0,None,None,Trap
-332,0,0,None,None,Trap
-333,0,0,None,None,Trap
-334,0,0,None,None,Trap
-335,0,0,None,None,Trap
-336,0,0,None,None,Trap
-337,0,0,None,None,Trap
-338,0,0,None,None,23
-339,0,0,None,None,23
-340,0,0,None,None,23
-341,0,0,None,None,Trap
-342,0,0,None,None,Trap
-343,0,0,None,None,Trap
-344,0,0,None,None,Trap
-345,0,0,None,None,Trap
-346,0,0,None,None,Trap
-347,0,0,None,None,Trap
-348,0,0,None,None,Trap
-349,0,0,None,None,Trap
-350,0,0,None,None,Trap
-351,2350,2150,Neptune,Jupiter,Aqua
-352,3000,2500,Jupiter,Neptune,Aqua
-353,2600,1800,Neptune,Jupiter,Aqua
-354,2100,1800,Neptune,Jupiter,Aqua
-355,3100,2000,Neptune,Jupiter,Aqua
-356,4400,3100,Neptune,Jupiter,Aqua
-357,2900,2500,Neptune,Jupiter,Aqua
-358,2600,2500,Moon,Mercury,Dinosaur
-359,4000,3500,Moon,Mercury,Dinosaur
-360,2300,2100,Moon,Venus,Dinosaur
-361,3100,1800,Moon,Venus,Dinosaur
-362,2950,3050,Moon,Venus,Dinosaur
-363,4000,3500,Moon,Venus,Dinosaur
-364,2200,1400,Moon,Mercury,Dinosaur
-365,3200,3400,Moon,Mercury,Dinosaur
-366,2600,2700,Uranus,Mars,Thunder
-367,2900,2600,Mars,Uranus,Thunder
-368,2700,2400,Uranus,Mars,Thunder
-369,2500,2600,Uranus,Mars,Thunder
-370,3800,3600,Uranus,Mars,Thunder
-371,4500,4300,Uranus,Mars,Thunder
-372,4000,3300,Saturn,Mars,Thunder
-373,2100,1600,Mars,Uranus,Thunder
-374,2800,2100,Mars,Uranus,Thunder
-375,4000,2800,Mars,Uranus,Thunder
-376,2700,3000,Mars,Sun,Thunder
-377,2400,2200,Mars,Mercury,Thunder
-378,3000,2100,Sun,Mars,Thunder
-379,2400,2200,Saturn,Mercury,Fairy
-380,2600,2200,Saturn,Mars,Pyro
-381,4250,3900,Saturn,Mars,Fairy
-382,2400,1500,Saturn,Mars,Thunder
-383,3100,2100,Mars,Saturn,Fairy
-384,4900,4300,Moon,Sun,Magic
-385,2350,1500,Saturn,Jupiter,Fish
-386,2950,2000,Saturn,Jupiter,Warrior
-387,3950,3800,Jupiter,Saturn,Rock
-388,2100,2200,Saturn,Jupiter,Fish
-389,3300,3100,Saturn,Jupiter,Winged Beast
-390,2100,1700,Neptune,Moon,Fish
-391,3350,3400,Saturn,Sun,Dragon
-392,1700,1600,Mars,Venus,Equip
-393,1400,1700,Mars,Venus,Equip
-394,1500,1800,Mars,Venus,Equip
-395,3500,3850,Venus,Mars,Equip
-396,3200,2500,Saturn,Sun,Warrior
-397,4100,3700,Mercury,Saturn,Warrior
-398,2800,2500,Pluto,Neptune,Warrior
-399,0,3000,Pluto,Venus,Warrior
-400,3800,2500,Pluto,Uranus,Warrior
-401,2500,2100,Neptune,Saturn,Spellcaster
-402,3500,2000,Neptune,Saturn,Spellcaster
-403,3100,2400,Saturn,Venus,Fairy
-404,4000,4000,Neptune,Jupiter,Rock
-405,3350,3100,Neptune,Jupiter,Rock
-406,2600,2800,Moon,Venus,Winged Beast
-407,4250,4000,Saturn,Venus,Winged Beast
-408,2300,2100,Neptune,Venus,Winged Beast
-409,3000,1200,Neptune,Venus,Winged Beast
-410,3800,1200,Venus,Neptune,Winged Beast
-411,2300,1900,Moon,Venus,Winged Beast
-412,3200,1500,Moon,Venus,Winged Beast
-413,4100,3700,Saturn,Mars,Thunder
-414,4000,2500,Uranus,Sun,Dragon
-415,2900,2800,Saturn,Neptune,Fairy
-416,4000,2800,Saturn,Sun,Fairy
-417,2300,1000,Saturn,Venus,Thunder
-418,3000,3000,Saturn,Venus,Thunder
-419,2400,2200,Sun,Mars,Pyro
-420,3300,2600,Sun,Mars,Pyro
-421,4800,4600,Uranus,Sun,Warrior
-422,5000,5000,Neptune,Saturn,Dragon
-423,4500,0,Uranus,Mars,Pyro
-424,4500,4500,Saturn,Neptune,Fairy
-425,4500,3000,Sun,Uranus,Plant
-426,5000,5000,Neptune,Saturn,Fairy
-427,5000,5000,Uranus,Sun,Dragon
-428,5000,5000,Sun,Saturn,Dragon
-429,4800,4500,Jupiter,Saturn,Warrior
-430,2800,1400,Uranus,Sun,Warrior
-431,2600,3000,Venus,Saturn,Fairy
-432,2700,2000,Moon,Venus,Winged Beast
-433,3700,3200,Moon,Venus,Winged Beast
-434,3900,3400,Mars,Venus,Thunder
-435,3700,3500,Jupiter,Saturn,Warrior
-436,3100,2800,Moon,Mercury,Winged Beast
-437,2100,0,Neptune,Saturn,Fairy
-438,2500,2000,Sun,Mercury,Fiend
-439,2100,2000,Saturn,Neptune,Spellcaster
-440,2000,2400,Saturn,Neptune,Spellcaster
-441,3000,3000,Saturn,Neptune,Spellcaster
-442,4000,4000,Neptune,Saturn,Fairy
-443,2200,2500,Saturn,Mercury,Fairy
-444,2200,1600,Saturn,Venus,Reptile
-445,2380,2530,Neptune,Saturn,Fairy
-446,2000,1700,Saturn,Jupiter,Aqua
-447,2100,1800,Mars,Sun,Plant
-448,3200,2100,Mars,Sun,Winged Beast
-449,2900,2900,Neptune,Saturn,Thunder
-450,2000,2200,Saturn,Venus,Equip
-451,2800,3500,Venus,Mars,Pyro
-452,4000,4000,Pluto,Venus,Equip
-453,3000,3000,Saturn,Neptune,Spellcaster
-454,4000,4000,Neptune,Saturn,Spellcaster
-455,4000,4000,Neptune,Saturn,Fairy
-456,3600,3100,Sun,Saturn,Fish
-457,2200,2200,Pluto,Sun,Warrior
-458,2200,2400,Pluto,Uranus,Fairy
-459,3000,2000,Saturn,Sun,Fairy
-460,4700,4000,Saturn,Sun,Dragon
-461,4000,3500,Saturn,Sun,Dragon
-462,4000,3500,Venus,Uranus,Winged Beast
-463,3500,4000,Uranus,Venus,Winged Beast
-464,5000,5000,Venus,Uranus,Winged Beast
-465,4500,4000,Sun,Saturn,Dragon
-466,3000,3000,Neptune,Saturn,Zombie
-467,2400,1700,Sun,Uranus,Warrior
-468,3000,2500,Uranus,Sun,Dragon
-469,3000,2500,Sun,Uranus,Dragon
-470,500,400,Uranus,Pluto,Spellcaster
-471,2100,2000,Uranus,Venus,Equip
-472,2200,2000,Neptune,Jupiter,Reptile
-473,3100,1700,Neptune,Jupiter,Rock
-474,4000,3200,Neptune,Jupiter,Fiend
-475,4700,4000,Neptune,Saturn,Dragon
-476,2100,1800,Saturn,Neptune,Winged Beast
-477,2450,2600,Pluto,Mercury,Fiend
-478,2100,1800,Jupiter,Moon,Dragon
-479,2500,2400,Mercury,Jupiter,Rock
-480,2250,1800,Neptune,Sun,Fiend
-481,2100,1700,Mercury,Saturn,Equip
-482,2300,2000,Neptune,Moon,Magic
-483,2300,2500,Saturn,Moon,Zombie
-484,2400,2000,Pluto,Sun,Plant
-485,2550,2500,Moon,Jupiter,Rock
-486,2500,2200,Mars,Moon,Winged Beast
-487,3450,3000,Neptune,Saturn,Fairy
-488,2300,2000,Sun,Uranus,Dragon
-489,2500,2100,Neptune,Saturn,Spellcaster
-490,2500,2300,Sun,Uranus,Dragon
-491,2100,1700,Jupiter,Venus,Reptile
-492,3000,3000,Sun,Saturn,Fairy
-493,4000,4000,Neptune,Mars,Spellcaster
-494,2100,1600,Mars,Uranus,Thunder
-495,5000,3800,Saturn,Mars,Thunder
-496,2600,1200,Pluto,Jupiter,Warrior
-497,3900,3400,Neptune,Saturn,Zombie
-498,2800,2300,Moon,Mercury,Magic
-499,2900,2500,Mercury,Jupiter,Fiend
-500,2800,2200,Neptune,Sun,Plant
-501,3000,1000,Saturn,Venus,Equip
-502,3000,1000,Saturn,Uranus,Insect
-503,2600,1000,Saturn,Jupiter,Rock
-504,3000,1000,Saturn,Mercury,Fiend
-505,3000,1000,Saturn,Sun,Plant
-506,3000,1000,Uranus,Mars,Pyro
-507,3000,1000,Neptune,Saturn,Fairy
-508,3800,3700,Saturn,Jupiter,Rock
-509,3600,1800,Neptune,Jupiter,Fairy
-510,3400,3000,Neptune,Sun,Plant
-511,4100,2600,Saturn,Uranus,Zombie
-512,4850,4300,Pluto,Sun,Warrior
-513,3000,1500,Pluto,Mercury,Fiend
-514,3850,3300,Saturn,Neptune,Fairy
-515,2600,1800,Uranus,Jupiter,Rock
-516,3300,2500,Uranus,Jupiter,Rock
-517,3900,3450,Uranus,Jupiter,Rock
-518,4500,4100,Uranus,Jupiter,Rock
-519,3500,2000,Sun,Saturn,Dragon
-520,3000,3000,Sun,Saturn,Dragon
-521,3400,2600,Pluto,Uranus,Dragon
-522,4400,3100,Sun,Mars,Pyro
-523,3400,3400,Pluto,Jupiter,Rock
-524,3500,3000,Uranus,Sun,Dragon
-525,4300,3800,Uranus,Sun,Dragon
-526,3500,3000,Uranus,Jupiter,Dragon
-527,3400,2100,Sun,Uranus,Dragon
-528,2800,1000,Sun,Uranus,Dragon
-529,3700,2200,Sun,Saturn,Dragon
-530,4000,4000,Sun,Saturn,Dragon
-531,4100,3500,Pluto,Jupiter,Dragon
-532,3500,1000,Neptune,Saturn,Spellcaster
-533,2800,2300,Neptune,Saturn,Zombie
-534,4000,4000,Saturn,Neptune,Spellcaster
-535,2600,1400,Neptune,Saturn,Spellcaster
-536,3000,2400,Pluto,Uranus,Spellcaster
-537,2800,2100,Pluto,Uranus,Warrior
-538,3800,4000,Pluto,Jupiter,Rock
-539,4000,1500,Uranus,Mars,Pyro
-540,3600,3600,Pluto,Venus,Thunder
-541,4100,3600,Pluto,Mercury,Fiend
-542,3800,1000,Neptune,Saturn,Fairy
-543,3800,1000,Pluto,Mercury,Fiend
-544,3800,1000,Pluto,Sun,Plant
-545,3800,1000,Pluto,Jupiter,Rock
-546,3800,1000,Pluto,Mars,Pyro
-547,3800,1000,Pluto,Venus,Equip
-548,3800,1000,Pluto,Uranus,Insect
-549,3600,3100,Sun,Mars,Pyro
-550,2700,1400,Saturn,Jupiter,Aqua
-551,3700,3400,Jupiter,Saturn,Aqua
-552,3500,3000,Sun,Uranus,Dragon
-553,4000,4000,Moon,Venus,Winged Beast
-554,4500,3000,Pluto,Uranus,Dragon
-555,3600,3000,Sun,Mars,Dragon
-556,4600,1500,Neptune,Mars,Pyro
-557,4000,3300,Saturn,Neptune,Warrior
-558,4000,2800,Saturn,Neptune,Spellcaster
-559,4200,3700,Saturn,Neptune,Fairy
-560,2900,2400,Sun,Mars,Pyro
-561,4600,4100,Saturn,Neptune,Spellcaster
-562,4800,4400,Venus,Saturn,Warrior
-563,4400,4400,Uranus,Mars,Dragon
-564,4200,3500,Sun,Venus,Reptile
-565,4300,3100,Uranus,Venus,Winged Beast
-566,4150,3700,Neptune,Saturn,Zombie
-567,2800,2300,Venus,Saturn,Reptile
-568,4500,0,Neptune,Saturn,Zombie
-569,3500,2000,Neptune,Saturn,Fairy
-570,2900,2700,Neptune,Saturn,Zombie
-571,4600,4100,Uranus,Sun,Dragon
-572,4000,4000,Uranus,Mars,Warrior
-573,2900,2800,Mercury,Moon,Dinosaur
-574,2800,2400,Pluto,Venus,Winged Beast
-575,3500,2900,Saturn,Venus,Winged Beast
-576,4350,3500,Venus,Saturn,Winged Beast
-577,3700,3100,Saturn,Sun,Dragon
-578,3750,3000,Neptune,Saturn,Fairy
-579,3900,3400,Saturn,Sun,Dragon
-580,4700,4400,Saturn,Sun,Dragon
-581,4500,4000,Uranus,Pluto,Insect
-582,4100,3500,Saturn,Pluto,Fairy
-583,3300,2100,Saturn,Neptune,Warrior
-584,4800,4100,Neptune,Saturn,Fairy
-585,3600,3100,Jupiter,Neptune,Dragon
-586,4900,4400,Mercury,Moon,Dragon
-587,3000,3000,Venus,Sun,Equip
-588,4000,4000,Venus,Sun,Equip
-589,4500,3800,Mercury,Moon,Magic
-590,4800,4500,Sun,Saturn,Dragon
-591,4100,3400,Moon,Mercury,Magic
-592,3000,2500,Saturn,Venus,Reptile
-593,3800,2600,Venus,Saturn,Reptile
-594,4600,4100,Venus,Saturn,Reptile
-595,4400,4400,Venus,Neptune,Reptile
-596,3600,2800,Sun,Saturn,Warrior
-597,3400,2900,Sun,Mercury,Dragon
-598,1200,1700,Neptune,Mercury,Insect
-599,800,700,Saturn,Jupiter,Spellcaster
-600,600,400,Mars,Uranus,Insect
-601,1600,1400,Moon,Uranus,Rock
-602,700,700,Sun,Jupiter,Insect
-603,600,600,Mercury,Uranus,Zombie
-604,700,1300,Sun,Neptune,Thunder
-605,1800,1000,Mercury,Jupiter,Plant
-606,700,900,Uranus,Jupiter,Spellcaster
-607,700,700,Uranus,Moon,Spellcaster
-608,1100,900,Venus,Uranus,Dragon
-609,900,700,Neptune,Moon,Zombie
-610,1000,1000,Uranus,Mars,Spellcaster
-611,900,1300,Mercury,Neptune,Zombie
-612,800,700,Mars,Uranus,Fairy
-613,1200,1300,Neptune,Mars,Warrior
-614,900,1200,Pluto,Moon,Zombie
-615,800,1200,Neptune,Jupiter,Warrior
-616,1000,800,Jupiter,Uranus,Thunder
-617,1700,1600,Saturn,Jupiter,Aqua
-618,2100,1700,Sun,Saturn,Warrior
-619,900,700,Sun,Venus,Winged Beast
-620,1000,1200,Saturn,Moon,Magic
-621,1650,1300,Moon,Saturn,Warrior
-622,1600,1500,Pluto,Uranus,Spellcaster
-623,1200,1300,Moon,Venus,Equip
-624,1650,1300,Saturn,Jupiter,Rock
-625,1600,1100,Pluto,Jupiter,Rock
-626,1300,1400,Sun,Jupiter,Aqua
-627,1500,2000,Venus,Moon,Winged Beast
-628,550,500,Mercury,Saturn,Spellcaster
-629,950,1100,Mars,Moon,Winged Beast
-630,500,400,Mercury,Jupiter,Zombie
-631,1500,1300,Pluto,Neptune,Spellcaster
-632,800,400,Uranus,Venus,Warrior
-633,1400,1700,Sun,Uranus,Insect
-634,1000,800,Moon,Jupiter,Zombie
-635,350,300,Neptune,Venus,Warrior
-636,1600,1200,Pluto,Mercury,Fiend
-637,1500,1800,Uranus,Moon,Magic
-638,1700,900,Mercury,Neptune,Pyro
-639,2400,1800,Uranus,Jupiter,Aqua
-640,2200,1500,Pluto,Moon,Warrior
-641,1350,1700,Pluto,Venus,Warrior
-642,1600,800,Mercury,Pluto,Warrior
-643,700,1300,Venus,Neptune,Dragon
-644,900,900,Mars,Sun,Dragon
-645,2800,2800,Saturn,Venus,Thunder
-646,1800,1300,Neptune,Jupiter,Warrior
-647,1600,1200,Pluto,Jupiter,Fairy
-648,2200,1800,Jupiter,Neptune,Warrior
-649,1450,1000,Venus,Saturn,Warrior
-650,1650,1600,Saturn,Neptune,Fairy
-651,0,0,None,None,23
-652,0,0,None,None,23
-653,0,0,None,None,Trap
-654,0,0,None,None,23
-655,0,0,None,None,Trap
-656,0,0,None,None,Trap
-657,0,0,None,None,23
-658,0,0,None,None,23
-659,0,0,None,None,23
-660,0,0,None,None,Trap
-661,0,0,None,None,Trap
-662,0,0,None,None,Trap
-663,0,0,None,None,Trap
-664,0,0,None,None,Trap
-665,0,0,None,None,22
-666,0,0,None,None,22
-667,0,0,None,None,22
-668,0,0,None,None,23
-669,0,0,None,None,Trap
-670,0,0,None,None,22
-671,0,0,None,None,22
-672,0,0,None,None,Trap
-673,0,0,None,None,22
-674,0,0,None,None,22
-675,0,0,None,None,22
-676,0,0,None,None,22
-677,0,0,None,None,22
-678,0,0,None,None,22
-679,0,0,None,None,22
-680,0,0,None,None,22
-681,0,0,None,None,Ritual
-682,0,0,None,None,Ritual
-683,0,0,None,None,Ritual
-684,0,0,None,None,Ritual
-685,0,0,None,None,Ritual
-686,0,0,None,None,Ritual
-687,0,0,None,None,Ritual
-688,0,0,None,None,Ritual
-689,0,0,None,None,Ritual
-690,0,0,None,None,Ritual
-691,0,0,None,None,22
-692,0,0,None,None,22
-693,0,0,None,None,22
-694,0,0,None,None,22
-695,0,0,None,None,22
-696,0,0,None,None,22
-697,0,0,None,None,22
-698,0,0,None,None,22
-699,0,0,None,None,22
-700,0,0,None,None,22
-701,2850,2050,Mercury,Uranus,Warrior
-702,2000,1850,Sun,Neptune,Warrior
-703,900,1200,Saturn,Moon,Thunder
-704,2050,2500,Moon,Uranus,Spellcaster
-705,700,600,Moon,Neptune,Warrior
-706,1500,800,Mars,Saturn,Warrior
-707,1200,1300,Jupiter,Saturn,Warrior
-708,400,600,Venus,Pluto,Winged Beast
-709,2850,2000,Neptune,Saturn,Fairy
-710,2950,2500,Moon,Jupiter,Rock
-711,2200,2350,Venus,Uranus,Dragon
-712,600,800,Jupiter,Venus,Zombie
-713,3500,2000,Uranus,Sun,Dragon
-714,2250,1800,Neptune,Sun,Fiend
-715,2000,2350,Mercury,Neptune,Fairy
-716,1700,1400,Venus,Neptune,Fairy
-717,900,800,Venus,Moon,Rock
-718,2550,2150,Mercury,Jupiter,Aqua
-719,1900,1850,Sun,Venus,Zombie
-720,2000,1800,Mars,Pluto,Spellcaster
-721,600,500,Moon,Moon,Fiend
-722,600,900,Sun,Saturn,Insect
+id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description
+1,"Baby Dragon",1200,700,Saturn,Sun,Dragon,,3,Earth,20,1,"Much more than\njust  a child, this\ndragon is gifted\nwith untapped\npower."
+2,"Winged Dragon #1",1400,1200,Saturn,Moon,Dragon,,4,Earth,20,2,"A dragon commonly \nfound guarding \nmountain fortresses.\nIts signature attack\nis a sweeping dive \nfrom out of the blue."
+3,"Pitch-Dark Dragon",900,600,Mercury,Mars,Dragon,purple,3,Light,20,3,"He hides in the\nnigght where\nenemies cant\nsee him"
+4,"Crocodile Dragon",1300,2000,Saturn,Pluto,Dragon,,3,Earth,20,4,"It is horrible\nwhen it gets\nangry, although\nusually it is quiet."
+5,"Blackland Fire Dragon",1500,800,Mars,Saturn,Dragon,,3,Earth,20,5,"A dragon that\ndwells in the\ndepths of darkness.\nIts defensive capability\nsuffers from its poor \neyesight."
+6,"Petit Dragon",600,700,Saturn,Sun,Dragon,,2,Earth,20,6,"A very small \ndragon known\nfor its vicious\nattacks."
+7,"Lesser Dragon",1200,1000,Moon,Saturn,Dragon,,4,Earth,20,7,"A low-class, minor\ndragon incapable\nof breathing fire.\nHis head looks \nvery similiar of the\nlegenday red-eyes\nblack dragon!"
+8,"Darkfire Dragon",1500,1250,Mars,Venus,Dragon,purple,4,Fire,20,8,"Scorching flames\nthat wipe out\nenemies in the\nblink of an eye."
+9,"One-eyed Shield Dragon",700,1300,Saturn,Pluto,Dragon,,3,Earth,100,9,"This dragon wears\na shield not only for\nits own protection\nbut also for ramming\nits enemies."
+10,"Crawling Dragon",1600,1400,Uranus,Sun,Dragon,,5,Dark,20,10,"A weakened dragon\nthat can no longer\nfly, but is still a\nformidable force\nto be reckoned with."
+11,"Lord Of D.",1200,1100,Neptune,Mercury,Spellcaster,,4,Light,20,11,"A mysterious wizard\nwhose face remains\nforever hidden behind\na strange mask.."
+12,"Time Wizard",500,400,Venus,Sun,Spellcaster,blue,2,,100,12,"A sorcerer capable\nof bending time to\nhis will. Though not\npowerful at first\nglance, appearances \ncan be deceiving."
+13,"Magicians Valkyria",1600,1800,Sun,Venus,Spellcaster,blue,4,,100,13,"AN apprentice\nwho once fully\neducated becomes\nsomething very \npowerful"
+14,"Skilled Dark Magician",1900,1700,Mercury,Moon,Spellcaster,blue,4,Light,100,14,"Manipulates enemy\nattacks with the\npower of illusion.\n"
+15,"Skilled White Magician",1700,1900,Sun,Venus,Spellcaster,blue,4,,100,15,"A deceptively\nfragile-looking\nspellcaster\nthat is known for\nits swift and\nprecise attacks."
+16,"White Magical Hat",1000,700,Mercury,Moon,Spellcaster,,3,Light,20,16,"A gentleman thief\nthat eludes the law\ndespite the fact\nthat he sticks out\nlike a sore thumb\nwith his silk hat\nand white cape."
+17,"Right Leg of the Forbidden One",200,300,Mercury,Jupiter,Spellcaster,,1,Light,999999,17,"A forbidden limb\nsealed by magic.\nWhoever breaks\nthis seal will know\ninfinite power.\nOnly one card of\nthis type may be\nincluded in a deck."
+18,"Left Leg of the Forbidden One",200,300,Mercury,Saturn,Spellcaster,,1,Light,999999,18,"A forbidden limb\nsealed by magic.\nWhoever breaks\nthis seal will know\ninfinite power.\nOnly one card of\nthis type may be\nincluded in a deck."
+19,"Right Arm of the Forbidden One",200,300,Mercury,Uranus,Spellcaster,,1,Light,999999,19,"A forbidden limb\nsealed by magic.\nWhoever breaks\nthis seal will know\ninfinite power.\nOnly one card of\nthis type may be\nincluded in a deck."
+20,"Left Arm of the Forbidden One",200,300,Mercury,Pluto,Spellcaster,,1,Light,999999,20,"A forbidden limb\nsealed by magic.\nWhoever breaks\nthis seal will know\ninfinite power.\nOnly one card of\nthis type may be\nincluded in a deck."
+21,"Exodia the Forbidden",1000,1000,Mercury,Neptune,Spellcaster,,3,Light,999999,21,"Once combined with\narms and legs, this \nmonster is freed\nfrom its magical\nchains.\nOnly one card of\nthis type may be\nincluded in a deck."
+22,"Mystical Elf",800,2000,Sun,Venus,Spellcaster,blue,4,,100,22,"A wizard that\nfreezes an enemy's\nmovement  with a\nsingle curse."
+23,"Copycat",0,0,Sun,Venus,Spellcaster,,1,,20,23,"A gentleman thief\nthat eludes the law\ndespite the fact\nthat he sticks out\nlike a sore thumb\nwith his silk hat\nand white cape."
+24,"Breaker The Magical Warrior",1600,1000,Mercury,Moon,Spellcaster,,4,Light,20,24,"A sorcerer that\nworships the dark\nforces and can\nsummon a massive\nhand to drag away\nopponents into\nthe netherworld."
+25,"Maha Vailo",1550,1400,Sun,Venus,Spellcaster,,4,,20,25,"This forest-dwelling\nwitch can see all\nwith the eye on her\nforehead."
+26,"Skull Servant",300,200,Moon,Neptune,Zombie,blue,1,Light,100,26,"A skeletal ghost\nthat isn't strong\nbut can mean\ntrouble in large\nnumbers."
+27,"Shadow Specter",500,200,Moon,Saturn,Zombie,,1,Light,20,27,"Ghostly beast that \nappears in the\nwasteland and is\nparticularly\ntroublesome when\nfaced in large\nnumbers."
+28,"Armored Zombie",1500,0,Moon,Pluto,Zombie,,4,Light,20,28,"A warrior raised\nfrom the beyond.\nBlindly swings\na sharp blade with\ndevastating force."
+29,"The 13th Grave",1200,900,Moon,Pluto,Zombie,,3,Light,20,29,"A zombie that\nsuddenly appeared\nfrom plot #13 -\nsupposedly an\nempty grave."
+30,"Clown Zombie",1350,0,Moon,Pluto,Zombie,,2,Light,20,30,"A clown revived\nby the powers of \ndarkness. Its\nstrange dance has\nsent many  monsters\nto their ends."
+31,"Mech Mole Zombie",500,400,Moon,Saturn,Zombie,,2,Light,20,31,"A creature of the\nnight that attacks\nenemies with its \nrocket-powered\narms."
+32,"Spirit Reaper",300,200,Moon,Pluto,Zombie,,3,Light,20,32,"An invinsible zombie.\nHe cant be killed"
+33,"Fire Reaper",700,500,Mars,Sun,Zombie,,2,Light,20,33,"A creature that\ndeals out punishment\nwith its flaming arrows."
+34,"The Wandering Doomed",800,600,Moon,Pluto,Zombie,,2,Light,100,34,"A monster that\naimlessly wanders\nin search of enemies."
+35,"Flame Ghost",1000,800,Moon,Pluto,Zombie,,3,Light,20,35,"A fiery spirit that\nburns anything in\nits path."
+36,"Celtic Guardian",1400,1200,Sun,Uranus,Warrior,,4,Dark,20,36,"An elf, who learned\nto wield a sword,\nbaffles enemies with\nlightning-swift attacks."
+37,"Gearfried The Iron Knight",1800,1600,Uranus,Venus,Warrior,blue,4,Dark,100,37,"A ninja whos\narmor consists\nof pure iron."
+38,"Big Shield Gardna",100,2600,Venus,Uranus,Warrior,,4,Dark,20,38,"Specializing in\ncombination\nattacks, this warrior\nis equipped with a\ntough, magnetically\ncoated armor."
+39,"Kojikocy",1500,1200,Uranus,Moon,Warrior,,3,Dark,20,39,"A man-hunter with\npowerful arms that\ncan crush boulders."
+40,"Axe Raider",1700,1150,Uranus,Mercury,Warrior,,3,Dark,20,40,"An axe-wielding\nmonster of tremendous\nstrength and agility."
+41,"Dan, The Man",1000,500,Uranus,Moon,Warrior,blue,3,Dark,100,41,"He is the only one\ncapable of swining\nthe  legendary\nsword salamandra"
+42,"Marauding Captain",1200,400,Uranus,Venus,Warrior,,3,Dark,20,42,"He supports all\nother warriors he\nfights with"
+43,"Swordsman from a Distant Land",250,250,Uranus,Venus,Warrior,,1,Dark,100,43,"An eastern\nwarrior armed\nwith a cursed\nsword."
+44,"Total Defense Shogun",1550,2500,Sun,Mars,Warrior,,6,Light,20,44,"He carries many\nswords and shields\non top of his back"
+45,"Tenkabito Shien",1500,1000,Mercury,Mars,Warrior,,4,Fire,20,45,"A master swords\nman that wields \na fine blade."
+46,"Leogun",1750,1550,Uranus,Mercury,Beast,,5,Dark,20,46,"Huge monster with\na lion's mane similar\nto the ""King of Beasts""."
+47,"Lava Battleguard",1550,1800,Uranus,Sun,Beast,,5,Dark,20,47,"This brother of\nSwamp Battleguard\nmay not be powerful,\nbut is pretty good\non defense."
+48,"Gigantes",1700,1300,Jupiter,Pluto,Beast,,4,Dark,20,48,"A rarely seen ogre\nwith a tree trunk\nas his weapon"
+49,"Swamp Battleguard",1800,1500,Jupiter,Uranus,Beast,,5,Dark,20,49,"This creature is    \narmed with a spiked \nclub that can destroy\nalmost anything in its\npath.\n"
+50,"The Wicked Worm Beast",1400,700,Uranus,Venus,Beast,,3,Dark,20,50,"A monster worm\ncreated by the\npowers of darkness. "
+51,"Gazelle King Of Beasts",1500,1200,Pluto,Venus,Beast,,4,Dark,20,51,"The monster moves\nso fast that it looks\nlike an  illusion to\nmortal eyes"
+52,"Berfomet",1400,1800,Moon,Mercury,Beast,,5,Light,20,52,"Half elf half goat\nfighting mostly with\nhis wings"
+53,"Synchar",800,900,Uranus,Sun,Beast,,3,Dark,20,53,"An ugly creature\nwith two heads\nand a mouth for\nblasting laser beams."
+54,"Bazoo The Soul-Eater",1600,900,Venus,Saturn,Beast,,4,Dark,20,54,"A monstrous sheep\nwith a long tail for\nhypnotizing enemies\nto render them\npowerless."
+55,"Mother Grizzly",1400,1000,Saturn,Pluto,Beast,,2,Water,20,55,"A savage beast\nrips trees apart"
+56,"Harpie Lady",1100,1200,Saturn,Neptune,Winged Beast,blue,4,Earth,100,56,"A human-shaped\nanimal with wings.\nBeautiful to watch,\nbut lethal when\nengaged in battle."
+57,"Harpie Lady 1",1300,1400,Saturn,Moon,Winged Beast,blue,4,Earth,100,57,"A human-shaped\nanimal with wings.\nBeautiful to watch,\nbut lethal when\nengaged in battle."
+58,"Faith Bird",900,600,Sun,Jupiter,Winged Beast,,3,Earth,20,58,"A bird with a very\nlong tail that attacks\nwith a light that\nemanates from\nits entire being."
+59,"Kurama",800,800,Saturn,Neptune,Winged Beast,,3,Earth,20,59,"A vicious bird that\nattacks from the\nskies with its\nwhip like tail."
+60,"Wing Eagle",1800,1500,Saturn,Mercury,Winged Beast,,5,Earth,20,60,"A hunter of the\nskies that has\nnever missed\na target."
+61,"Sky Scout",1800,600,Saturn,Moon,Winged Beast,,4,Earth,20,61,"With eyes like a\nhawk and a flying\nspeed exceeding\nmach 5"
+62,"Spirit of the Books",1400,1200,Saturn,Moon,Winged Beast,,4,Earth,20,62,"A spirit of the\nbooks with infinite\nknowledge and\nan endless variety\nof attack strategies."
+63,"Queen Bird",1200,2000,Saturn,Moon,Winged Beast,,5,Earth,20,63,"A creature that\nattacks its enemies\nwith its large beak."
+64,"Crow Goblin",1000,900,Saturn,Mars,Winged Beast,,3,Earth,20,64,"A very wise, long\nnosed goblin with\nsupernatural powers."
+65,"Takuhee",600,400,Saturn,Sun,Winged Beast,,2,Earth,20,65,"This bird is a\nprecursor to disaster!"
+66,"Unknown Warrior Of Fiend",1000,500,Moon,Uranus,Fiend,,3,Light,100,66,"He uses his spike\nhands to pierce\nthrough his enemies"
+67,"Midnight Fiend",600,900,Mercury,Moon,Fiend,,3,Light,20,67,"A winged creature\nrumored to appear\nat midnight."
+68,"Thousand-Eyes Idol",0,0,Mercury,Uranus,Fiend,,1,Light,20,68,"A wicked entity\nthat controls the\nhearts of men,\nits thousand eyes\nare able to see and\nexpand the negativity\nin human souls"
+69,"Feral Imp",1300,1400,Moon,Jupiter,Fiend,,4,Light,20,69,"A playful little  imp\nthat lurks in  the dark,\nwaiting to attack an\nunwary enemy."
+70,"Koaki Meiru Doom",1700,800,Moon,Mercury,Fiend,,3,Earth,20,70,"He is able to take\ncontrol over other\nspecies"
+71,"Gren Maju Da Eiza",1200,1200,Jupiter,Mercury,Fiend,,3,Light,20,71,"This creature flies\nthrough the dark,\nattacking its\nenemies with\nits long claws"
+72,"Ryu-kishin",1000,500,Mercury,Neptune,Fiend,blue,3,Light,100,72,"A very elusive\ncreature that\nlooks like a\nharmless statue\nuntil it attacks."
+73,"Kuriboh",300,200,Mercury,Jupiter,Fiend,blue,1,Light,100,73,"A spirit said\nto dwell in the\nworld of dreams.\nAttacks enemies\nin their sleep."
+74,"Lord of Zemia",1300,1000,Mercury,Uranus,Fiend,purple,4,Light,20,74,"A vile entity that\ndeceives enemies\ninto walking a path\nof destruction."
+75,"La Jinn The Mystical Genie",1800,1000,Mercury,Saturn,Fiend,,4,Light,20,75,"A genie of the\nlamp that is at\nthe beck and\ncall of its master"
+76,"Injection Fairy Lily",400,1500,Uranus,Venus,Fairy,,2,Dark,20,76,"He can uses her\nown serum inside\nof her syringe to\ngive herself a huge\nboost in power"
+77,"Key Mace",400,300,Sun,Saturn,Fairy,,1,,20,77,"A small angel\nwhose cuteness\nmelts the hearts\nof its enemies."
+78,"Goddess of Whim",800,500,Sun,Uranus,Fairy,,3,,20,78,"A shy goddess\nthat seems to\nspend the majority\nof her time sleeping."
+79,"Lunar Queen Elzaim",750,1100,Moon,Venus,Fairy,blue,3,,100,79,"A lovely moon\ngoddess that can\nthrow up a lunar\ncurtain to block\nenemy attacks."
+80,"Dancing Elf",300,200,Jupiter,Sun,Fairy,,1,Earth,20,80,"An elf that\ndances across\nthe sky with wings\nof razor-sharp blades."
+81,"LaMoon",1200,1700,Sun,Uranus,Fairy,,5,,20,81,"A sorcerer\nwho lives on\nthe moon and\nattacks opponents\nwith the power\nof lunar light."
+82,"Maiden of the Moonlight",1500,1300,Sun,Mars,Fairy,blue,4,,100,82,"A lunar sorcerer\nthat uses mystical\nspells to induce\nhallucinations."
+83,"Shining Angel",1400,800,Sun,Venus,Fairy,,4,,20,83,"A goddess with\nan all-seeing eye\nthat reveals all."
+84,"Gemini Elf",1900,900,Sun,Uranus,Fairy,,4,Dark,20,84,"Elf twins that attack\nan enemy from\nopposite sides."
+85,"Protector Of The Throne",800,1500,Sun,Uranus,Fairy,,4,Dark,20,85,"While the king is\naway, this queen\nprotects his throne\nwith a mighty defense"
+86,"Hercules Beetle",1500,2000,Jupiter,Neptune,Insect,blue,5,Dark,100,86,"A massive beetle\nwith a tough hide\nand a dangerous\nhorn."
+87,"Petit Moth",300,200,Jupiter,Sun,Insect,blue,1,Dark,20,87,"Nobody has any\nidea what creature\nmay spawn from this\nmysterious larva."
+88,"Larvae Moth",500,400,Jupiter,Mercury,Insect,blue,2,Dark,20,88,"Not much in its\nlarval form, this\ncreature is a force\nto be reckoned\nwith when it grows\nto become a colossal\nmoth. "
+89,"Cocoon of Evolution",0,2000,Jupiter,Venus,Insect,blue,3,Dark,100,89,"This creature is\ncapable of instantly\nevolving larvae\ninto adults."
+90,"Kumootoko",700,1400,Jupiter,Pluto,Insect,,3,Dark,20,90,"A massive,\nintelligent\nspider that\ntraps its\nenemies\nwith webbing."
+91,"Man-eater Bug",450,600,Jupiter,Pluto,Insect,,2,Dark,20,91,"A creature that\nslices and dices\nwith its scissors\nand feeds off its\nvictims."
+92,"Kwagar Hercules",1400,1700,Jupiter,Sun,Insect,,4,Dark,20,92,"An insect monster\nwith the jaws of\na stag beetle and\nthe horn of a beetle."
+93,"Needle Moth",750,600,Jupiter,Pluto,Insect,blue,2,Dark,20,93,"A larva with steel\nspikes to attack\nthe unwary."
+94,"Hunter Spider",1600,1400,Jupiter,Venus,Insect,,5,Dark,20,94,"A hunter that uses\nits spider web to\nentrap its enemies."
+95,"Leghul",300,350,Jupiter,Moon,Insect,,1,Dark,20,95,"Not a very powerful\nmonster despite its\nlarge fangs and\nspikes."
+96,"Little D",1100,700,Uranus,Mercury,Dinosaur,,3,Dark,20,96,"A very ferocious\nmonster spawned\nfrom a T-Rex."
+97,"Sword Arm of Dragon",1730,2030,Uranus,Neptune,Dinosaur,,4,Dark,20,97,"With a body covered \nin sword-like thorns,\nnothing dares stand\nin the way of this\nmonster  when it\ncharges."
+98,"Destroyersaurus",1800,1100,Mercury,Pluto,Dinosaur,blue,4,Dark,100,98,"A t-rex with who\nslices  enemies in\nhalf with his head"
+99,"Megazowler",1800,2000,Uranus,Neptune,Dinosaur,,4,Dark,20,99,"Nothing stands\nin the way\nof this spike\ncovered dinosaur."
+100,"Uraby",1500,800,Uranus,Mars,Dinosaur,blue,4,Dark,100,100,"Fast on its feet,\nthis dinosaur rips\nenemies to shreds\nwith its sharp claws."
+101,"Crawling Dragon #2",1600,1200,Moon,Pluto,Dinosaur,blue,4,Dark,100,101,"A powerful\ndragon with\nteeth that can\ngrind almost\nanything to dust."
+102,"Mad Sword Beast",1400,1200,Uranus,Neptune,Dinosaur,,4,Dark,20,102,"A very dangerous\nmonster with\naspike on its head"
+103,"Trakadon",1300,800,Uranus,Venus,Dinosaur,,3,Dark,20,103,"A tiger-striped\ndragon that is\noften seen\nracing across\nthe wasteland\nwith tremendous\nspeed."
+104,"Element Saurus",1500,1200,Uranus,Moon,Dinosaur,,4,Light,20,104,"A dinosaur who\ngot the abilites\nof a dragon by\neating it"
+105,"Tomozaurus",500,400,Uranus,Venus,Dinosaur,,2,Dark,20,105,"A deceivingly\nsmall creature\nthat is so vicious\nit attacks both\nfriend and foe\nwithout discretion."
+106,"Worm Drake",1400,1500,Neptune,Saturn,Reptile,,4,Dark,20,106,"Once this monster\nwraps itself around\na victim, there is\nno escape"
+107,"Cobra Venin",100,2000,Neptune,Jupiter,Reptile,blue,3,Dark,100,107,"a poisonous\nsnake whos\npoison kills\nevery target in\na couple of hours"
+108,"Sinister Serpent",300,250,Neptune,Jupiter,Reptile,,1,Water,20,108,"A flying poison\nsnake that is not\nvery good at\nmaneuvering\non the ground."
+109,"Serpent Marauder",700,600,Neptune,Sun,Reptile,blue,2,Dark,100,109,"A snake with a\nsingle eye that\nblows an icy\nbreath to freeze\nits opponents."
+110,"Toon Alligator",800,1600,Neptune,Mars,Reptile,,4,Water,20,110,"An alligator\nmonster straight\nfrom the cartoons."
+111,"Mechaleon",800,600,Neptune,Saturn,Reptile,,2,Water,20,111,"A chameleon-like\nmonster that can\nhide anywhere\nby changing colors."
+112,"Yormungarde",1200,900,Neptune,Moon,Reptile,,3,Dark,20,112,"A very long\nsnake that\noften appears\nin legends and\nmyths."
+113,"Drooling Lizard",900,800,Neptune,Venus,Reptile,,3,Dark,20,113,"A blood-sucking\nsnake in human\nform that attacks\nany living being that\npasses nearby."
+114,"Ancient Lizard Warrior",1400,1100,Neptune,Saturn,Reptile,,4,Dark,20,114,"A powerful,\nprehistoric\nlizard warrior."
+115,"Beaked Slug",800,900,Neptune,Jupiter,Reptile,,3,Dark,20,115,"Wraps its coils\naround opponents\nand pecks them\nwith its huge beak."
+116,"Root Water",900,800,Neptune,Venus,Fish,,3,Water,20,116,"An amphibian\ncapable of\ncalling up a\nmassive tidal\nwave from the\ndark seas to\nwipe out  enemy \nmonsters."
+117,"Great White",1600,800,Neptune,Moon,Fish,,4,Water,20,117,"A giant white\nshark with razor\nsharp teeth."
+118,"Giant Red Seasnake",1800,800,Neptune,Jupiter,Fish,blue,4,Water,20,118,"A sea serpent\nthat bites anything\nthat passes nearby."
+119,"White Dolphin",500,400,Neptune,Jupiter,Fish,,2,Water,20,119,"A white, horned\ndolphin that\nattacks by calling\nup tidal waves."
+120,"High Tide Gyojin",1650,1300,Neptune,Sun,Fish,,5,Water,20,120,"An amphibian\nwarrior that can\neasily navigate\nbeneath the waters."
+121,"Spike Seadra",1600,1300,Neptune,Sun,Fish,blue,5,Water,100,121,"Using the spikes\nsprouting from its\nbody, this creature\nstabs its opponents\nand floods them\nwith electricity."
+122,"Kaiser Sea Horse",1700,1650,Neptune,Jupiter,Fish,,4,Water,20,122,"His armor is made\nout of fish scales\nwhich make him\nrock solid"
+123,"Misairuzame",1400,1600,Neptune,Sun,Fish,,5,Water,20,123,"A rocket-launching\nfish protected\nby thorny spikes."
+124,"Deepsea Shark",1400,1100,Neptune,Sun,Fish,,4,Water,20,124,"A violent shark\nthat attacks\nanything in\nthe sea."
+125,"Kairyu-shin",1800,1500,Neptune,Mercury,Fish,blue,4,Water,100,125,"A sea dragon\nthat's referred\nto as the\n""King of the Ocean"".\nIt attacks its\nenemies with\nhuge tidal waves."
+126,"Water Omotics",1400,1200,Neptune,Moon,Aqua,,4,Water,20,126,"Transforms the water\noverflowing from a\njar into attacking\ndragons."
+127,"Fiend Kraken",1200,1400,Neptune,Mercury,Aqua,,4,Water,20,127,"A massive squid\nthat suddenly\nappears from\nthe depths of\nthe sea to attack\nunwary enemies."
+128,"Enchanting Mermaid",1200,900,Neptune,Mercury,Aqua,,3,Water,20,128,"A beautiful\nmermaid that\nlures voyagers\nto a watery grave."
+129,"Twin Long Rods #2",850,700,Neptune,Sun,Aqua,,3,Water,20,129,"An undersea creature\nthat attacks with\ntwo whip-like tails."
+130,"Armored Starfish",900,400,Neptune,Mercury,Aqua,,3,Water,20,130,"some kind of star\nbest description ever\nMVP of the game\nliterally best card\nmy name jef"
+131,"Red Archery Girl",1400,1500,Neptune,Sun,Aqua,,4,Water,20,131,"A mermaid archer\nthat hides in a\nprotective shell"
+132,"Ice Water",1150,900,Uranus,Neptune,Aqua,,3,Water,20,132,"A very aggresive\nmermaid that  attacks\nenemies with the spikes\ngrowing from its body"
+133,"White Night Queen",1600,800,Neptune,Mars,Aqua,,4,Water,20,133,"With the ability to\nbend water shes\nable to manipulate\nthe entire ocean\n"
+134,"Night Lizard",1150,1300,Neptune,Jupiter,Aqua,,3,Water,20,134,"A green-scaled lizard\nwarrior dedicated to \nprotecting the sea."
+135,"Monsturtle",800,1000,Neptune,Saturn,Aqua,,3,Water,20,135,"A vicious turtle\nwith a spiked shell.."
+136,"Golgoil",900,1600,Uranus,Jupiter,Machine,,4,Dark,20,136,"A massive iron\ngolem that appears\nfrom a dimensional rift."
+137,"V - Tiget Jet",1600,1800,Moon,Uranus,Machine,,4,,100,137,"Another Part of\nsomething  big"
+138,"Pendulum Machine",1750,2000,Mercury,Neptune,Machine,,5,Light,20,138,"A horrible torture\nmachine with a\nlarge pendulum\nblade."
+139,"X - Head Cannon",1800,1500,Moon,Neptune,Machine,,4,,100,139,"One part of\nthree to create\nthe ultimate\nmonster"
+140,"Y - Dragon Head",1500,1600,Mars,Moon,Machine,,4,,100,140,"One part of\nthree to create\nthe ultimate\nmonster"
+141,"Mechanical Spider",400,500,Jupiter,Mercury,Machine,blue,2,Dark,100,141,"A spider-shaped,\nmechanized monster\nwith sickles at\nthe end of its legs."
+142,"W - Wing Catapult",1300,1500,Venus,Neptune,Machine,,4,,100,142,"Another Part  of\nsomething  big"
+143,"Cyber-Stein",700,500,Moon,Neptune,Machine,,2,Light,20,143,"Created in a\nbasement lab,\nthis infernal\nmachine launches\nrockets from within\nits mouth."
+144,"Z - Metal Tank",1500,1300,Uranus,Sun,Machine,,4,,100,144,"One part of\nthree to create\nthe ultimate monster"
+145,"Rocket Warrior",1500,1300,Mercury,Pluto,Machine,,4,,20,145,"Hes able to\ntransform himself\ninto a rocket to\nweaken his enemies"
+146,"Oscillo Hero #2",1000,500,Pluto,Sun,Thunder,,3,,20,146,"Attacks its\nenemies with\nthunder."
+147,"LaLa Li-oon",600,600,Pluto,Moon,Thunder,,2,Earth,20,147,"Protected by\nthunder, this\ndangerous\ncloud attacks\nits enemies\nwith acid rain."
+148,"Kaminarikozou",700,600,Pluto,Venus,Thunder,,2,Earth,20,148,"This creature\nstores lightning\nwithin its body\nto deliver\nelectrifying\nattacks."
+149,"Bolt Penguin",1100,800,Pluto,Moon,Thunder,,3,Water,20,149,"A monster with\na pair of electric\nwhips instead of\narms."
+150,"Thunder Dragon",1600,1500,Pluto,Jupiter,Thunder,blue,5,,20,150,"A dragon that\nsummons thunder \nand lightning to\nattack its opponents."
+151,"The Immortal of Thunder",1500,1300,Pluto,Sun,Thunder,,4,,20,151,"A creature that\nattacks enemies\nwith thunderbolts."
+152,"Electric Snake",800,900,Pluto,Mars,Thunder,,3,,20,152,"A serpent with a\ntail for storing\nelectricity."
+153,"Tripwire Beast",1200,1300,Pluto,Saturn,Thunder,,4,Dark,20,153,"This creature\nattacks enemies\nwith electromagnetic\nwaves."
+154,"Bolt Escargot",1400,1500,Pluto,Jupiter,Thunder,,5,Water,20,154,"This creature spits\na gooey substance\nthat robs enemies\nof mobility and then\nstuns them with\nelectric shocks."
+155,"Electric Lizard",850,800,Pluto,Sun,Thunder,,3,Dark,20,155,"A lizard that\ndischarges\nelectricity\nstored in its\nbody."
+156,"Fox Fire",300,200,Mars,Moon,Pyro,,2,Fire,20,156,"Little innocent\nfox with a\nflame on\nhis tail"
+157,"Fire Princess",1300,1500,Mars,Saturn,Pyro,,4,Fire,20,157,"She has a\nmagical wand\nshe can fire\nbend with"
+158,"Charubin the Fire Knight",1100,800,Mars,Uranus,Pyro,,3,Fire,20,158,"A warrior protected\nby a shell that can\neven deflect the heat\nof burning flames."
+159,"Solar Flare Dragon",1500,1000,Mars,Saturn,Pyro,purple,4,Fire,20,159,"A snake who\nabsorbed the\nlava it was \nthrown in"
+160,"Hinotama Soul",600,500,Mars,Uranus,Pyro,,2,Fire,20,160,"An intensely hot\nflame creature that\nrams anything that\nstands in its way."
+161,"Fireyarou",1300,1000,Mars,Saturn,Pyro,,4,Fire,20,161,"A malevolent\ncreature wrapped\nin flames that\nattacks enemies\nwith intense fire."
+162,"Darkfire Soldier #2",1700,1100,Mars,Venus,Pyro,,4,Fire,20,162,"A fiery warrior\ncreature that\nunleashes\nintense heat\nfrom its body."
+163,"Darkfire Soldier #1",1700,1150,Mars,Pluto,Pyro,,4,Fire,20,163,"A flaming\nwarrior that\nis lethal to\nthe touch."
+164,"Flame Viper",400,450,Mars,Pluto,Pyro,,2,Fire,20,164,"A very swift,\nfire breathing\nviper."
+165,"Fire Kraken",1100,1000,Mars,Saturn,Pyro,,3,Fire,20,165,"A fiery squid\nthat can maintain\nits flames underwater."
+166,"Rock Ogre Grotto #1",800,1200,Uranus,Mercury,Rock,,3,Dark,20,166,"Protected by\na solid body of\nrock, this creature\nthrows a bone\nshattering punch."
+167,"Ancient Jar",400,200,Uranus,Neptune,Rock,,1,Dark,20,167,"A fragile jar\nfrom the past\ncontaining a\nmysterious\ncreature."
+168,"Giant Soldier of Stone",1300,2000,Uranus,Venus,Rock,,3,Dark,20,168,"A giant warrior\nmade of stone.\nA punch from\nthis creature\nhas earth\nshaking results."
+169,"Dummy Golem",800,800,Uranus,Sun,Rock,,2,Dark,20,169,"He often\nhides between\nrocks to ambush\nhis  enemies"
+170,"Rock Ogre Grotto #2",700,1400,Uranus,Sun,Rock,,3,Dark,20,170,"A stone golem\nthat turns opponents\ninto rocks and\ncrushes them to dust."
+171,"Labyrinth Wall",0,3000,Uranus,Jupiter,Rock,blue,5,Dark,100,171,"Walls appear\non the field to\nform a labyrinth\nwith no exit."
+172,"Stone Ghost",1200,1000,Uranus,Jupiter,Rock,,4,Dark,20,172,"A creature that\nerupts with anger,\nresulting in a\ncrushing rain\nof boulders."
+173,"Destroyer Golem",1500,1000,Uranus,Sun,Rock,,4,Dark,20,173,"A golem with\na massive right\nhand for crushing\nits victims."
+174,"Dissolverock",900,1000,Uranus,Sun,Rock,,3,Dark,20,174,"A monster borne\nfrom the lava pits.\nGenerates intensive\nheat that can melt\naway its enemies."
+175,"Barrel Rock",1000,1300,Uranus,Moon,Rock,,4,Dark,20,175,"A monster that\ncharges into\nenemies firing\na pair of cannons\nmounted on\nits shoulders."
+176,"Dark Plant",300,400,Moon,Jupiter,Plant,,1,Light,20,176,"A vicious flower\nraised from polluted\nsoil and fertilized\nby dark forces."
+177,"Abyss Flower",800,600,Jupiter,Uranus,Plant,,2,Dark,20,177,"A rare flower\nthat blooms\nin a pitch\ndark abyss."
+178,"Arlownay",800,1000,Jupiter,Neptune,Plant,blue,3,Dark,20,178,"A maiden in the\nflower blossoms\nspreads poisonous\npollen against\nopponents."
+179,"Yashinoki",800,600,Jupiter,Moon,Plant,,2,Dark,20,179,"A palm tree\nwith a will of\nits own that\nattacks enemies\nby flinging coconuts."
+180,"Ancient Tree of Enlightenment",600,1500,Jupiter,Pluto,Plant,,3,Dark,20,180,"Armed with a\nwealth of knowledge,\nthis monster is able\nto block just about\nany attack."
+181,"Griggle",350,300,Jupiter,Neptune,Plant,,1,Dark,20,181,"This monster\nspins about its\nenemy launching\nblinding leaves\nand painful seeds."
+182,"Bean Soldier",1400,1300,Jupiter,Uranus,Plant,,4,Dark,20,182,"A plant warrior\nthat attacks with\na combination of\nsword swings and\npea projectiles."
+183,"Tentacle Plant",500,600,Jupiter,Pluto,Plant,,2,Water,20,183,"Attacks a\nnearby opponent\nby reaching out\nwith its blue vines."
+184,"Man Eater",800,600,Uranus,Jupiter,Plant,,2,Dark,20,184,"Man-eating\nplant with\npoison feelers\nfor attacking\nenemies."
+185,"Rainbow Flower",400,500,Jupiter,Moon,Plant,,2,Dark,20,185,"A flower creature\nwith rainbow\ncolored blossoms\nthat lure an enemy\ninto its waiting jaws."
+186,"Kiryu",2000,1500,Mercury,Mars,Dragon,yellow,5,Light,100,186,"A dragon\nthat dwells\nin the depths\nof darkness.\n"
+187,"Dark-Eyes B. Dragon",2900,2500,Mars,Mercury,Dragon,orange,8,Light,1000,187,"He captures\nand stores\nlight inside of\nhim until he\nreleases it with\na burst attack"
+188,"White-Horned Dragon",4200,1400,Uranus,Mars,Dragon,red,11,Dark,999999,188,"It once was\na creature of\ndarkness but\nhe used the light\nstored inside of\nhim to become \nsomething much\nstronger\n"
+189,"Victoria",2300,2000,Sun,Mars,Dragon,yellow,6,,100,189,"A holy creature\nthat stays under\nthe obedience\nof fairies"
+190,"Victory Dragon",3000,3000,Sun,Mars,Dragon,red,9,Light,1000,190,"A creature\nbanished\nforever in\nthe realm\nof shadows"
+191,"Des Volstgalph",2200,1700,Uranus,Mars,Dragon,yellow,6,Dark,100,191,"It once was a\nmajestic creature\nthat got heavily\nburned to death.\nNow it is a cursed\nleftover skeleton\ncausing chaos."
+192,"Gandora, The Destroyer",3000,0,Mars,Mercury,Dragon,orange,8,Light,1000,192,"A demon of\nhatred that\nsucks the living\nsouls out of\nhis enemies."
+193,"Lord of the Lair",4000,3000,Pluto,Mercury,Thunder,red,10,Water,999999,193,"He has cryptic\nsymbols all over\nhis body that start\nglowing whenever\nhe creates thunder\nclouds."
+194,"Koumori Dragon",2000,1700,Moon,Neptune,Dragon,yellow,4,Light,100,194,"A vicious,\nfire-breathing\ndragon whose\nwicked flames\ncorrupt the\nsouls of its\nvictims."
+195,"Red-eyes B. Dragon",2900,2500,Moon,Neptune,Dragon,orange,8,Light,1000,195,"A ferocious\ndragon that\nis notorious\nfor carrying\nrocks around\nwhile flies."
+196,"B. Skull Dragon",3700,3000,Moon,Mercury,Dragon,red,10,Light,999999,196,"A very rare\ncreature created\nfrom the fusion\nof an uncommon\nbeast and a\nvicious dragon."
+197,"Red-Eyes Black Metal Dragon",3800,3400,Mars,Sun,Dragon,red,10,Fire,999999,197,"His metal armor\nallows him\nto store more\nheat inside of\nhis body than\nany other dragon.\n"
+198,"White Night Dragon",4000,3500,Neptune,Saturn,Aqua,red,10,Water,999999,198,"A dragon with\nfish-like scales\nwho has the \nability to use his\nwings under water\nto get to extreme \nspeed"
+199,"Blue-Eyes White Dragon",3000,2500,Sun,Mars,Dragon,orange,8,,999999,199,"An extremely\nrare card with\nunsurpassed\nattack and\ndefense power."
+200,"Blue-Eyes Twin Burst Dragon",4000,3500,Sun,Mars,Dragon,orange,10,,999999,200,"Even though\none of his heads\nis weaker than\nthe original blue-\neyes white dragon,\nboth of them\nsurpass his power."
+201,"Blue-Eyes Ultimate Dragon",4500,3800,Sun,Mars,Dragon,red,12,,999999,201,"The ultimate\ndragon formed by\nthe fusion of three\nBlue-eyes White\nDragons."
+202,"Sealed-Ultimate Dragon",5000,5000,Sun,Mars,Dragon,red,12,,999999,202,"The legendary\nultimate dragon\nsealed within a\nbond that makes\nhim even stronger."
+203,"Dragon Master Knight",5000,5000,Sun,Venus,Dragon,red,12,,999999,203,"The only creature\nof light that is\ncapable of beating\nthe  five-headed\ndragon"
+204,"Blue-Eyes Shining Dragon",4000,3500,Sun,Mars,Dragon,red,10,,999999,204,"Everytime he\ngathers power\ninside of his\nbody his blue\neyes start glowing"
+205,"Blue-Eyes Toon Dragon",3000,2500,Moon,Mars,Dragon,red,8,Light,999999,205,"The blue-eyes\nwhite dragon\nsealed in the\ntoon world"
+206,"Armed Dragon LV5",2400,1700,Saturn,Mars,Dragon,yellow,8,Earth,100,206,"It has spikes\nall over his\nbody that\nprevent him\nfrom enemy\nattacks."
+207,"Armed Dragon LV7",2800,1000,Saturn,Mars,Dragon,orange,7,Earth,1000,207,"His entire body\nis full of spikes\nand blades which\nmake it impossible\nto attack him\nwithout getting\nyourself hurt."
+208,"Armed Dragon LV10",3500,3000,Saturn,Pluto,Machine,orange,10,Earth,999999,208,"His blade-like\nwings cut into\neverything they\nfall into while\nhe is flying."
+209,"Dark Armed Dragon",4000,1000,Moon,Mercury,Dragon,red,12,Light,999999,209,"A cursed\nabomination\nthat has been\ncreated in order\nto surpass the\npower of its original."
+210,"Horus The Black Flame LV4",2100,1500,Pluto,Mars,Dragon,yellow,5,Dark,100,210,"A dragon\ncommonly\nfound in\nforests, hiding\nin trees, waiting\nto become mature."
+211,"Horus - The Black Flame Lv6",2800,2100,Pluto,Mars,Dragon,orange,8,Fire,1000,211,"It once was a\nlittle chick.\nNow it almost\nhas evolved\ninto a proper\nfull-grown dragon"
+212,"Horus - The Black Flame LV8",4000,2800,Mercury,Pluto,Dragon,red,10,Light,999999,212,"He produces\nacid inside of\nhim that he can\nthen gather in order\nto produce a stream\nof destruction called\nthe black flame. "
+213,"Armored Lizard",2500,2200,Uranus,Jupiter,Reptile,yellow,6,Dark,100,213,"A lizard with\na very tough\nhide and a\nvery vicious bite."
+214,"Tri-Horned Dragon",3350,2850,Moon,Mercury,Dragon,red,9,Light,1000,214,"A wicked dragon\nwith three horns\nprotruding from\nits head."
+215,"Tyrant Dragon",2900,2500,Mars,Pluto,Dragon,orange,8,Fire,3000,215,"A dragon with\nreptile as well\nas fish traits. "
+216,"Envoy Of The End",4000,3500,Moon,Mercury,Dragon,red,10,Light,999999,216,"He can bend\nthe dark matter\ncontained in his\nbody to burst it\nout as a stream\nof destruction."
+217,"Stone Dragon",3000,3300,Uranus,Mars,Rock,orange,8,Dark,500,217,"With a body\nconsisting entirely\nof rocks,This\ndragon flings\nboulders at\nits enemies."
+218,"First Of Dragons",3700,3000,Uranus,Mars,Dragon,red,10,Light,999999,218,"The first of his\nrace. An almighty\nstone dragon with \nimmense defense\ncapabilities"
+219,"Thousand Dragon",2400,2000,Sun,Venus,Dragon,yellow,7,,500,219,"A dragon that\nhas grown and\ndeveloped over\nthousands of years\n"
+220,"Judgement Dragon",3500,3100,Sun,Venus,Dragon,orange,9,,999999,220,"Whoever gets\npronounced guilty.\nThis dragon will look\ninto their past in\norder to judge\nthem before they\nget sentenced"
+221,"Punishment Dragon",4500,4100,Mars,Venus,Dragon,red,12,,999999,221,"Whoever gets\nsentenced gets\nthrown into\nthe region where\nthis dragon lives\nin order to fight for\nthe rest of their life. "
+222,"Aqua Dragon",3250,2900,Neptune,Saturn,Dragon,orange,9,Water,100,222,"A dragon that \ndwells in the sea.\nIt is capable of\nspitting high\npressure blasts\nof water."
+223,"Amulet Dragon",3900,3500,Neptune,Mercury,Spellcaster,red,10,Light,1000,223,"A legendary\ndragon called\ntimaeus came\nfor help in order\nto beat the\nleviathan\n\n"
+224,"Harpie's Pet Dragon",3000,3500,Mars,Saturn,Dragon,red,8,Earth,1000,224,"Harpies have\nraised this\ndragon in order\nto fight with them."
+225,"Feathered Stardust Dragon",3000,2500,Venus,Saturn,Dragon,orange,8,Earth,500,225,"The more his\nblue body parts\nstart glowing the\nstronger he gets."
+226,"Cosmic Blazar Dragon",4000,4000,Venus,Saturn,Dragon,red,12,Earth,999999,226,"After being seduced\nby the cosmos, he\nhas acquired the\nability to absorb the\nflying particles in\nthe universe in order\nto become stronger\nand stronger."
+227,"Rainbow Dragon",4000,0,Venus,Saturn,Dragon,orange,11,,999999,227,"Many fairies call\nhim the very first\nwind bender. For\ngenerations, people\ncome to this dragon in\norder to learn from him"
+228,"Rainbow Overdragon",5000,0,Saturn,Venus,Dragon,red,12,,999999,228,"Many fairies\nconsider him\ntheir savior.\nThey pray to\nhim whenever\ntrouble occurs."
+229,"Dark Magician Girl",2500,2200,Mercury,Moon,Spellcaster,yellow,7,Light,500,229,"She once was\nunder the apprentice\nship of the dark\nmagician. After\nmany years she\nbecame a legendary\nmage herself."
+230,"Cosmo Queen",3900,3450,Mercury,Moon,Spellcaster,red,10,Light,999999,230,"After years upon\nyears of studying\nthe dark arts of\nmagic, she\nbecame crazy. "
+231,"Magician Of Black Chaos",3300,3100,Moon,Mercury,Spellcaster,orange,9,Light,1000,231,"An alternate\nform of the\nlegendary dark\nmagician. He\nchose to learn\nthe dark arts of magic"
+232,"Dark Magician",2500,2100,Mercury,Moon,Spellcaster,yellow,7,Light,500,232,"The ultimate wizard\nin terms of attack\nand defense."
+233,"Dark Sage",3800,4200,Mercury,Moon,Spellcaster,red,10,Light,999999,233,"After years upon\nyears of studying\nmagic, the dark\nmagician became\nso strong he has\nbecome something\ndifferent entirely."
+234,"Dark Paladin",4400,3900,Mercury,Moon,Spellcaster,red,11,Light,999999,234,"An alternate\nform of the dark\nmagician. He\nchose to specialize\nin melee combat\ninstead of magic."
+235,"Sorcerer Of Black Magic",3700,3300,Mercury,Moon,Spellcaster,red,10,Light,999999,235,"A magician\nwho has\nspecialized\nin the dark\narts of magic."
+236,"Fear From The Dark",2200,2000,Moon,Uranus,Zombie,yellow,6,Light,100,236,"After a human has\nbeen tortured in hell \nlong enough, he\nbegins to torture\nsouls himself in order\nto avoid the torture to him.\nIn the process, he slowly\nloses his humanity."
+237,"Despair From The Dark",3300,3500,Moon,Uranus,Zombie,red,9,Light,1000,237,"After many years\nof him torturing\nsouls in hell and\nlosing humanity\nin the process,\nhe became a demon."
+238,"Endymion",4200,3200,Mercury,Moon,Fiend,red,11,Light,999999,238,"After years upon\nyears of studying\nthe dark arts of magic,\nthe magician of black\nchaos became so\nstrong he has\nbecome something\ndifferent entirely."
+239,"Summoned Skull",3000,1700,Moon,Pluto,Zombie,orange,8,Light,500,239,"There is electricity\ncircling deep\ninside of his bones\nhe can bend in\norder to create a\npowerful attack."
+240,"Skull Archfiend Of Lightning",4000,2700,Moon,Pluto,Zombie,red,10,Light,999999,240,"A demon who\nhas mastered\nthe art of bending\nelectricity.\n"
+241,"Sorcerer Fusie",2600,2900,Mercury,Moon,Zombie,red,7,Light,500,241,"A Powerful invoker\nwho can create huge\narmies of undead\nwarriors. "
+242,"Mystical Knight Of Jackal",3200,1700,Mercury,Moon,Zombie,red,9,Light,500,242,"Evil spirit whos\npurpose is to\nprotect the\nfallen soldiers\nof egypt\n"
+243,"Vampire Lord",2000,1500,Moon,Saturn,Zombie,yellow,5,Light,500,243,"While fighting\nas a magician\nfor the legendary\ndark magician he\nturned sides after\nhe got almost killed\nby the lord of the \nvampires."
+244,"Vampire Genesis",3000,2100,Moon,Saturn,Zombie,red,8,Light,999999,244,"The alpha of\nall vampires. He\nstarted creating\nthe vampire bloodline\nby turning people."
+245,"Zombie Warrior",2200,1900,Mercury,Moon,Zombie,yellow,5,Light,500,245,"A deceptively\nfragile-looking\nskeleton warrior\nthat is known for\nits swift and\nprecise attacks."
+246,"Skull Knight",3150,2750,Mercury,Moon,Fiend,red,8,Light,1000,246,"A monk who has\nconducted\nseveral rituals\nin the netherworld,\nand who is capable\nof using both\nweapons and magic."
+247,"Zanki",3000,2200,Moon,Uranus,Zombie,orange,8,Dark,500,247,"A student of the\nGreat Shogun\nShien. He has yet\nmuch to learn in\norder to ascend."
+248,"Great Shogun Shien",4000,3900,Moon,Pluto,Zombie,red,11,Light,999999,248,"This samurai was\nthe first human\nwho became a\ndemon after torturing\nsouls in hell. The first\nfive souls who got\nturned are named\nknights of hell."
+249,"Little Swordsman Of Aile",2200,2400,Venus,Neptune,Warrior,yellow,6,Water,500,249,"Between the little\nelf and his lizard\nprevails an incredibly\nstrong bond."
+250,"Soul Hunter",3200,2800,Neptune,Moon,Zombie,red,9,Light,1000,250,"Even after life\nitself, the bond\nbetween this\nlittle elf and his\nlizard prevails."
+251,"Skull Guardian",2550,3000,Venus,Sun,Machine,red,8,,500,251,"There once was\na doctor who saved\na human's life by\nputting his body\ninside of a machine\nthat controls his mind\nin order to create a\nservant for himself."
+252,"Skelgon",2200,2400,Moon,Saturn,Zombie,yellow,5,Light,100,252,"A winged-beast\nwho got\nresurrected by\nsorcerer fusie\nin order to fight\non his side."
+253,"Doomkaiser Dragon",2900,2000,Moon,Saturn,Zombie,orange,8,Fire,1000,253,"A magician\nonce embodied\nhimself into this\ncreature creating\na face upon his \nchest"
+254,"Dragon Lord Of Dark World",3700,2800,Moon,Saturn,Zombie,red,10,Light,999999,254,"With each roar\nhe summons un-\ndead creatures\nwho fight at his\nside"
+255,"Curse Of Dragon",2000,1500,Moon,Saturn,Zombie,yellow,5,Light,100,255,"An ancient dragon \nwho is cursed of \nbeeing immortal\n"
+256,"Berserker Dragon",3000,0,Moon,Saturn,Zombie,red,8,Light,1000,256,"Fiendish dragon\nwho belongs to\nfusie richie"
+257,"Blade Knight",2000,1500,Venus,Sun,Warrior,yellow,5,,100,257,"A white knight\nalways in search\nof justice."
+258,"Black Luster Soldier",3000,2500,Mercury,Moon,Warrior,orange,8,Light,1000,258,"An evil incarnation\nof the once good-\nhearted blade knight."
+259,"Envoy Of The Beginning",4000,3500,Sun,Venus,Warrior,red,10,,999999,259,"Whenever there\nare imbalances\nin the world\ncreated by strong\nfiends trying to take\nover the world,\nthis knight and his\nsoldiers will rise."
+260,"Gaia The Fierce Knight",2300,2100,Uranus,Venus,Warrior,yellow,7,Dark,100,260,"A knight\nwhose horse\ntravels faster\nthan the wind"
+261,"Gaia Drake, The Universal Force",3000,2300,Venus,Sun,Warrior,red,8,,1000,261,"After Gaia almost\ndied in the fight\nagainst the\nleviathans, fairies\nfound him and\nhelped him not only\nsurvive but make\nhim stronger."
+262,"Gaia The Dragon Champion",3100,2600,Saturn,Venus,Dragon,red,8,Earth,1000,262,"A legendary \ndragon rider and\none of the heads\nof the gaia family"
+263,"Warrior Dai Grepher",2300,2100,Uranus,Venus,Warrior,yellow,6,Dark,100,263,"The star on\nhis belt indicates\nthat he is a warrior\nof the forbidden army."
+264,"Gilford The Legend",3100,2500,Venus,Uranus,Warrior,orange,9,Dark,1000,264,"A legendary fiend\nslaughterer. One\nof many soldiers\nwho are under the\nobedience of the\nenvoy of the beginning."
+265,"Gem-Knight Master Diamond",4400,4000,Uranus,Venus,Warrior,red,12,Dark,999999,265,"Even though\nhe is stronger\nthan the envoy\nof the beginning\nhimself, he second\nin command\nof the army.\n"
+266,"Flame Swordsman",3800,3600,Mars,Venus,Warrior,red,10,Fire,999999,266,"A fighter gifted\nwith the power of\nfire. Attacks enemies\nwith a sword that\nlaunches flames."
+267,"Buster Blader",3600,3300,Mercury,Neptune,Warrior,red,10,Light,999999,267,"After slaying\nthousands upon\nthousands of dragon,\nhe became the\nmost well-known\ndragon slayer alive."
+268,"Gilford The Lightning",3800,2400,Pluto,Sun,Thunder,red,10,,999999,268,"After almost dying\nto dragons, he put\nhis entire life into \nearning a way to\nbeat them. That's\nhow he learned to\nbend thunder."
+269,"Archfiend Soldier",2400,2000,Mercury,Uranus,Fiend,yellow,6,Light,100,269,"A demon who\nspent hours\nlearning magic\nuntil he finally\nwas a worthy\nsoldier for the fiends. "
+270,"Invader Of Darkness",2900,2500,Mercury,Moon,Fiend,red,9,Light,1000,270,"A legendary\ndemon slayer\nwho infiltrates\nhimself into fiend\narmies in order to\ngain access to\ninsider information"
+271,"Dark Necrofear",2200,2800,Moon,Mercury,Fiend,red,8,Light,1000,271,"A cursed object\nwho kills everybody\nwho touches it"
+272,"Rose Spectre of Dunn",2500,2300,Moon,Jupiter,Plant,red,7,Light,1000,273,"A red rose poss\nessed by a vile\nspirit that feeds\non the life force\nof others to\nprovide the flower\nwith nourishment."
+273,"Mazera DeVille",3300,2800,Saturn,Mercury,Fiend,red,9,Light,1000,273,"The second human\nwho turned in hell\nafter torturing souls.\nA knight of hell\ncan only be killed\nwith the first blade"
+274,"Dark Crusader",2100,700,Moon,Mercury,Fiend,yellow,6,Light,100,274,"The last and\nmost weakest\nknight of hell.\n"
+275,"The End Of Anubis",4000,0,Mercury,Saturn,Fiend,red,10,Light,500,275,"After years of research,\nEgyptians created a\ndevice capable of\nextracting the human\nsoul in order to gain\nits energy to reawaken\nAnubis. This is what\nhe has become."
+276,"Archfiend Scarlight",4000,3500,Mercury,Mars,Fiend,red,10,Fire,1000,276,"The third and\nmost powerful\nknight of hell.\nWhatever he\ntouches disintegrates\ninto flames."
+277,"Destiny HERO - Dogma",2900,2400,Mercury,Saturn,Fiend,orange,8,Light,500,277,"A hero who\ndesperately wants\nto become a hero\nsomeday.He decided\nto intrude into the\nfiend-army in\norder to train there."
+278,"Archfiend Bane",3500,3000,Moon,Mercury,Fiend,red,10,Light,1000,278,"After he completed\nhis training on the\ndark side, he \nbetrayed them\nand joined the\nhuman forces"
+279,"King Of Yamimakai",3000,2530,Mercury,Jupiter,Fiend,orange,8,Light,100,279,"One of many\nhead leaders\nthe fiend army\nhas. Without his\nmetal suit, he isn't\nas big of a threat."
+280,"The Executioner",3800,3700,Mercury,Pluto,Fiend,red,10,Light,1000,280,"He is one of hell's\nmost feared demons.\nEach of his attacks\nleaves nothing but\ndespair and\nbroke spirits."
+281,"Ryu-Kishin Powered",2600,2200,Mercury,Saturn,Fiend,yellow,7,Light,500,281,"The legendary Ryu-\nKishin, notorious for his\nbody transformations.\nHe has the ability to\ntransform his body over\nyears in order to give\nhim more power."
+282,"Zera The Mant",4400,3800,Mercury,Moon,Fiend,red,12,Light,999999,282,"Some creatures are\nnot looking for any\nthing logical. They\ncant be reasoned\nnor negotiated with.\nSome creatures just\nwant to watch the\nworld burn."
+283,"Dark Chimera",3110,2960,Mercury,Mars,Fiend,orange,9,Light,500,283,"One of many\nreptiles that got\nturned, who now\nfight for the fiend's\nside.They got fiends\nblood in order to\nmake them more\npowerful."
+284,"Masked Beast - Des Gardius ",3800,3000,Mercury,Jupiter,Fiend,red,10,Light,999999,284,"A reptile that died\nof blood overdose\ngiven by fiends.\nThey tried to resurrect\nit. After it worked out\nthey repeat the\nprocess in order to\ncreate this abomination."
+285,"Beast Of Talwar",2400,2150,Mercury,Saturn,Beast,yellow,6,Light,500,285,"There are some\nhumans who chose\nthe evil side in order\nto get their hands on\nfiends' blood which\nmakes them half-\nhuman half-fiend."
+286,"Dark Fiend Paladin",4900,4400,Mercury,Moon,Fiend,red,12,Light,999999,286,"After many years\nof perfecting the\ndark magic as well\nas melee combat,\nthis magician\nbecame the\nmost powerful\nmagician ever."
+287,"Ushi Oni",2650,2150,Moon,Mercury,Fiend,red,7,Light,500,287,"Since many\nreptiles got fiends\nblood in order to\nfight for them, animals\nlike this one got the\nsame treatment"
+288,"Cyber Saurus",2300,1900,Uranus,Pluto,Dinosaur,yellow,6,Dark,100,288,"Some creatures were\nunable to be turned.\nHowever, that did\nnot stop fiends from\ntrying to get them\nfighting for their side\nso they mechanized\nthem instead."
+289,"Super Conductor Tyranno",3300,1400,Uranus,Pluto,Dinosaur,red,8,Dark,1000,289,"A mechanized\nTyranno that got\nturned by rebuilding\nits entire central\nnervous system."
+290,"Black Tyranno",2600,1800,Uranus,Jupiter,Dinosaur,orange,7,Dark,500,290,"A dinosaur who\nfights for the\nhumans in the\nendless fight\nagainst fiends."
+291,"Ultimate Tyranno",3500,2700,Uranus,Jupiter,Dinosaur,red,10,Dark,999999,291,"The leader\nof all dinosaurs,\nfighting for the\nhuman's side.\nHis entire back\nis full of spikes\nprotecting him\nfrom enemy attacks."
+292,"Guardian Grarl",2500,1000,Uranus,Mercury,Zombie,red,7,Dark,500,292,"Since demon blood\ndid not work on\ndinosaurs they started\nkilling them instead.\nAfter the resurrection,\nthey had no memory\nof their past life left."
+293,"Guardian Eatos",2500,2000,Venus,Saturn,Fairy,yellow,8,Earth,500,293,"This fairy has the\nability to change\nher nature in order\nto become a demon.\nShe uses this ability\nin order to be part\nof both sides."
+294,"Yubel",3500,3500,Saturn,Mercury,Fiend,red,10,Light,999999,294,"This form of eatos,\ncalled yubel, is one\nof the highest heads\nthe fiend army has\nwhich make her the\nperfect spy."
+295,"Dark Witch",2300,1700,Sun,Venus,Fairy,yellow,5,,100,295,"A young fairy who\nhas the ability to\ndistract enemies\nwith her huge... \n""wings""?"
+296,"Wingweaver",2750,2400,Sun,Venus,Fairy,orange,7,,1000,296,"General of the\nfairy army from the\nhuman side. The\nsheer amount of\nwings she has make\nher extremely fast in\ncombat and almost\nimpossible to hit."
+297,"Shinato",3800,3500,Mercury,Saturn,Fairy,red,10,Light,999999,297,"Since all fairies\nand Fairy-type\ncreatures are under\nher obedience, it\nmakes her one of\nthe most important\nleaders the human\nside has."
+298,"Gyakutenno Megami",2300,2500,Sun,Venus,Fairy,yellow,7,Dark,100,298,"A fairy trained\nfor melee combat.\nHer ferocious attack\nspeed is unmatched."
+299,"St Joan",2800,2000,Sun,Venus,Warrior,orange,8,,1000,299,"Due to her\nincredible combat\nstrength, she is one\nof the strongest persons\non the human side."
+300,"Winged Kuriboh",2800,1000,Sun,Saturn,Fairy,red,8,,500,300,"There are some\nfiends fighting for\nthe human side like\nKuriboh. He has\nprovided his blood\nto some dragons in\norder to make\nthem stronger."
+301,"United We Stand",0,0,None,None,Equip,,0,Wind,50,301,"Motivates warriors\nin order to make\nthem stronger!"
+302,"Sword of Dark Destruction",0,0,None,None,Equip,blue,0,Wind,50,302,"Dark forces\nincrease the\npower of warriors\nand spellcasters\n"
+303,"Dark Energy",0,0,None,None,Equip,,0,Wind,50,303,"Dark forces\nincrease the \npower of Fiends,\nspellcasters and\nzombies"
+304,"Axe of Despair",0,0,None,None,Equip,,0,Wind,50,304,"Fiends, warriors\nand beasts can\nconstantly use\ntheir maximum\nstrength!"
+305,"Laser Cannon Armor",0,0,None,None,Equip,,0,Wind,50,305,"Arms Insects and\nReptiles with\na powerful laser!"
+306,"Insect Armor with Laser Cannon",0,0,None,None,Equip,,0,Wind,50,306,"Increases the\npower of insects\nand reptiles!"
+307,"Elf's Light",0,0,None,None,Equip,,0,Wind,50,307,"Increases the\npower of fairies\nwith mystical light!"
+308,"Beast Fangs",0,0,None,None,Equip,,0,Wind,50,308,"Increases the\npower of beasts,\nwing-beasts,\ndinosaurs and\ndragons!"
+309,"Steel Shell",0,0,None,None,Equip,,0,Wind,50,309,"Boosts the power\nof aqua and \nfish monsters!\n"
+310,"Vile Germs",0,0,None,None,Equip,,0,Wind,50,310,"Vile microbes\nboost the power\nof Plants"
+311,"Black Pendant",0,0,None,None,Equip,,0,Wind,50,311,"This pendant\ngrants extra power\nto spellcasters\nas well as\nzombies and\nfiends."
+312,"Fairy Power",0,0,None,None,Equip,,0,Wind,999999,54235434,"Enhances the\npower of Fairies"
+313,"Horn of Light",0,0,None,None,Equip,,0,Wind,999999,67546757,"Increases the\npower of light\ncreatures\n"
+314,"Horn of Darkness",0,0,None,None,Equip,,0,Wind,999999,65775667,"Increases the\npower of Dark\nmonsters!"
+315,"Dragon Treasure",0,0,None,None,Equip,,0,Wind,50,315,"A legendary treasure\nthat increases the\npower of dragons\nand dragon like\ncreatures."
+316,"Electro-whip",0,0,None,None,Equip,,0,Wind,999999,57475676,"Increases power\nwhen equipped\nwith female \ncreatures."
+317,"Cyber Shield",0,0,None,None,Equip,,0,Wind,999999,25432543,"Increases the\npower of harpy\nmonsters"
+318,"Elegant Egotist",0,0,None,None,Equip,,0,Wind,999999,64776765,"Empowers harpy\nmonsters!"
+319,"Mystical Moon",0,0,None,None,Equip,green,0,Wind,999999,63576573,"Moonlight increases\nthe power of Beasts\nand winged beats\ntimes two!"
+320,"Stop Defense",0,0,None,None,Magic,,0,Wind,50,320,"Forces an opponent's\nmonster card\npositioned for\ndefense into the\nattack position."
+321,"Ring Of Power",0,0,None,None,Equip,green,0,Wind,999999,65653445,"Diabolic Force\nthat increases the\npower Zombies\ntimes 2 !"
+322,"Violet Crystal",0,0,None,None,Equip,,0,Wind,999999,65453566,"Mystic forces\nfrom the crystal\nincrease the\npower of Zombies."
+323,"The Bro Code",0,0,None,None,Equip,green,0,Wind,999999,78655678,"Increases the power\nof spellcasters and\nfairies times 2 !"
+324,"Invigoration",0,0,None,None,Equip,green,0,Wind,999999,57754754,"Increases the power\nof Thunder, Rock,\nand Pyro monsters\ntimes two!"
+325,"Machine Conversion Factory",0,0,None,None,Equip,,0,Wind,999999,45767467,"A manufacturing\nfacility that tunes\nup all Machine\nmonsters."
+326,"Contract with Exodia",0,0,None,None,Equip,,0,Wind,100,326,"This card holds\na great mystery"
+327,"Magicians Robe",0,0,None,None,Equip,blue,0,Wind,1000,327,"A magical armor\nthat makes any\nspellcaster into\nsomething much\nstronger"
+328,"Magicians Rod",0,0,None,None,Equip,blue,0,Wind,1000,328,"A magical rod\nthat makes any\nspellcaster into\nsomething much\nstronger"
+329,"Dragon Capture Jar",0,0,None,None,Magic,,0,7,50,329,"Destroys\nall opponent\nDragon monsters\non the playfield!"
+330,"Forest",0,0,None,None,Magic,,0,Wind,50,330,"Changes the field\nin favor of\nReptiles, Insect,\nPlant, and Beast\nmonsters!"
+331,"Wasteland",0,0,None,None,Magic,,0,Wind,50,331,"Changes the field\nin favor of Zombie,\nDinosaur, machine\nand Rock monsters!"
+332,"Mountain",0,0,None,None,Magic,,0,Wind,50,332,"Changes the field\nin favor of Dragon,\nWinged Beast, and\nThunder monsters!"
+333,"Sogen",0,0,None,None,Magic,,0,Wind,50,333,"Changes the field\nto meadow land\nin favor of Warrior\nand Beast-Warrior\nmonsters!"
+334,"Umi",0,0,None,None,Magic,,0,Wind,50,334,"Changes the field\nin favor of Aqua\nand Thunder monsters,\nbut unfavorable to\nMachine and Pyro\nmonsters!"
+335,"Yami",0,0,None,None,Magic,,0,Wind,50,335,"Changes the field\nin favor of\nspellcasters, fairies\nand Fiend monsters!\n"
+336,"Dark Hole",0,0,None,None,Magic,,0,Wind,100,336,"Sucks up every card\nin play on the field!"
+337,"Raigeki",0,0,None,None,Magic,,0,Wind,100,337,"Destroys every\nopposing monster\nwith a stroke\nof lightning!"
+338,"Limiter Removal",0,0,None,None,Equip,,0,Wind,50,338,"Increases\nthe power\nof machines\n"
+339,"Stim-Pack",0,0,None,None,Equip,green,0,Wind,999999,65674467,"Weird looking\npotion that\nincreases the\npower of reptiles\n2 times!"
+340,"Burst Stream Of Destruction",0,0,None,None,Equip,green,0,Wind,999999,340,"Increases the\npower of blue-\neyes monsters\ntimes 2!"
+341,"Ultimate Creature Of Destruction",0,0,None,None,Magic,blue,0,Wind,999999,341,"Fuses with\nblue-eyes white\nand ultimate dragon"
+342,"Dian Keto the Cure Master",0,0,None,None,Magic,,0,Wind,100,342,"A mystical power\nthat increases\nLife Points by 5000!"
+343,"Sparks",0,0,None,None,Magic,,0,Wind,50,343,"A shower of sparks\ninflicts 50 points\nof damage\nto your opponent's\nLife Points!!"
+344,"Hinotama",0,0,None,None,Magic,,0,Wind,50,344,"A fireball\ninflicts 100 points\nof damage\nto your opponent's\nLife Points!!"
+345,"Final Flame",0,0,None,None,Magic,,0,Wind,50,345,"Flames\ninflict 200 points\nof damage\nto your opponent's\nLife Points!!"
+346,"Ookazi",0,0,None,None,Magic,,0,Wind,50,346,"Flames\ninflict 500 points\nof damage\nto your opponent's\nLife Points!"
+347,"Tremendous Fire",0,0,None,None,Magic,,0,Wind,50,347,"An inferno\ninflicts 1000 points\nof damage to your\nopponent's Life Points!"
+348,"Swords of Revealing Light",0,0,None,None,Magic,,0,Wind,999999,348,"Enemy monsters\nare revealed and\nyour opponent\ncannot attack\nfor three turns."
+349,"Spellbinding Circle",0,0,None,None,Magic,,0,Wind,50,349,"A curse reduces\nthe power of all\nenemy monsters!"
+350,"Dark-piercing Light",0,0,None,None,Magic,,0,Wind,50,350,"A dazzling light\nreveals all monsters\non the playing field."
+351,"Fortress Whale",2350,2150,Neptune,Moon,Fish,yellow,7,Water,100,351,"Humans have\nbuilt a fortress\non top of his\nback containing\ncannons and\nother weapons."
+352,"Mermail Abyssbalaen",3000,2500,Moon,Neptune,Fish,red,8,Water,1000,352,"Whenever problems\nin the overworld\noccur, this mutant\nof a whale ascends\nin order to fight for\nthe humans."
+353,"Man-Eating Black Shark",2600,1800,Neptune,Moon,Fish,red,7,Water,100,353,"A shark who\nhas been captured\nby fiends in order\nto inject him with\ndemon blood."
+354,"Roaring Ocean Snake",2100,1800,Neptune,Moon,Fish,yellow,6,Water,500,354,"A massive sea\nserpent that\ncreates tidal\nwaves to wipe\nout its enemies."
+355,"Levia-Dragon - Daedalus",3100,2000,Neptune,Moon,Fish,orange,9,Water,1000,355,"A magician once\nenchanted this sea\nserpent in order to\nfight for him. It left\na mark on top of his\nhead that looks like\na gem."
+356,"Ocean Lord - Neo Daedalus",4400,3100,Neptune,Moon,Fish,red,12,Water,999999,356,"A mythical creature\nthat rules the ocean.\nHis incredible size\nmakes it almost\nimpossible to fight\nagainst him. "
+357,"Amphibian Beast",2900,2500,Neptune,Moon,Fish,red,8,Water,500,357,"After hundreds\nof years of evolution,\nthis reptile has\nevolved into a\ncreature capable\nof insanely high\nspeed while\nswimming."
+358,"Great Moth",2600,2500,Saturn,Jupiter,Insect,orange,8,Earth,500,358,"This huge moth \nattacks its \nenemies by\nspreading\npoison dust\nwith its wings."
+359,"Perfectly Ultimate Great Moth",4000,3500,Saturn,Jupiter,Insect,red,10,Earth,999999,359,"The final\nincarnation of\nthe ultimate insect,\nthe Great Moth!"
+360,"Doom Dozer",2300,2100,Uranus,Jupiter,Insect,yellow,6,Dark,100,360,"A huge centipede\nthat can obliterate\nmountains with his\ntail."
+361,"Hundred-Footed Horror",3100,1800,Uranus,Jupiter,Insect,orange,9,Dark,1000,361,"The strongest\nof all centipedes\n"
+362,"Javelin Beetle",2950,3050,Uranus,Jupiter,Insect,red,8,Dark,100,362,"A creature\nwith lethal\nscissors that\ncut through\nalmost anything."
+363,"Mystical Beast Serket",4000,3500,Uranus,Jupiter,Insect,red,10,Dark,999999,363,"The most\nfaithful serveant \nof the legendary\nwinged dragon\nof Ra"
+364,"Empress Mantis",2200,1400,Saturn,Jupiter,Insect,yellow,6,Earth,100,364,"Queen of an\narmy of giant\nmantises whose\ncommandmoves\nlegions"
+365,"Insect Queen",3200,3400,Saturn,Jupiter,Insect,red,9,Earth,1000,365,"There arent\nmany insect\nwho arent\nunder his\nobedience"
+366,"YZ - Dragon Tank",2600,2700,Pluto,Sun,Machine,yellow,7,,500,366,"Between the\nz metal tank has\nthe y dragon head\nbeen placed to\ncreate a wall\nbreaking ram"
+367,"XZ - Tank Cannon",2900,2600,Sun,Pluto,Machine,yellow,7,,500,367,"The x cannon\nhead sitting\non top of the\nz metal tank\nbuilding a massive\ndestructive machine"
+368,"XY - Dragon Cannon",2700,2400,Pluto,Sun,Machine,yellow,7,,500,368,"The x head cannon\nriding on the y\ndragon head. \nThere is only one\npart missing.."
+369,"VW - Tiger Catapult",2500,2600,Pluto,Sun,Machine,yellow,7,,500,369,"A combination\nof two machines\nHowever this is \nonly the another\npart of something \nbig"
+370,"XYZ - Dragon Cannon",3800,3600,Pluto,Sun,Machine,orange,10,,999999,370,"The ultimate\nmachine in terms\nof attack and \ndefense.\n"
+371,"VWXYZ - Dragon Catapult",4500,4300,Pluto,Sun,Machine,red,12,,999999,371,"The ultimate\nmachine build\nout of five \ncomponents"
+372,"Metal Zoa",4000,3300,Pluto,Mercury,Machine,red,10,Light,999999,372,"A metallic Zoa\ncapable of\nintensive attacks."
+373,"Cyber Dragon",2100,1600,Sun,Pluto,Machine,blue,6,,500,373,"A snakish machine\ndragon who\nwas build as\none part of\nsomething much\nstronger"
+374,"Cyber Twin Dragon",2800,2100,Sun,Pluto,Machine,orange,8,,1000,374,"The combination\nof two machine\ndragons. Still\nnot the end result\nof the project"
+375,"Cyber End Dragon",4000,2800,Sun,Pluto,Machine,red,10,,999999,375,"A dreadful dragon\nfused by three\nseperate machine\ndragons."
+376,"Launcher Spider",2700,3000,Mars,Pluto,Machine,red,8,Fire,500,376,"A spider machine\nthat launches\nexplosive rockets\nagainst its enemies."
+377,"Cyber Falcon",2400,2200,Saturn,Pluto,Machine,yellow,6,Earth,100,377,"A jet-powered hawk\nthat travels at the \nspeed of sound"
+378,"Cyber-Tech Alligator",3000,2100,Pluto,Mars,Machine,red,8,Earth,1000,378,"A Dragon who\ngot attacked really\nbadly. His keeper\nreplaced his \nwounded parts and\ncreated a monster"
+379,"Kazejin",2400,2200,Saturn,Mercury,Fiend,yellow,7,Earth,100,379,"A golem that\ncontrols the winds\nlike the Labyrinth\nBrothers."
+380,"Sanga of the Thunder",2600,2200,Pluto,Mercury,Thunder,yellow,7,,100,380,"A golem that uses\nlightning attacks\nsimilar to the\nLabyrinth Brothers."
+381,"Gate Guardian",4250,3900,Pluto,Mercury,Fiend,red,11,Light,999999,381,"The Lord of\ndarkness, the\nultimate machine\nof destruction."
+382,"Jinzo",2400,1500,Pluto,Mercury,Machine,yellow,6,Light,100,382,"Finally a human\nwho managed\nto mechanised\nhimself"
+383,"Jinzo - Lord",3100,2100,Mercury,Pluto,Fiend,red,9,Light,1000,383,"Once a soldier \nwho got modified\nmultiple times\nuntil he became\neverything else\nbut a human"
+384,"Black Rose Dragon",4900,4300,Mars,Jupiter,Plant,red,12,Fire,999999,384,"An enchanted\ndragon that kills\neverything that\ncomes to mind\nwith one exeption"
+385,"Gagagigo",2350,1500,Neptune,Mercury,Reptile,yellow,5,Water,100,385,"This young evildoer\nused to have an\nevil heart, but by\nmeeting a special\nperson, he \ndiscovered justice"
+386,"Giga Gagagigo",2950,2000,Neptune,Mercury,Warrior,orange,7,Water,1000,386,"In order to fight\ntremendous\nevil, he gained\nformidable power\nthrougj body \nreconstruction"
+387,"Gogiga Gagagigo",3950,3800,Mercury,Neptune,Aqua,red,10,Water,999999,387,"His soul long-since\ncollapsed, his body\nrecklessly continues\nonward, driven by a \nlust for more power\nHe no longer resembles\nhis former self"
+388,"Krokodilus",2100,2200,Neptune,Mercury,Reptile,yellow,5,Dark,100,388,"A vicious crocodile\nwith intelligence.\nHard scales form\na natural armor\nfor this creature."
+389,"Rude Kaiser",3300,3100,Neptune,Mercury,Beast,red,8,Dark,1000,389,"A vicious crocodile\nwith intelligence.\nHard scales form\na natural armor\nfor this creature."
+390,"Venom Boa",2100,1700,Jupiter,Moon,Reptile,yellow,6,Dark,100,390,"Queen of snakes.\nHer poison kills\nalmost instantly"
+391,"Serpent Night Dragon",3350,3400,Mars,Mercury,Dragon,red,9,Light,999999,391,"A legendary\nsnake dragon\nwho devours \neverything\nin mind"
+392,"Beta The Magnet Warrior",1700,1600,Uranus,Pluto,Rock,blue,4,Dark,50,392,"Alpha, Beta and \nGamma meld as one\nto form a powerful\nmonster"
+393,"Alpha The Magnet Warrior",1400,1700,Uranus,Pluto,Rock,blue,4,Dark,50,393,"Alpha, Beta and \nGamma meld as one\nto form a powerful\nmonster"
+394,"Gamma The Magnet Warrior",1500,1800,Uranus,Pluto,Rock,blue,4,Dark,50,394,"Alpha, Beta and \nGamma meld as one\nto form a powerful\nmonster"
+395,"Valkyrion The Magna Warrior",3500,3850,Pluto,Uranus,Rock,red,9,Dark,999999,395,"A genius once\ncreated three\ndifferent warriors\nthat have the ability\nto fuse themselves\ninto an unstopable\nforce"
+396,"Dark Blade The Dragon Knight",3200,2500,Mars,Mercury,Warrior,red,9,Light,999999,396,"Freshly knighted\nand specialized\nwith dual blades"
+397,"Emissary Of Light",4100,3700,Mercury,Saturn,Warrior,red,11,,999999,397,"A legendary\nsword master\nwho is considered\nas one of the\nstrongest warriors\nalife"
+398,"Dark Blade",2800,2500,Moon,Venus,Warrior,,7,Light,1000,398,"A warrior who is\npossessed by a\ndark demon lord\n"
+399,"Millennium Shield",0,3000,Uranus,Venus,Warrior,blue,6,Dark,50,399,"A Millennium\nItem candidate\nthat is said to\nblock any\npowerful attack."
+400,"Arcana Knight Joker",3800,2500,Sun,Venus,Warrior,red,10,,999999,400,"One of heavens\nstrongest guardians"
+401,"Dark Magician",2500,2100,Mercury,Moon,Spellcaster,yellow,7,Light,100,401,"The ultimate wizard\nin terms of attack\nand defense."
+402,"Witch Of Black Chaos",3500,2000,Mercury,Moon,Spellcaster,red,10,Light,999999,402,"The female\nversion of the \nlegendary magician\nof black chaos"
+403,"Zoa",3100,2400,Uranus,Mercury,Fiend,orange,8,Light,500,403,"A monster\nwhose full potential\ncan be achieved\nwhen transformed\ninto its metal form."
+404,"Water Dragon",4000,4000,Neptune,Moon,Aqua,red,10,Water,999999,404,"A dragon consisting\n100 percent of\nwater. His speed\nis unmeasureable"
+405,"The Legendary Fisherman",3350,3100,Neptune,Moon,Aqua,red,9,Water,1000,405,"A lost warrior\nwho almost\nlived his whole\nlife in the ocean"
+406,"Togex",2600,2800,Uranus,Jupiter,Beast,yellow,7,Dark,500,406,"A very fast monster\nthat rolls up and\nrams its enemies."
+407,"Sengenjin",4250,4000,Uranus,Mercury,Beast,red,11,Dark,999999,407,"A headstrong,\nprimitive man\nequipped with \na Millennium Item."
+408,"Super War-lion",2300,2100,Uranus,Moon,Beast,yellow,7,Dark,100,408,"A very vicious lion\nwith sharp and\nlong claws."
+409,"Beast King Barbaros",3000,1200,Uranus,Moon,Beast,orange,8,Dark,1000,409,"An supernatural\nlion whos  fighting\nas a  gladiator\nin coliseums\n"
+410,"Evil Beast King Barbaros",3800,1200,Moon,Uranus,Beast,red,10,Light,999999,410,"Once a gladiator\nnow hes possessed\nby a dark spirit\nenhancing his\npower "
+411,"Flower Wolf",2300,1900,Uranus,Jupiter,Beast,yellow,6,Dark,100,411,"A beast covered\nin flowers from\nhead to toe."
+412,"Behemoth, King Of Animals",3200,1500,Uranus,Jupiter,Beast,red,9,Dark,1000,412,"A mutated lion\nwho looks nothing\nlike it used to"
+413,"Barrel Dragon",4100,3700,Pluto,Mercury,Machine,red,10,Light,999999,413,"A huge dragon\nlike machine\nwith three\ncannons on\ntop of his back"
+414,"Meteor B. Dragon",4000,2500,Mars,Sun,Dragon,red,10,Fire,999999,414,"With the burning\nhide of a meteorite,\nthis creature\nvaporizes all that\nit touches."
+415,"Skull Stalker",2900,2800,Moon,Mercury,Fiend,orange,8,Light,500,415,"Swift and vicious,\nthis monster grabs\nits victim with its\npincers and attacks\nthe captive with its\npoison stinger."
+416,"Volcanic Doomfire",4000,2800,Mars,Mercury,Fiend,red,10,Fire,999999,416,"A fiend who once\nwas thrown into\nlava and evolved\nin there over\ncenturies"
+417,"Ancient Gear Knight",2300,1000,Uranus,Mercury,Machine,yellow,6,Dark,100,417,"A warrior protecting\na castle completly\nconstisting out\nof machines and \nengines"
+418,"Ancient Gear Golem",3000,3000,Uranus,Mercury,Machine,orange,9,Dark,1000,418,"The supreme \ncommander of\nthe ancient castle"
+419,"Two-mouth Darkruler",2400,2200,Pluto,Mars,Thunder,yellow,6,Dark,100,419,"A dinosaur with two\ncrushing jaws.\nStores electricity\nin its horn and\nreleases high\nvoltage bolts\nfrom the mouth\non its back."
+420,"Twin-headed Thunder Dragon",3300,2600,Pluto,Mars,Thunder,red,9,,1000,420,"A two-headed\nThunder Dragon\ncapable of powerful\nelectric attacks."
+421,"The Flame Swordsman",4800,4600,Mars,Sun,Warrior,red,12,Fire,999999,421,"A fighter with\nthe ability to\nfaporize every\nsingle of his\nopponents"
+422,"Five-Headed Dragon",5000,5000,Mercury,Moon,Dragon,green,12,Light,999999,422,"An abomination\nof dragons created\nfor the sole purpose\nof destruction"
+423,"Hamon, Lord Of Thunder",4500,0,Pluto,Sun,Thunder,green,12,,999999,423,"An golden skeleton\nlike fiend which\nis flowed through\nby electricity"
+424,"Raviel, Lord Of Phantasms",4500,4500,Moon,Mercury,Fiend,green,12,Light,999999,424,"A huge titan\nsummoned by\nzera to protect\nhim at all cost"
+425,"Uria, Lord Of Searing Flames",4500,3000,Sun,Mars,Pyro,green,12,Fire,999999,425,"His entire body\nis flowed through\nby magma that he\ncan transform into\nflames"
+426,"Obelisk The Tormentor",5000,5000,Mercury,Moon,Fiend,green,12,Light,999999,426,"One of three godly\ncreatures who once \ndefeated the darkness\ntogether with the help\nof exodia"
+427,"Slifer The Sky Dragon",5000,5000,Mars,Sun,Dragon,green,12,Fire,999999,426,"One of three godly\ncreatures who once \ndefeated the darkness\ntogether with the help\nof exodia"
+428,"The Winged Dragon Of Ra",5000,5000,Mercury,Mars,Dragon,green,12,Light,999999,428,"One of three godly\ncreatures who once \ndefeated the darkness\ntogether with the help\nof exodia"
+429,"The Dragon Destroyer",4800,4500,Mercury,Neptune,Warrior,red,12,Light,999999,429,"A legendary\ndragon slayer\nwho slayed over\nthousands of\ndragons "
+430,"Gilford, The Lone Wolf",2800,1400,Mars,Sun,Warrior,yellow,8,Fire,500,430,"A lone wolf raised\nby a reckless\nmercenary in \norder to become\na personal guard"
+431,"Wall Shadow",2600,3000,Mercury,Uranus,Fiend,red,8,Light,500,431,"An unusually\nfast monster\nthat sweeps\nacross walls \nto attack its \nenemies."
+432,"Big Koala",2700,2000,Uranus,Jupiter,Beast,yellow,7,Dark,500,432,"A species of huge\ndes koala. He is\nmeek, but people\nare afraid of him\nbecause he is \nvery powerful"
+433,"Master Of Oz",3700,3200,Uranus,Jupiter,Beast,red,9,Dark,999999,433,"Huge koala \nin the land of\noz. Each step\nhe takes the\nland starts \nto tremble"
+434,"Ultimate Ancient Gear Golem",3900,3400,Uranus,Pluto,Machine,red,10,Dark,999999,434,"A massive\nbeast whos\nbody completely\nflowed by\nelectricity"
+435,"Emissary Of Darkness",3700,3500,Mercury,Neptune,Warrior,red,10,Light,999999,435,"He can create\nfog around him\nin order to make\nhim less visible\naround enemies"
+436,"Chimera The Flying Beast",3100,2800,Saturn,Jupiter,Beast,red,8,Earth,1000,436,"A mythical\ncreature with\nincredable speed"
+437,"Infernal Gainer",2100,0,Mercury,Moon,Fiend,yellow,5,Light,100,437,"His entire back\nis full with spikes\nprotecting him"
+438,"Stardust Dragon",2500,2000,Saturn,Mars,Winged Beast,yellow,7,Earth,100,438,"He charges wind\ninside of his body.\nWhenever he\nreleases a bundled\nstream of wind onto\nhis enemies his chest\nstarts glowing."
+439,"Gravekeepers Commandant",2100,2000,Moon,Mercury,Spellcaster,yellow,5,Dark,100,439,"A deceptively\nfragile-looking\nspellcaster\nthat is known for\nits swift and\nprecise attacks."
+440,"Dark-Eyes Illusionist",2000,2400,Moon,Mercury,Spellcaster,yellow,6,Light,100,440,"Mysterious looking\npuppeteer that\nhypnotizes his\nenemies"
+441,"Relinquished",3000,3000,Moon,Mercury,Spellcaster,orange,8,Light,999999,441,"A monster controlled\nby the millenium eye"
+442,"Thousand-Eyes Restrict",4000,4000,Mercury,Moon,Fiend,red,10,Light,999999,442,"Whoever looks\ninto his opened\neyes can not\nmove any longer"
+443,"Archfiend Of Gilfer",2200,2500,Saturn,Mercury,Fiend,yellow,6,Light,100,443,"After many years\nof evolution, this\nfiend has become\none-third fiend,\none-third winged-beast,\nand the last third dragon."
+444,"Torike",2200,1600,Uranus,Mercury,Dinosaur,yellow,5,Dark,100,444,"This monster's\nsharp horn gives\nit an edge when\nattacking."
+445,"Barox",2380,2530,Mercury,Moon,Fiend,yellow,6,Light,100,445,"This creature flies\nthrough the dark,\nattacking its\nenemies with its\nlong, hairy arms."
+446,"Takriminos",2000,1700,Neptune,Mercury,Fish,yellow,6,Water,100,446,"A finned creature\ndistantly related\nto sea Dragons."
+447,"Flame Cerebrus",2100,1800,Mars,Pluto,Pyro,yellow,6,Fire,100,529,"A flaming beast\nthat is lethal\nto the touch."
+448,"Infernal Flame Emperor",3200,2100,Mars,Pluto,Beast,red,9,Fire,1000,448,"A monster\nconsisting\nonly of fire.\nEverything he\ntouches, inflames."
+449,"Labyrinth Tank",2900,2900,Mercury,Moon,Machine,red,7,Light,1000,449,"A tank that races\naround a labyrinth\nhunting down\nits enemies."
+450,"Millennium Golem",2000,2200,Uranus,Mercury,Rock,yellow,6,Dark,100,450,"A golem that\nhas protected\ntreasure for\nnearly a millennium."
+451,"The Creator",2800,3500,Pluto,Uranus,Thunder,orange,8,,1000,451,"Resurrecting, thats\nthe whole purpose\nof his creation"
+452,"Exxod, Master Of The Guard",4000,4000,Uranus,Venus,Rock,red,10,Dark,999999,452,"Slamming his fists\ninto each other\nreleased a huge\nburst of energy\ncapable of creating\neither a shield for\nprotection or an\nattack"
+453,"Exodius The Forbidden Lord",3000,3000,Moon,Mercury,Spellcaster,yellow,10,Light,999999,453,"It guards\nthe dungeon\nkeeping the\nmillenium items.\nHe only obeys\nto the royal\nfamily of egypt"
+454,"The Exodia Incarnate",4000,4000,Mercury,Moon,Spellcaster,red,12,Light,999999,454,"The evocation\nof a silhouette\nof exodia itself.\n"
+455,"Exodia Necross",4000,4000,Mercury,Moon,Fiend,red,10,Light,999999,455,"Also known as\nthe black exodia,\nan evil incarnation\nof the exodia"
+456,"Yamata Dragon",3600,3100,Mercury,Mars,Reptile,red,9,Light,999999,456,"Many snakes\nbundled together\ninto one abomination."
+457,"Sensei Misaki",2200,2200,Mars,Venus,Warrior,yellow,5,Fire,100,457,"Legendary sword\nmaster and a veteran\nof over 100 battles."
+458,"Ogre of the Black Shadow",2200,2400,Sun,Venus,Fiend,yellow,5,,100,458,"An ogre possessed\nby the powers of\nthe dark. Few\ncan withstand\nits rapid charge."
+459,"Red Dragon Archfiend",3000,2000,Mars,Mercury,Fiend,red,8,Light,999999,459,"Most creatures con\nnected to one side\nafter the war began.\nThe archfiends did\nnot.Their massive\npower made it im\npossible to forcefully\nmake them join"
+460,"Red Dragon Archfiend Abyss",4700,4000,Mars,Mercury,Dragon,red,12,Light,999999,460,"The sheer will of\ndestruction this\nbeast has makes\nit hard to control.\nMostly it is chained up, desperately waiting\nfor its release.\n"
+461,"Red Nova Dragon",4000,3500,Mars,Mercury,Dragon,red,12,Light,999999,461,"Most archfiends\nhave the same\npredecessor.\nThe only thing\nthat makes them\ndifferent is the\nenvironment they\nwere born in."
+462,"Andro Sphinx",4000,3500,Sun,Uranus,Beast,red,10,,999999,462,"A creature raised\nby king Anubis.\nWhenever he\nneeded assist\nance he created\nthree beasts out\nof thin air."
+463,"Sphinx Teleia",3500,4000,Uranus,Sun,Beast,red,10,,999999,463,"A creature raised\nby king Anubis.\nWhenever he\nneeded assist\nance he created\nthree beasts out\nof thin air."
+464,"Theinen The Great Sphinx",5000,5000,Sun,Uranus,Beast,red,12,,999999,464,"Whenever the\ntwo serveants\nof anubis were\nnot enough \nregarding their\npower, they \nfused into this\nabomination"
+465,"Archfiend King Calamity",4500,4000,Mercury,Mars,Dragon,red,12,Light,999999,465,"After centuries of\nevolving he became\nmore of a fiend rather\nthen a dragon.\nThis makes him\nmore capable of \nruling the archfiends\nthen any other."
+466,"King Of The Skull Serveants",3000,3000,Mercury,Moon,Zombie,red,1,Light,999999,466,"He can create\nthousands of\nskull serveants \n"
+467,"Paladin Of White Dragon",2400,1700,Sun,Mars,Warrior,yellow,5,,100,467,"This young warrior\nhas once found\na dragon egg which\nhatched the moment\nhe wanted to destroy\nit. After it hatched he\ncould not kill it any \nlonger."
+468,"Blue-Eyes White Dragon",3000,2500,Mars,Sun,Dragon,orange,8,,999999,468,"An extremely\nrare card with\nunsurpassed\nattack and\ndefense power."
+469,"Blue-Eyes White Dragon",3000,2500,Sun,Mars,Dragon,orange,8,,999999,469,"An extremely\nrare card with\nunsurpassed\nattack and\ndefense power."
+470,"Time Wizard Of Tomorrow",500,400,Venus,Sun,Spellcaster,blue,2,,100,470,"A sorcerer capable\nof bending time to\nhis will. Though not\npowerful at first\nglance, appearances \ncan be deceiving."
+471,"Stone Ogre Grotto",2100,2000,Uranus,Sun,Rock,yellow,5,Dark,100,471,"A rock giant\nconsisting of\nmassive boulders."
+472,"Bracchio-raidus",2200,2000,Neptune,Moon,Dinosaur,yellow,6,Water,100,472,"A colossal dinosaur\nthat stomps\non anything\nthat wanders\ninto its path."
+473,"Frostosaurus",3100,1700,Neptune,Moon,Aqua,orange,8,Water,1000,473,"The monsters\nmetabolism enables\nit to endure long\nperiods of cold"
+474,"Gungnir",4000,3200,Neptune,Moon,Winged Beast,orange,10,Water,999999,474,"Some dragons\nhave adapted\nin the ice age\nin order to \nnot only survive\nbut gain strenght \nfrom the cold"
+475,"Trishula",4700,4000,Mercury,Moon,Dragon,red,12,Water,999999,475,"There are rumors\nthat the ice age\nonly has been\ncaused by one\nmystic creature\nwho freezes\neverything around\nhim to death."
+476,"Des Koala",2100,1800,Moon,Mercury,Beast,yellow,6,Light,100,476,"A koala pos\nsessed by a\ndark spirit giving\nhim mythic powers"
+477,"Harpie Lady Sisters",2450,2600,Saturn,Venus,Winged Beast,red,7,Earth,100,477,"Three fierce sisters\nwho relentlessly\nattack as a team."
+478,"B. Dragon Jungle King",2100,1800,Jupiter,Neptune,Dragon,yellow,6,Dark,100,478,"A jet-black dragon\nthat inhabits the\njungles and feeds\non trees."
+479,"Suijin",2500,2400,Neptune,Saturn,Aqua,yellow,7,Water,100,479,"A golem that uses\nwater attacks like\nthe Labyrinth\nBrothers."
+480,"Firewing Pegasus",2250,1800,Mars,Moon,Winged Beast,red,6,Fire,100,480,"A heavenly stallion\nthat flies\nacross the skies\non scarlet wings."
+481,"Mystical Sand",2100,1700,Mercury,Saturn,Rock,red,6,Dark,100,481,"Turns enemies to\nstone and crushes\nthem to dust."
+482,"Queen of Autumn Leaves",2300,2000,Jupiter,Moon,Plant,red,6,Dark,100,482,"Queen of the\nTree Spirit\nwho is embraced\nby brilliant\nautumn leaves."
+483,"Pumpking, King of Ghosts",2300,2500,Jupiter,Mercury,Zombie,red,6,Light,100,483,"This pumpkin king\nstrikes at its\nenemies with its\nlong tentacles."
+484,"Vermillion Sparrow",2400,2000,Mars,Venus,Pyro,red,6,Fire,100,484,"A fiery warrior\ncreature that\nunleashes intense\nheat from its body."
+485,"Crab Turtle",2550,2500,Neptune,Jupiter,Aqua,yellow,8,Dark,100,485,"A creature with a\nturtle shell and\ncrab scissors to\nprovide high attack\nand defense factors."
+486,"Garvas",2500,2200,Jupiter,Pluto,Beast,red,6,Dark,100,486,"A malevolent\ncreature that\nresembles a\nwinged lion."
+487,"Chakra",3450,3000,Mercury,Moon,Fiend,red,9,Light,999999,487,"A twisting shape\nthat attacks with\ntentacle-like arms."
+488,"Kaiser Dragon",2300,2000,Sun,Mars,Dragon,yellow,6,,100,488,"A very proud and\npowerful dragon\nemperor."
+489,"Dark Magician",2500,2100,Mercury,Moon,Spellcaster,yellow,7,Light,100,489,"The ultimate wizard \nin terms of attack\nand defense."
+490,"Seiyaryu",2500,2300,Sun,Mars,Dragon,red,7,,100,490,"A sacred dragon\nthat burns away\nwickedness with its\nmystical flames."
+491,"Two-headed King Rex",2100,1700,Uranus,Neptune,Dinosaur,yellow,5,Dark,100,491,"An unusual and\nrarely seen\ntwo-headed dragon."
+492,"Yubel - Terror Incarnate",3000,3000,Mercury,Mars,Fiend,orange,9,Light,1000,492,"One of three\nmalicious spirits\nthat have sworn\nto protect the\ntomb of anubis"
+493,"Yubel - Ultimate Nightmare",4000,4000,Pluto,Moon,Spellcaster,red,7,Light,999999,493,"Once a spellcaster\n tried to absorb\nthe power of the\nspirit guardians.\nIn attempt to get\ntheir powers he\naccidentally merged\nwith one of them"
+494,"Cyber Dragon",2100,1600,Sun,Pluto,Machine,blue,6,,100,494,"A snakish machine\ndragon who\nwas build as\none part of\nsomething much\nstronger"
+495,"Malefic Cyber End Dragon",5000,3800,Pluto,Mercury,Machine,red,12,Light,999999,495,"A dreadful dragon\nfused by three\nseperate machine\ndragons."
+496,"177",2600,1200,Neptune,Venus,Warrior,,7,Water,300,86456658,"esffehgs"
+497,"176",3900,3400,Mercury,Moon,Zombie,,10,Light,300,45865866,"sefsev"
+498,"175",2800,2300,Saturn,Jupiter,Plant,,8,Earth,300,75966975,"fesfescee"
+499,"174",2900,2500,Neptune,Saturn,Winged Beast,,8,Water,300,24645425,"fesfesce\n"
+500,"173",2800,2200,Mars,Moon,Pyro,,8,Fire,300,13451543,"fsefseefsce"
+501,"172",3000,1000,Uranus,Mercury,Rock,,8,Dark,300,26645442,"ergbgberg"
+502,"171",3000,1000,Sun,Mercury,Fairy,,7,,300,57646467,"evgrere"
+503,"170",2600,1000,Neptune,Mercury,Aqua,,7,Water,300,45235432,"erccggr"
+504,"169",3000,1000,Saturn,Mercury,Winged Beast,,7,Earth,300,64326432,"xergergegx"
+505,"168",3000,1000,Mars,Mercury,Pyro,,7,Fire,300,46233426,"wexwwxe"
+506,"167",3000,1000,Pluto,Sun,Thunder,,7,,300,57344574,"shehss"
+507,"166",3000,1000,Mercury,Moon,Fiend,,7,Light,300,34573754,"jsejsejes"
+508,"165",3800,3700,Neptune,Mercury,Aqua,,10,Water,500,43577544,"gsegeesgwe"
+509,"164",3600,1800,Neptune,Moon,Fiend,,9,Water,500,64856486,"esgvsegegs"
+510,"163",3400,3000,Mars,Moon,Pyro,,10,Fire,500,35634634,"weggwew"
+511,"162",4100,2600,Sun,Mercury,Zombie,,10,Light,999999,74357544,"eqggqeegq"
+512,"161",4850,4300,Mars,Venus,Warrior,,12,Fire,999999,35475473,"eqgeqgqeg"
+513,"160",3000,1500,Saturn,Venus,Winged Beast,,8,Earth,300,84685856,"aeggea"
+514,"159",3850,3300,Moon,Mercury,Fiend,,10,Light,1000,46856468,"esvgsegv"
+515,"158",2600,1800,Neptune,Sun,Aqua,,7,Water,300,53636443,"segvvegs"
+516,"157",3300,2500,Neptune,Sun,Aqua,,8,Water,500,36545364,"hrdhrddhb"
+517,"156",3900,3450,Neptune,Sun,Aqua,,10,Water,999999,57433754,"brddbrrdb"
+518,"155",4500,4100,Neptune,Sun,Aqua,,11,Water,999999,34577545,"erherhe"
+519,"154",3500,2000,Mercury,Mars,Dragon,,9,Light,1000,65885454,"rebbbrr"
+520,"153",3000,3000,Mercury,Mars,Dragon,,9,Light,1000,64346234,"sergbbsegrresbb"
+521,"152",3400,2600,Sun,Venus,Dragon,,8,,300,25475742,"resgbbegrsg"
+522,"151",4400,3100,Pluto,Mars,Thunder,,11,,500,47522745,"bsrbseebsgr"
+523,"150",3400,3400,Neptune,Venus,Aqua,,9,Water,500,25475742,"segbrgerss"
+524,"149",3500,3000,Mars,Sun,Dragon,,9,Fire,1000,74527452,"srber"
+525,"148",4300,3800,Mars,Sun,Dragon,,11,Fire,999999,72544725,"ebrseerg"
+526,"147",3500,3000,Neptune,Sun,Dragon,,9,Water,1000,48668468,"sergbgre"
+527,"146",3400,2100,Sun,Mars,Dragon,,9,,500,75969769,"fthxhtfhtf"
+528,"145",2800,1000,Sun,Mars,Dragon,,7,,300,56795796,"rsrsrsrseg"
+529,"144",3700,2200,Mercury,Mars,Dragon,,10,Light,1000,97565965,"htstsr"
+530,"143",4000,4000,Mercury,Mars,Dragon,,10,Light,999999,63546365,"sgregsger"
+531,"142",4100,3500,Neptune,Venus,Dragon,,11,Water,999999,32446364,"thstthsseeh"
+532,"141",3500,1000,Mercury,Moon,Spellcaster,,9,Light,500,63634636,"shrrershhr"
+533,"140",2800,2300,Mercury,Moon,Zombie,,8,Light,300,65475475,"hrsresherr"
+534,"139",4000,4000,Moon,Mercury,Spellcaster,,10,Light,999999,88479575,"sthtethssethtesh"
+535,"138",2600,1400,Mercury,Moon,Spellcaster,,6,Light,300,34235523,"ttshsthrtshbttsbr"
+536,"137",3000,2400,Sun,Venus,Spellcaster,,8,,300,14354354,"shrhhsthtst"
+537,"136",2800,2100,Sun,Venus,Warrior,,7,,500,14526432,"ragrergrraaer"
+538,"135",3800,4000,Neptune,Venus,Aqua,,10,Water,999999,75445772,"ragerreav"
+539,"134",4000,1500,Pluto,Sun,Thunder,,10,,999999,31341124,"tssthths"
+540,"133",3600,3600,Uranus,Venus,Machine,,10,Dark,999999,43241112,"htstrhstr"
+541,"132",4100,3600,Saturn,Venus,Winged Beast,,10,Earth,999999,41341314,"thsrhtrhtsrshtr"
+542,"131",3800,1000,Mercury,Moon,Fiend,,9,Light,1000,14543451,"rgaeargraagr"
+543,"130",3800,1000,Saturn,Venus,Winged Beast,,9,Earth,1000,54134134,"areaegrea"
+544,"129",3800,1000,Mars,Venus,Pyro,,9,Fire,1000,54114533,"haehreharr"
+545,"128",3800,1000,Neptune,Venus,Aqua,,9,Water,1000,51341543,"rarhrehre"
+546,"127",3800,1000,Pluto,Venus,Thunder,,9,,1000,64331461,"ahrearehhare"
+547,"126",3800,1000,Uranus,Venus,Rock,,9,Dark,1000,16431143,"hraahreahree"
+548,"125",3800,1000,Sun,Venus,Fairy,,9,,1000,15453434,"hraraee"
+549,"124",3600,3100,Pluto,Mars,Thunder,,9,,1000,13435451,"arheeharhre"
+550,"123",2700,1400,Neptune,Mercury,Fish,,7,Water,300,13743413,"jtatejetjeta"
+551,"122",3700,3400,Mercury,Neptune,Fish,,9,Water,1000,83668335,"GEWGWEGE"
+552,"121",3500,3000,Sun,Mars,Dragon,,9,,1000,74274424,"sthtrhstrh"
+553,"120",4000,4000,Uranus,Jupiter,Beast,,10,Dark,999999,51341451,"rjsttrst"
+554,"119",4500,3000,Sun,Venus,Dragon,,12,,999999,63646436,"rheahrerhh"
+555,"118",3600,3000,Pluto,Mars,Dragon,,9,,1000,13532353,"ahrehhaerhr"
+556,"117",4600,1500,Pluto,Moon,Thunder,,12,Light,999999,34143515,"arehhraehr"
+557,"116",4000,3300,Moon,Mercury,Warrior,,10,Light,999999,53232355,"jreajerajera"
+558,"115",4000,2800,Moon,Mercury,Spellcaster,,10,Light,999999,13646461,"hrreharrhe"
+559,"114",4200,3700,Moon,Mercury,Fiend,,10,Light,999999,63141364,"hraehrehear"
+560,"113",2900,2400,Pluto,Mars,Thunder,,7,,300,64436431,"ahrrhharer"
+561,"112",4600,4100,Moon,Mercury,Spellcaster,,11,Light,999999,64466144,"hreahrhreher"
+562,"111",4800,4400,Mercury,Uranus,Warrior,,12,Light,999999,64334614,"harhrharehre"
+563,"110",4400,4400,Pluto,Sun,Dragon,,12,Light,999999,43664146,"haerhrhe"
+564,"109",4200,3500,Uranus,Mars,Dinosaur,,10,Fire,999999,46436341,"jstrtrjsrt"
+565,"108",4300,3100,Uranus,Sun,Beast,,11,Dark,999999,51543154,"rahrhhare"
+566,"107",4150,3700,Mercury,Moon,Zombie,,11,Light,999999,14354545,"arhaehraer"
+567,"106",2800,2300,Mercury,Uranus,Dinosaur,,8,Light,300,41436366,"eahraher"
+568,"105",4500,0,Mercury,Moon,Zombie,,12,Light,999999,53455143,"aerhrear"
+569,"104",3500,2000,Mercury,Moon,Fiend,,9,Light,999999,34634131,"aerherhrae"
+570,"103",2900,2700,Mercury,Moon,Zombie,,7,Light,300,64314366,"rareg"
+571,"102",4600,4100,Mars,Sun,Dragon,,12,Fire,999999,13454515,"harheaahr"
+572,"101",4000,4000,Pluto,Sun,Warrior,,10,,999999,51413354,"raehherhaer"
+573,"100",2900,2800,Jupiter,Saturn,Insect,,7,Earth,300,23434345,"nrranrarnnfff"
+574,"99",2800,2400,Uranus,Venus,Beast,,7,Dark,300,44133511,"harhrhehar"
+575,"98",3500,2900,Uranus,Mercury,Beast,,9,Dark,500,75425724,"tshstrhrth"
+576,"97",4350,3500,Mercury,Uranus,Beast,,10,Light,999999,45333242,"ageraegerag"
+577,"96",3700,3100,Mars,Mercury,Dragon,,9,Light,1000,54532453,"rageerager"
+578,"95",3750,3000,Mercury,Moon,Fiend,,10,Light,1000,34115455,"ragrgregare"
+579,"94",3900,3400,Mars,Mercury,Dragon,,10,Light,999999,45134431,"graeegrgaer"
+580,"93",4700,4400,Mars,Mercury,Dragon,,12,Light,999999,54245343,"thtsrtsrshtrhr"
+581,"92",4500,4000,Venus,Sun,Fairy,,12,,999999,45135434,"argeagreaegreaagre"
+582,"91",4100,3500,Venus,Mercury,Fiend,,10,Light,999999,25422454,"argegeagr"
+583,"90",3300,2100,Moon,Mercury,Warrior,,9,Light,500,34124324,"rgeaerrgeaer"
+584,"89",4800,4100,Mercury,Moon,Fiend,,12,Light,999999,54341431,"rgeaergrerae"
+585,"88",3600,3100,Moon,Neptune,Dragon,,9,,1000,53314453,"aregreagrageaer"
+586,"87",4900,4400,Jupiter,Saturn,Dragon,,12,Light,999999,31432324,"wegegwwe"
+587,"86",3000,3000,Mars,Uranus,Rock,,8,Fire,500,31413134,"argegregraeerg"
+588,"85",4000,4000,Mars,Uranus,Rock,,10,Fire,999999,54134531,"rgeaggrgear"
+589,"84",4500,3800,Jupiter,Saturn,Plant,,10,Earth,999999,43514531,"aregeragre"
+590,"83",4800,4500,Mercury,Mars,Dragon,,12,Light,999999,44135134,"argegregrae"
+591,"82",4100,3400,Saturn,Jupiter,Plant,,9,Earth,999999,43313415,"raeggeaeer"
+592,"81",3000,2500,Uranus,Mercury,Dinosaur,,8,Light,50,66425446,"greagrgrea"
+593,"80",3800,2600,Mercury,Uranus,Dinosaur,,9,Light,999999,54151431,"hreaahrehraeer"
+594,"79",4600,4100,Mercury,Uranus,Dinosaur,,12,Light,999999,41514143,"graagregreagae"
+595,"78",4400,4400,Moon,Uranus,Dinosaur,,11,Dark,999999,54345153,"argergraegr"
+596,"77",3600,2800,Mercury,Mars,Warrior,,9,Light,1000,25652654,"raggaereage"
+597,"76",3400,2900,Saturn,Mars,Dragon,,9,Earth,1000,66256464,"areggrrae"
+598,"75",1200,1700,Saturn,Moon,Fairy,,5,,50,29121991,"A sorcerer who lives\non the moon and\nattacks opponents\nwith the power\nof lunar light."
+599,"74",800,700,Neptune,Mercury,Spellcaster,,3,Water,50,21912912,"A child-like\ncreature that\ncontrols a sleep\nspirit to beckon\nenemies into eternal\nslumber."
+600,"73",600,400,Sun,Pluto,Fairy,,2,,50,92129121,"This monster is\ncapable of\nmanipulating the\nweather. This power\nis the reason behind\nthe changing climate\nof mountains."
+601,"72",1600,1400,Sun,Jupiter,Aqua,,5,Water,50,49149194,"A strange creature\nwith the head\nof a fish and\nthe tentacles of\nan octopus that\nattacks its enemies\nwith spears."
+602,"71",700,700,Neptune,Mars,Fairy,,2,,50,41919449,"A mystical chain\nthat is believed\ncapable of binding\nits enemies and\npreventing their\nattacks."
+603,"70",600,600,Sun,Saturn,Zombie,,2,Light,50,51951919,"Long arms reach out\nfrom the Swamp\nof Chaos to drag\nin enemy creatures."
+604,"69",700,1300,Moon,Mars,Machine,,3,Light,50,21929119,"An ill-mannered\nfield mouse that\nchews on anything."
+605,"68",1800,1000,Neptune,Saturn,Pyro,,5,Fire,500,41919914,"Attacks enemies with\nfire-related spells,\nsuch as the\n""Sea of Flames""\nand the\n""Wall of Fire""."
+606,"67",700,900,Neptune,Sun,Spellcaster,,3,Earth,30,89119891,"Controls the air\ncurrents to create\nviolent winds and\ntornadoes to blow\naway its enemies."
+607,"66",700,700,Jupiter,Sun,Spellcaster,,2,Light,50,89189811,"A flashy,\nblack-caped thief\nwho wields\na magic cane."
+608,"65",1100,900,Sun,Uranus,Dragon,,3,Dark,50,89198819,"The peacemaker\namong monsters."
+609,"64",900,700,Jupiter,Moon,Zombie,,3,Light,50,21919192,"A creature rumored\nto turn enemies\ninto zombies\nwith a strange ray\nthat emanates\nfrom its eyes."
+610,"63",1000,1000,Pluto,Sun,Spellcaster,,3,Light,50,64114661,"Thousands of years\nold, this frog\nwizard attacks\nenemies with an\narmy of tadpoles."
+611,"62",900,1300,Moon,Saturn,Zombie,,4,Light,50,61664164,"A weird temple\nof skulls and bones\nthat sucks the\nliving essence\nof all those who\ndare approach it."
+612,"61",800,700,Sun,Pluto,Fiend,,3,Light,50,64116464,"A living shadow\nthat dwells in the\nrealm of darkness.\nIt paralyzes\nits enemies\nto prevent attacks."
+613,"60",1200,1300,Pluto,Moon,Warrior,,4,Dark,50,61414616,"A warrior armed\nwith the Sword\nof Crimson Flames.\nUses fire to bind\nthe movement\nof its enemies."
+614,"59",900,1200,Jupiter,Venus,Zombie,,3,Light,50,46114661,"A living spirit that\npreys on the living\nessence of enemies."
+615,"58",800,1200,Neptune,Moon,Warrior,,3,Dark,50,64114646,"A living suit of\narmor that attacks\nenemies with a\nbone-jarring tackle."
+616,"57",1000,800,Sun,Neptune,Machine,,3,Light,50,16446164,"Stretching arms and\nrazor-sharp claws\nmake this monster a\nformidable opponent."
+617,"56",1700,1600,Neptune,Mercury,Fish,,5,Water,50,26112612,"A sea creature\nwith sharp teeth\nthat won't release\na victim once\nthey're locked on."
+618,"55",2100,1700,Mercury,Mars,Warrior,orange,6,Dark,500,87998778,"A lady warrior\ndrenched in the \nessence from\na thousand\nbattlefields."
+619,"54",900,700,Uranus,Mars,Beast,,3,Light,50,87998778,"A monstrous cat with\nwings and a long,\nstriking tail."
+620,"53",1000,1200,Jupiter,Mercury,Plant,,4,Dark,50,97887978,"A creature made up\nof several snakes\nthat attack\nseparately in battle."
+621,"52",1650,1300,Mercury,Jupiter,Warrior,,5,Light,50,45645645,"A vile\nwarrior wizard\nadept at casting\ndoom-dealing spells."
+622,"51",1600,1500,Sun,Venus,Spellcaster,,5,,50,16212616,"Controls air\ncurrents and\ncan generate\na sudden gust\nof wind to blow\naway an opponent."
+623,"50",1200,1300,Uranus,Jupiter,Rock,,4,Dark,50,21621121,"The appearance\nof this creature\nis preceded by the\nground melting under\nan opponent's feet."
+624,"49",1650,1300,Neptune,Mercury,Aqua,,5,Water,50,21621621,"An amphibian warrior\nthat can easily\nnavigate beneath\nthe waters."
+625,"48",1600,1100,Neptune,Venus,Aqua,,4,Water,50,75675657,"A fairy dedicated to\nprotecting fountains\nfrom pollution."
+626,"47",1300,1400,Neptune,Mars,Fish,,4,Water,50,65775667,"A mermaid sentry\nserving the Sea King\nand his kingdom."
+627,"46",1500,2000,Jupiter,Uranus,Beast,,6,Dark,50,74174141,"This fast creature\ncan easily elude\nenemy attacks and\ncounter them with\nits vicious claws."
+628,"45",550,500,Mercury,Saturn,Spellcaster,,2,Light,50,47114741,"An inexperienced\nwitch who just\nstarted learning\nthe mystic arts."
+629,"44",950,1100,Jupiter,Pluto,Beast,,3,Dark,50,14174717,"A rat\nthat is protected\nby armor-like fur."
+630,"43",500,400,Neptune,Saturn,Zombie,,2,Light,50,71447114,"A creature of the\nnight that attacks\nenemies with its \nrocket-powered arms."
+631,"42",1500,1300,Moon,Venus,Spellcaster,,4,,50,74114771,"A lunar sorcerer\nthat uses mystical\nspells to induce\nhallucinations."
+632,"41",800,400,Uranus,Sun,Warrior,,2,Dark,50,85282582,"Serves as a double\nfor the ruler of the\nBlue Flame. A master\nswordsman that\nwields a fine blade."
+633,"40",1400,1700,Sun,Mars,Fairy,,5,,50,18115158,"A messenger of\nnewborn life."
+634,"39",1000,800,Neptune,Jupiter,Zombie,,3,Light,50,58118188,"A fiery spirit\nthat burns anything\nin its path."
+635,"38",350,300,Uranus,Moon,Warrior,,1,Dark,50,27572572,"Not very useful\ndouble of a queen."
+636,"37",1600,1200,Saturn,Venus,Winged Beast,,4,Earth,50,17517517,"A bird that glows\nwith blue flames and\nhas a head of hair\nshaped like a crown."
+637,"36",1500,1800,Jupiter,Sun,Plant,,5,Dark,50,17557117,"A protector\nof the forest,\nthis massive tree\ncontinues to grow."
+638,"35",1700,900,Moon,Saturn,Thunder,,3,Dark,50,94149141,"A dinosaur with two\ncrushing jaws.\nStores electricity\nin its horn and\nreleases high\nvoltage bolts\nfrom the mouth\non its back."
+639,"34",2400,1800,Neptune,Sun,Fish,,6,Water,500,48114849,"A massive\nsea serpent that\ncreates tidal waves\nto wipe out\nits enemies."
+640,"33",2200,1500,Jupiter,Venus,Warrior,,6,Light,50,84140640,"Swift and vicious,\nthis monster grabs\nits victim with its\npincers and attacks\nthe captive with its\npoison stinger."
+641,"32",1350,1700,Uranus,Venus,Warrior,,5,Dark,50,48184881,"A scheming queen\nwho covets\nthe king's throne\nduring his absence."
+642,"31",1600,800,Venus,Saturn,Warrior,,4,Dark,50,14841642,"A lovely swordmaster\nwith some very\nagile moves."
+643,"30",700,1300,Moon,Uranus,Dragon,,3,Earth,50,41884643,"This dragon wears a\nshield not only for\nits own protection\nbut also for ramming\nits enemies."
+644,"29",900,900,Mars,Pluto,Dragon,,3,Earth,50,18418644,"A two-headed dragon\nwith a pair of\nvicious jaws for\ncrushing its enemies."
+645,"28",2800,2800,Uranus,Mercury,Machine,,7,Light,500,14814645,"A tank that races\naround a labyrinth\nhunting down\nits enemies."
+646,"27",1800,1300,Neptune,Moon,Warrior,,5,Dark,500,41841646,"A master of monsters\nthat exercises\ncontrol over several\ncreatures."
+647,"26",1600,1200,Neptune,Venus,Fiend,,4,Light,120,41848647,"Ryu-kishin enhanced\nby the powers of\ndarkness. Very sharp\ntalons make it\na worthy opponent."
+648,"25",2200,1800,Moon,Neptune,Warrior,,6,Dark,500,41841648,"A monster formed by\nthe vengeful souls\nof those who passed\naway in battle."
+649,"24",1450,1000,Mercury,Uranus,Warrior,,4,Dark,50,74174649,"Confuses enemy\nmonsters with noise\nthat is harsh\nto the ears."
+650,"23",1650,1600,Moon,Mercury,Fiend,,5,Light,50,41841650,"Attacks from the\nskies with\na whip-like tail."
+651,"Kunai with Chain",0,0,None,None,Equip,,0,Wind,999999,65465645,"Upgrades fiends\nand warriors!"
+652,"Magical Labyrinth",0,0,None,None,Equip,,0,Wind,999999,63565346,"A card for boosting\nthe power of the\nLabyrinth Wall."
+653,"Warrior Elimination",0,0,None,None,Magic,,0,Wind,999999,653,"Destroys all\nopponent Warrior\ncards played\non the field."
+654,"Salamandra",0,0,None,None,Equip,blue,0,Wind,500,654,"Whosoever holds\nthis sword, if he be\nworthy shall posses\nthe power of the\nflame swordsman"
+655,"Cursebreaker",0,0,None,None,Magic,,0,Wind,10,655,"Cancels the magic\nover all \nlevel-reduced\nmonsters and sets\nthem at level 0."
+656,"Eternal Rest",0,0,None,None,Magic,,0,Wind,999999,656,"Eliminates all\nZombie creatures."
+657,"Megamorph",0,0,None,None,Equip,,0,Wind,5000,657,"A card that\nincreases the power\nof any selected\nmonster by 2 levels."
+658,"Metalmorph",0,0,None,None,Equip,,0,Wind,999999,87646768,"A card that changes\nany selected monster\nto a Machine monster."
+659,"Winged Trumpeter",0,0,None,None,Equip,,0,Wind,999999,46776546,"A horn that\nincreases the power\nof Fairy creatures."
+660,"Stain Storm",0,0,None,None,Magic,,0,Wind,500,660,"Acid rain destroys\nan opponent's\nMachine monsters."
+661,"Crush Card",0,0,None,None,Magic,,0,Wind,500,661,"Opponent monsters\nin play with attack\nfactors of 1500 or\nmore are eliminated."
+662,"Eradicating Aerosol",0,0,None,None,Magic,,0,Wind,500,662,"An insecticide for\nwiping out an\nopponent's Insect\nmonsters that are\ncurrently in play."
+663,"Breath of Light",0,0,None,None,Magic,,0,Wind,500,663,"A magic wind that\nreduces to rubble an\nopponent's Rock\nmonsters that are\ncurrently in play."
+664,"Eternal Draught",0,0,None,None,Magic,,0,Wind,500,664,"A blast of heat\ndries up\nand eliminates\nan opponent's Fish\nmonsters that are\ncurrently in play."
+665,"Curse of Millennium Shield",0,0,None,None,Ritual,,0,Wind,500,57466756,"Sacrifices the\nmonster with the\nhighest defense \nrating and summons\nShield."
+666,"Yamadron Ritual",0,0,None,None,Ritual,,0,Wind,500,64767547,"Sacrifices\nBeast-Warrior,\nDragon,\nand Pyro monsters\nto summon Yamadron."
+667,"Gate Guardian Ritual",0,0,None,None,Ritual,,0,Wind,500,67467465,"Sacrifices Kazejin,\nSuijin, and Sanga of\nthe Thunder to\nsummon Gate Guardian."
+668,"Bright Castle",0,0,None,None,Equip,,0,Wind,500,668,"A glaring light that\nincreases the power\nof all monsters."
+669,"Shadow Spell",0,0,None,None,Magic,,0,Wind,500,669,"Decreases an\nopponent's in-play\nmonsters by two\nlevels."
+670,"Black Luster Ritual",0,0,None,None,Ritual,,0,Wind,500,65746744,"Ceremony conducted\nto summon\nBlack Luster Soldier.\nSacrifice required."
+671,"Zera Ritual",0,0,None,None,Ritual,,0,Wind,500,46776765,"Ceremony conducted\nto summon Zera.\nSacrifice required."
+672,"Harpie's Feather Duster",0,0,None,None,Magic,,0,Wind,500,672,"Destroys all\nopponent Magic cards\nthat are in play."
+673,"War-lion Ritual",0,0,None,None,Ritual,,0,Wind,500,86758765,"Ceremony conducted\nto summon War Lion.\nSacrifice required."
+674,"Beastry Mirror Ritual",0,0,None,None,Ritual,,0,Wind,500,75676786,"Ceremony conducted\nto summon\nFiend's Mirror.\nSacrifice required."
+675,"Ultimate Dragon",0,0,None,None,Ritual,,0,Wind,500,65788765,"Sacrifice three\nBlue-eyes to summon\nUltimate Dragon."
+676,"Commencement Dance",0,0,None,None,Ritual,,0,Wind,500,76585786,"Sacrifice Dancer and\nWarrior to summon\nPerformance of Sword."
+677,"Hamburger Recipe",0,0,None,None,Ritual,,0,Wind,500,67856788,"A card with\nthe ingredients\nfor making a\ndelicious hamburger."
+678,"Revival of Sennen Genjin",0,0,None,None,Ritual,,0,Wind,500,56746744,"Sacrifice\nBeast-Warrior and\nGolem to summon\nSengenjin."
+679,"Novox's Prayer",0,0,None,None,Ritual,,0,Wind,500,65746754,"Sacrifice Warrior\nand Scythe Wielder\nto summon\nSkull Guardian."
+680,"Curse of Tri-Horned Dragon",0,0,None,None,Ritual,,0,Wind,500,76546765,"Sacrifice a horned\nmonster to summon\nTri-Horned Dragon."
+681,"House of Adhesive Tape",0,0,None,None,Trap,,0,7,500,681,"Monsters\nwith Attack Factors\nof 500 or lower\nare eliminated\nfrom the play field."
+682,"Eatgaboon",0,0,None,None,Trap,,0,7,500,682,"Monsters\nwith Attack Factors\nof 1000 or lower\nare eliminated\nfrom the play field."
+683,"Bear Trap",0,0,None,None,Trap,,0,7,500,683,"When an opposing\nmonster's Attack\nFactor is\n1500 or lower,\nit is eliminated\nfrom the play field."
+684,"Invisible Wire",0,0,None,None,Trap,,0,7,500,684,"When an opposing\nmonster's Attack\nFactor is\n2000 or lower,\nit is eliminated\nfrom the play field."
+685,"Acid Trap Hole",0,0,None,None,Trap,,0,7,500,685,"When an opposing\nmonster's Attack\nFactor is\n3000 or lower,\nit is eliminated\nfrom the play field."
+686,"Widespread Ruin",0,0,None,None,Trap,,0,7,500,686,"When an opponent's\nmonster attacks,\nit is blown to\nsmithereens and\neliminated from\nthe play field."
+687,"Goblin Fan",0,0,None,None,Trap,,0,7,50,687,"Reflects the damage\nof direct attack\ncards like \nFire Sparks and\nInferno back\nto your opponent."
+688,"Bad Reaction to Simochi",0,0,None,None,Trap,,0,7,50,688,"A card that reverses\nthe effects of\nrecovery cards and\ntransforms the\npoints to damage."
+689,"Reverse Trap",0,0,None,None,Trap,,0,7,50,689,"A card that reverses\nthe effects of\npower-up cards\nand transforms \nthe effects\nto power reduction."
+690,"Fake Trap",0,0,None,None,Trap,,0,7,50,690,"A trap card\nfor tricking\nyour opponent.\nNothing happens\nwhen it is attacked."
+691,"Revived of Serpent Night Dragon",0,0,None,None,Ritual,,0,Wind,500,67567567,"Select a specific\nmonster for\nsacrifice and summon\nSerpent Night Dragon."
+692,"Turtle Oath",0,0,None,None,Ritual,,0,Wind,500,46767557,"Sacrifice crab and\nturtle to summon\nCrab Turtle."
+693,"Contruct of Mask",0,0,None,None,Ritual,,0,Wind,500,67546576,"Sacrifice a masked\none to summon a new\nmask."
+694,"Resurrection of Chakra",0,0,None,None,Ritual,,0,Wind,500,65346543,"Sacrifice 3 Fiend\nmonsters to conduct\nthe ritual for the\nResurrection of\nChakra."
+695,"Puppet Ritual",0,0,None,None,Ritual,,0,Wind,500,34636433,"Sacrifice Puppeteer\nand Machine monsters\nto summon the Puppet."
+696,"Javelin Beetle Pact",0,0,None,None,Ritual,,0,Wind,500,35643634,"Sacrifice the stag\nbeetle and beetle\nto summon\nJavelin Beetle."
+697,"Garma Sword Oath",0,0,None,None,Ritual,,0,Wind,500,53645656,"Sacrifice the\nAshura's Arm\nand Sword-wielder\nto summon."
+698,"Cosmo Queen's Prayer",0,0,None,None,Ritual,,0,Wind,500,53636534,"Sacrifice a normal\nQueen to summon\nCosmo Queen."
+699,"Revival of Skeleton Rider",0,0,None,None,Ritual,,0,Wind,999999,25455225,"Sacrifice Temple and\nCockroach to summon\nDokurorider."
+700,"Fortress Whale's Oath",0,0,None,None,Ritual,,0,Wind,999999,64622542,"Sacrifice Horn and\nMachine Fish to\nsummon Sea Fortress."
+701,"22",2850,2050,Sun,Saturn,Warrior,,6,Dark,500,18484148,"A warrior dancer\nwith fancy dance\nsteps."
+702,"21",2000,1850,Moon,Mars,Warrior,,6,Light,500,58151815,"Attracts hungry\nenemies with tasty\naromas and eats them\nwhen they get close\nenough."
+703,"20",900,1200,Jupiter,Mercury,Machine,,3,Dark,50,25757257,"Armed with\na pair of shovels,\nthis creature is\na walking engine\nof destruction."
+704,"19",2050,2500,Sun,Jupiter,Spellcaster,,7,Light,50,27552752,"A crab monster with\ntwo massive scissors\nfor cutting up\nenemies."
+705,"18",700,600,Moon,Jupiter,Warrior,,3,Light,50,52757205,"An unpredictable\ncreature that splits\ninto two and attacks\nan enemy from\nopposite directions."
+706,"17",1500,800,Mercury,Pluto,Warrior,,4,Dark,50,25757706,"An ammonite warrior\nthat has protected\nthe seas from the\ndawn of time."
+707,"16",1200,1300,Mercury,Neptune,Warrior,,4,Light,50,84141887,"Know as a dweller\nof the swamps,\nthis creature is a\nminion of the Dark\nforces."
+708,"15",400,600,Venus,Uranus,Beast,,2,Dark,50,14841708,"A horned beaver\nwith wings that\nthrows high-velocity\nacorns from the\nsky with uncanny\naccuracy."
+709,"14",2850,2000,Mercury,Moon,Fiend,,7,Light,500,41841709,"A twisting shape\nthat attacks with\ntentacle-like arms."
+710,"13",2950,2500,Neptune,Jupiter,Aqua,,8,Water,500,41840710,"A creature with a\nturtle shell and\ncrab scissors to\nprovide high attack\nand defense factors."
+711,"12",2200,2350,Sun,Uranus,Dragon,,7,Light,500,41800711,"A dragon warrior\narmed with a\ncrescent-shaped\nsword. Rumored to be\nfrom the moon."
+712,"11",600,800,Uranus,Neptune,Zombie,,2,Light,50,41800712,"Malicious spirits\nthat walk the world\nof the living,\nunable to find their\nfinal resting place."
+713,"10",3500,2000,Mars,Sun,Dragon,,8,Fire,500,41840713,"With the burning\nhide of a meteorite,\nthis creature\nvaporizes all that\nit touches."
+714,"9",2250,1800,Mars,Moon,Winged Beast,,6,Fire,500,41840714,"A heavenly stallion\nthat flies\nacross the skies\non scarlet wings."
+715,"8",2000,2350,Moon,Saturn,Fiend,,7,Light,500,14800715,"A mysterious doll\nwith a strange dance\nthat robs the power\nof opposing monsters."
+716,"7",1700,1400,Moon,Uranus,Fiend,,4,Light,50,74174716,"A cannon-like\nmonster that rapidly\nfires eyeballs\nat the enemy."
+717,"6",900,800,Jupiter,Uranus,Aqua,,3,Water,50,28525717,"An ugly, melting\ncreature that\nbreathes out\npoison gas."
+718,"5",2550,2150,Neptune,Saturn,Fish,,7,Water,500,52858218,"A sea monster with\na cannon mounted on\nits back to blow\nits enemies out\nof the water."
+719,"4",1900,1850,Uranus,Mars,Zombie,,6,Light,500,25858719,"A lonely rider that\nraces across the\nwasteland, raising\nthick clouds of dust."
+720,"3",2000,1800,Venus,Pluto,Spellcaster,,6,Light,500,53543543,"A creature that\ntwists the fabric of\nlight and darkness\nto generate images\nto confuse opponents."
+721,"2",600,500,Jupiter,Jupiter,Winged Beast,,2,Earth,50,28500721,"With a battle cry\nthat curdles\nthe blood of\nits opponent,\nthis creature\nattacks with its\nmassive beak."
+722,"1",600,900,Mercury,Mars,Fairy,,3,,50,52880722,"A quick-moving and\ntiny angel that's\nvery difficult\nto hit."

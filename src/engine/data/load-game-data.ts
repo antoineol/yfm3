@@ -6,9 +6,9 @@ import { loadGameDataFromStrings } from "./load-game-data-core.ts";
 
 export { loadGameDataFromStrings } from "./load-game-data-core.ts";
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../gamedata");
-const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards-from-bin.csv"), "utf-8");
-const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions-from-bin.csv"), "utf-8");
+const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data");
+const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards.csv"), "utf-8");
+const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions.csv"), "utf-8");
 
 /**
  * Load game data from binary CSV files on disk and populate buffers.

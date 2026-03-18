@@ -5,15 +5,15 @@ import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import { loadGameData, loadGameDataFromStrings } from "./load-game-data.ts";
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../gamedata");
+const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data");
 
 describe("loadGameDataFromStrings", () => {
   it("produces identical buffers and cards as loadGameData", () => {
     const buf1 = createBuffers();
     const cards1 = loadGameData(buf1);
 
-    const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards-from-bin.csv"), "utf-8");
-    const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions-from-bin.csv"), "utf-8");
+    const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards.csv"), "utf-8");
+    const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions.csv"), "utf-8");
 
     const buf2 = createBuffers();
     const cards2 = loadGameDataFromStrings(buf2, cardsCsv, fusionsCsv);
