@@ -4,9 +4,9 @@ import type { CardSpec } from "./card-model.ts";
 import { addCard, createCardDb } from "./game-db.ts";
 
 /**
- * Load game data from binary CSV strings and populate buffers.
+ * Load game data from CSV strings and populate buffers.
  *
- * Cards CSV format:   id,atk,def,guardian_star_1,guardian_star_2,type
+ * Cards CSV format:   id,name,atk,def,guardian_star_1,guardian_star_2,type,color
  * Fusions CSV format: material1_id,material2_id,result_id,result_atk
  *
  * Fills buf.cardAtk and buf.fusionTable. Returns all cards for deck building.
@@ -18,12 +18,13 @@ export function loadGameDataFromStrings(
 ): CardSpec[] {
   const cardDb = createCardDb();
 
-  for (const [idS = "", atkS = "", defS = ""] of parseCsvRows(cardsCsvContent)) {
-    const id = parseInt(idS, 10);
-    const atk = parseInt(atkS, 10);
-    const def = parseInt(defS, 10);
+  for (const cols of parseCsvRows(cardsCsvContent)) {
+    const id = parseInt(cols[0] ?? "", 10);
+    const name = stripQuotes(cols[1] ?? "");
+    const atk = parseInt(cols[2] ?? "", 10);
+    const def = parseInt(cols[3] ?? "", 10);
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
-    addCard(cardDb, { id, name: `Card #${id}`, attack: atk, defense: def, kinds: [] });
+    addCard(cardDb, { id, name: name || `Card #${id}`, attack: atk, defense: def, kinds: [] });
   }
 
   for (const card of cardDb.cards) {
@@ -50,4 +51,8 @@ function parseCsvRows(csvContent: string): string[][] {
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .map((l) => l.split(","));
+}
+
+function stripQuotes(s: string): string {
+  return s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s;
 }

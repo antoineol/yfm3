@@ -1,7 +1,8 @@
-import type { cardKinds, colors } from "./rp-types.ts";
+import type { cardKinds, colors, guardianStars } from "./rp-types.ts";
 
 export type CardKind = (typeof cardKinds)[number];
 export type Color = (typeof colors)[number];
+export type GuardianStar = (typeof guardianStars)[number];
 
 export type CardId = number;
 export type AttackValue = number;
@@ -15,6 +16,8 @@ export interface CardSpec {
   name: string;
   kinds: CardKind[];
   color?: Color;
+  guardianStar1?: GuardianStar;
+  guardianStar2?: GuardianStar;
   attack: AttackValue;
   defense: number;
 }

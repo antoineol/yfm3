@@ -6,7 +6,7 @@ import { loadGameDataFromStrings } from "./load-game-data-core.ts";
 
 export { loadGameDataFromStrings } from "./load-game-data-core.ts";
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../data/from-binary");
+const DATA_DIR = path.resolve(import.meta.dirname, "../../../gamedata");
 const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards-from-bin.csv"), "utf-8");
 const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions-from-bin.csv"), "utf-8");
 

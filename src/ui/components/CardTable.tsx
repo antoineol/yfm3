@@ -38,6 +38,10 @@ export function buildCardEntries(
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty,
+      kind1: card?.kinds[0],
+      kind2: card?.kinds[1],
+      kind3: card?.kinds[2],
+      color: card?.color,
     });
   }
   return entries.sort((a, b) => b.atk - a.atk);

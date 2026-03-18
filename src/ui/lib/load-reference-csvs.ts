@@ -1,21 +1,19 @@
 import type { RefCard, RefFusion } from "../../engine/reference/build-reference-table.ts";
 
 /**
- * Fetch and parse the three reference CSVs from /data/ (static assets in /public).
- * Merges card-names.csv into cards so each RefCard has a display name.
+ * Fetch and parse the reference CSVs from /data/ (static assets in /public).
+ * Cards CSV now includes names and colors directly.
  */
 export async function loadReferenceCsvs(): Promise<{
   cards: RefCard[];
   fusions: RefFusion[];
 }> {
-  const [cardsCsv, fusionsCsv, namesCsv] = await Promise.all([
+  const [cardsCsv, fusionsCsv] = await Promise.all([
     fetch("/data/cards.csv").then((r) => r.text()),
     fetch("/data/fusions.csv").then((r) => r.text()),
-    fetch("/data/card-names.csv").then((r) => r.text()),
   ]);
 
-  const nameMap = parseNamesCsv(namesCsv);
-  const cards = parseCardsCsv(cardsCsv, nameMap);
+  const cards = parseCardsCsv(cardsCsv);
   const fusions = parseFusionsCsv(fusionsCsv);
   return { cards, fusions };
 }
@@ -29,21 +27,21 @@ function parseCsvRows(csv: string): string[][] {
     .map((l) => l.split(","));
 }
 
-function parseNamesCsv(csv: string): Map<number, string> {
-  const map = new Map<number, string>();
-  for (const [idS = "", name = ""] of parseCsvRows(csv)) {
-    const id = parseInt(idS, 10);
-    if (Number.isFinite(id) && name) map.set(id, name);
-  }
-  return map;
+function stripQuotes(s: string): string {
+  return s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s;
 }
 
-function parseCardsCsv(csv: string, nameMap: Map<number, string>): RefCard[] {
+function parseCardsCsv(csv: string): RefCard[] {
   const cards: RefCard[] = [];
-  for (const [idS = "", atkS = "", defS = "", gs1 = "", gs2 = "", type = ""] of parseCsvRows(csv)) {
-    const id = parseInt(idS, 10);
-    const atk = parseInt(atkS, 10);
-    const def = parseInt(defS, 10);
+  for (const cols of parseCsvRows(csv)) {
+    const id = parseInt(cols[0] ?? "", 10);
+    const name = stripQuotes(cols[1] ?? "");
+    const atk = parseInt(cols[2] ?? "", 10);
+    const def = parseInt(cols[3] ?? "", 10);
+    const gs1 = cols[4] ?? "";
+    const gs2 = cols[5] ?? "";
+    const type = cols[6] ?? "";
+    const color = cols[7] ?? "";
     if (!Number.isFinite(id) || !Number.isFinite(atk) || !Number.isFinite(def)) continue;
     cards.push({
       id,
@@ -52,7 +50,8 @@ function parseCardsCsv(csv: string, nameMap: Map<number, string>): RefCard[] {
       type,
       guardianStar1: gs1,
       guardianStar2: gs2,
-      name: nameMap.get(id) ?? `Card #${id}`,
+      name: name || `Card #${id}`,
+      color: color || undefined,
     });
   }
   return cards;

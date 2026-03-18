@@ -78,4 +78,34 @@ describe("buildReferenceTableData", () => {
     expect(result.cardDb.cardsById.get(1)?.name).toBe("Baby Dragon");
     expect(result.cardDb.cardsById.get(2)?.name).toBe("Wing Eagle");
   });
+
+  it("maps type string to kinds array", () => {
+    const result = buildReferenceTableData({ cards: [dragon], fusions: [] });
+    expect(result.cardDb.cardsById.get(1)?.kinds).toEqual(["Dragon"]);
+  });
+
+  it("maps 'Winged Beast' (with space) to WingedBeast kind", () => {
+    const wb: RefCard = { ...eagle, type: "Winged Beast" };
+    const result = buildReferenceTableData({ cards: [wb], fusions: [] });
+    expect(result.cardDb.cardsById.get(2)?.kinds).toEqual(["WingedBeast"]);
+  });
+
+  it("excludes Magic/Trap/Equip/Ritual types from kinds", () => {
+    const magic: RefCard = { ...dragon, id: 3, name: "Dark Hole", type: "Magic" };
+    const result = buildReferenceTableData({ cards: [magic], fusions: [] });
+    expect(result.cardDb.cardsById.get(3)?.kinds).toEqual([]);
+  });
+
+  it("parses color from RefCard", () => {
+    const blueCard: RefCard = { ...dragon, color: "blue" };
+    const result = buildReferenceTableData({ cards: [blueCard], fusions: [] });
+    expect(result.cardDb.cardsById.get(1)?.color).toBe("blue");
+  });
+
+  it("parses guardian stars from RefCard", () => {
+    const result = buildReferenceTableData({ cards: [dragon], fusions: [] });
+    const card = result.cardDb.cardsById.get(1);
+    expect(card?.guardianStar1).toBe("Uranus");
+    expect(card?.guardianStar2).toBe("Mercury");
+  });
 });

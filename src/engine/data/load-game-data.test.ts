@@ -5,7 +5,7 @@ import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import { loadGameData, loadGameDataFromStrings } from "./load-game-data.ts";
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../data/from-binary");
+const DATA_DIR = path.resolve(import.meta.dirname, "../../../gamedata");
 
 describe("loadGameDataFromStrings", () => {
   it("produces identical buffers and cards as loadGameData", () => {
@@ -30,10 +30,21 @@ describe("loadGameDataFromStrings", () => {
 
     // Card 722 equals MAX_CARD_ID and is filtered (out of range); valid IDs are 1..721
     expect(cards.length).toBe(721);
-    // Card 1: Baby Dragon, ATK=1200 (from binary CSV)
+    // Card 1: Baby Dragon, ATK=1200
     expect(buf.cardAtk[1]).toBe(1200);
     // Card 2: ATK=1400
     expect(buf.cardAtk[2]).toBe(1400);
+  });
+
+  it("parses card names from CSV", () => {
+    const buf = createBuffers();
+    const cards = loadGameData(buf);
+
+    const card1 = cards.find((c) => c.id === 1);
+    expect(card1?.name).toBe("Baby Dragon");
+
+    const card11 = cards.find((c) => c.id === 11);
+    expect(card11?.name).toBe("Lord Of D.");
   });
 
   it("populates fusion table with known binary fusions", () => {

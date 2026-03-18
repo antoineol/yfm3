@@ -23,6 +23,20 @@ export const cardKinds = [
   "SeaSerpent",
 ] as const;
 
-export const excludedKinds = ["Magic", "Equip", "Trap"] as const;
+export const excludedKinds = ["Magic", "Equip", "Trap", "Ritual"] as const;
 
-export const colors = ["blue", "yellow", "orange", "red"] as const;
+export const colors = ["blue", "yellow", "orange", "red", "purple", "green"] as const;
+
+export const guardianStars = [
+  "None",
+  "Mars",
+  "Jupiter",
+  "Saturn",
+  "Uranus",
+  "Pluto",
+  "Neptune",
+  "Mercury",
+  "Sun",
+  "Moon",
+  "Venus",
+] as const;
