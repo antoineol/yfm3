@@ -5,7 +5,10 @@ Extract card stats, fusions, equips, duelist data, and card images from a Yu-Gi-
 ## Prerequisites
 
 - [Bun](https://bun.sh/) runtime
+- Script dependencies: `cd scripts && bun install` (installs sharp for WebP encoding)
 - A PS1 disc image in MODE2/2352 format (`.bin` file). The `.cue` file is not required.
+
+Note: sharp lives in `scripts/package.json` (not the root) to avoid bloating the Vercel deployment.
 
 ## Usage
 
@@ -15,7 +18,7 @@ bun run scripts/extract-game-data.ts <path-to.bin> [output-dir]
 
 Default output directory: `./public/data` (versioned, served by the app at `/data/`)
 
-Card thumbnail images are always written to `./gamedata/card-images/` (not versioned).
+Card images (artwork and thumbnails) are written to `./public/data/images/`.
 
 Example:
 
@@ -81,9 +84,11 @@ Duelist deck compositions and card drop rates. Only rows where at least one rate
 
 **How drops work:** After each duel, the game picks a drop category based on your rank (S/A vs B/C/D) and victory type (POW vs TEC). It then uses the PRNG to select a card from the corresponding probability table. Each table has 2048 total weight, and the game accumulates weights across all 722 cards until it passes the random threshold.
 
-### card-images/
+### public/images/artwork/
 
-722 PNG thumbnails (40x32 pixels), named `001.png` through `722.png`. These are the small card portraits from the game, stored as 8-bit indexed color with a 64-entry RGB555 palette per card.
+722 WebP card artwork images (102x96 pixels), named `001.webp` through `722.webp`. Full card illustrations displayed in-game, extracted from WA_MRG.MRG offset `0x169000`, 14336 bytes per card block (pixels at `+0x0000`, 256-color CLUT at `+0x2640`). Served by the app at `/images/artwork/`.
+
+Card thumbnails (40x32, 64-color) can also be extracted — the code is kept commented in the script.
 
 ## Data Sources
 
