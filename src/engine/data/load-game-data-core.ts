@@ -1,85 +1,53 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
-import { buildFusionTable } from "./build-fusion-table.ts";
-import type { CardSpec, FusionDb } from "./card-model.ts";
-import { addCard, type CardDb } from "./game-db.ts";
-import { parseReferenceCardsCsv } from "./parse-cards.ts";
-import { parseFusionCsv } from "./parse-fusions.ts";
+import type { CardSpec } from "./card-model.ts";
+import { addCard, createCardDb } from "./game-db.ts";
 
 /**
- * Load game data from CSV strings and populate buffers.
+ * Load game data from binary CSV strings and populate buffers.
  *
- * Fills buf.cardAtk and buf.fusionTable from the parsed CSV data.
- * Returns only base cards (from rp-cards.csv) for deck building / collection.
- * Fusion-only cards (results only in rp-fusions1.csv) are registered internally
- * so they appear in the fusion table and can participate in chain fusions.
+ * Cards CSV format:   id,atk,def,guardian_star_1,guardian_star_2,type
+ * Fusions CSV format: material1_id,material2_id,result_id,result_atk
+ *
+ * Fills buf.cardAtk and buf.fusionTable. Returns all cards for deck building.
  */
 export function loadGameDataFromStrings(
   buf: OptBuffers,
   cardsCsvContent: string,
   fusionsCsvContent: string,
 ): CardSpec[] {
-  const { monsterCardDb, nonMonsterMaterialNames } = parseReferenceCardsCsv(cardsCsvContent);
-  const baseCards = [...monsterCardDb.cards];
+  const cardDb = createCardDb();
 
-  const fusionDb = parseFusionCsv(fusionsCsvContent);
-  registerFusionOnlyCards(monsterCardDb, fusionDb);
+  for (const [idS = "", atkS = "", defS = ""] of parseCsvRows(cardsCsvContent)) {
+    const id = parseInt(idS, 10);
+    const atk = parseInt(atkS, 10);
+    const def = parseInt(defS, 10);
+    if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
+    addCard(cardDb, { id, name: `Card #${id}`, attack: atk, defense: def, kinds: [] });
+  }
 
-  for (const card of monsterCardDb.cards) {
+  for (const card of cardDb.cards) {
     buf.cardAtk[card.id] = card.attack;
   }
 
   buf.fusionTable.fill(FUSION_NONE);
-  buildFusionTable(
-    monsterCardDb.cards,
-    fusionDb.fusions,
-    buf.fusionTable,
-    buf.cardAtk,
-    nonMonsterMaterialNames,
-  );
+  for (const [m1s = "", m2s = "", rs = ""] of parseCsvRows(fusionsCsvContent)) {
+    const mat1 = parseInt(m1s, 10);
+    const mat2 = parseInt(m2s, 10);
+    const result = parseInt(rs, 10);
+    if (!Number.isFinite(mat1) || !Number.isFinite(mat2) || !Number.isFinite(result)) continue;
+    buf.fusionTable[mat1 * MAX_CARD_ID + mat2] = result;
+    buf.fusionTable[mat2 * MAX_CARD_ID + mat1] = result;
+  }
 
-  return baseCards;
+  return cardDb.cards;
 }
 
-/**
- * Assign in-range IDs to out-of-range base cards and register fusion-only
- * cards so they have valid IDs, ATK values, and can be materials/results.
- *
- * Uses gap IDs (unused slots in 1..721) so MAX_CARD_ID stays at 722.
- */
-export function registerFusionOnlyCards(cardDb: CardDb, fusionDb: FusionDb): void {
-  const usedIds = new Set<number>();
-  for (const card of cardDb.cards) usedIds.add(card.id);
-
-  const gaps: number[] = [];
-  for (let id = 1; id < MAX_CARD_ID; id++) {
-    if (!usedIds.has(id)) gaps.push(id);
-  }
-  let gapIdx = 0;
-  const nextGapId = (): number => {
-    const id = gaps[gapIdx++];
-    if (id === undefined) throw new Error("No gap IDs left");
-    return id;
-  };
-
-  // Reassign out-of-range base card IDs to gap slots
-  for (const card of cardDb.cards) {
-    if (card.id >= MAX_CARD_ID) {
-      cardDb.cardsById.delete(card.id);
-      card.id = nextGapId();
-      cardDb.cardsById.set(card.id, card);
-    }
-  }
-
-  // Register fusion-only cards (results not in rp-cards.csv)
-  for (const fusion of fusionDb.fusions) {
-    if (cardDb.cardsByName.has(fusion.name)) continue;
-    addCard(cardDb, {
-      id: nextGapId(),
-      name: fusion.name,
-      kinds: [],
-      attack: fusion.attack,
-      defense: fusion.defense,
-    });
-  }
+function parseCsvRows(csvContent: string): string[][] {
+  return csvContent
+    .split("\n")
+    .slice(1)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .map((l) => l.split(","));
 }

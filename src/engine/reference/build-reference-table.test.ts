@@ -1,107 +1,58 @@
 import { describe, expect, it } from "vitest";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
+import type { RefCard, RefFusion } from "./build-reference-table.ts";
 import { buildReferenceTableData } from "./build-reference-table.ts";
 
-const dragon = { cardId: 1, name: "Dragon Whelp", attack: 1200, defense: 900 };
-const eagle = { cardId: 2, name: "Wing Eagle", attack: 1300, defense: 1000 };
-const fusion1 = {
-  materialA: "Dragon Whelp",
-  materialB: "Wing Eagle",
-  resultName: "Sky Dragon",
-  resultAttack: 2100,
-  resultDefense: 1500,
+const dragon: RefCard = {
+  id: 1,
+  atk: 1200,
+  def: 700,
+  type: "Dragon",
+  guardianStar1: "Uranus",
+  guardianStar2: "Mercury",
+  name: "Baby Dragon",
 };
+const eagle: RefCard = {
+  id: 2,
+  atk: 1800,
+  def: 1500,
+  type: "WingedBeast",
+  guardianStar1: "Neptune",
+  guardianStar2: "Mars",
+  name: "Wing Eagle",
+};
+const fusion1: RefFusion = { material1Id: 1, material2Id: 2, resultId: 5, resultAtk: 2100 };
 
 describe("buildReferenceTableData", () => {
-  it("builds fusion table and registers fusion-only result card", () => {
+  it("builds fusion table entry for valid pair", () => {
     const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [fusion1] });
-    expect(result.cardDb.cardsByName.get("Sky Dragon")).toBeDefined();
-    expect(result.fusionTable[1 * MAX_CARD_ID + 2]).toBeGreaterThan(0);
+    expect(result.fusionTable[1 * MAX_CARD_ID + 2]).toBe(5);
   });
 
   it("fusion table is symmetric", () => {
     const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [fusion1] });
-    const ab = result.fusionTable[1 * MAX_CARD_ID + 2];
-    const ba = result.fusionTable[2 * MAX_CARD_ID + 1];
-    expect(ab).toBe(ba);
+    expect(result.fusionTable[1 * MAX_CARD_ID + 2]).toBe(result.fusionTable[2 * MAX_CARD_ID + 1]);
   });
 
   it("populates cardAtk for registered cards", () => {
     const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [] });
     expect(result.cardAtk[1]).toBe(1200);
-    expect(result.cardAtk[2]).toBe(1300);
-  });
-
-  it("populates cardAtk for fusion-only result cards", () => {
-    const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [fusion1] });
-    const skyDragon = result.cardDb.cardsByName.get("Sky Dragon");
-    expect(skyDragon).toBeDefined();
-    expect(result.cardAtk[skyDragon?.id ?? -1]).toBe(2100);
+    expect(result.cardAtk[2]).toBe(1800);
   });
 
   it("throws on cardId out of range", () => {
     expect(() =>
       buildReferenceTableData({
-        cards: [{ cardId: 0, name: "Zero", attack: 100, defense: 100 }],
+        cards: [{ ...dragon, id: 0 }],
         fusions: [],
       }),
     ).toThrow("out of range");
     expect(() =>
       buildReferenceTableData({
-        cards: [{ cardId: MAX_CARD_ID, name: "Over", attack: 100, defense: 100 }],
+        cards: [{ ...dragon, id: MAX_CARD_ID }],
         fusions: [],
       }),
     ).toThrow("out of range");
-  });
-
-  it("filters invalid kinds", () => {
-    const result = buildReferenceTableData({
-      cards: [
-        { cardId: 1, name: "A", attack: 100, defense: 100, kind1: "Dragon", kind2: "NotAKind" },
-      ],
-      fusions: [],
-    });
-    const card = result.cardDb.cardsById.get(1);
-    expect(card?.kinds).toEqual(["Dragon"]);
-  });
-
-  it("merges multiple material pairs for the same fusion result", () => {
-    const result = buildReferenceTableData({
-      cards: [
-        { cardId: 1, name: "A", attack: 500, defense: 500 },
-        { cardId: 2, name: "B", attack: 600, defense: 600 },
-        { cardId: 3, name: "C", attack: 700, defense: 700 },
-      ],
-      fusions: [
-        {
-          materialA: "A",
-          materialB: "B",
-          resultName: "Fused",
-          resultAttack: 2000,
-          resultDefense: 1000,
-        },
-        {
-          materialA: "A",
-          materialB: "C",
-          resultName: "Fused",
-          resultAttack: 2000,
-          resultDefense: 1000,
-        },
-      ],
-    });
-    // Both pairs should produce the same result card
-    const fusedId = result.cardDb.cardsByName.get("Fused")?.id;
-    expect(result.fusionTable[1 * MAX_CARD_ID + 2]).toBe(fusedId);
-    expect(result.fusionTable[1 * MAX_CARD_ID + 3]).toBe(fusedId);
-  });
-
-  it("does not register fusion-only card when result already in cards", () => {
-    const result = buildReferenceTableData({
-      cards: [dragon, eagle, { cardId: 5, name: "Sky Dragon", attack: 2100, defense: 1500 }],
-      fusions: [fusion1],
-    });
-    // Sky Dragon should keep its original id=5, not get a gap id
-    expect(result.cardDb.cardsByName.get("Sky Dragon")?.id).toBe(5);
   });
 
   it("fills unused slots with FUSION_NONE", () => {
@@ -110,9 +61,21 @@ describe("buildReferenceTableData", () => {
     expect(result.fusionTable[1 * MAX_CARD_ID + 1]).toBe(FUSION_NONE);
   });
 
-  it("works with empty cards and fusions (edge case)", () => {
+  it("works with empty cards and fusions", () => {
     const result = buildReferenceTableData({ cards: [], fusions: [] });
     expect(result.cardDb.cards).toHaveLength(0);
     expect(result.fusionTable.length).toBe(MAX_CARD_ID * MAX_CARD_ID);
+  });
+
+  it("exposes raw fusions on the result", () => {
+    const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [fusion1] });
+    expect(result.fusions).toHaveLength(1);
+    expect(result.fusions[0]).toBe(fusion1);
+  });
+
+  it("populates cardsById from input cards", () => {
+    const result = buildReferenceTableData({ cards: [dragon, eagle], fusions: [] });
+    expect(result.cardDb.cardsById.get(1)?.name).toBe("Baby Dragon");
+    expect(result.cardDb.cardsById.get(2)?.name).toBe("Wing Eagle");
   });
 });

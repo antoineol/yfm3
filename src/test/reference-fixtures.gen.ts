@@ -18,22 +18,22 @@ export interface DeckFixture {
 export const handFixtures: HandFixture[] = [
   {
     hand: [273, 403, 279, 453, 277],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 4500,
     description: "High-ATK Fiends: MazeraDeVille, Zoa, KingOfYamimakai, Exodius, DestinyHeroDogma",
   },
   {
     hand: [56, 443, 403, 279, 453],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 3300,
     description: "HarpieLady + ArchfiendOfGilfer pair, fillers Zoa/KingOfYamimakai/Exodius",
   },
   {
     hand: [56, 66, 58, 403, 279],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 3100,
     description: "2-chain: HarpieLady+UnknownWarrior→ArchfiendOfGilfer→+FaithBird chain",
   },
   {
     hand: [26, 66, 56, 58, 403],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 3100,
     description: "3-chain: SkullServant+UnknownWarrior→...→ArchfiendOfGilfer→+FaithBird",
   },
   {
@@ -58,7 +58,7 @@ export const handFixtures: HandFixture[] = [
   },
   {
     hand: [453, 279, 443, 56, 403],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 3300,
     description: "Commutativity: same cards as fixture 2 in different order",
   },
   {
@@ -68,17 +68,17 @@ export const handFixtures: HandFixture[] = [
   },
   {
     hand: [12, 13, 26, 6, 73],
-    expectedMaxAtk: 3900,
+    expectedMaxAtk: 4000,
     description: "Diamond graph: TimeWizard/MagiciansValkyria/SkullServant overlapping pairs",
   },
   {
     hand: [26, 66, 56, 46, 58],
-    expectedMaxAtk: 3300,
+    expectedMaxAtk: 2500,
     description: "Chain with branching: multiple paths after first fusion",
   },
   {
     hand: [56, 66, 58, 403, 6],
-    expectedMaxAtk: 4000,
+    expectedMaxAtk: 3100,
     description: "Chain vs high-ATK standalone: Zoa vs fusion chain",
   },
   {
@@ -93,7 +93,7 @@ export const handFixtures: HandFixture[] = [
   },
   {
     hand: [56, 66, 58, 13, 46],
-    expectedMaxAtk: 3300,
+    expectedMaxAtk: 3000,
     description: "Real FM scenario: Harpie Lady chain with multiple fusion materials",
   },
 ];
@@ -104,7 +104,7 @@ export const deckFixtures: DeckFixture[] = [
       273, 403, 279, 453, 277, 415, 398, 287, 281, 431, 401, 272, 229, 382, 285, 269, 445, 443, 271,
       458, 439, 481, 274, 437, 446, 440, 84, 14, 61, 139, 125, 37, 99, 98, 49, 75, 60, 118, 138, 46,
     ],
-    expectedAvgAtk: 3301.1383752173224,
+    expectedAvgAtk: 3333.167605864974,
     description: "Greedy initial deck: top 40 cards by ATK, baseline expected ATK",
   },
   {
@@ -112,7 +112,7 @@ export const deckFixtures: DeckFixture[] = [
       38, 19, 17, 20, 18, 43, 80, 73, 176, 26, 156, 32, 181, 164, 167, 185, 77, 141, 76, 91, 12,
       470, 119, 27, 183, 31, 105, 65, 67, 180, 160, 147, 6, 9, 143, 148, 33, 170, 79, 22,
     ],
-    expectedAvgAtk: 2597.338178259231,
+    expectedAvgAtk: 2465.684459763407,
     description: "Weak deck: lowest 40 ATK cards, low expected ATK with some fusions",
   },
   {
@@ -120,7 +120,7 @@ export const deckFixtures: DeckFixture[] = [
       56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 12, 13, 26,
       27, 28, 46, 50, 51, 52, 53, 54, 55, 6, 176, 80, 1, 5, 9, 11, 22,
     ],
-    expectedAvgAtk: 3097.406125761389,
+    expectedAvgAtk: 3153.401934322987,
     description:
       "Fusion-rich deck: WingedBeast/Fiend/Beast/Spellcaster chains, higher than raw ATK",
   },

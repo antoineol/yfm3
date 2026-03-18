@@ -1,42 +1,21 @@
-import { useQuery } from "convex/react";
-import { createContext, type ReactNode, useContext, useRef } from "react";
-import { api } from "../../../convex/_generated/api";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import {
   buildReferenceTableData,
   type ReferenceTableData,
 } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
+import { loadReferenceCsvs } from "./load-reference-csvs.ts";
 
 export type FusionTableData = ReferenceTableData;
 
 const FusionTableContext = createContext<FusionTableData | null>(null);
 
 export function FusionTableProvider({ children }: { children: ReactNode }) {
-  const referenceData = useQuery(api.referenceData.getReferenceData);
-  const importedAt = referenceData?.importedAt ?? null;
+  const [data, setData] = useState<FusionTableData | null>(null);
 
-  // Cache the expensive buildReferenceTableData computation. Convex useQuery
-  // returns a new object reference on every reactive tick even when the data
-  // is unchanged, so we key on importedAt (a primitive) to avoid rebuilding
-  // the 722x722 Int16Array fusion table on every tick.
-  const cache = useRef<{ importedAt: number | null; data: FusionTableData | null }>({
-    importedAt: null,
-    data: null,
-  });
-
-  if (importedAt !== cache.current.importedAt) {
-    cache.current.importedAt = importedAt;
-    if (referenceData && referenceData.cards.length > 0 && referenceData.fusions.length > 0) {
-      cache.current.data = buildReferenceTableData({
-        cards: referenceData.cards,
-        fusions: referenceData.fusions,
-      });
-    } else {
-      cache.current.data = null;
-    }
-  }
-
-  const data = cache.current.data;
+  useEffect(() => {
+    void loadReferenceCsvs().then((rows) => setData(buildReferenceTableData(rows)));
+  }, []);
 
   return (
     <FusionTableContext.Provider value={data}>
