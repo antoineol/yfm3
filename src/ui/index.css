@@ -349,6 +349,240 @@ input[type="number"] {
   }
 }
 
+/* ── FM Mini Card (hand slots) ───────────────────────────────── *
+ * Miniature card replica for the 5-card hand display.
+ * Re-uses the --fm-* custom properties from GameCard.
+ * ─────────────────────────────────────────────────────────────── */
+
+.fm-mini {
+  display: block;
+  width: 100%;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+  transition:
+    filter 0.2s,
+    transform 0.2s;
+}
+
+.group:hover .fm-mini {
+  filter: drop-shadow(0 4px 14px rgba(201, 168, 76, 0.3));
+  transform: translateY(-2px);
+}
+
+.fm-mini-edge {
+  background: #1a1a1a;
+  border-radius: 3px;
+  padding: 1.5px;
+}
+
+.fm-mini-frame {
+  border-radius: 2px;
+  padding: 4px 3px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
+    linear-gradient(
+      215deg,
+      var(--fm-lo) 0%,
+      var(--fm-mid) 15%,
+      var(--fm-hi) 35%,
+      var(--fm-mid) 50%,
+      var(--fm-hi) 70%,
+      var(--fm-mid) 85%,
+      var(--fm-lo) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--fm-hi), transparent 50%),
+    inset 0 -1px 0 color-mix(in srgb, var(--fm-lo), transparent 30%);
+}
+
+@media (min-width: 640px) {
+  .fm-mini-frame {
+    padding: 5px 4px 4px;
+    gap: 3px;
+  }
+}
+
+/* ── Mini name band ── */
+.fm-mini-name-band {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border: 1px solid var(--fm-border);
+  background: linear-gradient(180deg, var(--fm-hi), var(--fm-mid));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--fm-hi), white 20%);
+}
+
+@media (min-width: 640px) {
+  .fm-mini-name-band {
+    padding: 2px 5px;
+    gap: 4px;
+  }
+}
+
+.fm-mini-name-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--fm-text);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .fm-mini-name-text {
+    font-size: 10px;
+  }
+}
+
+.fm-mini-orb {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 640px) {
+  .fm-mini-orb {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* ── Mini artwork ── */
+.fm-mini-art-well {
+  border: 2px solid #2a2a30;
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.7),
+    0 1px 0 color-mix(in srgb, var(--fm-hi), transparent 60%);
+}
+
+.fm-mini-art-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+/* ── Mini stats ── */
+.fm-mini-stats {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 1px 0;
+}
+
+.fm-mini-stat-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.fm-mini-stat-value--atk {
+  color: #c02020;
+}
+
+.fm-mini-stat-value--def {
+  color: #2050a0;
+}
+
+.fm-mini-stat-sep {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--fm-text);
+  opacity: 0.5;
+}
+
+@media (min-width: 640px) {
+  .fm-mini-stats {
+    padding: 2px 2px 1px;
+    gap: 3px;
+  }
+  .fm-mini-stat-value {
+    font-size: 13px;
+  }
+  .fm-mini-stat-sep {
+    font-size: 11px;
+  }
+}
+
+/* ── Mini close button ── */
+.fm-mini-close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 1.5px solid #444;
+  color: #999;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+  cursor: pointer;
+  z-index: 1;
+  /* Expand clickable area beyond visual circle */
+  padding: 0;
+}
+
+.fm-mini-close::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.group:hover > .fm-mini-close {
+  opacity: 1;
+}
+
+.fm-mini-close:hover {
+  background: #2a1a1a;
+  border-color: #c04040;
+  color: var(--color-stat-atk);
+}
+
+@media (min-width: 640px) {
+  .fm-mini-close {
+    top: -7px;
+    right: -7px;
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
+  .fm-mini-close::before {
+    inset: -5px;
+  }
+}
+
+/* ── Mini empty slot (matches mini card proportions) ── */
+.fm-mini-empty {
+  border: 1.5px dashed #1e2a3f60;
+  border-radius: 3px;
+  background: rgba(15, 21, 32, 0.4);
+  aspect-ratio: 59 / 86;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Animations */
 @keyframes spin-gold {
   to {
