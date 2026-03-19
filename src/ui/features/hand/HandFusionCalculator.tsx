@@ -28,33 +28,42 @@ export function HandFusionCalculator() {
   const updatePreferences = useUpdatePreferences();
   const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const pendingFocusRef = useRef(false);
 
   const deckCardIds = deck?.map((d) => d.cardId);
 
-  // Blur input when hand becomes full
   const handLength = hand?.length ?? 0;
   useEffect(() => {
     if (handLength >= HAND_SIZE) {
       inputRef.current?.blur();
+    } else if (pendingFocusRef.current) {
+      pendingFocusRef.current = false;
+      inputRef.current?.focus();
     }
   }, [handLength]);
+
+  const requestInputFocus = useCallback(() => {
+    inputRef.current?.focus();
+    pendingFocusRef.current = true;
+  }, []);
 
   const handlePlayFusion = useCallback(
     (materialDocIds: Id<"hand">[]) => {
       if (materialDocIds.length > 0) {
         void removeMultipleFromHand({ ids: materialDocIds });
-        inputRef.current?.focus();
+        requestInputFocus();
       }
     },
-    [removeMultipleFromHand],
+    [removeMultipleFromHand, requestInputFocus],
   );
 
   const handleSourceModeChange = useCallback(
     (value: HandSourceMode) => {
       if (value === sourceMode) return;
       updatePreferences({ handSourceMode: value });
+      requestInputFocus();
     },
-    [sourceMode, updatePreferences],
+    [sourceMode, updatePreferences, requestInputFocus],
   );
 
   if (hand === undefined) return <PanelLoadingState />;
@@ -89,7 +98,10 @@ export function HandFusionCalculator() {
           {hand.length > 0 && (
             <button
               className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer"
-              onClick={() => void clearHand()}
+              onClick={() => {
+                void clearHand();
+                requestInputFocus();
+              }}
               type="button"
             >
               Clear hand
@@ -100,7 +112,7 @@ export function HandFusionCalculator() {
           cards={hand}
           onRemove={(docId) => {
             void removeFromHand({ id: docId });
-            inputRef.current?.focus();
+            requestInputFocus();
           }}
         />
       </section>

@@ -32,25 +32,3 @@ export interface CardSpec {
   starchipCost?: number;
   password?: number;
 }
-
-export interface CardRefByName {
-  name: string;
-}
-
-export interface KindIdentifier {
-  kind: CardKind;
-  color?: Color;
-}
-
-export type FusionMaterial = CardRefByName | KindIdentifier;
-
-export type FusionMaterials = {
-  name: string;
-  materials: Set<string>; // Set of material pair keys (e.g. "Dragon:Beast")
-  attack: AttackValue;
-  defense: number;
-};
-
-export interface FusionDb {
-  fusions: FusionMaterials[];
-}
