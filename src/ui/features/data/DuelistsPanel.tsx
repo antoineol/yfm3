@@ -1,17 +1,22 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
+import type { SortDir } from "../../components/sortable-header.tsx";
+import { SortableHeader } from "../../components/sortable-header.tsx";
 import { formatCardId } from "../../lib/format.ts";
 
 const DROP_TOTAL = 2048;
 
 export function formatRate(raw: number): string {
   if (raw === 0) return "—";
-  const pct = ((raw / DROP_TOTAL) * 100).toFixed(1);
-  return `${raw} (${pct}%)`;
+  return `${((raw / DROP_TOTAL) * 100).toFixed(1)}%`;
 }
+
+// ---------------------------------------------------------------------------
+// Duelist list helpers
+// ---------------------------------------------------------------------------
 
 interface Duelist {
   id: number;
@@ -27,16 +32,54 @@ function extractDuelists(rows: RefDuelistCard[]): Duelist[] {
 }
 
 function getDeckCards(rows: RefDuelistCard[], duelistId: number) {
-  return rows
-    .filter((r) => r.duelistId === duelistId && r.deck > 0)
-    .sort((a, b) => b.deck - a.deck);
+  return rows.filter((r) => r.duelistId === duelistId && r.deck > 0);
 }
 
 function getDropCards(rows: RefDuelistCard[], duelistId: number) {
-  return rows
-    .filter((r) => r.duelistId === duelistId && (r.saPow > 0 || r.bcd > 0 || r.saTec > 0))
-    .sort((a, b) => b.saPow + b.bcd + b.saTec - (a.saPow + a.bcd + a.saTec));
+  return rows.filter((r) => r.duelistId === duelistId && (r.saPow > 0 || r.bcd > 0 || r.saTec > 0));
 }
+
+// ---------------------------------------------------------------------------
+// Generic sort helper (reuses SortableHeader visuals)
+// ---------------------------------------------------------------------------
+
+type DuelistSortKey = "id" | "atk" | "def" | "deck" | "saPow" | "bcd" | "saTec";
+type DuelistSortState = { key: DuelistSortKey; dir: SortDir } | null;
+
+/** Keys where "higher is more interesting" → default desc first. */
+const DESC_FIRST: Set<DuelistSortKey> = new Set(["atk", "def", "deck", "saPow", "bcd", "saTec"]);
+
+function toggleDuelistSort(prev: DuelistSortState, key: DuelistSortKey): DuelistSortState {
+  const firstDir: SortDir = DESC_FIRST.has(key) ? "desc" : "asc";
+  const secondDir: SortDir = firstDir === "asc" ? "desc" : "asc";
+  if (prev?.key !== key) return { key, dir: firstDir };
+  if (prev.dir === firstDir) return { key, dir: secondDir };
+  return null;
+}
+
+function sortRows(
+  rows: RefDuelistCard[],
+  sort: DuelistSortState,
+  cardDb: CardDb,
+): RefDuelistCard[] {
+  if (!sort) return rows;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  const getters: Record<DuelistSortKey, (r: RefDuelistCard) => number> = {
+    id: (r) => r.cardId,
+    atk: (r) => cardDb.cardsById.get(r.cardId)?.attack ?? 0,
+    def: (r) => cardDb.cardsById.get(r.cardId)?.defense ?? 0,
+    deck: (r) => r.deck,
+    saPow: (r) => r.saPow,
+    bcd: (r) => r.bcd,
+    saTec: (r) => r.saTec,
+  };
+  const getter = getters[sort.key];
+  return [...rows].sort((a, b) => dir * (getter(a) - getter(b)));
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function DuelistsPanel({
   duelists,
@@ -51,6 +94,28 @@ export function DuelistsPanel({
   const selectedDuelist = duelistList.find((d) => d.id === selectedId);
   const deckCards = useMemo(() => getDeckCards(duelists, selectedId), [duelists, selectedId]);
   const dropCards = useMemo(() => getDropCards(duelists, selectedId), [duelists, selectedId]);
+
+  // Sorting state per table
+  const [deckSort, setDeckSort] = useState<DuelistSortState>({ key: "deck", dir: "desc" });
+  const [dropSort, setDropSort] = useState<DuelistSortState>({ key: "saPow", dir: "desc" });
+
+  const sortedDeck = useMemo(
+    () => sortRows(deckCards, deckSort, cardDb),
+    [deckCards, deckSort, cardDb],
+  );
+  const sortedDrops = useMemo(
+    () => sortRows(dropCards, dropSort, cardDb),
+    [dropCards, dropSort, cardDb],
+  );
+
+  const handleDeckSort = useCallback(
+    (key: DuelistSortKey) => setDeckSort((prev) => toggleDuelistSort(prev, key)),
+    [],
+  );
+  const handleDropSort = useCallback(
+    (key: DuelistSortKey) => setDropSort((prev) => toggleDuelistSort(prev, key)),
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -96,17 +161,51 @@ export function DuelistsPanel({
           <DuelistTable>
             <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle z-10">
               <tr className="text-text-secondary text-xs uppercase tracking-wide">
-                <th className="text-left py-2 px-1 font-normal w-10">#</th>
+                <SortableHeader
+                  dir={dropSort?.key === "id" ? dropSort.dir : undefined}
+                  label="#"
+                  onClick={() => handleDropSort("id")}
+                />
                 <th className="text-left py-2 px-1 font-normal">Card</th>
-                <th className="text-left py-2 px-2 font-normal w-14">ATK</th>
-                <th className="text-right py-2 px-2 font-normal w-28">SA-POW</th>
-                <th className="text-right py-2 px-2 font-normal w-28">BCD</th>
-                <th className="text-right py-2 px-2 font-normal w-28">SA-TEC</th>
+                <SortableHeader
+                  dir={dropSort?.key === "atk" ? dropSort.dir : undefined}
+                  label="ATK"
+                  onClick={() => handleDropSort("atk")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  dir={dropSort?.key === "def" ? dropSort.dir : undefined}
+                  label="DEF"
+                  onClick={() => handleDropSort("def")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={dropSort?.key === "saPow" ? dropSort.dir : undefined}
+                  label="SA-POW"
+                  onClick={() => handleDropSort("saPow")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={dropSort?.key === "bcd" ? dropSort.dir : undefined}
+                  label="BCD"
+                  onClick={() => handleDropSort("bcd")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={dropSort?.key === "saTec" ? dropSort.dir : undefined}
+                  label="SA-TEC"
+                  onClick={() => handleDropSort("saTec")}
+                  px="px-2"
+                />
               </tr>
             </thead>
             <tbody>
-              {dropCards.map((row) => {
+              {sortedDrops.map((row) => {
                 const card = cardDb.cardsById.get(row.cardId);
+                const isMonster = card?.isMonster ?? true;
                 return (
                   <DuelistRow key={row.cardId}>
                     <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
@@ -116,7 +215,10 @@ export function DuelistsPanel({
                       <CardName cardId={row.cardId} name={card?.name ?? `#${row.cardId}`} />
                     </td>
                     <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
-                      {card?.attack ?? 0}
+                      {isMonster ? (card?.attack ?? 0) : ""}
+                    </td>
+                    <td className="py-1.5 px-2 font-mono text-xs text-stat-def">
+                      {isMonster ? (card?.defense ?? 0) : ""}
                     </td>
                     <td className="py-1.5 px-2 text-right font-mono text-xs text-gold">
                       {formatRate(row.saPow)}
@@ -147,16 +249,37 @@ export function DuelistsPanel({
           <DuelistTable>
             <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle z-10">
               <tr className="text-text-secondary text-xs uppercase tracking-wide">
-                <th className="text-left py-2 px-1 font-normal w-10">#</th>
+                <SortableHeader
+                  dir={deckSort?.key === "id" ? deckSort.dir : undefined}
+                  label="#"
+                  onClick={() => handleDeckSort("id")}
+                />
                 <th className="text-left py-2 px-1 font-normal">Card</th>
-                <th className="text-left py-2 px-2 font-normal w-14">ATK</th>
-                <th className="text-left py-2 px-2 font-normal w-14">DEF</th>
-                <th className="text-right py-2 px-2 font-normal w-28">Rate</th>
+                <SortableHeader
+                  dir={deckSort?.key === "atk" ? deckSort.dir : undefined}
+                  label="ATK"
+                  onClick={() => handleDeckSort("atk")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  dir={deckSort?.key === "def" ? deckSort.dir : undefined}
+                  label="DEF"
+                  onClick={() => handleDeckSort("def")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={deckSort?.key === "deck" ? deckSort.dir : undefined}
+                  label="Rate"
+                  onClick={() => handleDeckSort("deck")}
+                  px="px-2"
+                />
               </tr>
             </thead>
             <tbody>
-              {deckCards.map((row) => {
+              {sortedDeck.map((row) => {
                 const card = cardDb.cardsById.get(row.cardId);
+                const isMonster = card?.isMonster ?? true;
                 return (
                   <DuelistRow key={row.cardId}>
                     <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
@@ -166,10 +289,10 @@ export function DuelistsPanel({
                       <CardName cardId={row.cardId} name={card?.name ?? `#${row.cardId}`} />
                     </td>
                     <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
-                      {card?.attack ?? 0}
+                      {isMonster ? (card?.attack ?? 0) : ""}
                     </td>
                     <td className="py-1.5 px-2 font-mono text-xs text-stat-def">
-                      {card?.defense ?? 0}
+                      {isMonster ? (card?.defense ?? 0) : ""}
                     </td>
                     <td className="py-1.5 px-2 text-right font-mono text-xs text-gold">
                       {formatRate(row.deck)}

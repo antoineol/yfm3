@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { CardsTable } from "./CardsTable.tsx";
@@ -13,9 +13,30 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "duelists", label: "Duelists" },
 ];
 
+const STORAGE_KEY = "yfm-data-view";
+const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
+
+function readStoredView(): View {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v && VALID_VIEWS.has(v) ? (v as View) : "cards";
+  } catch {
+    return "cards";
+  }
+}
+
 export function DataPanel() {
   const data = useFusionTable();
-  const [view, setView] = useState<View>("cards");
+  const [view, setViewRaw] = useState<View>(readStoredView);
+
+  const setView = useCallback((v: View) => {
+    setViewRaw(v);
+    try {
+      localStorage.setItem(STORAGE_KEY, v);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   return (
     <div className="flex flex-col gap-3 h-full max-w-5xl mx-auto w-full">

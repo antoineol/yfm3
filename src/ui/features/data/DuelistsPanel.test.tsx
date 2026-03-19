@@ -54,12 +54,12 @@ describe("formatRate", () => {
     expect(formatRate(0)).toBe("—");
   });
 
-  it("formats rate as raw and percentage", () => {
-    expect(formatRate(45)).toBe("45 (2.2%)");
+  it("formats rate as percentage", () => {
+    expect(formatRate(45)).toBe("2.2%");
   });
 
   it("formats large rate", () => {
-    expect(formatRate(2048)).toBe("2048 (100.0%)");
+    expect(formatRate(2048)).toBe("100.0%");
   });
 });
 
@@ -81,7 +81,7 @@ describe("DuelistsPanel", () => {
   it("shows drop cards with rates", () => {
     renderPanel();
     // Simon Muran has drops for Dragon A (saPow=45, saTec=15) and Fairy B (saPow=40, bcd=45)
-    const dropRates = screen.getAllByText(/\(\d+\.\d+%\)/);
+    const dropRates = screen.getAllByText(/\d+\.\d+%/);
     expect(dropRates.length).toBeGreaterThan(0);
   });
 

@@ -26,15 +26,17 @@ export function SortableHeader({
   dir,
   onClick,
   px = "px-1",
+  align = "text-left",
 }: {
   label: string;
   dir?: SortDir;
   onClick: () => void;
   px?: string;
+  align?: "text-left" | "text-right";
 }) {
   return (
     <th
-      className={`text-left py-2 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
+      className={`${align} py-2 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
       onClick={onClick}
     >
       {label}
