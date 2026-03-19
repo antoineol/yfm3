@@ -2,3 +2,11 @@
 export function formatCardId(id: number): string {
   return String(id).padStart(3, "0");
 }
+
+export const DROP_TOTAL = 2048;
+
+/** Format a raw drop weight (out of 2048) as a percentage string, or "—" for zero. */
+export function formatRate(raw: number): string {
+  if (raw === 0) return "—";
+  return `${((raw / DROP_TOTAL) * 100).toFixed(1)}%`;
+}

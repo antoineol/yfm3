@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCardId } from "./format.ts";
+import { formatCardId, formatRate } from "./format.ts";
 
 describe("formatCardId", () => {
   it("pads single digit", () => {
@@ -13,5 +13,19 @@ describe("formatCardId", () => {
   });
   it("handles zero", () => {
     expect(formatCardId(0)).toBe("000");
+  });
+});
+
+describe("formatRate", () => {
+  it("returns dash for zero", () => {
+    expect(formatRate(0)).toBe("—");
+  });
+
+  it("formats rate as percentage", () => {
+    expect(formatRate(45)).toBe("2.2%");
+  });
+
+  it("formats large rate", () => {
+    expect(formatRate(2048)).toBe("100.0%");
   });
 });

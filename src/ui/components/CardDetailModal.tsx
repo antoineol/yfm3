@@ -1,7 +1,10 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { useMemo } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
+import { formatRate } from "../lib/format.ts";
+import { useFusionTable } from "../lib/fusion-table-context.tsx";
 import { CloseButton } from "./CloseButton.tsx";
 import { GameCard } from "./GameCard.tsx";
 
@@ -111,6 +114,91 @@ function DetailPanel({ card }: { card: CardSpec }) {
           <span>Password: {String(card.password).padStart(8, "0")}</span>
         )}
       </div>
+
+      <DroppedBySection cardId={card.id} />
+    </div>
+  );
+}
+
+/* ── Dropped By Section ──────────────────────────────────────── */
+
+interface DuelistDrop {
+  duelistId: number;
+  duelistName: string;
+  saPow: number;
+  bcd: number;
+  saTec: number;
+}
+
+function DroppedBySection({ cardId }: { cardId: number }) {
+  const { duelists } = useFusionTable();
+
+  const drops = useMemo(() => {
+    const result: DuelistDrop[] = [];
+    for (const row of duelists) {
+      if (row.cardId === cardId && (row.saPow > 0 || row.bcd > 0 || row.saTec > 0)) {
+        result.push({
+          duelistId: row.duelistId,
+          duelistName: row.duelistName,
+          saPow: row.saPow,
+          bcd: row.bcd,
+          saTec: row.saTec,
+        });
+      }
+    }
+    result.sort((a, b) => b.saPow + b.bcd + b.saTec - (a.saPow + a.bcd + a.saTec));
+    return result;
+  }, [duelists, cardId]);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">
+        Dropped by
+      </span>
+      {drops.length === 0 ? (
+        <p className="text-xs text-text-muted italic">No duelists drop this card.</p>
+      ) : (
+        <div className="rounded-lg border border-border-subtle overflow-hidden max-h-48 overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-bg-surface/80 backdrop-blur-sm text-text-muted uppercase tracking-wider text-[10px]">
+                <th className="text-left py-1.5 px-2.5 font-semibold">Duelist</th>
+                <th className="text-right py-1.5 px-2 font-semibold w-16">SA-POW</th>
+                <th className="text-right py-1.5 px-2 font-semibold w-14">BCD</th>
+                <th className="text-right py-1.5 px-2 font-semibold w-16">SA-TEC</th>
+              </tr>
+            </thead>
+            <tbody>
+              {drops.map((d) => (
+                <tr
+                  className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
+                  key={d.duelistId}
+                >
+                  <td className="py-1.5 px-2.5">
+                    <a
+                      className="text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
+                      href={`#data/duelists/${d.duelistId}`}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {d.duelistName}
+                    </a>
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
+                    {formatRate(d.saPow)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
+                    {formatRate(d.bcd)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
+                    {formatRate(d.saTec)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

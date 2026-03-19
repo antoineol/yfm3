@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
 import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
-import { DuelistsPanel, formatRate } from "./DuelistsPanel.tsx";
+import { DuelistsPanel } from "./DuelistsPanel.tsx";
 
 afterEach(cleanup);
 
@@ -41,27 +41,23 @@ const duelists: RefDuelistCard[] = [
   { duelistId: 2, duelistName: "Teana", cardId: 10, deck: 80, saPow: 50, bcd: 50, saTec: 50 },
 ];
 
-function renderPanel() {
+const noop = () => {};
+
+function renderPanel(props?: {
+  selectedDuelistId?: number;
+  onDuelistChange?: (id: number) => void;
+}) {
   return render(
     <CardDetailProvider>
-      <DuelistsPanel cardDb={cardDb} duelists={duelists} />
+      <DuelistsPanel
+        cardDb={cardDb}
+        duelists={duelists}
+        onDuelistChange={props?.onDuelistChange ?? noop}
+        selectedDuelistId={props?.selectedDuelistId}
+      />
     </CardDetailProvider>,
   );
 }
-
-describe("formatRate", () => {
-  it("returns dash for zero", () => {
-    expect(formatRate(0)).toBe("—");
-  });
-
-  it("formats rate as percentage", () => {
-    expect(formatRate(45)).toBe("2.2%");
-  });
-
-  it("formats large rate", () => {
-    expect(formatRate(2048)).toBe("100.0%");
-  });
-});
 
 describe("DuelistsPanel", () => {
   it("renders duelist selector with all duelists", () => {
@@ -85,12 +81,12 @@ describe("DuelistsPanel", () => {
     expect(dropRates.length).toBeGreaterThan(0);
   });
 
-  it("switches duelist on select change", () => {
-    renderPanel();
+  it("calls onDuelistChange on select change", () => {
+    const onChange = vi.fn();
+    renderPanel({ onDuelistChange: onChange });
     const select = screen.getByLabelText("Duelist") as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "2" } });
-    // Teana has 1 deck card (Dragon A with deck=80)
-    expect(screen.getByText("#2")).toBeTruthy();
+    expect(onChange).toHaveBeenCalledWith(2);
   });
 
   it("shows card count badges", () => {
@@ -98,5 +94,12 @@ describe("DuelistsPanel", () => {
     // Both deck and drops sections have 2 cards each for Simon Muran
     const badges = screen.getAllByText("2 cards");
     expect(badges.length).toBe(2);
+  });
+
+  it("selects duelist from selectedDuelistId prop", () => {
+    renderPanel({ selectedDuelistId: 2 });
+    const select = screen.getByLabelText("Duelist") as HTMLSelectElement;
+    expect(select.value).toBe("2");
+    expect(screen.getByText("#2")).toBeTruthy();
   });
 });

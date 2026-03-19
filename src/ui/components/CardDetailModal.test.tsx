@@ -1,11 +1,24 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../engine/data/game-db.ts";
+import type { RefDuelistCard } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "../lib/card-db-context.tsx";
 import { CardDetailProvider, useCardDetail } from "../lib/card-detail-context.tsx";
+import type { FusionTableData } from "../lib/fusion-table-context.tsx";
 import { CardDetailModal } from "./CardDetailModal.tsx";
+
+const testDuelists: RefDuelistCard[] = [
+  { duelistId: 1, duelistName: "Simon Muran", cardId: 1, deck: 75, saPow: 45, bcd: 0, saTec: 15 },
+  { duelistId: 2, duelistName: "Teana", cardId: 1, deck: 0, saPow: 50, bcd: 50, saTec: 0 },
+  { duelistId: 3, duelistName: "Seto", cardId: 99, deck: 0, saPow: 100, bcd: 0, saTec: 0 },
+];
+
+vi.mock("../lib/fusion-table-context.tsx", () => ({
+  useFusionTable: (): Pick<FusionTableData, "duelists"> => ({ duelists: testDuelists }),
+  useHasReferenceData: () => true,
+}));
 
 afterEach(cleanup);
 
@@ -25,8 +38,18 @@ const testCard: CardSpec = {
   password: 1,
 };
 
+const noDropCard: CardSpec = {
+  id: 999,
+  name: "Lonely Card",
+  kinds: ["Fiend"],
+  isMonster: true,
+  attack: 100,
+  defense: 100,
+};
+
 const testDb = createCardDb();
 addCard(testDb, testCard);
+addCard(testDb, noDropCard);
 
 function OpenButton({ cardId }: { cardId: number }) {
   const { openCard } = useCardDetail();
@@ -83,5 +106,31 @@ describe("CardDetailModal", () => {
     // After closing, the card name in the modal title should be gone
     // (the "Baby Dragon" text from the Open button context won't appear as modal title)
     expect(screen.queryByText("Much more than just a child")).toBeNull();
+  });
+
+  it("shows dropped-by section with duelists and rates", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Simon Muran")).toBeTruthy();
+    expect(screen.getByText("Teana")).toBeTruthy();
+    // Seto only drops card 99, not card 1
+    expect(screen.queryByText("Seto")).toBeNull();
+    // Simon SA-POW 45/2048 = 2.2%, Teana SA-POW 50/2048 = 2.4% (appears twice: saPow + bcd)
+    expect(screen.getByText("2.2%")).toBeTruthy();
+    expect(screen.getAllByText("2.4%").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows empty message when no duelists drop the card", () => {
+    renderModal(999);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("No duelists drop this card.")).toBeTruthy();
+  });
+
+  it("renders duelist names as links to data tab", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    const link = screen.getByText("Simon Muran").closest("a") as HTMLAnchorElement;
+    expect(link.href).toContain("#data/duelists/1");
+    expect(link.target).toBe("_blank");
   });
 });

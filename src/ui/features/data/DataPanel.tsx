@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
+import { useHash } from "../../lib/use-tab-from-hash.ts";
 import { CardsTable } from "./CardsTable.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
@@ -13,30 +14,36 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "duelists", label: "Duelists" },
 ];
 
-const STORAGE_KEY = "yfm-data-view";
 const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
 
-function readStoredView(): View {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    return v && VALID_VIEWS.has(v) ? (v as View) : "cards";
-  } catch {
-    return "cards";
-  }
+function parseDataHash(hash: string): { view: View; duelistId: number | undefined } {
+  const segments = hash.split("/");
+  // segments[0] = "data", segments[1] = sub-view, segments[2] = duelist id
+  const rawView = segments[1] ?? "";
+  const view: View = VALID_VIEWS.has(rawView) ? (rawView as View) : "cards";
+  const duelistId =
+    view === "duelists" && segments[2] ? Number(segments[2]) || undefined : undefined;
+  return { view, duelistId };
 }
 
 export function DataPanel() {
   const data = useFusionTable();
-  const [view, setViewRaw] = useState<View>(readStoredView);
+  const [hash, setHash] = useHash();
+  const { view, duelistId } = parseDataHash(hash);
 
-  const setView = useCallback((v: View) => {
-    setViewRaw(v);
-    try {
-      localStorage.setItem(STORAGE_KEY, v);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const setView = useCallback(
+    (v: View) => {
+      setHash(`data/${v}`);
+    },
+    [setHash],
+  );
+
+  const handleDuelistChange = useCallback(
+    (id: number) => {
+      setHash(`data/duelists/${id}`);
+    },
+    [setHash],
+  );
 
   return (
     <div className="flex flex-col gap-3 h-full max-w-5xl mx-auto w-full">
@@ -59,7 +66,12 @@ export function DataPanel() {
         ) : view === "fusions" ? (
           <FusionsTable cardDb={data.cardDb} fusions={data.fusions} />
         ) : (
-          <DuelistsPanel cardDb={data.cardDb} duelists={data.duelists} />
+          <DuelistsPanel
+            cardDb={data.cardDb}
+            duelists={data.duelists}
+            onDuelistChange={handleDuelistChange}
+            selectedDuelistId={duelistId}
+          />
         )}
       </div>
     </div>

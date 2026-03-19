@@ -5,14 +5,7 @@ import { CardName } from "../../components/CardName.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import type { SortDir } from "../../components/sortable-header.tsx";
 import { SortableHeader } from "../../components/sortable-header.tsx";
-import { formatCardId } from "../../lib/format.ts";
-
-const DROP_TOTAL = 2048;
-
-export function formatRate(raw: number): string {
-  if (raw === 0) return "—";
-  return `${((raw / DROP_TOTAL) * 100).toFixed(1)}%`;
-}
+import { formatCardId, formatRate } from "../../lib/format.ts";
 
 // ---------------------------------------------------------------------------
 // Duelist list helpers
@@ -84,12 +77,16 @@ function sortRows(
 export function DuelistsPanel({
   duelists,
   cardDb,
+  selectedDuelistId,
+  onDuelistChange,
 }: {
   duelists: RefDuelistCard[];
   cardDb: CardDb;
+  selectedDuelistId?: number;
+  onDuelistChange: (id: number) => void;
 }) {
   const duelistList = useMemo(() => extractDuelists(duelists), [duelists]);
-  const [selectedId, setSelectedId] = useState<number>(duelistList[0]?.id ?? 1);
+  const selectedId = selectedDuelistId ?? duelistList[0]?.id ?? 1;
 
   const selectedDuelist = duelistList.find((d) => d.id === selectedId);
   const deckCards = useMemo(() => getDeckCards(duelists, selectedId), [duelists, selectedId]);
@@ -133,7 +130,7 @@ export function DuelistsPanel({
               focus:outline-none focus:border-gold-dim focus:shadow-glow-gold-xs transition-all duration-200
               hover:border-border-accent cursor-pointer"
             id="duelist-select"
-            onChange={(e) => setSelectedId(Number(e.target.value))}
+            onChange={(e) => onDuelistChange(Number(e.target.value))}
             value={selectedId}
           >
             {duelistList.map((d) => (
