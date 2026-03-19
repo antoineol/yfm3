@@ -29,7 +29,7 @@ vi.mock("../../lib/card-db-context.tsx", () => ({
 }));
 
 import { liveBestScoreAtom } from "../../lib/atoms.ts";
-import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
+
 import { useOptimize } from "../optimize/use-optimize.ts";
 import { ResultPanel } from "./ResultPanel.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
@@ -40,11 +40,7 @@ const mockOptimizeHook = useOptimize as ReturnType<typeof vi.fn>;
 let store: ReturnType<typeof createStore>;
 
 function Wrapper({ children }: { children: ReactNode }) {
-  return (
-    <Provider store={store}>
-      <CardDetailProvider>{children}</CardDetailProvider>
-    </Provider>
-  );
+  return <Provider store={store}>{children}</Provider>;
 }
 
 function renderPanel(optimizing = false) {

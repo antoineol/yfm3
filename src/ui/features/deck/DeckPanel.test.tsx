@@ -38,7 +38,7 @@ vi.mock("./use-deck-score.ts", () => ({
 }));
 
 import { useDeckSize } from "../../db/use-user-preferences.ts";
-import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
+
 import { DeckPanel } from "./DeckPanel.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
 import { useDeckScore } from "./use-deck-score.ts";
@@ -55,21 +55,13 @@ afterEach(() => {
 describe("DeckPanel", () => {
   it("renders loading state when data is undefined", () => {
     mockHook.mockReturnValue(undefined);
-    const { container } = render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    const { container } = render(<DeckPanel />);
     expect(container.querySelector(".animate-spin-gold")).not.toBeNull();
   });
 
   it("renders empty state when deck is empty", () => {
     mockHook.mockReturnValue({ entries: [], deckLength: 0, deckCardIds: [] });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     expect(screen.getByText("No deck saved yet")).toBeDefined();
   });
 
@@ -80,11 +72,7 @@ describe("DeckPanel", () => {
       deckLength: 38,
       deckCardIds: [1, 1],
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     expect(screen.getByText("38/40")).toBeDefined();
   });
 
@@ -95,11 +83,7 @@ describe("DeckPanel", () => {
       deckLength: 38,
       deckCardIds: [1, 1],
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     const badge = screen.getByText("38/40");
     expect(badge.className).toContain("text-orange-400");
   });
@@ -111,11 +95,7 @@ describe("DeckPanel", () => {
       deckLength: 40,
       deckCardIds: Array(40).fill(1),
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     const badge = screen.getByText("40/40");
     expect(badge.className).not.toContain("text-orange-400");
   });
@@ -126,11 +106,7 @@ describe("DeckPanel", () => {
       deckLength: 1,
       deckCardIds: [1],
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     expect(screen.getByTitle("Remove from deck")).toBeDefined();
   });
 
@@ -140,11 +116,7 @@ describe("DeckPanel", () => {
       deckLength: 1,
       deckCardIds: [42],
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     fireEvent.click(screen.getByTitle("Remove from deck"));
     expect(mockRemoveOne).toHaveBeenCalledWith({ cardId: 42 });
   });
@@ -155,11 +127,7 @@ describe("DeckPanel", () => {
       deckLength: 1,
       deckCardIds: [1],
     });
-    const { container } = render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    const { container } = render(<DeckPanel />);
     expect(container.querySelector("[data-testid='deck-fusion-list']")).not.toBeNull();
     expect(container.querySelector("[data-testid='score-explanation']")).not.toBeNull();
   });
@@ -171,11 +139,7 @@ describe("DeckPanel", () => {
       deckLength: 40,
       deckCardIds: Array(40).fill(1),
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     expect(screen.getByText("1234.5")).toBeDefined();
   });
 
@@ -186,11 +150,7 @@ describe("DeckPanel", () => {
       deckLength: 40,
       deckCardIds: Array(40).fill(1),
     });
-    render(
-      <CardDetailProvider>
-        <DeckPanel />
-      </CardDetailProvider>,
-    );
+    render(<DeckPanel />);
     expect(screen.queryByText("1234.5")).toBeNull();
   });
 });

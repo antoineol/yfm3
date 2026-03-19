@@ -63,7 +63,7 @@ vi.mock("./LastAddedCardHint.tsx", () => ({
 
 import type { ReactNode } from "react";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
-import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
+
 import { CollectionPanel } from "./CollectionPanel.tsx";
 import {
   type CollectionCardViewModel,
@@ -95,11 +95,7 @@ addCard(emptyCardDb, {
 });
 
 function Wrapper({ children }: { children: ReactNode }) {
-  return (
-    <CardDbProvider cardDb={emptyCardDb}>
-      <CardDetailProvider>{children}</CardDetailProvider>
-    </CardDbProvider>
-  );
+  return <CardDbProvider cardDb={emptyCardDb}>{children}</CardDbProvider>;
 }
 
 function buildCollectionEntry({

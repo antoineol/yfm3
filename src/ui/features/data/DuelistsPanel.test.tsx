@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
-import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
 
 afterEach(cleanup);
@@ -48,14 +47,12 @@ function renderPanel(props?: {
   onDuelistChange?: (id: number) => void;
 }) {
   return render(
-    <CardDetailProvider>
-      <DuelistsPanel
-        cardDb={cardDb}
-        duelists={duelists}
-        onDuelistChange={props?.onDuelistChange ?? noop}
-        selectedDuelistId={props?.selectedDuelistId}
-      />
-    </CardDetailProvider>,
+    <DuelistsPanel
+      cardDb={cardDb}
+      duelists={duelists}
+      onDuelistChange={props?.onDuelistChange ?? noop}
+      selectedDuelistId={props?.selectedDuelistId}
+    />,
   );
 }
 

@@ -1,46 +1,17 @@
-import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useCallback } from "react";
 import type { CardId } from "../../engine/data/card-model.ts";
+import { openCardIdAtom } from "./atoms.ts";
 
-interface CardDetailActions {
-  openCard: (id: CardId) => void;
-  closeCard: () => void;
+/** Subscribe to card-id state and get actions. Use only when you need `cardId`. */
+export function useCardDetail() {
+  const cardId = useAtomValue(openCardIdAtom);
+  const setCardId = useSetAtom(openCardIdAtom);
+  const closeCard = useCallback(() => setCardId(null), [setCardId]);
+  return { cardId, openCard: setCardId as (id: CardId) => void, closeCard };
 }
 
-interface CardDetailState extends CardDetailActions {
-  cardId: CardId | null;
-}
-
-const ActionsContext = createContext<CardDetailActions | null>(null);
-const StateContext = createContext<CardId | null>(null);
-
-export function CardDetailProvider({ children }: { children: ReactNode }) {
-  const [cardId, setCardId] = useState<CardId | null>(null);
-  const actions = useMemo<CardDetailActions>(
-    () => ({
-      openCard: (id: CardId) => setCardId(id),
-      closeCard: () => setCardId(null),
-    }),
-    [],
-  );
-
-  return (
-    <ActionsContext.Provider value={actions}>
-      <StateContext.Provider value={cardId}>{children}</StateContext.Provider>
-    </ActionsContext.Provider>
-  );
-}
-
-/** Subscribe to both card-id state and actions. Use only when you need `cardId`. */
-export function useCardDetail(): CardDetailState {
-  const actions = useContext(ActionsContext);
-  const cardId = useContext(StateContext);
-  if (!actions) throw new Error("useCardDetail must be used within a CardDetailProvider");
-  return { cardId, ...actions };
-}
-
-/** Subscribe to actions only — does not re-render when the open card changes. */
+/** Get the openCard setter only — does not re-render when the open card changes. */
 export function useOpenCard(): (id: CardId) => void {
-  const actions = useContext(ActionsContext);
-  if (!actions) throw new Error("useOpenCard must be used within a CardDetailProvider");
-  return actions.openCard;
+  return useSetAtom(openCardIdAtom);
 }

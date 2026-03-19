@@ -4,7 +4,6 @@ import {
   type ReferenceTableData,
 } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
-import { CardDetailProvider } from "./card-detail-context.tsx";
 import { loadReferenceCsvs } from "./load-reference-csvs.ts";
 
 export type FusionTableData = ReferenceTableData;
@@ -20,13 +19,7 @@ export function FusionTableProvider({ children }: { children: ReactNode }) {
 
   return (
     <FusionTableContext.Provider value={data}>
-      {data ? (
-        <CardDbProvider cardDb={data.cardDb}>
-          <CardDetailProvider>{children}</CardDetailProvider>
-        </CardDbProvider>
-      ) : (
-        children
-      )}
+      {data ? <CardDbProvider cardDb={data.cardDb}>{children}</CardDbProvider> : children}
     </FusionTableContext.Provider>
   );
 }

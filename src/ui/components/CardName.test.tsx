@@ -1,22 +1,24 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { createStore, Provider, useAtomValue } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CardDetailProvider, useCardDetail } from "../lib/card-detail-context.tsx";
+import { openCardIdAtom } from "../lib/atoms.ts";
 import { CardName } from "./CardName.tsx";
 
 afterEach(cleanup);
 
 function LastOpened() {
-  const { cardId } = useCardDetail();
+  const cardId = useAtomValue(openCardIdAtom);
   return <span data-testid="opened">{cardId ?? "none"}</span>;
 }
 
 function renderCardName(cardId = 1, name = "Baby Dragon") {
+  const store = createStore();
   return render(
-    <CardDetailProvider>
+    <Provider store={store}>
       <CardName cardId={cardId} name={name} />
       <LastOpened />
-    </CardDetailProvider>,
+    </Provider>,
   );
 }
 
@@ -34,10 +36,11 @@ describe("CardName", () => {
   });
 
   it("applies custom className", () => {
+    const store = createStore();
     render(
-      <CardDetailProvider>
+      <Provider store={store}>
         <CardName cardId={1} className="text-gold" name="Test" />
-      </CardDetailProvider>,
+      </Provider>,
     );
     const btn = screen.getByRole("button", { name: "Test" });
     expect(btn.className).toContain("text-gold");
@@ -45,14 +48,15 @@ describe("CardName", () => {
 
   it("stops event propagation", () => {
     const parentClick = vi.fn();
+    const store = createStore();
     render(
-      <CardDetailProvider>
+      <Provider store={store}>
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: test wrapper */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: test wrapper */}
         <div onClick={parentClick}>
           <CardName cardId={1} name="Test" />
         </div>
-      </CardDetailProvider>,
+      </Provider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Test" }));
     expect(parentClick).not.toHaveBeenCalled();

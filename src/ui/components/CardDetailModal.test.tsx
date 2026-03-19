@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "../lib/card-db-context.tsx";
-import { CardDetailProvider, useCardDetail } from "../lib/card-detail-context.tsx";
+import { useCardDetail } from "../lib/card-detail-context.tsx";
 import type { FusionTableData } from "../lib/fusion-table-context.tsx";
 import { CardDetailModal } from "./CardDetailModal.tsx";
 
@@ -61,13 +62,14 @@ function OpenButton({ cardId }: { cardId: number }) {
 }
 
 function renderModal(cardId?: number) {
+  const store = createStore();
   return render(
-    <CardDbProvider cardDb={testDb}>
-      <CardDetailProvider>
+    <Provider store={store}>
+      <CardDbProvider cardDb={testDb}>
         <OpenButton cardId={cardId ?? 1} />
         <CardDetailModal />
-      </CardDetailProvider>
-    </CardDbProvider>,
+      </CardDbProvider>
+    </Provider>,
   );
 }
 
