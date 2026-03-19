@@ -63,7 +63,8 @@ describe("CardDetailModal", () => {
     expect(screen.getAllByText("700").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Dragon")).toBeTruthy();
     expect(screen.getByText("Earth")).toBeTruthy();
-    expect(screen.getByText("Much more than just a child")).toBeTruthy();
+    // Description appears in both game card desc box and detail panel
+    expect(screen.getAllByText("Much more than just a child").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows guardian stars", () => {

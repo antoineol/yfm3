@@ -82,6 +82,256 @@ input[type="number"] {
   appearance: textfield;
 }
 
+/* ── FM Game Card ─────────────────────────────────────────────── *
+ * CSS custom properties set per-card by the component:
+ *   --fm-lo   shadow tone
+ *   --fm-mid  main frame color
+ *   --fm-hi   highlight tone
+ *   --fm-border  name band border
+ *   --fm-text    dark text on frame
+ * ─────────────────────────────────────────────────────────────── */
+
+.fm-card {
+  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.6));
+}
+
+/* Thin dark outer edge — the 2px dark rim around the card */
+.fm-card-edge {
+  background: #1a1a1a;
+  border-radius: 3px;
+  padding: 2px;
+}
+
+/* Main frame — thick colored surface with grain texture */
+.fm-card-frame {
+  border-radius: 2px;
+  padding: 8px 7px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* fine grain texture */
+  background:
+    repeating-conic-gradient(var(--fm-lo) 0% 25%, transparent 0% 50%) 0 0 / 3px 3px,
+    /* brushed diagonal sheen */
+    linear-gradient(
+      145deg,
+      var(--fm-lo) 0%,
+      var(--fm-mid) 15%,
+      var(--fm-hi) 35%,
+      var(--fm-mid) 50%,
+      var(--fm-hi) 70%,
+      var(--fm-mid) 85%,
+      var(--fm-lo) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--fm-hi), transparent 50%),
+    inset 0 -1px 0 color-mix(in srgb, var(--fm-lo), transparent 30%);
+}
+
+@media (min-width: 640px) {
+  .fm-card-frame {
+    padding: 10px 9px 9px;
+    gap: 5px;
+  }
+}
+
+/* ── Name band ── */
+.fm-card-name-band {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1.5px solid var(--fm-border);
+  background: linear-gradient(180deg, var(--fm-hi), var(--fm-mid));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--fm-hi), white 20%);
+}
+
+.fm-card-name-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--fm-text);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .fm-card-name-band {
+    padding: 5px 10px;
+  }
+  .fm-card-name-text {
+    font-size: 12px;
+  }
+}
+
+/* Attribute orb */
+.fm-card-orb {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 640px) {
+  .fm-card-orb {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ── Type line (non-monsters) ── */
+.fm-card-type-line {
+  font-family: var(--font-display);
+  font-size: 8px;
+  text-align: right;
+  color: var(--fm-text);
+  opacity: 0.8;
+  padding: 0 4px;
+  margin-top: -2px;
+}
+
+@media (min-width: 640px) {
+  .fm-card-type-line {
+    font-size: 9px;
+  }
+}
+
+/* ── Level stars ── */
+.fm-card-stars {
+  display: flex;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px 0;
+}
+
+.fm-card-star {
+  font-size: 11px;
+  line-height: 1;
+  color: #d02020;
+  text-shadow: 0 0 2px rgba(200, 30, 30, 0.4);
+}
+
+@media (min-width: 640px) {
+  .fm-card-star {
+    font-size: 13px;
+    gap: 2px;
+  }
+}
+
+/* ── Artwork well ── */
+.fm-card-art-well {
+  border: 3px solid #2a2a30;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.7),
+    0 1px 0 color-mix(in srgb, var(--fm-hi), transparent 60%);
+}
+
+.fm-card-art-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+/* ── Bottom zone ── */
+.fm-card-bottom {
+  display: flex;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.fm-card-bottom--split {
+  align-items: stretch;
+}
+
+/* Description box — tan parchment with orange/gold border */
+.fm-card-desc {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 5px;
+  border: 2px solid #c88820;
+  background: linear-gradient(180deg, #e8d8b0 0%, #d8c898 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.fm-card-desc-text {
+  font-family: var(--font-body);
+  font-size: 7px;
+  line-height: 1.35;
+  color: #282018;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+@media (min-width: 640px) {
+  .fm-card-desc {
+    padding: 5px 6px;
+  }
+  .fm-card-desc-text {
+    font-size: 8px;
+    line-height: 1.4;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+  }
+}
+
+/* ── Stats (ATK / DFD) ── */
+.fm-card-stats {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.fm-card-stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.fm-card-stat-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--fm-text);
+  letter-spacing: 0.03em;
+}
+
+.fm-card-stat-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--fm-text);
+}
+
+@media (min-width: 640px) {
+  .fm-card-stats {
+    padding: 0 4px;
+  }
+  .fm-card-stat-label {
+    font-size: 13px;
+  }
+  .fm-card-stat-value {
+    font-size: 16px;
+  }
+  .fm-card-stat-row {
+    gap: 5px;
+  }
+}
+
 /* Animations */
 @keyframes spin-gold {
   to {
