@@ -56,13 +56,9 @@ export function DataPanel() {
       <div className="flex items-center justify-center">
         <ToggleGroup onChange={setView} options={VIEW_OPTIONS} value={view} />
       </div>
-      {view !== "duelists" && !cardId && (
+      {view === "cards" && !cardId && (
         <div className="flex items-center gap-3">
-          <span className="ml-auto text-xs text-text-muted">
-            {view === "cards"
-              ? `${data.cardDb.cards.length} cards`
-              : `${data.fusions.length} fusions`}
-          </span>
+          <span className="ml-auto text-xs text-text-muted">{data.cardDb.cards.length} cards</span>
         </div>
       )}
 
