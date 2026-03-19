@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { useEffect } from "react";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
+import { CardName } from "../../components/CardName.tsx";
 import type { LastAddedCardHintHeaderModel } from "./use-last-added-card-hint.ts";
 
 export function LastAddedCardHintHeader({
@@ -39,7 +40,11 @@ export function LastAddedCardHintHeader({
     <div className="flex items-center gap-1">
       <span className="text-text-secondary">Last added:</span>
       <span className="text-text-muted font-mono text-xs">#{header.id}</span>
-      <span className="text-text-primary font-medium truncate">{header.name}</span>
+      <CardName
+        cardId={header.id}
+        className="text-text-primary font-medium truncate"
+        name={header.name}
+      />
       <span className="text-text-muted font-mono">
         {header.attack}/{header.defense}
       </span>

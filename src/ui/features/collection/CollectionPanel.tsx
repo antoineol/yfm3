@@ -1,6 +1,8 @@
 import { useMutation } from "convex/react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
 import { CardTable } from "../../components/CardTable.tsx";
@@ -12,6 +14,7 @@ import {
 } from "../../components/panel-chrome.tsx";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { importExportSchema } from "../config/import-export-schema.ts";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import {
   type CollectionCardViewModel,
@@ -27,10 +30,33 @@ export function CollectionPanel() {
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
+  const importMutation = useMutation(api.importExport.importData);
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
+
+  async function loadSampleData() {
+    setLoadingSample(true);
+    try {
+      const res = await fetch("/data/sample.json");
+      const parsed = importExportSchema.safeParse(await res.json());
+      if (!parsed.success) {
+        toast.error("Invalid sample data");
+        return;
+      }
+      await importMutation({
+        collection: parsed.data.collection,
+        deck: parsed.data.deck,
+      });
+      toast.success("Sample collection loaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load sample data");
+    } finally {
+      setLoadingSample(false);
+    }
+  }
 
   const autocompleteCards = useMemo(
     () =>
@@ -103,10 +129,30 @@ export function CollectionPanel() {
       </PanelHeader>
       <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />
       {data.totalOwnedCards === 0 ? (
-        <PanelEmptyState
-          subtitle="Search above to add cards to your collection"
-          title="Your collection is empty"
-        />
+        data.deckLength === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-5 text-center">
+            <div className="flex gap-1.5 opacity-50">
+              <div className="w-8 h-11 border-2 border-gold-dim rounded -rotate-6" />
+              <div className="w-8 h-11 border-2 border-gold rounded" />
+              <div className="w-8 h-11 border-2 border-gold-dim rounded rotate-6" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-text-primary font-medium">New here? Try it out instantly</p>
+              <p className="text-xs text-text-muted max-w-56">
+                Load a ready-made collection to explore all features right away.
+              </p>
+            </div>
+            <Button disabled={loadingSample} onClick={() => void loadSampleData()}>
+              {loadingSample ? "Loading..." : "Load sample collection"}
+            </Button>
+            <p className="text-xs text-text-muted">Or search above to build your own collection</p>
+          </div>
+        ) : (
+          <PanelEmptyState
+            subtitle="Search above to add cards to your collection"
+            title="Your collection is empty"
+          />
+        )
       ) : (
         <PanelBody>
           <CardTable actions={renderActions} entries={data.entries} />

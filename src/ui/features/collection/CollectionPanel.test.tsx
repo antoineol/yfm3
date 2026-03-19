@@ -18,6 +18,7 @@ import { CardDbProvider } from "../../lib/card-db-context.tsx";
 const mockAddCard = vi.fn();
 const mockRemoveCard = vi.fn();
 const mockAddToDeck = vi.fn();
+const mockImportData = vi.fn();
 
 const mockCardAutocomplete = vi.fn(({ placeholder }: { placeholder?: string }) => (
   <input data-testid="card-autocomplete" placeholder={placeholder} />
@@ -38,6 +39,7 @@ vi.mock("convex/react", () => ({
     if (ref === "addCard") return mockAddCard;
     if (ref === "removeCard") return mockRemoveCard;
     if (ref === "addToDeck") return mockAddToDeck;
+    if (ref === "importData") return mockImportData;
     return vi.fn();
   },
 }));
@@ -46,7 +48,12 @@ vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     ownedCards: { addCard: "addCard", removeCard: "removeCard" },
     deck: { addToDeck: "addToDeck" },
+    importExport: { importData: "importData" },
   },
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("./use-collection-view-model.ts", () => ({
@@ -165,10 +172,11 @@ describe("CollectionPanel", () => {
     expect(container.querySelector(".animate-spin-gold")).not.toBeNull();
   });
 
-  it("renders empty state when total owned cards is 0", () => {
+  it("renders onboarding state when collection and deck are both empty", () => {
     mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
     render(<CollectionPanel />, { wrapper: Wrapper });
-    expect(screen.getByText("Your collection is empty")).toBeDefined();
+    expect(screen.getByText("New here? Try it out instantly")).toBeDefined();
+    expect(screen.getByText("Load sample collection")).toBeDefined();
   });
 
   it("renders card table when collection has cards", () => {
@@ -473,5 +481,22 @@ describe("CollectionPanel", () => {
       expect.stringContaining("Dark Magician"),
       expect.stringContaining("Mystical Elf"),
     ]);
+  });
+
+  it("shows load sample button when collection and deck are both empty", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [], deckLength: 0 }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+    expect(screen.getByText("Load sample collection")).toBeDefined();
+  });
+
+  it("shows plain empty state when collection is empty but deck has cards", () => {
+    mockUseCollectionViewModel.mockReturnValue(
+      buildCollectionViewModel({ entries: [], deckLength: 5, totalOwnedCards: 0 }),
+    );
+    render(<CollectionPanel />, { wrapper: Wrapper });
+    expect(screen.getByText("Your collection is empty")).toBeDefined();
+    expect(screen.queryByText("Load sample collection")).toBeNull();
   });
 });

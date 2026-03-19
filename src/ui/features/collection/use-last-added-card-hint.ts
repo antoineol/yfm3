@@ -34,11 +34,13 @@ export type LastAddedCardHintSwapModel =
   | { kind: "applied"; applying: boolean; onRevert: () => void }
   | {
       kind: "suggestion";
+      addedCardId: number;
       addedName: string;
       applying: boolean;
       improvement: number;
       onApply: () => void;
       onReject: () => void;
+      removedCardId: number;
       removedName: string;
     };
 
@@ -149,6 +151,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
       : suggestion
         ? {
             kind: "suggestion",
+            addedCardId,
             addedName: card.name,
             applying,
             improvement: suggestion.improvement,
@@ -168,6 +171,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
                 },
               }),
             onReject: clearSuggestion,
+            removedCardId: suggestion.removedCardId,
             removedName,
           }
         : loading

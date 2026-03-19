@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import { Button } from "../../components/Button.tsx";
+import { CardName } from "../../components/CardName.tsx";
 import type { LastAddedCardHintSwapModel } from "./use-last-added-card-hint.ts";
 
 export function LastAddedCardHintSwap({
@@ -39,8 +40,18 @@ export function LastAddedCardHintSwap({
     <div className="flex items-center justify-between gap-3">
       <p className="text-text-secondary">
         Upgrade deck: swap out{" "}
-        <span className="text-text-primary font-medium">{swap.removedName}</span> for{" "}
-        <span className="text-text-primary font-medium">{swap.addedName}</span>{" "}
+        <span className="text-text-muted font-mono text-xs">#{swap.removedCardId}</span>{" "}
+        <CardName
+          cardId={swap.removedCardId}
+          className="text-text-primary font-medium"
+          name={swap.removedName}
+        />{" "}
+        for <span className="text-text-muted font-mono text-xs">#{swap.addedCardId}</span>{" "}
+        <CardName
+          cardId={swap.addedCardId}
+          className="text-text-primary font-medium"
+          name={swap.addedName}
+        />{" "}
         <span className="font-mono text-stat-up">{`(+${swap.improvement.toFixed(1)} ATK)`}</span>
       </p>
       <div className="flex items-center gap-1 shrink-0">
