@@ -96,7 +96,7 @@ export function CardTable<T extends CardEntry>({
               onClick={() => handleSortChange("atk")}
               px="px-2"
             />
-            <th className="text-left py-2 px-2 font-normal">DEF</th>
+            <th className="text-left py-2 px-2 font-normal">DFD</th>
             {showKinds && (
               <>
                 <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind1</th>

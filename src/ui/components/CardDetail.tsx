@@ -52,7 +52,7 @@ function DetailPanel({ card }: { card: CardSpec }) {
             <DetailSection label="ATK">
               <span className="text-base font-mono font-bold text-stat-atk">{card.attack}</span>
             </DetailSection>
-            <DetailSection label="DEF">
+            <DetailSection label="DFD">
               <span className="text-base font-mono font-bold text-stat-def">{card.defense}</span>
             </DetailSection>
           </>

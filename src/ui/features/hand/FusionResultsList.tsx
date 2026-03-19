@@ -114,17 +114,8 @@ function FusionResultRow({
           </div>
         </div>
 
-        {/* Chain steps */}
-        <div className="flex flex-col gap-0.5">
-          {result.steps.map((step, i) => (
-            <ChainStep
-              cardDb={cardDb}
-              key={stepKey(step)}
-              prevResultId={i > 0 ? result.steps[i - 1]?.resultCardId : undefined}
-              step={step}
-            />
-          ))}
-        </div>
+        {/* Chain steps — numbered material list */}
+        <FusionChainSteps cardDb={cardDb} steps={result.steps} />
       </div>
     </div>
   );
@@ -175,7 +166,7 @@ function FusionCardThumb({ card }: { card: CardSpec }) {
             <img alt={card.name} className="fm-mini-art-img" loading="lazy" src={artSrc} />
           </div>
 
-          {/* ATK / DEF */}
+          {/* ATK / DFD */}
           {card.isMonster && (
             <div className="fm-mini-stats">
               <span className="fm-mini-stat-value fm-mini-stat-value--atk">{card.attack}</span>
@@ -221,44 +212,65 @@ const cardTypePalettes: Record<string, FramePalette> = {
   Ritual: { lo: "#183880", mid: "#2858c0", hi: "#4070e0", border: "#1e3090", text: "#0a0e2a" },
 };
 
-function ChainStep({
-  step,
-  cardDb,
-  prevResultId,
-}: {
-  step: FusionStep;
-  cardDb: CardDb;
-  /** Result card ID from the previous step, used to order materials so the chain reads naturally. */
-  prevResultId?: number;
-}) {
-  const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
+const STEP_NUMBERS = ["\u2460", "\u2461", "\u2462", "\u2463", "\u2464"];
 
-  // For continuation steps, show the previous fusion result first
-  let firstId = step.material1CardId;
-  let secondId = step.material2CardId;
-  if (prevResultId !== undefined && step.material2CardId === prevResultId) {
-    firstId = step.material2CardId;
-    secondId = step.material1CardId;
+export type MaterialLine = {
+  cardId: number;
+  resultCardId?: number;
+};
+
+export function extractMaterialLines(steps: FusionStep[]): MaterialLine[] {
+  const lines: MaterialLine[] = [];
+
+  for (const [i, step] of steps.entries()) {
+    if (i === 0) {
+      lines.push({ cardId: step.material1CardId });
+      lines.push({ cardId: step.material2CardId, resultCardId: step.resultCardId });
+    } else {
+      const prev = steps[i - 1];
+      if (!prev) continue;
+      const newMaterialId =
+        step.material1CardId === prev.resultCardId ? step.material2CardId : step.material1CardId;
+      lines.push({ cardId: newMaterialId, resultCardId: step.resultCardId });
+    }
   }
 
-  return (
-    <p className="text-xs text-text-secondary leading-relaxed flex items-baseline flex-wrap">
-      {prevResultId !== undefined && <span className="text-text-muted mr-1">{"\u21B3"}</span>}
-      <CardName cardId={firstId} className="text-text-primary" name={getName(firstId)} />
-      <span className="text-gold-dim mx-1">+</span>
-      <CardName cardId={secondId} className="text-text-primary" name={getName(secondId)} />
-      <span className="text-gold-dim mx-1">{"\u2192"}</span>
-      <CardName
-        cardId={step.resultCardId}
-        className="text-gold"
-        name={getName(step.resultCardId)}
-      />
-    </p>
-  );
+  return lines;
 }
 
-function stepKey(step: FusionStep): string {
-  return `${String(step.material1CardId)}-${String(step.material2CardId)}-${String(step.resultCardId)}`;
+function FusionChainSteps({ steps, cardDb }: { steps: FusionStep[]; cardDb: CardDb }) {
+  const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
+  const lines = extractMaterialLines(steps);
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {lines.map((line, i) => (
+        <p
+          className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5"
+          key={`${String(i)}-${String(line.cardId)}`}
+        >
+          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
+            {STEP_NUMBERS[i] ?? String(i + 1)}
+          </span>
+          <CardName
+            cardId={line.cardId}
+            className="text-text-primary"
+            name={getName(line.cardId)}
+          />
+          {line.resultCardId !== undefined && (
+            <>
+              <span className="text-gold-dim mx-0.5">{"\u2192"}</span>
+              <CardName
+                cardId={line.resultCardId}
+                className="text-gold"
+                name={getName(line.resultCardId)}
+              />
+            </>
+          )}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 /**

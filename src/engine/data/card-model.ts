@@ -19,7 +19,7 @@ export interface CardSpec {
   kinds: CardKind[];
   /** Raw type string from the CSV (e.g. "Dragon", "Magic", "Equip", "Trap", "Ritual"). */
   cardType?: string;
-  /** true for monster cards (have ATK/DEF/stars), false for spell/trap cards. */
+  /** true for monster cards (have ATK/DFD/stars), false for spell/trap cards. */
   isMonster: boolean;
   color?: Color;
   guardianStar1?: GuardianStar;

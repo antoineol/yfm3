@@ -172,7 +172,7 @@ export function DuelistsPanel({
                 />
                 <SortableHeader
                   dir={dropSort?.key === "def" ? dropSort.dir : undefined}
-                  label="DEF"
+                  label="DFD"
                   onClick={() => handleDropSort("def")}
                   px="px-2"
                 />
@@ -260,7 +260,7 @@ export function DuelistsPanel({
                 />
                 <SortableHeader
                   dir={deckSort?.key === "def" ? deckSort.dir : undefined}
-                  label="DEF"
+                  label="DFD"
                   onClick={() => handleDeckSort("def")}
                   px="px-2"
                 />

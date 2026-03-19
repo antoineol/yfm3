@@ -82,7 +82,7 @@ describe("CardDetailModal", () => {
     fireEvent.click(screen.getByText("Open"));
     // Card name appears in game card banner, below-card label, and detail title
     expect(screen.getAllByText("Baby Dragon").length).toBeGreaterThanOrEqual(2);
-    // ATK/DEF appear in both game card and detail panel
+    // ATK/DFD appear in both game card and detail panel
     expect(screen.getAllByText("1200").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("700").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Dragon")).toBeTruthy();
