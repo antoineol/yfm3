@@ -2,6 +2,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
+import { CardName } from "../../components/CardName.tsx";
 import { CloseButton } from "../../components/CloseButton.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -46,7 +47,11 @@ function FilledSlot({ card, onRemove }: { card: CardSpec | undefined; onRemove: 
 
       <div className="flex flex-col gap-1 px-2 pt-2 pb-1.5 flex-1">
         <p className="font-display text-[10px] sm:text-xs leading-tight text-text-primary line-clamp-2 min-h-[2lh]">
-          {card?.name ?? "Unknown"}
+          {card ? (
+            <CardName cardId={card.id} className="text-text-primary" name={card.name} />
+          ) : (
+            "Unknown"
+          )}
         </p>
 
         <div className="flex items-baseline gap-2 mt-auto">

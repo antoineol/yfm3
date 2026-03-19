@@ -51,6 +51,7 @@ import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
@@ -117,7 +118,11 @@ afterEach(() => {
 const dummyInputRef = createRef<HTMLInputElement>();
 
 function TestWrapper({ children }: { children: ReactNode }) {
-  return <Provider>{children}</Provider>;
+  return (
+    <Provider>
+      <CardDetailProvider>{children}</CardDetailProvider>
+    </Provider>
+  );
 }
 
 describe("LastAddedCardHint", () => {

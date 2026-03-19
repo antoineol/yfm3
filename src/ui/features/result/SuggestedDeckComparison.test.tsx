@@ -10,6 +10,7 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
   ScoreExplanation: () => <div data-testid="score-explanation" />,
 }));
 
+import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
 import { SuggestedDeckComparison } from "./SuggestedDeckComparison.tsx";
 
 const baseResult = {
@@ -30,14 +31,22 @@ afterEach(cleanup);
 
 describe("SuggestedDeckComparison", () => {
   it("displays card table with entries", () => {
-    render(<SuggestedDeckComparison data={{ entries: baseEntries, result: baseResult }} />);
+    render(
+      <CardDetailProvider>
+        <SuggestedDeckComparison data={{ entries: baseEntries, result: baseResult }} />
+      </CardDetailProvider>,
+    );
     expect(screen.getByText("Blue-Eyes")).toBeDefined();
     expect(screen.getByText("Dark Magician")).toBeDefined();
     expect(screen.getByText("Red-Eyes")).toBeDefined();
   });
 
   it("renders deck intelligence sections", () => {
-    render(<SuggestedDeckComparison data={{ entries: baseEntries, result: baseResult }} />);
+    render(
+      <CardDetailProvider>
+        <SuggestedDeckComparison data={{ entries: baseEntries, result: baseResult }} />
+      </CardDetailProvider>,
+    );
     expect(screen.getByTestId("deck-fusion-list")).toBeDefined();
     expect(screen.getByTestId("score-explanation")).toBeDefined();
   });

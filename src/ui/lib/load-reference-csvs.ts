@@ -56,6 +56,11 @@ function parseCardsCsv(csv: string): RefCard[] {
     const gs2 = cols[5] ?? "";
     const type = cols[6] ?? "";
     const color = cols[7] ?? "";
+    const level = parseInt(cols[8] ?? "", 10);
+    const attribute = cols[9] ?? "";
+    const starchipCost = parseInt(cols[10] ?? "", 10);
+    const password = parseInt(cols[11] ?? "", 10);
+    const description = cols[12] ?? "";
     if (!Number.isFinite(id) || !Number.isFinite(atk) || !Number.isFinite(def)) continue;
     cards.push({
       id,
@@ -66,6 +71,11 @@ function parseCardsCsv(csv: string): RefCard[] {
       guardianStar2: gs2,
       name: name || `Card #${id}`,
       color: color || undefined,
+      level: Number.isFinite(level) ? level : undefined,
+      attribute: attribute || undefined,
+      starchipCost: Number.isFinite(starchipCost) ? starchipCost : undefined,
+      password: Number.isFinite(password) ? password : undefined,
+      description: description ? description.replaceAll("\\n", "\n").trim() : undefined,
     });
   }
   return cards;

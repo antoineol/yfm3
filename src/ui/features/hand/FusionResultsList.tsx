@@ -8,6 +8,7 @@ import {
   findFusionChains,
 } from "../../../engine/fusion-chain-finder.ts";
 import { Button } from "../../components/Button.tsx";
+import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
@@ -84,9 +85,11 @@ function FusionResultRow({
           <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
             {formatCardId(result.resultCardId)}
           </span>
-          <span className="font-display text-sm text-gold-bright truncate">
-            {result.resultName}
-          </span>
+          <CardName
+            cardId={result.resultCardId}
+            className="font-display text-sm text-gold-bright truncate"
+            name={result.resultName}
+          />
         </div>
         <div className="flex items-baseline gap-3 shrink-0">
           <div className="flex items-baseline gap-1.5 w-24 justify-end">
@@ -127,7 +130,6 @@ function ChainStep({
   prevResultId?: number;
 }) {
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
-  const resultName = getName(step.resultCardId);
 
   // For continuation steps, show the previous fusion result first
   let firstId = step.material1CardId;
@@ -138,13 +140,17 @@ function ChainStep({
   }
 
   return (
-    <p className="text-xs text-text-secondary leading-relaxed">
+    <p className="text-xs text-text-secondary leading-relaxed flex items-baseline flex-wrap">
       {prevResultId !== undefined && <span className="text-text-muted mr-1">{"\u21B3"}</span>}
-      <span className="text-text-primary">{getName(firstId)}</span>
+      <CardName cardId={firstId} className="text-text-primary" name={getName(firstId)} />
       <span className="text-gold-dim mx-1">+</span>
-      <span className="text-text-primary">{getName(secondId)}</span>
+      <CardName cardId={secondId} className="text-text-primary" name={getName(secondId)} />
       <span className="text-gold-dim mx-1">{"\u2192"}</span>
-      <span className="text-gold">{resultName}</span>
+      <CardName
+        cardId={step.resultCardId}
+        className="text-gold"
+        name={getName(step.resultCardId)}
+      />
     </p>
   );
 }

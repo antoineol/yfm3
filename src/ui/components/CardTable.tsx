@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { formatCardId } from "../lib/format.ts";
+import { CardName } from "./CardName.tsx";
 import type { SortKey, SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
@@ -156,7 +157,7 @@ export function CardTable<T extends CardEntry>({
                 {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
                 <td className={`py-1.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
                 <td className={`py-1.5 px-1 ${nameColor}`}>
-                  <span>{e.name}</span>
+                  <CardName cardId={e.id} className={nameColor} name={e.name} />
                   {e.qty > 1 && (
                     <span
                       className={`${qtyColor} text-xs font-mono ml-1.5`}

@@ -1,5 +1,6 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useConvexAuth } from "convex/react";
+import { CardDetailModal } from "./components/CardDetailModal.tsx";
 import { LoaderBlock } from "./components/Loader.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
 import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
@@ -10,9 +11,16 @@ import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
+import { useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "hand", "data"] as const;
+
+function CardDetailModalWhenReady() {
+  const hasData = useHasReferenceData();
+  if (!hasData) return null;
+  return <CardDetailModal />;
+}
 
 export default function App() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -56,6 +64,7 @@ export default function App() {
       <Tabs.Panel className="flex-1 px-3 pt-2 pb-3 overflow-y-auto" value="data">
         <DataPanel />
       </Tabs.Panel>
+      <CardDetailModalWhenReady />
     </Tabs.Root>
   );
 }

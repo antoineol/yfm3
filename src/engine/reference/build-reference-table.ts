@@ -20,6 +20,11 @@ export interface RefCard {
   guardianStar2: string;
   name: string;
   color?: string;
+  level?: number;
+  attribute?: string;
+  starchipCost?: number;
+  password?: number;
+  description?: string;
 }
 
 export interface RefFusion {
@@ -71,6 +76,11 @@ export function buildReferenceTableData(rows: {
       color: parseColor(c.color),
       guardianStar1: parseGuardianStar(c.guardianStar1),
       guardianStar2: parseGuardianStar(c.guardianStar2),
+      level: c.level,
+      attribute: c.attribute,
+      starchipCost: c.starchipCost,
+      password: c.password,
+      description: c.description,
     });
   }
 

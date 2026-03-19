@@ -20,6 +20,11 @@ export interface CardSpec {
   guardianStar2?: GuardianStar;
   attack: AttackValue;
   defense: number;
+  level?: number;
+  attribute?: string;
+  description?: string;
+  starchipCost?: number;
+  password?: number;
 }
 
 export interface CardRefByName {
