@@ -1,14 +1,10 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
-import { formatRate } from "../lib/format.ts";
-import { useFusionTable } from "../lib/fusion-table-context.tsx";
+import { CardDetailBody } from "./CardDetail.tsx";
 import { CloseButton } from "./CloseButton.tsx";
-import { GameCard } from "./GameCard.tsx";
-import type { SortDir } from "./sortable-header.tsx";
-import { SortableHeader } from "./sortable-header.tsx";
+import { IconButton } from "./IconButton.tsx";
 
 export function CardDetailModal() {
   const { cardId, closeCard } = useCardDetail();
@@ -29,264 +25,39 @@ export function CardDetailModal() {
 
 function CardDetailContent({ card }: { card: CardSpec }) {
   return (
-    <div className="flex flex-col sm:flex-row">
-      {/* Card rendering (left / top on mobile) */}
-      <div className="flex flex-col items-center justify-center gap-2 p-4 sm:p-6 sm:border-r border-b sm:border-b-0 border-border-subtle bg-bg-deep/50">
-        <GameCard card={card} />
-        {/* <div className="flex items-center justify-between w-52 sm:w-60 px-1">
-          <span className="text-text-muted text-[10px] font-mono">{formatCardId(card.id)}</span>
-          <span className="text-text-secondary text-[10px] font-display truncate max-w-[80%] text-right">
-            {card.name}
-          </span>
-        </div> */}
-      </div>
-
-      {/* Card details (right / bottom on mobile) */}
-      <div className="flex-1 p-4 sm:p-5 flex flex-col gap-4 min-w-0">
+    <CardDetailBody
+      card={card}
+      header={
         <div className="flex items-start justify-between gap-2">
           <BaseDialog.Title className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
             {card.name}
           </BaseDialog.Title>
-          <BaseDialog.Close render={<CloseButton label="Close" />} />
-        </div>
-
-        <DetailPanel card={card} />
-      </div>
-    </div>
-  );
-}
-
-/* ── Detail Panel (right side) ───────────────────────────────── */
-
-function DetailPanel({ card }: { card: CardSpec }) {
-  const typeDisplay = card.kinds[0] ? formatKind(card.kinds[0]) : card.cardType;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-4">
-        {typeDisplay && (
-          <DetailSection label="Type">
-            <span className="text-sm text-text-primary">{typeDisplay}</span>
-          </DetailSection>
-        )}
-        {card.attribute && (
-          <DetailSection label="Attribute">
-            <span className="text-sm text-text-primary">{card.attribute}</span>
-          </DetailSection>
-        )}
-        {card.level !== undefined && card.isMonster && (
-          <DetailSection label="Level">
-            <span className="text-sm text-text-primary">{card.level}</span>
-          </DetailSection>
-        )}
-        {card.isMonster && (
-          <>
-            <DetailSection label="ATK">
-              <span className="text-base font-mono font-bold text-stat-atk">{card.attack}</span>
-            </DetailSection>
-            <DetailSection label="DEF">
-              <span className="text-base font-mono font-bold text-stat-def">{card.defense}</span>
-            </DetailSection>
-          </>
-        )}
-      </div>
-
-      {card.guardianStar1 && card.guardianStar1 !== "None" && (
-        <DetailSection label="Guardian Stars">
-          <div className="flex gap-3">
-            <GuardianStarRow star={card.guardianStar1} />
-            {card.guardianStar2 && card.guardianStar2 !== "None" && (
-              <GuardianStarRow star={card.guardianStar2} />
-            )}
+          <div className="flex items-center gap-1">
+            <IconButton
+              label="Open in new tab"
+              onClick={() =>
+                window.open(`${window.location.pathname}#data/cards/${card.id}`, "_blank")
+              }
+            >
+              <svg
+                aria-hidden="true"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" x2="21" y1="14" y2="3" />
+              </svg>
+            </IconButton>
+            <BaseDialog.Close render={<CloseButton label="Close" />} />
           </div>
-        </DetailSection>
-      )}
-
-      {card.description && (
-        <div className="rounded-lg border border-border-subtle bg-bg-surface/40 px-3 py-2.5">
-          <p className="text-sm text-text-primary leading-relaxed">{card.description}</p>
         </div>
-      )}
-
-      <div className="flex gap-4 text-xs text-text-muted">
-        {card.color && <span>Color: {capitalize(card.color)}</span>}
-        {card.starchipCost !== undefined && <span>Starchips: {card.starchipCost}</span>}
-        {card.password !== undefined && (
-          <span>Password: {String(card.password).padStart(8, "0")}</span>
-        )}
-      </div>
-
-      <DroppedBySection cardId={card.id} />
-    </div>
-  );
-}
-
-/* ── Dropped By Section ──────────────────────────────────────── */
-
-interface DuelistDrop {
-  duelistId: number;
-  duelistName: string;
-  saPow: number;
-  bcd: number;
-  saTec: number;
-}
-
-type DropSortKey = "saPow" | "bcd" | "saTec";
-type DropSortState = { key: DropSortKey; dir: SortDir } | null;
-
-function toggleDropSort(prev: DropSortState, key: DropSortKey): DropSortState {
-  if (prev?.key !== key) return { key, dir: "desc" };
-  if (prev.dir === "desc") return { key, dir: "asc" };
-  return null;
-}
-
-function sortDrops(drops: DuelistDrop[], sort: DropSortState): DuelistDrop[] {
-  if (!sort) return drops;
-  const dir = sort.dir === "asc" ? 1 : -1;
-  const getter = (d: DuelistDrop) => d[sort.key];
-  return [...drops].sort((a, b) => dir * (getter(a) - getter(b)));
-}
-
-function DroppedBySection({ cardId }: { cardId: number }) {
-  const { duelists } = useFusionTable();
-
-  const drops = useMemo(() => {
-    const result: DuelistDrop[] = [];
-    for (const row of duelists) {
-      if (row.cardId === cardId && (row.saPow > 0 || row.bcd > 0 || row.saTec > 0)) {
-        result.push({
-          duelistId: row.duelistId,
-          duelistName: row.duelistName,
-          saPow: row.saPow,
-          bcd: row.bcd,
-          saTec: row.saTec,
-        });
       }
-    }
-    result.sort((a, b) => b.saPow + b.bcd + b.saTec - (a.saPow + a.bcd + a.saTec));
-    return result;
-  }, [duelists, cardId]);
-
-  const [sort, setSort] = useState<DropSortState>(null);
-  const handleSort = useCallback(
-    (key: DropSortKey) => setSort((prev) => toggleDropSort(prev, key)),
-    [],
+    />
   );
-  const sortedDrops = useMemo(() => sortDrops(drops, sort), [drops, sort]);
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">
-        Dropped by
-      </span>
-      {drops.length === 0 ? (
-        <p className="text-xs text-text-muted italic">No duelists drop this card.</p>
-      ) : (
-        <div className="rounded-lg border border-border-subtle overflow-hidden max-h-48 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-bg-surface/80 backdrop-blur-sm text-text-muted uppercase tracking-wider text-[10px]">
-                <th className="text-left py-1.5 px-2.5 font-semibold">Duelist</th>
-                <SortableHeader
-                  align="text-right"
-                  dir={sort?.key === "saPow" ? sort.dir : undefined}
-                  label="SA-POW"
-                  onClick={() => handleSort("saPow")}
-                  px="px-2"
-                />
-                <SortableHeader
-                  align="text-right"
-                  dir={sort?.key === "bcd" ? sort.dir : undefined}
-                  label="BCD"
-                  onClick={() => handleSort("bcd")}
-                  px="px-2"
-                />
-                <SortableHeader
-                  align="text-right"
-                  dir={sort?.key === "saTec" ? sort.dir : undefined}
-                  label="SA-TEC"
-                  onClick={() => handleSort("saTec")}
-                  px="px-2"
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedDrops.map((d) => (
-                <tr
-                  className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
-                  key={d.duelistId}
-                >
-                  <td className="py-1.5 px-2.5">
-                    <a
-                      className="text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
-                      href={`#data/duelists/${d.duelistId}`}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      {d.duelistName}
-                    </a>
-                  </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
-                    {formatRate(d.saPow)}
-                  </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
-                    {formatRate(d.bcd)}
-                  </td>
-                  <td className="py-1.5 px-2 text-right font-mono text-gold/90">
-                    {formatRate(d.saTec)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DetailSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-/* ── Guardian Star Symbols ───────────────────────────────────── */
-
-const guardianStarSymbols: Record<string, string> = {
-  Sun: "\u2609",
-  Moon: "\u263D",
-  Mercury: "\u263F",
-  Venus: "\u2640",
-  Mars: "\u2642",
-  Jupiter: "\u2643",
-  Saturn: "\u2644",
-  Uranus: "\u2645",
-  Neptune: "\u2646",
-  Pluto: "\u2647",
-};
-
-function GuardianStarRow({ star }: { star: string }) {
-  const symbol = guardianStarSymbols[star];
-  return (
-    <span className="text-sm text-text-primary">
-      {symbol && <span className="text-gold mr-1.5">{symbol}</span>}
-      {star}
-    </span>
-  );
-}
-
-/* ── Helpers ──────────────────────────────────────────────────── */
-
-function formatKind(kind: string): string {
-  if (kind === "WingedBeast") return "Winged Beast";
-  if (kind === "SeaSerpent") return "Sea Serpent";
-  return kind;
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

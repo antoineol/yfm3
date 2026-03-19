@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
+import { CardDetailPage } from "./CardDetailPage.tsx";
 import { CardsTable } from "./CardsTable.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
@@ -16,20 +17,25 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
 
 const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
 
-function parseDataHash(hash: string): { view: View; duelistId: number | undefined } {
+function parseDataHash(hash: string): {
+  view: View;
+  duelistId: number | undefined;
+  cardId: number | undefined;
+} {
   const segments = hash.split("/");
-  // segments[0] = "data", segments[1] = sub-view, segments[2] = duelist id
+  // segments[0] = "data", segments[1] = sub-view, segments[2] = id
   const rawView = segments[1] ?? "";
   const view: View = VALID_VIEWS.has(rawView) ? (rawView as View) : "cards";
   const duelistId =
     view === "duelists" && segments[2] ? Number(segments[2]) || undefined : undefined;
-  return { view, duelistId };
+  const cardId = view === "cards" && segments[2] ? Number(segments[2]) || undefined : undefined;
+  return { view, duelistId, cardId };
 }
 
 export function DataPanel() {
   const data = useFusionTable();
   const [hash, setHash] = useHash();
-  const { view, duelistId } = parseDataHash(hash);
+  const { view, duelistId, cardId } = parseDataHash(hash);
 
   const setView = useCallback(
     (v: View) => {
@@ -50,7 +56,7 @@ export function DataPanel() {
       <div className="flex items-center justify-center">
         <ToggleGroup onChange={setView} options={VIEW_OPTIONS} value={view} />
       </div>
-      {view !== "duelists" && (
+      {view !== "duelists" && !cardId && (
         <div className="flex items-center gap-3">
           <span className="ml-auto text-xs text-text-muted">
             {view === "cards"
@@ -62,7 +68,11 @@ export function DataPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {view === "cards" ? (
-          <CardsTable cards={data.cardDb.cards} />
+          cardId ? (
+            <CardDetailPage cardId={cardId} />
+          ) : (
+            <CardsTable cards={data.cardDb.cards} />
+          )
         ) : view === "fusions" ? (
           <FusionsTable cardDb={data.cardDb} fusions={data.fusions} />
         ) : (
