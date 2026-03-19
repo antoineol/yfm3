@@ -1,7 +1,15 @@
+import type { RefObject } from "react";
 import { Button } from "../../components/Button.tsx";
 import type { LastAddedCardHintSwapModel } from "./use-last-added-card-hint.ts";
 
-export function LastAddedCardHintSwap({ swap }: { swap: LastAddedCardHintSwapModel }) {
+export function LastAddedCardHintSwap({
+  inputRef,
+  swap,
+}: {
+  inputRef: RefObject<HTMLInputElement | null>;
+  swap: LastAddedCardHintSwapModel;
+}) {
+  const focusInput = () => inputRef.current?.focus();
   if (swap.kind === "idle") return null;
 
   if (swap.kind === "loading") {
@@ -12,7 +20,15 @@ export function LastAddedCardHintSwap({ swap }: { swap: LastAddedCardHintSwapMod
     return (
       <div className="flex items-center justify-between gap-3">
         <p className="text-text-secondary">Deck swap applied.</p>
-        <Button disabled={swap.applying} onClick={swap.onRevert} size="sm" variant="outline">
+        <Button
+          disabled={swap.applying}
+          onClick={() => {
+            swap.onRevert();
+            focusInput();
+          }}
+          size="sm"
+          variant="outline"
+        >
           Revert
         </Button>
       </div>
@@ -28,10 +44,26 @@ export function LastAddedCardHintSwap({ swap }: { swap: LastAddedCardHintSwapMod
         <span className="font-mono text-stat-up">{`(+${swap.improvement.toFixed(1)} ATK)`}</span>
       </p>
       <div className="flex items-center gap-1 shrink-0">
-        <Button disabled={swap.applying} onClick={swap.onReject} size="sm" variant="ghost">
+        <Button
+          disabled={swap.applying}
+          onClick={() => {
+            swap.onReject();
+            focusInput();
+          }}
+          size="sm"
+          variant="ghost"
+        >
           Reject
         </Button>
-        <Button disabled={swap.applying} onClick={swap.onApply} size="sm" variant="outline">
+        <Button
+          disabled={swap.applying}
+          onClick={() => {
+            swap.onApply();
+            focusInput();
+          }}
+          size="sm"
+          variant="outline"
+        >
           Apply swap
         </Button>
       </div>

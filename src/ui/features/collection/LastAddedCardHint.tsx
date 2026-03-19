@@ -21,7 +21,7 @@ export function LastAddedCardHint({
         header={hint.header}
         inputRef={inputRef}
       />
-      <LastAddedCardHintSwap swap={hint.swap} />
+      <LastAddedCardHintSwap inputRef={inputRef} swap={hint.swap} />
     </div>
   );
 }
