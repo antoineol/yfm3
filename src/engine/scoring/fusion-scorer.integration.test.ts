@@ -101,6 +101,19 @@ describe("FusionScorer", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Non-monster cards as fusion materials
+// ---------------------------------------------------------------------------
+describe("FusionScorer with non-monster materials", () => {
+  it("non-monster equip card (ATK=0) fusing with a monster yields the fusion result ATK", () => {
+    // Card 302 = Sword of Dark Destruction (Equip, ATK=0)
+    // Card 430 = Gilford (Warrior, ATK=2800)
+    // Fusion: 302 + 430 → 267 = Buster Blader (ATK=3600)
+    const hand = new Uint16Array([302, 430, 73, 73, 73]);
+    expect(scorer.evaluateHand(hand, buf)).toBe(3600);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Agreement with reference scorer on all fixtures
 // ---------------------------------------------------------------------------
 describe("FusionScorer matches reference scorer", () => {

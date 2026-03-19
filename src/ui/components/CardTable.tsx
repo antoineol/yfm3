@@ -24,6 +24,10 @@ export interface CardEntry {
   kind3?: string;
   color?: string;
   diffStatus?: DiffStatus;
+  /** Copies available in collection (not in deck). */
+  collectionCount?: number;
+  /** Copies currently in deck. */
+  deckCount?: number;
 }
 
 export function buildCardEntries(
@@ -78,6 +82,11 @@ export function CardTable<T extends CardEntry>({
 
   const sorted = useMemo(() => sortEntries(entries, sort, cardSortGetters) as T[], [entries, sort]);
 
+  const first = entries[0] as T | undefined;
+  const showC = first?.collectionCount !== undefined;
+  const showD = first?.deckCount !== undefined;
+  const hasCopyColumns = showC || showD;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -90,6 +99,16 @@ export function CardTable<T extends CardEntry>({
               onClick={() => handleSortChange("id")}
             />
             <th className="text-left py-2 px-1 font-normal">Card</th>
+            {showC && (
+              <th className="text-center py-2 px-1 font-normal" title="In collection">
+                C
+              </th>
+            )}
+            {showD && (
+              <th className="text-center py-2 px-1 font-normal" title="In deck">
+                D
+              </th>
+            )}
             <SortableHeader
               dir={sort?.key === "atk" ? sort.dir : undefined}
               label="ATK"
@@ -158,12 +177,26 @@ export function CardTable<T extends CardEntry>({
                 <td className={`py-1.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
                 <td className={`py-1.5 px-1 ${nameColor}`}>
                   <CardName cardId={e.id} className={nameColor} name={e.name} />
-                  {e.qty > 1 && (
+                  {!hasCopyColumns && e.qty > 1 && (
                     <span
                       className={`${qtyColor} text-xs font-mono ml-1.5`}
                     >{`\u00d7${e.qty}`}</span>
                   )}
                 </td>
+                {showC && (
+                  <td
+                    className={`py-1.5 px-1 text-center font-mono text-xs ${e.collectionCount ? "text-text-secondary" : "text-text-muted/50"}`}
+                  >
+                    {e.collectionCount ?? 0}
+                  </td>
+                )}
+                {showD && (
+                  <td
+                    className={`py-1.5 px-1 text-center font-mono text-xs ${e.deckCount ? "text-text-secondary" : "text-text-muted/50"}`}
+                  >
+                    {e.deckCount ?? 0}
+                  </td>
+                )}
                 <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>{e.atk}</td>
                 <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>{e.def}</td>
                 {showKinds && (

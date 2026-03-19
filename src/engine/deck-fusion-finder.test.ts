@@ -132,6 +132,54 @@ describe("findDeckFusions respects fusionDepth", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Non-monster cards as fusion materials
+// ---------------------------------------------------------------------------
+describe("findDeckFusions with non-monster materials", () => {
+  let nmCardDb: CardDb;
+  let nmFusionTable: Int16Array;
+
+  beforeAll(() => {
+    nmCardDb = createCardDb();
+    addCard(nmCardDb, {
+      id: 50,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    addCard(nmCardDb, {
+      id: 51,
+      name: "Warrior",
+      kinds: [],
+      isMonster: true,
+      attack: 1200,
+      defense: 800,
+    });
+    addCard(nmCardDb, {
+      id: 52,
+      name: "Armed Warrior",
+      kinds: [],
+      isMonster: true,
+      attack: 2400,
+      defense: 1600,
+    });
+
+    nmFusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    nmFusionTable.fill(FUSION_NONE);
+    setFusion(nmFusionTable, 50, 51, 52); // Power Sword + Warrior → Armed Warrior
+  });
+
+  it("finds fusion when one material is a non-monster card", () => {
+    const results = findDeckFusions([50, 51], nmFusionTable, nmCardDb, 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultCardId).toBe(52);
+    expect(results[0]?.resultAtk).toBe(2400);
+    expect(results[0]?.materialPaths).toEqual([[50, 51]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("findDeckFusions edge cases", () => {

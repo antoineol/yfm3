@@ -1,6 +1,6 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
-import type { CardSpec } from "./card-model.ts";
+import { type CardSpec, nonMonsterTypes } from "./card-model.ts";
 import { addCard, createCardDb } from "./game-db.ts";
 
 /**
@@ -23,6 +23,7 @@ export function loadGameDataFromStrings(
     const name = cols[1] ?? "";
     const atk = parseInt(cols[2] ?? "", 10);
     const def = parseInt(cols[3] ?? "", 10);
+    const type = cols[6] ?? "";
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
     addCard(cardDb, {
       id,
@@ -30,7 +31,7 @@ export function loadGameDataFromStrings(
       attack: atk,
       defense: def,
       kinds: [],
-      isMonster: true,
+      isMonster: !nonMonsterTypes.has(type),
     });
   }
 

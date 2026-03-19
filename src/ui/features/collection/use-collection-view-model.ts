@@ -46,6 +46,8 @@ export function buildCollectionViewModel(
       totalOwned,
       inDeck,
       availableInCollection,
+      collectionCount: availableInCollection,
+      deckCount: inDeck,
     };
   });
 

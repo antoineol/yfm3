@@ -19,7 +19,10 @@ export function useDeckEntries(): DeckData | undefined {
 
     const deckCardIds = deck.map((d) => d.cardId);
     const counts = countById(deckCardIds);
-    const entries = buildCardEntries(counts, cardDb);
+    const entries = buildCardEntries(counts, cardDb).map((e) => ({
+      ...e,
+      deckCount: e.qty,
+    }));
 
     return { entries, deckLength: deck.length, deckCardIds };
   }, [deck, cardDb]);

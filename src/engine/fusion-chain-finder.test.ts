@@ -149,6 +149,74 @@ describe("findFusionChains respects fusionDepth", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Non-monster cards as fusion materials
+// ---------------------------------------------------------------------------
+describe("findFusionChains with non-monster materials", () => {
+  let nmCardDb: CardDb;
+  let nmFusionTable: Int16Array;
+
+  beforeAll(() => {
+    nmCardDb = createCardDb();
+    // Equip card (non-monster, ATK=0)
+    addCard(nmCardDb, {
+      id: 50,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    // Monster cards
+    addCard(nmCardDb, {
+      id: 51,
+      name: "Warrior",
+      kinds: [],
+      isMonster: true,
+      attack: 1200,
+      defense: 800,
+    });
+    addCard(nmCardDb, {
+      id: 52,
+      name: "Armed Warrior",
+      kinds: [],
+      isMonster: true,
+      attack: 2400,
+      defense: 1600,
+    });
+    addCard(nmCardDb, {
+      id: 53,
+      name: "Filler",
+      kinds: [],
+      isMonster: true,
+      attack: 300,
+      defense: 200,
+    });
+
+    nmFusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    nmFusionTable.fill(FUSION_NONE);
+    setFusion(nmFusionTable, 50, 51, 52); // Power Sword + Warrior → Armed Warrior (2400)
+  });
+
+  it("finds fusion when a non-monster (ATK=0) card is a material", () => {
+    const results = findFusionChains([50, 51, 53], nmFusionTable, nmCardDb, 3);
+    const armed = results.find((r) => r.resultCardId === 52);
+    expect(armed).toBeDefined();
+    expect(armed?.resultAtk).toBe(2400);
+    expect(armed?.materialCardIds.sort()).toEqual([50, 51]);
+  });
+
+  it("non-monster material appears in fusion steps", () => {
+    const results = findFusionChains([50, 51, 53], nmFusionTable, nmCardDb, 3);
+    const armed = results.find((r) => r.resultCardId === 52);
+    expect(armed?.steps[0]).toEqual({
+      material1CardId: 50,
+      material2CardId: 51,
+      resultCardId: 52,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("findFusionChains edge cases", () => {

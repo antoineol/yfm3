@@ -130,12 +130,17 @@ function buildCollectionViewModelFromState(
       return [id, availableInCollection] as const;
     }),
     cardDb,
-  ).map((entry) => ({
-    ...entry,
-    totalOwned: ownedCardTotals[entry.id] ?? 0,
-    inDeck: deckCounts.get(entry.id) ?? 0,
-    availableInCollection: entry.qty,
-  }));
+  ).map((entry) => {
+    const inDeck = deckCounts.get(entry.id) ?? 0;
+    return {
+      ...entry,
+      totalOwned: ownedCardTotals[entry.id] ?? 0,
+      inDeck,
+      availableInCollection: entry.qty,
+      collectionCount: entry.qty,
+      deckCount: inDeck,
+    };
+  });
 
   return {
     entries,
