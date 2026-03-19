@@ -6,6 +6,8 @@ import { formatCardId } from "../lib/format.ts";
 
 export type AutocompleteCard = CardSpec & {
   disabled?: boolean;
+  /** Number of copies already owned (displayed in dropdown). */
+  ownedCount?: number;
 };
 
 export type CardAutocompleteProps = {
@@ -107,6 +109,17 @@ function CardOption({ card }: { card: AutocompleteCard }) {
       <span className="flex-1 truncate text-text-primary group-data-highlighted:text-gold-bright transition-colors duration-75">
         {card.name}
       </span>
+      {card.ownedCount != null && (
+        <span
+          className={`shrink-0 min-w-5 text-center font-mono text-xs tabular-nums rounded px-1 transition-colors duration-75 ${
+            card.ownedCount > 0
+              ? "bg-gold/15 text-gold group-data-highlighted:bg-gold/25"
+              : "text-text-muted/40"
+          }`}
+        >
+          {card.ownedCount > 0 ? `×${card.ownedCount}` : "0"}
+        </span>
+      )}
       <span className="shrink-0 w-10 text-right font-mono text-xs tabular-nums text-stat-atk/70 group-data-highlighted:text-stat-atk transition-colors duration-75">
         {card.attack}
       </span>

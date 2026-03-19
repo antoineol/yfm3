@@ -43,6 +43,7 @@ export function HandFusionCalculator() {
     (materialDocIds: Id<"hand">[]) => {
       if (materialDocIds.length > 0) {
         void removeMultipleFromHand({ ids: materialDocIds });
+        inputRef.current?.focus();
       }
     },
     [removeMultipleFromHand],
@@ -95,7 +96,13 @@ export function HandFusionCalculator() {
             </button>
           )}
         </div>
-        <HandDisplay cards={hand} onRemove={(docId) => void removeFromHand({ id: docId })} />
+        <HandDisplay
+          cards={hand}
+          onRemove={(docId) => {
+            void removeFromHand({ id: docId });
+            inputRef.current?.focus();
+          }}
+        />
       </section>
 
       {/* Fusion results */}

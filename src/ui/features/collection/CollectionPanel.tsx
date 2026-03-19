@@ -34,10 +34,14 @@ export function CollectionPanel() {
 
   const autocompleteCards = useMemo(
     () =>
-      allCards.map((card) => ({
-        ...card,
-        disabled: (entriesByCardId?.get(card.id)?.totalOwned ?? 0) >= MAX_COPIES_PER_CARD,
-      })),
+      allCards.map((card) => {
+        const owned = entriesByCardId?.get(card.id)?.totalOwned ?? 0;
+        return {
+          ...card,
+          disabled: owned >= MAX_COPIES_PER_CARD,
+          ownedCount: owned,
+        };
+      }),
     [allCards, entriesByCardId],
   );
 
