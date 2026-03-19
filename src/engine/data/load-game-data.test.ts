@@ -28,9 +28,8 @@ describe("loadGameDataFromStrings", () => {
     const buf = createBuffers();
     const cards = loadGameData(buf);
 
-    // Card 722 equals MAX_CARD_ID and is filtered (out of range); valid IDs are 1..721
-    expect(cards.length).toBe(721);
-    // Card 1: Baby Dragon, ATK=1200
+    expect(cards.length).toBe(722);
+    // Card 1: Baby Dragon, ATK=1200 (from binary CSV)
     expect(buf.cardAtk[1]).toBe(1200);
     // Card 2: ATK=1400
     expect(buf.cardAtk[2]).toBe(1400);

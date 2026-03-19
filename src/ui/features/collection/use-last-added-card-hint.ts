@@ -97,14 +97,12 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
     removeCardId,
     successMessage,
     errorMessage,
-    errorPrefix,
     onSuccess,
   }: {
     addCardId: number;
     removeCardId: number;
     successMessage: string;
     errorMessage: string;
-    errorPrefix: string;
     onSuccess: () => void;
   }) {
     setApplying(true);
@@ -113,8 +111,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
         onSuccess();
         toast.success(successMessage);
       })
-      .catch((error) => {
-        console.error(errorPrefix, error);
+      .catch(() => {
         toast.error(errorMessage);
       })
       .finally(() => setApplying(false));
@@ -146,7 +143,6 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
               removeCardId: addedCardId,
               successMessage: "Deck swap reverted",
               errorMessage: "Could not revert deck swap",
-              errorPrefix: "Suggested swap revert failed:",
               onSuccess: () => setAppliedSwap(null),
             }),
         }
@@ -162,7 +158,6 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
                 removeCardId: suggestion.removedCardId,
                 successMessage: "Deck swap applied",
                 errorMessage: "Could not apply deck swap",
-                errorPrefix: "Suggested swap failed:",
                 onSuccess: () => {
                   clearSuggestion();
                   setAppliedSwap({

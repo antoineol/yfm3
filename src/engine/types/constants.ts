@@ -1,5 +1,5 @@
-/** Total number of distinct card IDs in the game (0..721). Used to size flat lookup tables. */
-export const MAX_CARD_ID = 722;
+/** Exclusive upper bound for card IDs (cards are 1..722). Used to size flat lookup tables. */
+export const MAX_CARD_ID = 723;
 
 /** A valid deck contains exactly 40 cards. */
 export const DECK_SIZE = 40;
