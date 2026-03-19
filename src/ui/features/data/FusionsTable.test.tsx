@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import type { RefFusion } from "../../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "../../lib/card-db-context.tsx";
+import { CardDetailProvider } from "../../lib/card-detail-context.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
 
 afterEach(cleanup);
@@ -49,9 +50,11 @@ const fusions: RefFusion[] = [
 
 function renderTable() {
   return render(
-    <CardDbProvider cardDb={cardDb}>
-      <FusionsTable cardDb={cardDb} fusions={fusions} />
-    </CardDbProvider>,
+    <CardDetailProvider>
+      <CardDbProvider cardDb={cardDb}>
+        <FusionsTable cardDb={cardDb} fusions={fusions} />
+      </CardDbProvider>
+    </CardDetailProvider>,
   );
 }
 
@@ -70,9 +73,11 @@ describe("FusionsTable", () => {
 
   it("shows empty state when no fusions exist", () => {
     render(
-      <CardDbProvider cardDb={cardDb}>
-        <FusionsTable cardDb={cardDb} fusions={[]} />
-      </CardDbProvider>,
+      <CardDetailProvider>
+        <CardDbProvider cardDb={cardDb}>
+          <FusionsTable cardDb={cardDb} fusions={[]} />
+        </CardDbProvider>
+      </CardDetailProvider>,
     );
     expect(screen.getByText("No fusions.")).toBeTruthy();
     expect(screen.getByText("0 fusions")).toBeTruthy();

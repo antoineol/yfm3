@@ -1,5 +1,5 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
-import { useCardDetail } from "../lib/card-detail-context.tsx";
+import { useOpenCard } from "../lib/card-detail-context.tsx";
 import { formatCardId } from "../lib/format.ts";
 
 const attributeOrb: Record<string, string> = {
@@ -35,7 +35,7 @@ const cardTypePalettes: Record<string, FramePalette> = {
 };
 
 export function MiniGameCard({ card, onRemove }: { card: CardSpec; onRemove?: () => void }) {
-  const { openCard } = useCardDetail();
+  const openCard = useOpenCard();
   const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;

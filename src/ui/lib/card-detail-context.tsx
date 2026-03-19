@@ -1,28 +1,46 @@
-import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 import type { CardId } from "../../engine/data/card-model.ts";
 
-interface CardDetailState {
-  cardId: CardId | null;
+interface CardDetailActions {
   openCard: (id: CardId) => void;
   closeCard: () => void;
 }
 
-const CardDetailContext = createContext<CardDetailState | null>(null);
+interface CardDetailState extends CardDetailActions {
+  cardId: CardId | null;
+}
+
+const ActionsContext = createContext<CardDetailActions | null>(null);
+const StateContext = createContext<CardId | null>(null);
 
 export function CardDetailProvider({ children }: { children: ReactNode }) {
   const [cardId, setCardId] = useState<CardId | null>(null);
-  const openCard = useCallback((id: CardId) => setCardId(id), []);
-  const closeCard = useCallback(() => setCardId(null), []);
+  const actions = useMemo<CardDetailActions>(
+    () => ({
+      openCard: (id: CardId) => setCardId(id),
+      closeCard: () => setCardId(null),
+    }),
+    [],
+  );
 
   return (
-    <CardDetailContext.Provider value={{ cardId, openCard, closeCard }}>
-      {children}
-    </CardDetailContext.Provider>
+    <ActionsContext.Provider value={actions}>
+      <StateContext.Provider value={cardId}>{children}</StateContext.Provider>
+    </ActionsContext.Provider>
   );
 }
 
+/** Subscribe to both card-id state and actions. Use only when you need `cardId`. */
 export function useCardDetail(): CardDetailState {
-  const ctx = useContext(CardDetailContext);
-  if (!ctx) throw new Error("useCardDetail must be used within a CardDetailProvider");
-  return ctx;
+  const actions = useContext(ActionsContext);
+  const cardId = useContext(StateContext);
+  if (!actions) throw new Error("useCardDetail must be used within a CardDetailProvider");
+  return { cardId, ...actions };
+}
+
+/** Subscribe to actions only — does not re-render when the open card changes. */
+export function useOpenCard(): (id: CardId) => void {
+  const actions = useContext(ActionsContext);
+  if (!actions) throw new Error("useOpenCard must be used within a CardDetailProvider");
+  return actions.openCard;
 }

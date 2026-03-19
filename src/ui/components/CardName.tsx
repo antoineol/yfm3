@@ -1,5 +1,5 @@
 import type { CardId } from "../../engine/data/card-model.ts";
-import { useCardDetail } from "../lib/card-detail-context.tsx";
+import { useOpenCard } from "../lib/card-detail-context.tsx";
 
 export function CardName({
   cardId,
@@ -10,7 +10,7 @@ export function CardName({
   name: string;
   className?: string;
 }) {
-  const { openCard } = useCardDetail();
+  const openCard = useOpenCard();
 
   return (
     <button

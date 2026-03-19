@@ -12,7 +12,7 @@ import { Button } from "../../components/Button.tsx";
 import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { useCardDetail } from "../../lib/card-detail-context.tsx";
+import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 
@@ -123,7 +123,7 @@ function FusionResultRow({
 
 /** Tiny card thumbnail — full card replica at thumbnail scale, clickable to open detail. */
 function FusionCardThumb({ card }: { card: CardSpec }) {
-  const { openCard } = useCardDetail();
+  const openCard = useOpenCard();
   const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const ct = card.cardType ?? "";

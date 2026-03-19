@@ -54,7 +54,12 @@ export function DataPanel() {
   return (
     <div className="flex flex-col gap-3 h-full max-w-5xl mx-auto w-full">
       <div className="flex items-center justify-center">
-        <ToggleGroup onChange={setView} options={VIEW_OPTIONS} value={view} />
+        <ToggleGroup
+          onChange={setView}
+          options={VIEW_OPTIONS}
+          toHref={(v) => `#data/${v}`}
+          value={view}
+        />
       </div>
       {view === "cards" && !cardId && (
         <div className="flex items-center gap-3">

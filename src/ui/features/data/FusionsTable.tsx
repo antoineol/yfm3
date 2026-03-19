@@ -4,6 +4,7 @@ import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { RefFusion } from "../../../engine/reference/build-reference-table.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
+import { CardName } from "../../components/CardName.tsx";
 
 interface FusionsTableProps {
   fusions: RefFusion[];
@@ -56,8 +57,9 @@ export function FusionsTable({ fusions, cardDb }: FusionsTableProps) {
 }
 
 function FusionsRows({ fusions, cardDb }: { fusions: RefFusion[]; cardDb: CardDb }) {
-  function name(id: number): string {
-    return cardDb.cardsById.get(id)?.name ?? `#${id}`;
+  function cardName(id: number) {
+    const card = cardDb.cardsById.get(id);
+    return card ? <CardName cardId={card.id} name={card.name} /> : `#${id}`;
   }
 
   return (
@@ -76,9 +78,9 @@ function FusionsRows({ fusions, cardDb }: { fusions: RefFusion[]; cardDb: CardDb
             className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
             key={f.material1Id * MAX_CARD_ID + f.material2Id}
           >
-            <td className="py-1.5 px-1 text-text-primary">{name(f.material1Id)}</td>
-            <td className="py-1.5 px-1 text-text-primary">{name(f.material2Id)}</td>
-            <td className="py-1.5 px-1 text-gold">{name(f.resultId)}</td>
+            <td className="py-1.5 px-1 text-text-primary">{cardName(f.material1Id)}</td>
+            <td className="py-1.5 px-1 text-text-primary">{cardName(f.material2Id)}</td>
+            <td className="py-1.5 px-1 text-gold">{cardName(f.resultId)}</td>
             <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">{f.resultAtk}</td>
           </tr>
         ))}
