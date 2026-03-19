@@ -2,8 +2,8 @@ import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
-import { formatCardId } from "../lib/format.ts";
 import { CloseButton } from "./CloseButton.tsx";
+import { GameCard } from "./GameCard.tsx";
 
 export function CardDetailModal() {
   const { cardId, closeCard } = useCardDetail();
@@ -23,20 +23,17 @@ export function CardDetailModal() {
 }
 
 function CardDetailContent({ card }: { card: CardSpec }) {
-  const firstKind = card.kinds[0];
-  const isMonster = firstKind !== undefined && !NON_MONSTER_TYPES.has(firstKind);
-
   return (
     <div className="flex flex-col sm:flex-row">
       {/* Card rendering (left / top on mobile) */}
       <div className="flex flex-col items-center justify-center gap-2 p-4 sm:p-6 sm:border-r border-b sm:border-b-0 border-border-subtle bg-bg-deep/50">
-        <GameCard card={card} isMonster={isMonster} />
-        <div className="flex items-center justify-between w-52 sm:w-60 px-1">
+        <GameCard card={card} />
+        {/* <div className="flex items-center justify-between w-52 sm:w-60 px-1">
           <span className="text-text-muted text-[10px] font-mono">{formatCardId(card.id)}</span>
           <span className="text-text-secondary text-[10px] font-display truncate max-w-[80%] text-right">
             {card.name}
           </span>
-        </div>
+        </div> */}
       </div>
 
       {/* Card details (right / bottom on mobile) */}
@@ -48,7 +45,7 @@ function CardDetailContent({ card }: { card: CardSpec }) {
           <BaseDialog.Close render={<CloseButton label="Close" />} />
         </div>
 
-        <DetailPanel card={card} isMonster={isMonster} />
+        <DetailPanel card={card} />
       </div>
     </div>
   );
@@ -56,15 +53,15 @@ function CardDetailContent({ card }: { card: CardSpec }) {
 
 /* ── Detail Panel (right side) ───────────────────────────────── */
 
-function DetailPanel({ card, isMonster }: { card: CardSpec; isMonster: boolean }) {
-  const firstKind = card.kinds[0];
+function DetailPanel({ card }: { card: CardSpec }) {
+  const typeDisplay = card.kinds[0] ? formatKind(card.kinds[0]) : card.cardType;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-4">
-        {firstKind && (
+        {typeDisplay && (
           <DetailSection label="Type">
-            <span className="text-sm text-text-primary">{formatKind(firstKind)}</span>
+            <span className="text-sm text-text-primary">{typeDisplay}</span>
           </DetailSection>
         )}
         {card.attribute && (
@@ -72,14 +69,14 @@ function DetailPanel({ card, isMonster }: { card: CardSpec; isMonster: boolean }
             <span className="text-sm text-text-primary">{card.attribute}</span>
           </DetailSection>
         )}
-        {card.level !== undefined && isMonster && (
+        {card.level !== undefined && card.isMonster && (
           <DetailSection label="Level">
             <span className="text-sm text-text-primary">{card.level}</span>
           </DetailSection>
         )}
       </div>
 
-      {isMonster && (
+      {card.isMonster && (
         <div className="flex gap-6">
           <DetailSection label="ATK">
             <span className="text-base font-mono font-bold text-stat-atk">{card.attack}</span>
@@ -103,9 +100,7 @@ function DetailPanel({ card, isMonster }: { card: CardSpec; isMonster: boolean }
 
       {card.description && (
         <div className="rounded-lg border border-border-subtle bg-bg-surface/40 px-3 py-2.5">
-          <p className="text-sm text-text-primary leading-relaxed whitespace-pre-line">
-            {card.description}
-          </p>
+          <p className="text-sm text-text-primary leading-relaxed">{card.description}</p>
         </div>
       )}
 
@@ -151,171 +146,6 @@ function GuardianStarRow({ star }: { star: string }) {
       {symbol && <span className="text-gold mr-1.5">{symbol}</span>}
       {star}
     </span>
-  );
-}
-
-/* ── Game Card Rendering ─────────────────────────────────────── */
-
-const NON_MONSTER_TYPES = new Set(["Magic", "Equip", "Trap", "Ritual"]);
-
-/** Attribute orb colors — the small sphere next to the card name. */
-const attributeOrb: Record<string, string> = {
-  Light: "#e8c840",
-  Dark: "#7848b0",
-  Fire: "#d04828",
-  Water: "#3868c8",
-  Earth: "#a08030",
-  Wind: "#48a048",
-};
-
-/**
- * Each card type has a specific color palette for the frame, sampled from the game.
- * lo = shadow tone, mid = main frame, hi = highlight, border = name band border
- */
-interface FramePalette {
-  lo: string;
-  mid: string;
-  hi: string;
-  border: string;
-  text: string;
-}
-
-const monsterPalette: FramePalette = {
-  lo: "#6a5020",
-  mid: "#b89838",
-  hi: "#d4b850",
-  border: "#8a7028",
-  text: "#2a1e0a",
-};
-
-const cardTypePalettes: Record<string, FramePalette> = {
-  Magic: {
-    lo: "#183880",
-    mid: "#2858c0",
-    hi: "#4070e0",
-    border: "#1e3090",
-    text: "#0a0e2a",
-  },
-  Equip: {
-    lo: "#1a5020",
-    mid: "#308838",
-    hi: "#50a858",
-    border: "#246828",
-    text: "#0a2a0e",
-  },
-  Trap: {
-    lo: "#802058",
-    mid: "#c04888",
-    hi: "#d868a8",
-    border: "#a03070",
-    text: "#2a0a1e",
-  },
-  Ritual: {
-    lo: "#185868",
-    mid: "#2888a0",
-    hi: "#48a8c0",
-    border: "#207088",
-    text: "#0a1e2a",
-  },
-};
-
-function getCardTypeLabel(firstKind: string): string {
-  switch (firstKind) {
-    case "Magic":
-      return "Normal Magic Card";
-    case "Equip":
-      return "Equip Magic Card";
-    case "Trap":
-      return "Trap Card";
-    case "Ritual":
-      return "Ritual Card";
-    default:
-      return "";
-  }
-}
-
-function GameCard({ card, isMonster }: { card: CardSpec; isMonster: boolean }) {
-  const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
-  const firstKind = card.kinds[0];
-  const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
-  const p =
-    firstKind && !isMonster ? (cardTypePalettes[firstKind] ?? monsterPalette) : monsterPalette;
-  const typeLabel = firstKind && !isMonster ? getCardTypeLabel(firstKind) : "";
-
-  return (
-    <div
-      className="fm-card w-52 sm:w-60"
-      style={
-        {
-          "--fm-lo": p.lo,
-          "--fm-mid": p.mid,
-          "--fm-hi": p.hi,
-          "--fm-border": p.border,
-          "--fm-text": p.text,
-        } as React.CSSProperties
-      }
-    >
-      {/* Outer dark edge */}
-      <div className="fm-card-edge">
-        {/* Golden frame */}
-        <div className="fm-card-frame">
-          {/* ── Name band ── */}
-          <div className="fm-card-name-band">
-            <span className="fm-card-name-text">{card.name}</span>
-            {orbColor && (
-              <span
-                aria-label={card.attribute}
-                className="fm-card-orb"
-                role="img"
-                style={{
-                  background: `radial-gradient(circle at 38% 32%, #fff8 10%, ${orbColor} 50%, ${orbColor}88 100%)`,
-                }}
-              />
-            )}
-          </div>
-
-          {/* ── Type line for non-monsters ── */}
-          {typeLabel && <p className="fm-card-type-line">[ {typeLabel} ]</p>}
-
-          {/* ── Level stars for monsters ── */}
-          {card.level !== undefined && card.level > 0 && isMonster && (
-            <div className="fm-card-stars">
-              {Array.from({ length: card.level }, (_, i) => (
-                <span className="fm-card-star" key={`star-${String(i)}`}>
-                  ★
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* ── Artwork ── */}
-          <div className="fm-card-art-well">
-            <img alt={card.name} className="fm-card-art-img" loading="lazy" src={artSrc} />
-          </div>
-
-          {/* ── Bottom zone ── */}
-          <div className={`fm-card-bottom ${isMonster ? "fm-card-bottom--split" : ""}`}>
-            {card.description && (
-              <div className="fm-card-desc">
-                <p className="fm-card-desc-text">{card.description}</p>
-              </div>
-            )}
-            {isMonster && (
-              <div className="fm-card-stats">
-                <div className="fm-card-stat-row">
-                  <span className="fm-card-stat-label">ATK</span>
-                  <span className="fm-card-stat-value">{card.attack}</span>
-                </div>
-                <div className="fm-card-stat-row">
-                  <span className="fm-card-stat-label">DFD</span>
-                  <span className="fm-card-stat-value">{card.defense}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

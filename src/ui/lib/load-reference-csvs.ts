@@ -82,7 +82,9 @@ function parseCardsCsv(csv: string): RefCard[] {
       attribute: attribute || undefined,
       starchipCost: Number.isFinite(starchipCost) ? starchipCost : undefined,
       password: Number.isFinite(password) ? password : undefined,
-      description: description ? description.replaceAll("\\n", "\n").trim() : undefined,
+      description: description
+        ? description.replaceAll("\\n", " ").replace(/ {2,}/g, " ").trim()
+        : undefined,
     });
   }
   return cards;

@@ -1,4 +1,9 @@
-import type { CardKind, Color, GuardianStar } from "../data/card-model.ts";
+import {
+  type CardKind,
+  type Color,
+  type GuardianStar,
+  nonMonsterTypes,
+} from "../data/card-model.ts";
 import { addCard, type CardDb, createCardDb } from "../data/game-db.ts";
 import { cardKinds, type colors, excludedKinds, guardianStars } from "../data/rp-types.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
@@ -85,6 +90,8 @@ export function buildReferenceTableData(rows: {
       attack: c.atk,
       defense: c.def,
       kinds: kind && !isExcluded ? [kind] : [],
+      cardType: c.type || undefined,
+      isMonster: !nonMonsterTypes.has(c.type),
       color: parseColor(c.color),
       guardianStar1: parseGuardianStar(c.guardianStar1),
       guardianStar2: parseGuardianStar(c.guardianStar2),

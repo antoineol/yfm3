@@ -11,10 +11,16 @@ export type AttackValue = number;
 export type Collection = ReadonlyMap<CardId, number>;
 
 // The immutable definition of a card
+export const nonMonsterTypes = new Set(["Magic", "Equip", "Trap", "Ritual"]);
+
 export interface CardSpec {
   id: CardId;
   name: string;
   kinds: CardKind[];
+  /** Raw type string from the CSV (e.g. "Dragon", "Magic", "Equip", "Trap", "Ritual"). */
+  cardType?: string;
+  /** true for monster cards (have ATK/DEF/stars), false for spell/trap cards. */
+  isMonster: boolean;
   color?: Color;
   guardianStar1?: GuardianStar;
   guardianStar2?: GuardianStar;

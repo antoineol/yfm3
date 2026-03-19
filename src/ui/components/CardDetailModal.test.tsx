@@ -13,6 +13,7 @@ const testCard: CardSpec = {
   id: 1,
   name: "Baby Dragon",
   kinds: ["Dragon"],
+  isMonster: true,
   attack: 1200,
   defense: 700,
   level: 3,

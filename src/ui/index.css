@@ -15,7 +15,7 @@
 
   --color-text-primary: #e8e0d4;
   --color-text-secondary: #a09585;
-  --color-text-muted: #7d7568;
+  --color-text-muted: #a89b8d;
 
   --color-gold: #c9a84c;
   --color-gold-dim: #8a7535;
@@ -102,19 +102,19 @@ input[type="number"] {
   padding: 2px;
 }
 
-/* Main frame — thick colored surface with grain texture */
+/* Main frame — thick colored surface with subtle irregular texture */
 .fm-card-frame {
   border-radius: 2px;
   padding: 8px 7px 7px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* fine grain texture */
+  /* subtle irregular noise via SVG turbulence filter */
   background:
-    repeating-conic-gradient(var(--fm-lo) 0% 25%, transparent 0% 50%) 0 0 / 3px 3px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
     /* brushed diagonal sheen */
     linear-gradient(
-      145deg,
+      215deg,
       var(--fm-lo) 0%,
       var(--fm-mid) 15%,
       var(--fm-hi) 35%,
@@ -186,15 +186,30 @@ input[type="number"] {
   }
 }
 
+/* ── Mid zone — fixed height between name and art ── */
+.fm-card-mid-zone {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .fm-card-mid-zone {
+    height: 20px;
+  }
+}
+
 /* ── Type line (non-monsters) ── */
 .fm-card-type-line {
   font-family: var(--font-display);
   font-size: 8px;
   text-align: right;
+  width: 100%;
   color: var(--fm-text);
   opacity: 0.8;
-  padding: 0 4px;
-  margin-top: -2px;
+  margin: 0;
+  padding-right: 2px;
 }
 
 @media (min-width: 640px) {
@@ -206,9 +221,10 @@ input[type="number"] {
 /* ── Level stars ── */
 .fm-card-stars {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 1px;
-  padding: 2px 0;
+  width: 100%;
+  padding-right: 2px;
 }
 
 .fm-card-star {
@@ -251,38 +267,39 @@ input[type="number"] {
   align-items: stretch;
 }
 
-/* Description box — tan parchment with orange/gold border */
+/* Description box — tan parchment with orange/gold border, fixed height */
 .fm-card-desc {
   flex: 1;
   min-width: 0;
+  height: 52px;
   padding: 4px 5px;
   border: 2px solid #c88820;
   background: linear-gradient(180deg, #e8d8b0 0%, #d8c898 100%);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .fm-card-desc-text {
   font-family: var(--font-body);
   font-size: 7px;
-  line-height: 1.35;
+  line-height: 1.4;
   color: #282018;
+  overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 5;
   line-clamp: 5;
   -webkit-box-orient: vertical;
-  overflow: hidden;
-  white-space: pre-line;
 }
 
 @media (min-width: 640px) {
   .fm-card-desc {
+    height: 60px;
     padding: 5px 6px;
   }
   .fm-card-desc-text {
     font-size: 8px;
-    line-height: 1.4;
-    -webkit-line-clamp: 6;
-    line-clamp: 6;
+    -webkit-line-clamp: 5;
+    line-clamp: 5;
   }
 }
 

@@ -13,7 +13,7 @@ let cardDb: CardDb;
 let fusionTable: Int16Array;
 
 function addTestCard(db: CardDb, id: number, name: string, atk: number): void {
-  addCard(db, { id, name, kinds: [], attack: atk, defense: 0 });
+  addCard(db, { id, name, kinds: [], isMonster: true, attack: atk, defense: 0 });
 }
 
 function setFusion(ft: Int16Array, a: number, b: number, result: number): void {

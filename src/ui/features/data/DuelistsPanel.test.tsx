@@ -9,9 +9,30 @@ import { DuelistsPanel, formatRate } from "./DuelistsPanel.tsx";
 afterEach(cleanup);
 
 const cardDb = createCardDb();
-addCard(cardDb, { id: 10, name: "Dragon A", attack: 1200, defense: 700, kinds: ["Dragon"] });
-addCard(cardDb, { id: 20, name: "Fairy B", attack: 800, defense: 600, kinds: ["Fairy"] });
-addCard(cardDb, { id: 30, name: "Beast C", attack: 1500, defense: 1000, kinds: ["Beast"] });
+addCard(cardDb, {
+  id: 10,
+  name: "Dragon A",
+  attack: 1200,
+  defense: 700,
+  kinds: ["Dragon"],
+  isMonster: true,
+});
+addCard(cardDb, {
+  id: 20,
+  name: "Fairy B",
+  attack: 800,
+  defense: 600,
+  kinds: ["Fairy"],
+  isMonster: true,
+});
+addCard(cardDb, {
+  id: 30,
+  name: "Beast C",
+  attack: 1500,
+  defense: 1000,
+  kinds: ["Beast"],
+  isMonster: true,
+});
 
 const duelists: RefDuelistCard[] = [
   { duelistId: 1, duelistName: "Simon Muran", cardId: 10, deck: 75, saPow: 45, bcd: 0, saTec: 15 },

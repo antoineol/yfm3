@@ -24,7 +24,14 @@ export function loadGameDataFromStrings(
     const atk = parseInt(cols[2] ?? "", 10);
     const def = parseInt(cols[3] ?? "", 10);
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
-    addCard(cardDb, { id, name: name || `Card #${id}`, attack: atk, defense: def, kinds: [] });
+    addCard(cardDb, {
+      id,
+      name: name || `Card #${id}`,
+      attack: atk,
+      defense: def,
+      kinds: [],
+      isMonster: true,
+    });
   }
 
   for (const card of cardDb.cards) {

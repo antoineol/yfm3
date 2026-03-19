@@ -20,8 +20,8 @@ const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
 const fakeCardDb: CardDb = {
   cards: [],
   cardsById: new Map([
-    [1, { id: 1, name: "Blue-Eyes", kinds: [], attack: 3000, defense: 2500 }],
-    [2, { id: 2, name: "Dark Magician", kinds: [], attack: 2500, defense: 2100 }],
+    [1, { id: 1, name: "Blue-Eyes", kinds: [], isMonster: true, attack: 3000, defense: 2500 }],
+    [2, { id: 2, name: "Dark Magician", kinds: [], isMonster: true, attack: 2500, defense: 2100 }],
   ]),
   cardsByName: new Map(),
 } as CardDb;
