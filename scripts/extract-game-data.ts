@@ -474,6 +474,10 @@ interface Fusion {
 function extractFusions(waMrg: Buffer): Fusion[] {
   const data = waMrg.subarray(FUSION_TABLE_OFFSET, FUSION_TABLE_OFFSET + FUSION_TABLE_SIZE);
   const fusions: Fusion[] = [];
+  // The binary may contain duplicate (material1, material2) pairs from
+  // overlapping range-based fusion rules.  The game uses first-match-wins,
+  // so we keep only the first occurrence for each pair.
+  const seen = new Set<string>();
 
   for (let cardI = 0; cardI < NUM_CARDS; cardI++) {
     let offset = data.readUInt16LE(2 + cardI * 2);
@@ -498,15 +502,25 @@ function extractFusions(waMrg: Buffer): Fusion[] {
       const b3 = byte(data, pos + 3);
       const b4 = byte(data, pos + 4);
 
+      const mat1 = cardI + 1;
+
       const mat2a = ((ctrl & 0x03) << 8) | b1;
       const resa = (((ctrl >> 2) & 0x03) << 8) | b2;
-      fusions.push({ material1: cardI + 1, material2: mat2a, result: resa });
+      const keyA = `${mat1},${mat2a}`;
+      if (!seen.has(keyA)) {
+        seen.add(keyA);
+        fusions.push({ material1: mat1, material2: mat2a, result: resa });
+      }
       read++;
 
       if (read < count) {
         const mat2b = (((ctrl >> 4) & 0x03) << 8) | b3;
         const resb = (((ctrl >> 6) & 0x03) << 8) | b4;
-        fusions.push({ material1: cardI + 1, material2: mat2b, result: resb });
+        const keyB = `${mat1},${mat2b}`;
+        if (!seen.has(keyB)) {
+          seen.add(keyB);
+          fusions.push({ material1: mat1, material2: mat2b, result: resb });
+        }
         read++;
       }
 
