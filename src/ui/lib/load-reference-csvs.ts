@@ -1,4 +1,8 @@
-import type { RefCard, RefFusion } from "../../engine/reference/build-reference-table.ts";
+import type {
+  RefCard,
+  RefDuelistCard,
+  RefFusion,
+} from "../../engine/reference/build-reference-table.ts";
 
 /**
  * Fetch and parse the reference CSVs from /data/ (static assets in /public).
@@ -7,15 +11,18 @@ import type { RefCard, RefFusion } from "../../engine/reference/build-reference-
 export async function loadReferenceCsvs(): Promise<{
   cards: RefCard[];
   fusions: RefFusion[];
+  duelists: RefDuelistCard[];
 }> {
-  const [cardsCsv, fusionsCsv] = await Promise.all([
+  const [cardsCsv, fusionsCsv, duelistsCsv] = await Promise.all([
     fetch("/data/cards.csv").then((r) => r.text()),
     fetch("/data/fusions.csv").then((r) => r.text()),
+    fetch("/data/duelists.csv").then((r) => r.text()),
   ]);
 
   const cards = parseCardsCsv(cardsCsv);
   const fusions = parseFusionsCsv(fusionsCsv);
-  return { cards, fusions };
+  const duelists = parseDuelistsCsv(duelistsCsv);
+  return { cards, fusions, duelists };
 }
 
 function parseCsvRows(csv: string): string[][] {
@@ -97,4 +104,28 @@ function parseFusionsCsv(csv: string): RefFusion[] {
     fusions.push({ material1Id, material2Id, resultId, resultAtk });
   }
   return fusions;
+}
+
+function parseDuelistsCsv(csv: string): RefDuelistCard[] {
+  const rows: RefDuelistCard[] = [];
+  for (const cols of parseCsvRows(csv)) {
+    const duelistId = parseInt(cols[0] ?? "", 10);
+    const duelistName = cols[1] ?? "";
+    const cardId = parseInt(cols[2] ?? "", 10);
+    const deck = parseInt(cols[3] ?? "", 10);
+    const saPow = parseInt(cols[4] ?? "", 10);
+    const bcd = parseInt(cols[5] ?? "", 10);
+    const saTec = parseInt(cols[6] ?? "", 10);
+    if (!Number.isFinite(duelistId) || !Number.isFinite(cardId)) continue;
+    rows.push({
+      duelistId,
+      duelistName: duelistName || `Duelist #${duelistId}`,
+      cardId,
+      deck: deck || 0,
+      saPow: saPow || 0,
+      bcd: bcd || 0,
+      saTec: saTec || 0,
+    });
+  }
+  return rows;
 }

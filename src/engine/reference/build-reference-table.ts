@@ -9,6 +9,7 @@ export interface ReferenceTableData {
   cardDb: CardDb;
   maxCardId: number;
   fusions: RefFusion[];
+  duelists: RefDuelistCard[];
 }
 
 export interface RefCard {
@@ -32,6 +33,16 @@ export interface RefFusion {
   material2Id: number;
   resultId: number;
   resultAtk: number;
+}
+
+export interface RefDuelistCard {
+  duelistId: number;
+  duelistName: string;
+  cardId: number;
+  deck: number;
+  saPow: number;
+  bcd: number;
+  saTec: number;
 }
 
 const typeToKind = new Map<string, CardKind>([...cardKinds].map((k) => [k, k] as const));
@@ -61,6 +72,7 @@ function parseGuardianStar(raw: string): GuardianStar | undefined {
 export function buildReferenceTableData(rows: {
   cards: RefCard[];
   fusions: RefFusion[];
+  duelists: RefDuelistCard[];
 }): ReferenceTableData {
   const cardDb = createCardDb();
   for (const c of rows.cards) {
@@ -94,5 +106,12 @@ export function buildReferenceTableData(rows: {
     fusionTable[f.material2Id * MAX_CARD_ID + f.material1Id] = f.resultId;
   }
 
-  return { fusionTable, cardAtk, cardDb, maxCardId: MAX_CARD_ID, fusions: rows.fusions };
+  return {
+    fusionTable,
+    cardAtk,
+    cardDb,
+    maxCardId: MAX_CARD_ID,
+    fusions: rows.fusions,
+    duelists: rows.duelists,
+  };
 }
