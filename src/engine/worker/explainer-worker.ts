@@ -1,13 +1,14 @@
 import { setConfig } from "../config.ts";
-import { initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
+import { ensureCsvLoaded, initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { explainScore } from "../score-explainer.ts";
 import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { ExplainerInit, ExplainerResult } from "./messages.ts";
 
-self.onmessage = (e: MessageEvent<ExplainerInit>) => {
+self.onmessage = async (e: MessageEvent<ExplainerInit>) => {
   const { collection, deck, config } = e.data;
   setConfig(config);
+  await ensureCsvLoaded();
 
   const collectionMap = new Map(
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),

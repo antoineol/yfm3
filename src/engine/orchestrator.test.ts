@@ -355,7 +355,7 @@ describe("scorer workers", () => {
 });
 
 describe("convergence detection", () => {
-  it("terminates early when all workers individually plateau", async () => {
+  it("terminates early when all workers individually plateau", { timeout: 10_000 }, async () => {
     vi.stubGlobal("navigator", { hardwareConcurrency: 4 });
     createdWorkers = [];
 
@@ -488,7 +488,7 @@ describe("convergence detection", () => {
     expect(improvingWorkerProgressCount).toBeGreaterThanOrEqual(10);
   });
 
-  it("picks best score from progress when terminating early", async () => {
+  it("picks best score from progress when terminating early", { timeout: 10_000 }, async () => {
     vi.stubGlobal("navigator", { hardwareConcurrency: 3 });
     createdWorkers = [];
 

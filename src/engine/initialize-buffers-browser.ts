@@ -5,14 +5,23 @@ import { loadGameDataFromStrings } from "./data/load-game-data-core.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
 
-const [cardsCsvRaw, fusionsCsvRaw] = await Promise.all([
-  fetch("/data/cards.csv").then((r) => r.text()),
-  fetch("/data/fusions.csv").then((r) => r.text()),
-]);
+let cardsCsvRaw: string;
+let fusionsCsvRaw: string;
+let csvLoaded = false;
+
+/** Fetch CSV game data. Safe to call multiple times — only fetches once. */
+export async function ensureCsvLoaded(): Promise<void> {
+  if (csvLoaded) return;
+  [cardsCsvRaw, fusionsCsvRaw] = await Promise.all([
+    fetch("/data/cards.csv").then((r) => r.text()),
+    fetch("/data/fusions.csv").then((r) => r.text()),
+  ]);
+  csvLoaded = true;
+}
 
 /**
  * Browser-compatible initialization pipeline.
- * Fetches CSV data from /public at module load time.
+ * Caller must `await ensureCsvLoaded()` before calling this.
  */
 export function initializeBuffersBrowser(collection: Collection, rand: () => number): OptBuffers {
   const { buf, cards } = initializeBrowserGameBuffers(rand);

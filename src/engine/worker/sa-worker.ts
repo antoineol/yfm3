@@ -1,5 +1,5 @@
 import { setConfig } from "../config.ts";
-import { initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
+import { ensureCsvLoaded, initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { SAOptimizer } from "../optimizer/sa-optimizer.ts";
 import { computeInitialScores } from "../scoring/compute-initial-scores.ts";
@@ -7,9 +7,10 @@ import { DeltaEvaluator } from "../scoring/delta-evaluator.ts";
 import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { WorkerInit, WorkerProgress, WorkerResult } from "./messages.ts";
 
-self.onmessage = (e: MessageEvent<WorkerInit>) => {
+self.onmessage = async (e: MessageEvent<WorkerInit>) => {
   const { collection, seed, timeBudgetMs, initialDeck, config } = e.data;
   setConfig(config);
+  await ensureCsvLoaded();
 
   const collectionMap = new Map(
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),

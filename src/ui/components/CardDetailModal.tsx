@@ -1,5 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
@@ -7,6 +7,8 @@ import { formatRate } from "../lib/format.ts";
 import { useFusionTable } from "../lib/fusion-table-context.tsx";
 import { CloseButton } from "./CloseButton.tsx";
 import { GameCard } from "./GameCard.tsx";
+import type { SortDir } from "./sortable-header.tsx";
+import { SortableHeader } from "./sortable-header.tsx";
 
 export function CardDetailModal() {
   const { cardId, closeCard } = useCardDetail();
@@ -77,22 +79,21 @@ function DetailPanel({ card }: { card: CardSpec }) {
             <span className="text-sm text-text-primary">{card.level}</span>
           </DetailSection>
         )}
+        {card.isMonster && (
+          <>
+            <DetailSection label="ATK">
+              <span className="text-base font-mono font-bold text-stat-atk">{card.attack}</span>
+            </DetailSection>
+            <DetailSection label="DEF">
+              <span className="text-base font-mono font-bold text-stat-def">{card.defense}</span>
+            </DetailSection>
+          </>
+        )}
       </div>
 
-      {card.isMonster && (
-        <div className="flex gap-6">
-          <DetailSection label="ATK">
-            <span className="text-base font-mono font-bold text-stat-atk">{card.attack}</span>
-          </DetailSection>
-          <DetailSection label="DEF">
-            <span className="text-base font-mono font-bold text-stat-def">{card.defense}</span>
-          </DetailSection>
-        </div>
-      )}
-
       {card.guardianStar1 && card.guardianStar1 !== "None" && (
-        <DetailSection label="Guardian Star">
-          <div className="flex flex-col gap-0.5">
+        <DetailSection label="Guardian Stars">
+          <div className="flex gap-3">
             <GuardianStarRow star={card.guardianStar1} />
             {card.guardianStar2 && card.guardianStar2 !== "None" && (
               <GuardianStarRow star={card.guardianStar2} />
@@ -130,6 +131,22 @@ interface DuelistDrop {
   saTec: number;
 }
 
+type DropSortKey = "saPow" | "bcd" | "saTec";
+type DropSortState = { key: DropSortKey; dir: SortDir } | null;
+
+function toggleDropSort(prev: DropSortState, key: DropSortKey): DropSortState {
+  if (prev?.key !== key) return { key, dir: "desc" };
+  if (prev.dir === "desc") return { key, dir: "asc" };
+  return null;
+}
+
+function sortDrops(drops: DuelistDrop[], sort: DropSortState): DuelistDrop[] {
+  if (!sort) return drops;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  const getter = (d: DuelistDrop) => d[sort.key];
+  return [...drops].sort((a, b) => dir * (getter(a) - getter(b)));
+}
+
 function DroppedBySection({ cardId }: { cardId: number }) {
   const { duelists } = useFusionTable();
 
@@ -150,6 +167,13 @@ function DroppedBySection({ cardId }: { cardId: number }) {
     return result;
   }, [duelists, cardId]);
 
+  const [sort, setSort] = useState<DropSortState>(null);
+  const handleSort = useCallback(
+    (key: DropSortKey) => setSort((prev) => toggleDropSort(prev, key)),
+    [],
+  );
+  const sortedDrops = useMemo(() => sortDrops(drops, sort), [drops, sort]);
+
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">
@@ -163,13 +187,31 @@ function DroppedBySection({ cardId }: { cardId: number }) {
             <thead className="sticky top-0 z-10">
               <tr className="bg-bg-surface/80 backdrop-blur-sm text-text-muted uppercase tracking-wider text-[10px]">
                 <th className="text-left py-1.5 px-2.5 font-semibold">Duelist</th>
-                <th className="text-right py-1.5 px-2 font-semibold w-16">SA-POW</th>
-                <th className="text-right py-1.5 px-2 font-semibold w-14">BCD</th>
-                <th className="text-right py-1.5 px-2 font-semibold w-16">SA-TEC</th>
+                <SortableHeader
+                  align="text-right"
+                  dir={sort?.key === "saPow" ? sort.dir : undefined}
+                  label="SA-POW"
+                  onClick={() => handleSort("saPow")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={sort?.key === "bcd" ? sort.dir : undefined}
+                  label="BCD"
+                  onClick={() => handleSort("bcd")}
+                  px="px-2"
+                />
+                <SortableHeader
+                  align="text-right"
+                  dir={sort?.key === "saTec" ? sort.dir : undefined}
+                  label="SA-TEC"
+                  onClick={() => handleSort("saTec")}
+                  px="px-2"
+                />
               </tr>
             </thead>
             <tbody>
-              {drops.map((d) => (
+              {sortedDrops.map((d) => (
                 <tr
                   className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
                   key={d.duelistId}

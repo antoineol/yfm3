@@ -133,4 +133,42 @@ describe("CardDetailModal", () => {
     expect(link.href).toContain("#data/duelists/1");
     expect(link.target).toBe("_blank");
   });
+
+  it("sorts dropped-by table when clicking column headers", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+
+    const rows = () =>
+      // biome-ignore lint/style/noNonNullAssertion: test helper — element is guaranteed present
+      screen.getByText("Dropped by").closest("div")!.querySelectorAll("tbody tr");
+
+    // Simon saPow=45 bcd=0 saTec=15 total=60; Teana saPow=50 bcd=50 saTec=0 total=100
+    // Default sort: descending by total → Teana first
+    const firstDuelist = (r: NodeListOf<Element>) => r[0]?.querySelector("td")?.textContent;
+    const secondDuelist = (r: NodeListOf<Element>) => r[1]?.querySelector("td")?.textContent;
+    expect(firstDuelist(rows())).toBe("Teana");
+    expect(secondDuelist(rows())).toBe("Simon Muran");
+
+    // Click SA-POW → desc: Teana (50) > Simon (45)
+    fireEvent.click(screen.getByText("SA-POW"));
+    expect(firstDuelist(rows())).toBe("Teana");
+    expect(secondDuelist(rows())).toBe("Simon Muran");
+
+    // Click SA-POW again → asc: Simon (45) < Teana (50)
+    fireEvent.click(screen.getByText("SA-POW"));
+    expect(firstDuelist(rows())).toBe("Simon Muran");
+    expect(secondDuelist(rows())).toBe("Teana");
+
+    // Click SA-POW third time → clears sort, back to default
+    fireEvent.click(screen.getByText("SA-POW"));
+    expect(firstDuelist(rows())).toBe("Teana");
+
+    // Click BCD → desc: Teana (50) > Simon (0)
+    fireEvent.click(screen.getByText("BCD"));
+    expect(firstDuelist(rows())).toBe("Teana");
+
+    // Click SA-TEC → desc: Simon (15) > Teana (0)
+    fireEvent.click(screen.getByText("SA-TEC"));
+    expect(firstDuelist(rows())).toBe("Simon Muran");
+  });
 });
