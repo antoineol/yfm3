@@ -20,7 +20,7 @@ export function loadGameDataFromStrings(
 
   for (const cols of parseCsvRows(cardsCsvContent)) {
     const id = parseInt(cols[0] ?? "", 10);
-    const name = stripQuotes(cols[1] ?? "");
+    const name = cols[1] ?? "";
     const atk = parseInt(cols[2] ?? "", 10);
     const def = parseInt(cols[3] ?? "", 10);
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
@@ -50,9 +50,23 @@ function parseCsvRows(csvContent: string): string[][] {
     .slice(1)
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
-    .map((l) => l.split(","));
+    .map(splitCsvLine);
 }
 
-function stripQuotes(s: string): string {
-  return s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s;
+/** Split a CSV line respecting quoted fields (handles commas inside quotes). */
+function splitCsvLine(line: string): string[] {
+  const cols: string[] = [];
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === '"') {
+      const end = line.indexOf('"', i + 1);
+      cols.push(line.slice(i + 1, end === -1 ? line.length : end));
+      i = end === -1 ? line.length : end + 2; // skip closing quote + comma
+    } else {
+      const next = line.indexOf(",", i);
+      cols.push(next === -1 ? line.slice(i) : line.slice(i, next));
+      i = next === -1 ? line.length : next + 1;
+    }
+  }
+  return cols;
 }

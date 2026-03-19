@@ -46,6 +46,19 @@ describe("loadGameDataFromStrings", () => {
     expect(card11?.name).toBe("Lord Of D.");
   });
 
+  it("parses card names containing commas", () => {
+    const buf = createBuffers();
+    const cards = loadGameData(buf);
+
+    const card192 = cards.find((c) => c.id === 192);
+    expect(card192).toBeDefined();
+    expect(card192?.name).toBe("Gandora, The Destroyer");
+    expect(card192?.attack).toBe(3000);
+
+    const card41 = cards.find((c) => c.id === 41);
+    expect(card41?.name).toBe("Dan, The Man");
+  });
+
   it("populates fusion table with known binary fusions", () => {
     const buf = createBuffers();
     loadGameData(buf);

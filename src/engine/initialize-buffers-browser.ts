@@ -1,5 +1,3 @@
-import cardsCsvRaw from "../../public/data/cards.csv?raw";
-import fusionsCsvRaw from "../../public/data/fusions.csv?raw";
 import type { Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
@@ -7,9 +5,14 @@ import { loadGameDataFromStrings } from "./data/load-game-data-core.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
 
+const [cardsCsvRaw, fusionsCsvRaw] = await Promise.all([
+  fetch("/data/cards.csv").then((r) => r.text()),
+  fetch("/data/fusions.csv").then((r) => r.text()),
+]);
+
 /**
  * Browser-compatible initialization pipeline.
- * Uses Vite ?raw imports for CSV data instead of fs.readFileSync.
+ * Fetches CSV data from /public at module load time.
  */
 export function initializeBuffersBrowser(collection: Collection, rand: () => number): OptBuffers {
   const { buf, cards } = initializeBrowserGameBuffers(rand);
