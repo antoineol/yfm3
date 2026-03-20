@@ -150,8 +150,10 @@ function ResultHeader({
         {/* Score */}
         {displayScore != null && (
           <div className="flex items-baseline gap-1.5 ml-1">
-            <span className="text-xs text-text-secondary uppercase tracking-wide">ATK</span>
-            <span className="font-mono font-bold text-sm text-gold">
+            <span className="text-sm lg:text-xs text-text-secondary uppercase tracking-wide">
+              ATK
+            </span>
+            <span className="font-mono font-bold text-base lg:text-sm text-gold">
               {score == null && "~"}
               {displayScore.toFixed(1)}
             </span>

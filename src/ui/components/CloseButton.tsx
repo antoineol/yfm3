@@ -3,8 +3,8 @@ import { IconButton, type IconButtonProps } from "./IconButton.tsx";
 type CloseButtonSize = "sm" | "md";
 
 const sizeStyles: Record<CloseButtonSize, { button: string; icon: string }> = {
-  sm: { button: "size-5 rounded-full", icon: "size-3" },
-  md: { button: "size-8 rounded-lg", icon: "size-4" },
+  sm: { button: "size-8 lg:size-5 rounded-full", icon: "size-4 lg:size-3" },
+  md: { button: "size-10 lg:size-8 rounded-lg", icon: "size-4" },
 };
 
 export function CloseButton({

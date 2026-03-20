@@ -35,7 +35,7 @@ function ToggleOption({
   onClick: () => void;
   href?: string;
 }) {
-  const className = `px-3 py-1 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-gold ${
+  const className = `px-4 lg:px-3 py-2.5 lg:py-1 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-gold ${
     active ? "bg-gold-dim/30 text-gold-bright" : "text-text-muted hover:text-text-secondary"
   }`;
 

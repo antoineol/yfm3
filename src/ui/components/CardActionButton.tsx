@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 type Variant = "add" | "remove" | "to-deck" | "from-deck" | "dismiss";
 
 const base =
-  "h-10 min-w-[40px] lg:h-8 lg:min-w-[32px] inline-flex items-center justify-center rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed";
+  "h-11 min-w-[44px] lg:h-8 lg:min-w-[32px] inline-flex items-center justify-center rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed";
 
 const variantStyles: Record<Variant, string> = {
   add: `${base} hover:bg-gold/20 text-text-secondary hover:text-text-primary text-base font-bold`,

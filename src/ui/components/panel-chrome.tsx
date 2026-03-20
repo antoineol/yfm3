@@ -33,7 +33,7 @@ export function PanelHeader({
 }) {
   return (
     <div className="relative flex items-center gap-3 pb-3 mb-2 border-b border-border-subtle">
-      <h2 className="max-lg:hidden font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
+      <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
         {title}
       </h2>
       {badge && <span className="text-xs text-text-secondary shrink-0">{badge}</span>}
@@ -41,7 +41,7 @@ export function PanelHeader({
         <div className={`-my-2 ${stretch ? "flex-1 min-w-0" : "ml-auto shrink-0"}`}>{children}</div>
       )}
       {bottomBar && (
-        <div className="absolute -bottom-px left-0 right-0 h-0.5 z-10">{bottomBar}</div>
+        <div className="absolute -bottom-px left-0 right-0 h-1 lg:h-0.5 z-10">{bottomBar}</div>
       )}
     </div>
   );
@@ -85,7 +85,7 @@ export function PanelBody({ children }: { children: ReactNode }) {
 
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-gold-dim">
+    <span className="font-display text-xs font-semibold uppercase tracking-widest text-gold-dim">
       {children}
     </span>
   );

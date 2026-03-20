@@ -82,7 +82,7 @@ function FusionResultRow({
   const card = cardDb.cardsById.get(result.resultCardId);
 
   return (
-    <div className="group flex gap-2.5 rounded-lg border border-border-subtle/60 bg-bg-surface/60 px-3 py-2.5 hover:border-border-accent transition-colors duration-150">
+    <div className="group flex gap-2.5 rounded-lg border border-border-subtle/60 bg-bg-surface/60 px-3 py-3 lg:py-2.5 hover:border-border-accent transition-colors duration-150">
       {/* Card thumbnail */}
       {card && <FusionCardThumb card={card} />}
 
@@ -109,7 +109,7 @@ function FusionResultRow({
                 {result.resultDef}
               </span>
             </div>
-            <Button onClick={() => onPlay(materialDocIds)} size="sm" variant="outline">
+            <Button onClick={() => onPlay(materialDocIds)} size="md" variant="outline">
               Play
             </Button>
           </div>

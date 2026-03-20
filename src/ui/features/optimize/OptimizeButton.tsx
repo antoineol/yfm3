@@ -5,7 +5,7 @@ export function OptimizeButton() {
   const { optimize, isOptimizing, canOptimize } = useOptimize();
 
   return (
-    <Button disabled={!canOptimize} glowing={isOptimizing} onClick={optimize}>
+    <Button disabled={!canOptimize} glowing={isOptimizing} onClick={optimize} size="lg">
       {isOptimizing ? "Optimizing\u2026" : "Optimize Deck"}
     </Button>
   );

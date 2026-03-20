@@ -1,7 +1,7 @@
 import { Tabs } from "@base-ui/react/tabs";
 
 const tabClass =
-  "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-display font-bold uppercase tracking-widest transition-colors text-text-secondary data-active:text-gold-bright cursor-pointer";
+  "flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-display font-bold uppercase tracking-widest transition-colors text-text-secondary data-active:text-gold-bright cursor-pointer";
 
 export function BottomTabBar() {
   return (
@@ -41,7 +41,7 @@ function DeckIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="size-5"
+      className="size-6"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
@@ -58,7 +58,7 @@ function HandIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="size-5"
+      className="size-6"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
@@ -75,7 +75,7 @@ function DataIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="size-5"
+      className="size-6"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"

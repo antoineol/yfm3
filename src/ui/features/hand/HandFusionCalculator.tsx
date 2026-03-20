@@ -97,7 +97,7 @@ export function HandFusionCalculator() {
           </SectionLabel>
           {hand.length > 0 && (
             <button
-              className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer"
+              className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
               onClick={() => {
                 void clearHand();
                 requestInputFocus();

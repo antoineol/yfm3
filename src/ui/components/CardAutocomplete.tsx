@@ -73,7 +73,7 @@ export function CardAutocomplete({
         <SearchIcon />
         <Combobox.Input
           autoFocus={autoFocus}
-          className="w-full rounded-lg border border-border-subtle bg-bg-surface py-1.5 pr-3 pl-8 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 outline-none focus:border-gold focus:ring-1 focus:ring-gold disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full rounded-lg border border-border-subtle bg-bg-surface py-2.5 lg:py-1.5 pr-3 pl-9 lg:pl-8 text-base lg:text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 outline-none focus:border-gold focus:ring-1 focus:ring-gold disabled:opacity-40 disabled:cursor-not-allowed"
           disabled={disabled}
           placeholder={placeholder}
           ref={inputRef}
@@ -99,7 +99,7 @@ export function CardAutocomplete({
 function CardOption({ card }: { card: AutocompleteCard }) {
   return (
     <Combobox.Item
-      className="group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm select-none cursor-default data-highlighted:bg-bg-hover data-disabled:opacity-45 data-disabled:saturate-0 transition-colors duration-75"
+      className="group flex items-center gap-2 rounded-md px-3 lg:px-2.5 py-2.5 lg:py-1.5 text-sm select-none cursor-default data-highlighted:bg-bg-hover data-disabled:opacity-45 data-disabled:saturate-0 transition-colors duration-75"
       disabled={card.disabled === true}
       value={card}
     >
@@ -134,7 +134,7 @@ function SearchIcon() {
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-text-muted"
+      className="pointer-events-none absolute top-1/2 left-2.5 size-4 lg:size-3.5 -translate-y-1/2 text-text-muted"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

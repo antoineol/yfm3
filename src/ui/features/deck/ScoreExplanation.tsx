@@ -69,7 +69,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
     <div className="flex flex-col gap-2">
       <button
         aria-expanded={expanded}
-        className="flex items-center gap-2 cursor-pointer text-left"
+        className="flex items-center gap-2 cursor-pointer text-left py-2 lg:py-0"
         disabled={!ownedCardTotals && state.status === "idle"}
         onClick={toggle}
         type="button"

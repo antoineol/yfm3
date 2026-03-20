@@ -343,11 +343,12 @@ function MobileCardRow<T extends CardEntry>({
 
       {/* Row 2: Ownership pills + actions */}
       <div className="flex items-center gap-2">
-        <div className={`text-[11px] font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
+        <div className={`text-xs font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
         {hasPills && (
           <div className="flex items-center gap-1.5">
             {showC && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-bg-surface rounded px-1.5 py-0.5 text-text-secondary">
+              <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-1 text-text-secondary">
+                <span className="text-text-muted">C</span>
                 <span
                   className={`font-bold ${(e.collectionCount ?? 0) > 0 ? "text-text-primary" : "text-text-muted"}`}
                 >
@@ -356,7 +357,8 @@ function MobileCardRow<T extends CardEntry>({
               </span>
             )}
             {showD && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-bg-surface rounded px-1.5 py-0.5 text-text-secondary">
+              <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-1 text-text-secondary">
+                <span className="text-text-muted">D</span>
                 <span
                   className={`font-bold ${(e.deckCount ?? 0) > 0 ? "text-gold" : "text-text-muted"}`}
                 >

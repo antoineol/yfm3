@@ -84,8 +84,8 @@ function DeckScoreBadge({ score }: { score: number | null }) {
   if (score == null) return null;
   return (
     <div className="flex items-baseline gap-1.5">
-      <span className="text-xs text-text-secondary uppercase tracking-wide">ATK</span>
-      <span className="font-mono font-bold text-sm text-gold">{score.toFixed(1)}</span>
+      <span className="text-sm lg:text-xs text-text-secondary uppercase tracking-wide">ATK</span>
+      <span className="font-mono font-bold text-base lg:text-sm text-gold">{score.toFixed(1)}</span>
     </div>
   );
 }
