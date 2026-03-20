@@ -63,6 +63,9 @@ function CardDetailContent({ card }: { card: CardSpec }) {
         <div className="flex items-start justify-between gap-2">
           <BaseDialog.Title className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
             {card.name}
+            <span className="ml-2 align-middle text-[11px] font-mono font-normal text-text-muted/50">
+              #{card.id}
+            </span>
           </BaseDialog.Title>
           <div className="flex items-center gap-1">
             <IconButton

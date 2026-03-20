@@ -87,6 +87,7 @@ describe("CardDetailModal", () => {
     // ATK/DFD appear in both game card and detail panel
     expect(screen.getAllByText("1200").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("700").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("#1")).toBeTruthy();
     expect(screen.getByText("Dragon")).toBeTruthy();
     expect(screen.getByText("Earth")).toBeTruthy();
     // Description appears in both game card desc box and detail panel

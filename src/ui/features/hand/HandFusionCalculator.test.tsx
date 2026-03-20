@@ -41,6 +41,20 @@ vi.mock("./FusionResultsList.tsx", () => ({
   FusionResultsList: () => <div data-testid="fusion-results" />,
 }));
 
+vi.mock("../../lib/use-emulator-bridge.ts", () => ({
+  useEmulatorBridge: vi.fn(() => ({
+    status: "disconnected",
+    hand: [],
+    inDuel: false,
+    lp: null,
+    scan: vi.fn(),
+  })),
+}));
+
+vi.mock("./EmulatorBridgeBar.tsx", () => ({
+  EmulatorBridgeBar: () => <div data-testid="emulator-bridge-bar" />,
+}));
+
 import { HandFusionCalculator } from "./HandFusionCalculator.tsx";
 
 afterEach(() => {

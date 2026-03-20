@@ -35,6 +35,9 @@ export function CardDetailPage({ cardId }: { cardId: number }) {
           header={
             <h1 className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
               {card.name}
+              <span className="ml-2 align-middle text-[11px] font-mono font-normal text-text-muted/50">
+                #{card.id}
+              </span>
             </h1>
           }
         />

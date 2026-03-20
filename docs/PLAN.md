@@ -87,3 +87,4 @@ Return best deck + exact expected ATK
 | P7: Shared Reference Data (DONE) | [`docs/steps/p7-fusion-reference.md`](steps/p7-fusion-reference.md) | Google Sheets as canonical source, shared runtime store, permissions model, and backup snapshots |
 | P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
+| **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |

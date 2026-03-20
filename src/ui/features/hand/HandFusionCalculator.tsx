@@ -11,6 +11,8 @@ import {
   useFusionDepth,
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
+import { useEmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { HandCardSelector } from "./HandCardSelector.tsx";
 import { HandDisplay } from "./HandDisplay.tsx";
@@ -27,6 +29,7 @@ export function HandFusionCalculator() {
   const sourceMode = useHandSourceMode();
   const updatePreferences = useUpdatePreferences();
   const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
+  const bridge = useEmulatorBridge();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingFocusRef = useRef(false);
 
@@ -70,6 +73,9 @@ export function HandFusionCalculator() {
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-5">
+      {/* Emulator bridge status */}
+      <EmulatorBridgeBar bridge={bridge} currentHand={hand} />
+
       {/* Card source selector + autocomplete */}
       <div className="flex flex-col gap-2">
         <ToggleGroup
