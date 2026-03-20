@@ -18,6 +18,7 @@ type AppliedSwap = { addedCardId: number; removedCardId: number; available: numb
 export interface LastAddedCardHintHeaderModel {
   id: number;
   name: string;
+  isMonster: boolean;
   attack: number;
   defense: number;
   totalOwned: number;
@@ -123,6 +124,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
     header: {
       id: card.id,
       name: card.name,
+      isMonster: card.isMonster,
       attack: card.attack,
       defense: card.defense,
       totalOwned,

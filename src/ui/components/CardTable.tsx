@@ -16,6 +16,7 @@ export type DiffStatus = "added" | "removed" | "kept";
 export interface CardEntry {
   id: number;
   name: string;
+  isMonster: boolean;
   atk: number;
   def: number;
   qty: number;
@@ -40,6 +41,7 @@ export function buildCardEntries(
     entries.push({
       id,
       name: card?.name ?? `#${id}`,
+      isMonster: card?.isMonster ?? true,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty,
@@ -197,8 +199,12 @@ export function CardTable<T extends CardEntry>({
                     {e.deckCount ?? 0}
                   </td>
                 )}
-                <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>{e.atk}</td>
-                <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>{e.def}</td>
+                <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>
+                  {e.isMonster ? e.atk : ""}
+                </td>
+                <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>
+                  {e.isMonster ? e.def : ""}
+                </td>
                 {showKinds && (
                   <>
                     <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">

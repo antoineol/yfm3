@@ -217,6 +217,63 @@ describe("findFusionChains with non-monster materials", () => {
 });
 
 // ---------------------------------------------------------------------------
+// FM sequential chain rule
+// ---------------------------------------------------------------------------
+describe("findFusionChains enforces sequential chains", () => {
+  // Setup: two independent fusions whose results can fuse together.
+  // Cards: 20=X(200), 21=Y(300), 22=Z(400), 23=W(500)
+  // Fusions: 20+21→30(800), 22+23→31(900), 30+31→32(3000)
+  // A branching chain would be: 20+21→30, 22+23→31, 30+31→32
+  // FM rules forbid this: step 2 (22+23→31) doesn't use result 30 from step 1.
+  let branchDb: CardDb;
+  let branchFt: Int16Array;
+
+  beforeAll(() => {
+    branchDb = createCardDb();
+    addTestCard(branchDb, 20, "X", 200);
+    addTestCard(branchDb, 21, "Y", 300);
+    addTestCard(branchDb, 22, "Z", 400);
+    addTestCard(branchDb, 23, "W", 500);
+    addTestCard(branchDb, 24, "Filler", 100);
+    addTestCard(branchDb, 30, "XY", 800);
+    addTestCard(branchDb, 31, "ZW", 900);
+    addTestCard(branchDb, 32, "XYZW", 3000);
+
+    branchFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    branchFt.fill(FUSION_NONE);
+    setFusion(branchFt, 20, 21, 30); // X + Y → XY (800)
+    setFusion(branchFt, 22, 23, 31); // Z + W → ZW (900)
+    setFusion(branchFt, 30, 31, 32); // XY + ZW → XYZW (3000) — only reachable via branching
+  });
+
+  it("does NOT find a result that requires two independent fusions", () => {
+    const results = findFusionChains([20, 21, 22, 23, 24], branchFt, branchDb, 3);
+    // XYZW (card 32) requires branching: 20+21→30, 22+23→31, 30+31→32
+    // FM rules forbid step 2 from ignoring the result of step 1.
+    expect(results.find((r) => r.resultCardId === 32)).toBeUndefined();
+    // Individual fusions XY and ZW are still reachable
+    expect(results.find((r) => r.resultCardId === 30)).toBeDefined();
+    expect(results.find((r) => r.resultCardId === 31)).toBeDefined();
+  });
+
+  it("each step after the first uses the previous result as a material", () => {
+    const results = findFusionChains([1, 2, 3, 4, 5], fusionTable, cardDb, 3);
+    for (const r of results) {
+      for (let s = 1; s < r.steps.length; s++) {
+        const prev = r.steps[s - 1];
+        const curr = r.steps[s];
+        if (!prev || !curr) continue;
+        const usesPrev =
+          curr.material1CardId === prev.resultCardId || curr.material2CardId === prev.resultCardId;
+        expect(usesPrev, `step ${s} of chain to ${r.resultName} must use previous result`).toBe(
+          true,
+        );
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("findFusionChains edge cases", () => {

@@ -53,6 +53,10 @@ export class FusionScorer implements IScorer {
     for (let i = 0; i < handSize - 1; i++) {
       const cardA = sb[base + i] ?? 0;
       for (let j = i + 1; j < handSize; j++) {
+        // FM rule: after the first fusion, one material must be the previous
+        // result (always the last element — see copy loop below).
+        if (level > 0 && j !== handSize - 1) continue;
+
         const cardB = sb[base + j] ?? 0;
 
         const result = ft[cardA * MAX_CARD_ID + cardB] ?? FUSION_NONE;

@@ -33,3 +33,16 @@ example above.
 - Skips entries where material1 > material2 (unreachable due to normalization;
   2 such entries existed: 178,177 and 210,209)
 - Deduplicates (material1, material2) pairs, keeping only the first occurrence
+
+---
+
+Wrong fusion order from hand
+
+Hand: Celtic Guardian, Solar Flare Dragon, Darkfire Dragon, Kojikocy, Dark Blade
+It generates:
+468 Blue-Eyes White Dragon - from:
+(1) Celtic Guardian
+(2) Solar Flare Dragon → Armed Dragon LV5
+(3) Darkfire Dragon → Paladin Of White Dragon
+(4) Armed Dragon LV5 → Blue-Eyes White Dragon
+Armed Dragon LV5 is produced by 1st fusion, used as material of 3rd fusion, which is impossible in game.

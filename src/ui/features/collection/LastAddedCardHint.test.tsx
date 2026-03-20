@@ -212,6 +212,24 @@ describe("LastAddedCardHint", () => {
     expect(mockAddCard).toHaveBeenCalledWith({ cardId: 1 });
   });
 
+  it("ignores - shortcut when focus is on an input", () => {
+    const inputRef = createRef<HTMLInputElement>();
+    const { container } = render(
+      <>
+        <input ref={inputRef} />
+        <LastAddedCardHint comboboxOpen={false} inputRef={inputRef} />
+      </>,
+      { wrapper: TestWrapper },
+    );
+
+    const input = container.querySelector("input");
+    if (!input) throw new Error("input not found");
+    input.focus();
+    fireEvent.keyDown(input, { key: "-" });
+
+    expect(mockRemoveCard).not.toHaveBeenCalled();
+  });
+
   it("does not dismiss on Escape when combobox is open", () => {
     render(<LastAddedCardHint comboboxOpen={true} inputRef={dummyInputRef} />, {
       wrapper: TestWrapper,

@@ -21,7 +21,11 @@ export function LastAddedCardHintHeader({
         e.preventDefault();
         header.onAdd();
         inputRef.current?.focus();
-      } else if (e.key === "-" && !header.disableRemove) {
+      } else if (
+        e.key === "-" &&
+        !header.disableRemove &&
+        (e.target as HTMLElement)?.tagName !== "INPUT"
+      ) {
         e.preventDefault();
         header.onRemove();
         inputRef.current?.focus();
@@ -45,9 +49,11 @@ export function LastAddedCardHintHeader({
         className="text-text-primary font-medium truncate"
         name={header.name}
       />
-      <span className="text-text-muted font-mono">
-        {header.attack}/{header.defense}
-      </span>
+      {header.isMonster && (
+        <span className="text-text-muted font-mono">
+          {header.attack}/{header.defense}
+        </span>
+      )}
       <span className="text-text-muted font-mono">({header.totalOwned}/3)</span>
       <div className="flex items-center gap-0.5 ml-auto shrink-0">
         <CardActionButton

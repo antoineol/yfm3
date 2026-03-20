@@ -13,6 +13,7 @@ export function CardsTable({ cards }: CardsTableProps) {
       cards.map((c) => ({
         id: c.id,
         name: c.name,
+        isMonster: c.isMonster,
         atk: c.attack,
         def: c.defense,
         qty: 1,

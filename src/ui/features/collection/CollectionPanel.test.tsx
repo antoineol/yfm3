@@ -125,6 +125,7 @@ function buildCollectionEntry({
   return {
     id,
     name,
+    isMonster: true,
     atk,
     def,
     qty: availableInCollection,

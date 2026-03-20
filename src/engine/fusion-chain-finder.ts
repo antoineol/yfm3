@@ -56,6 +56,10 @@ function dfs(
 ): void {
   for (let i = 0; i < hand.length - 1; i++) {
     for (let j = i + 1; j < hand.length; j++) {
+      // FM rule: after the first fusion, one material must be the previous
+      // result (always the last element — see buildRemainingHand).
+      if (depth > 0 && j !== hand.length - 1) continue;
+
       const a = hand[i];
       const b = hand[j];
       if (!a || !b) continue;

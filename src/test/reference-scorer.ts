@@ -45,6 +45,10 @@ export function referenceEvaluateHand(
 
     for (let i = 0; i < cards.length - 1; i++) {
       for (let j = i + 1; j < cards.length; j++) {
+        // FM rule: after the first fusion, one material must be the previous
+        // result (always the last element — see remaining.push below).
+        if (depth > 0 && j !== cards.length - 1) continue;
+
         const a = cards[i] ?? 0;
         const b = cards[j] ?? 0;
         const result = fusionTable[a * MAX_CARD_ID + b] ?? FUSION_NONE;

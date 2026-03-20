@@ -21,9 +21,9 @@ const baseResult = {
 };
 
 const baseEntries = [
-  { id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 },
-  { id: 2, name: "Dark Magician", atk: 2500, def: 2100, qty: 1 },
-  { id: 3, name: "Red-Eyes", atk: 2400, def: 2000, qty: 1 },
+  { id: 1, name: "Blue-Eyes", isMonster: true, atk: 3000, def: 2500, qty: 1 },
+  { id: 2, name: "Dark Magician", isMonster: true, atk: 2500, def: 2100, qty: 1 },
+  { id: 3, name: "Red-Eyes", isMonster: true, atk: 2400, def: 2000, qty: 1 },
 ];
 
 afterEach(cleanup);

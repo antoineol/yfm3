@@ -121,10 +121,10 @@ function CardOption({ card }: { card: AutocompleteCard }) {
         </span>
       )}
       <span className="shrink-0 w-10 text-right font-mono text-xs tabular-nums text-stat-atk/70 group-data-highlighted:text-stat-atk transition-colors duration-75">
-        {card.attack}
+        {card.isMonster ? card.attack : ""}
       </span>
       <span className="shrink-0 w-10 text-right font-mono text-xs tabular-nums text-stat-def/70 group-data-highlighted:text-stat-def transition-colors duration-75">
-        {card.defense}
+        {card.isMonster ? card.defense : ""}
       </span>
     </Combobox.Item>
   );
