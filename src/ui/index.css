@@ -753,39 +753,6 @@ input[type="number"] {
   }
 }
 
-/* Holographic shimmer sweep across the card face */
-.fm-modal-popup[data-open]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  pointer-events: none;
-  border-radius: inherit;
-  background: linear-gradient(
-    105deg,
-    transparent 30%,
-    rgba(201, 168, 76, 0.08) 43%,
-    rgba(232, 199, 90, 0.18) 50%,
-    rgba(201, 168, 76, 0.08) 57%,
-    transparent 70%
-  );
-  animation: fm-shimmer-sweep 600ms ease-out 220ms both;
-}
-
-@keyframes fm-shimmer-sweep {
-  0% {
-    transform: translateX(-150%);
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(150%);
-    opacity: 0;
-  }
-}
-
 /* Animations */
 @keyframes spin-gold {
   to {
