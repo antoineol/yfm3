@@ -1,4 +1,5 @@
 import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { Analytics } from "@vercel/analytics/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -31,6 +32,7 @@ createRoot(root).render(
               },
             }}
           />
+          <Analytics />
         </FusionTableProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
