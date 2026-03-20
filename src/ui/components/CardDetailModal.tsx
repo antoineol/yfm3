@@ -1,4 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { useEffect } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
@@ -10,9 +11,22 @@ export function CardDetailModal() {
   const { cardId, closeCard } = useCardDetail();
   const { cardsById } = useCardDb();
   const card = cardId ? cardsById.get(cardId) : undefined;
+  const isOpen = cardId !== null;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    history.pushState({ cardDetailOpen: true }, "");
+    const onPopState = () => closeCard();
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      // If modal closes programmatically (not via back button), remove the history entry
+      if (history.state?.cardDetailOpen) history.back();
+    };
+  }, [isOpen, closeCard]);
 
   return (
-    <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={cardId !== null}>
+    <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={isOpen}>
       <BaseDialog.Portal keepMounted>
         <BaseDialog.Backdrop className="fm-modal-backdrop fixed inset-0 z-50" />
         <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto focus:outline-none">
