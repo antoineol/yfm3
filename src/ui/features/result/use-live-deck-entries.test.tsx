@@ -48,16 +48,21 @@ describe("useLiveDeckEntries", () => {
     expect(result.current).toEqual([]);
   });
 
-  it("returns sorted entries when liveBestDeck has card IDs", () => {
+  it("returns one row per copy, sorted by ATK descending", () => {
     store.set(liveBestDeckAtom, [3, 1, 2, 1]);
     const { result } = renderHook(() => useLiveDeckEntries(), {
       wrapper: makeWrapper(store),
     });
-    expect(result.current).toHaveLength(3);
-    // Sorted by ATK descending
+    // 4 IDs → 4 rows (card 1 appears twice)
+    expect(result.current).toHaveLength(4);
+    expect(result.current.every((e) => e.qty === 1)).toBe(true);
+    // Sorted by ATK descending: Blue-Eyes(3000), Blue-Eyes(3000), Dark Magician(2500), Kuriboh(300)
     expect(result.current[0]?.name).toBe("Blue-Eyes");
-    expect(result.current[0]?.qty).toBe(2);
-    expect(result.current[1]?.name).toBe("Dark Magician");
-    expect(result.current[2]?.name).toBe("Kuriboh");
+    expect(result.current[1]?.name).toBe("Blue-Eyes");
+    expect(result.current[2]?.name).toBe("Dark Magician");
+    expect(result.current[3]?.name).toBe("Kuriboh");
+    // All rowKeys are unique
+    const keys = result.current.map((e) => e.rowKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

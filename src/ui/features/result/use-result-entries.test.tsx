@@ -56,6 +56,8 @@ describe("useResultEntries", () => {
   });
 
   it("returns entries and result when result is present", () => {
+    // Current: card1×1, card2×1. Suggested: card1×2, card2×1.
+    // → card1: 1 kept + 1 added = 2 rows. card2: 1 kept = 1 row. Total = 3.
     mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
     store.set(resultAtom, {
       deck: [1, 1, 2],
@@ -68,8 +70,16 @@ describe("useResultEntries", () => {
       wrapper: makeWrapper(store),
     });
     expect(result.current).not.toBeNull();
-    expect(result.current?.entries).toHaveLength(2);
+    expect(result.current?.entries).toHaveLength(3);
     expect(result.current?.result.expectedAtk).toBe(2500);
+
+    const entries = result.current?.entries ?? [];
+    const card1Added = entries.filter((e) => e.id === 1 && e.diffStatus === "added");
+    const card1Kept = entries.filter((e) => e.id === 1 && e.diffStatus === "kept");
+    const card2Kept = entries.filter((e) => e.id === 2 && e.diffStatus === "kept");
+    expect(card1Added).toHaveLength(1);
+    expect(card1Kept).toHaveLength(1);
+    expect(card2Kept).toHaveLength(1);
   });
 
   it("tags entries with diffStatus: added, removed, kept", () => {
@@ -93,6 +103,45 @@ describe("useResultEntries", () => {
     expect(byId(2)?.diffStatus).toBe("removed");
     expect(byId(3)?.diffStatus).toBe("added");
     expect(byId(1)?.diffStatus).toBe("kept");
+  });
+
+  it("splits qty changes into per-copy rows with correct diff statuses", () => {
+    // Current: card1×2, card2×3. Suggested: card1×3, card2×1.
+    // card1: min(3,2)=2 kept, 1 added. card2: min(1,3)=1 kept, 2 removed.
+    // Total: 2 removed + 1 added + 3 kept = 6 rows.
+    mockDeck.mockReturnValue([
+      { cardId: 1 },
+      { cardId: 1 },
+      { cardId: 2 },
+      { cardId: 2 },
+      { cardId: 2 },
+    ]);
+    store.set(resultAtom, {
+      deck: [1, 1, 1, 2],
+      expectedAtk: 3000,
+      currentDeckScore: null,
+      improvement: null,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    const entries = result.current?.entries ?? [];
+    expect(entries).toHaveLength(6);
+    expect(entries.every((e) => e.qty === 1)).toBe(true);
+
+    const removed = entries.filter((e) => e.diffStatus === "removed");
+    const added = entries.filter((e) => e.diffStatus === "added");
+    const kept = entries.filter((e) => e.diffStatus === "kept");
+    expect(removed).toHaveLength(2);
+    expect(removed.every((e) => e.id === 2)).toBe(true);
+    expect(added).toHaveLength(1);
+    expect(added[0]?.id).toBe(1);
+    expect(kept).toHaveLength(3);
+
+    // All rowKeys are unique
+    const keys = entries.map((e) => e.rowKey);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("sorts entries: removed first, then added, then kept", () => {

@@ -1,6 +1,8 @@
 import { useAtomValue } from "jotai";
+import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
-import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
+import type { CardEntry, DiffStatus } from "../../components/CardTable.tsx";
+import { countById } from "../../components/CardTable.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { resultAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -25,36 +27,46 @@ export function useResultEntries(): ResultData | null {
   return { entries, result };
 }
 
-/** Diff order: removed, added, kept. Within each group, by ATK descending. */
-const DIFF_ORDER = { removed: 0, added: 1, kept: 2 } as const;
+/** Diff order: removed, added, kept. Within each group, by card id. */
+const DIFF_ORDER: Record<DiffStatus, number> = { removed: 0, added: 1, kept: 2 };
 
 function buildDiffEntries(
   suggestedCounts: Map<number, number>,
   currentCounts: Map<number, number>,
-  cardDb: Parameters<typeof buildCardEntries>[1],
+  cardDb: CardDb,
 ): CardEntry[] {
   const allIds = new Set([...suggestedCounts.keys(), ...currentCounts.keys()]);
-  const pairs: [number, number][] = [];
-  const statusMap = new Map<number, CardEntry["diffStatus"]>();
+  const entries: CardEntry[] = [];
 
   for (const id of allIds) {
-    const inSuggested = suggestedCounts.get(id) ?? 0;
-    const inCurrent = currentCounts.get(id) ?? 0;
+    const sugQty = suggestedCounts.get(id) ?? 0;
+    const curQty = currentCounts.get(id) ?? 0;
+    const card = cardDb.cardsById.get(id);
 
-    if (inSuggested > 0 && inCurrent === 0) {
-      statusMap.set(id, "added");
-      pairs.push([id, inSuggested]);
-    } else if (inSuggested === 0 && inCurrent > 0) {
-      statusMap.set(id, "removed");
-      pairs.push([id, inCurrent]);
-    } else {
-      statusMap.set(id, "kept");
-      pairs.push([id, inSuggested]);
-    }
+    const base: Omit<CardEntry, "diffStatus" | "rowKey"> = {
+      id,
+      name: card?.name ?? `#${id}`,
+      isMonster: card?.isMonster ?? true,
+      atk: card?.attack ?? 0,
+      def: card?.defense ?? 0,
+      qty: 1,
+      kind1: card?.kinds[0],
+      kind2: card?.kinds[1],
+      kind3: card?.kinds[2],
+      color: card?.color,
+    };
+
+    const removedQty = Math.max(0, curQty - sugQty);
+    const addedQty = Math.max(0, sugQty - curQty);
+    const keptQty = Math.min(sugQty, curQty);
+
+    for (let i = 0; i < removedQty; i++)
+      entries.push({ ...base, diffStatus: "removed", rowKey: `${id}-r${i}` });
+    for (let i = 0; i < addedQty; i++)
+      entries.push({ ...base, diffStatus: "added", rowKey: `${id}-a${i}` });
+    for (let i = 0; i < keptQty; i++)
+      entries.push({ ...base, diffStatus: "kept", rowKey: `${id}-k${i}` });
   }
-
-  const entries = buildCardEntries(pairs, cardDb);
-  for (const e of entries) e.diffStatus = statusMap.get(e.id);
 
   entries.sort((a, b) => {
     const da = DIFF_ORDER[a.diffStatus ?? "kept"];

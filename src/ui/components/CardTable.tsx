@@ -29,6 +29,8 @@ export interface CardEntry {
   collectionCount?: number;
   /** Copies currently in deck. */
   deckCount?: number;
+  /** Unique key for React when multiple rows share the same card id. */
+  rowKey?: string;
 }
 
 export function buildCardEntries(
@@ -49,6 +51,31 @@ export function buildCardEntries(
       kind2: card?.kinds[1],
       kind3: card?.kinds[2],
       color: card?.color,
+    });
+  }
+  return entries.sort((a, b) => b.atk - a.atk);
+}
+
+/** One CardEntry per element in `ids` (duplicates produce separate rows, each with qty 1). */
+export function buildFlatEntries(ids: number[], cardDb: CardDb): CardEntry[] {
+  const entries: CardEntry[] = [];
+  const seenCount = new Map<number, number>();
+  for (const id of ids) {
+    const idx = seenCount.get(id) ?? 0;
+    seenCount.set(id, idx + 1);
+    const card: CardSpec | undefined = cardDb.cardsById.get(id);
+    entries.push({
+      id,
+      name: card?.name ?? `#${id}`,
+      isMonster: card?.isMonster ?? true,
+      atk: card?.attack ?? 0,
+      def: card?.defense ?? 0,
+      qty: 1,
+      kind1: card?.kinds[0],
+      kind2: card?.kinds[1],
+      kind3: card?.kinds[2],
+      color: card?.color,
+      rowKey: `${id}-${idx}`,
     });
   }
   return entries.sort((a, b) => b.atk - a.atk);
@@ -173,7 +200,7 @@ export function CardTable<T extends CardEntry>({
               <tr
                 className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
                   even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${rowDiff}`}
-                key={e.id}
+                key={e.rowKey ?? e.id}
               >
                 {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
                 <td className={`py-1.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
