@@ -116,6 +116,7 @@ export function HandFusionCalculator() {
         </div>
         <HandDisplay
           cards={hand}
+          frozen={bridge.inDuel && !bridge.handReliable}
           onRemove={(docId) => {
             void removeFromHand({ id: docId });
             requestInputFocus();

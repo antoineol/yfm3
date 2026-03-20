@@ -1,17 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/** Duel phase labels from the bridge. */
+export type DuelPhase = "hand" | "draw" | "fusion" | "field" | "battle" | "opponent" | "other";
+
+export type DuelStats = {
+  fusions: number;
+  terrain: number;
+  duelistId: number;
+};
+
 /** Game state received from the bridge WebSocket server. */
-export type BridgeGameState = {
+type BridgeGameState = {
   connected: true;
   pid: number;
   inDuel: boolean;
   sceneId: number;
-  /** 5 card IDs (0 = empty slot). */
   hand: number[];
-  /** 5 card IDs (0 = empty slot). */
   field: number[];
-  /** [player LP, opponent LP]. */
   lp: [number, number];
+  handReliable: boolean;
+  phase: DuelPhase;
+  stats: DuelStats;
 };
 
 type BridgeDisconnected = {
@@ -25,13 +34,13 @@ export type BridgeStatus = "disconnected" | "connecting" | "connected";
 
 export type EmulatorBridge = {
   status: BridgeStatus;
-  /** Non-zero card IDs currently in the player's hand. */
   hand: number[];
-  /** Whether the game is currently in a duel scene. */
+  field: number[];
+  handReliable: boolean;
+  phase: DuelPhase;
   inDuel: boolean;
-  /** [player LP, opponent LP], or null if not in duel. */
   lp: [number, number] | null;
-  /** Request the bridge to re-scan for DuckStation. */
+  stats: DuelStats | null;
   scan: () => void;
 };
 
@@ -45,13 +54,16 @@ const RECONNECT_MS = 3_000;
 export function useEmulatorBridge(): EmulatorBridge {
   const [status, setStatus] = useState<BridgeStatus>("disconnected");
   const [hand, setHand] = useState<number[]>([]);
+  const [field, setField] = useState<number[]>([]);
+  const [handReliable, setHandReliable] = useState(false);
+  const [phase, setPhase] = useState<DuelPhase>("other");
   const [inDuel, setInDuel] = useState(false);
   const [lp, setLp] = useState<[number, number] | null>(null);
+  const [stats, setStats] = useState<DuelStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const connect = useCallback(() => {
-    // Don't connect if already connecting/connected
     if (
       wsRef.current?.readyState === WebSocket.CONNECTING ||
       wsRef.current?.readyState === WebSocket.OPEN
@@ -74,14 +86,21 @@ export function useEmulatorBridge(): EmulatorBridge {
         if (msg.connected) {
           setStatus("connected");
           setHand(msg.hand.filter((id) => id > 0 && id < 723));
+          setField(msg.field.filter((id) => id > 0 && id < 723));
+          setHandReliable(msg.handReliable);
+          setPhase(msg.phase);
           setInDuel(msg.inDuel);
           setLp(msg.lp);
+          setStats(msg.stats);
         } else {
-          // Bridge is connected but DuckStation isn't
           setStatus("connected");
           setHand([]);
+          setField([]);
+          setHandReliable(false);
+          setPhase("other");
           setInDuel(false);
           setLp(null);
+          setStats(null);
         }
       } catch {
         // Ignore malformed messages
@@ -92,9 +111,12 @@ export function useEmulatorBridge(): EmulatorBridge {
       wsRef.current = null;
       setStatus("disconnected");
       setHand([]);
+      setField([]);
+      setHandReliable(false);
+      setPhase("other");
       setInDuel(false);
       setLp(null);
-      // Schedule reconnect
+      setStats(null);
       reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
     };
 
@@ -118,5 +140,5 @@ export function useEmulatorBridge(): EmulatorBridge {
     }
   }, []);
 
-  return { status, hand, inDuel, lp, scan };
+  return { status, hand, field, handReliable, phase, inDuel, lp, stats, scan };
 }

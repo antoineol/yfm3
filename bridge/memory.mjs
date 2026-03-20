@@ -1,23 +1,18 @@
 /**
  * DuckStation shared memory reader for Windows.
  *
- * Hand detection strategy:
- *   Phase 0x02 (turn transition): the game cleans up consumed materials — hand is correct.
- *   Phase 0x03 (draw): new cards arrive one by one.
- *   Phase 0x04 (hand selection): full hand ready — snapshot as "startOfTurnHand".
- *   Phase 0x07-0x08 (fusion): cards consumed, but slots keep status=0x80 (ghost cards).
- *   Phases 0x05-0x0A: ghost cards persist until next phase 0x02.
+ * Hand detection strategy (simplified):
+ *   The 28-byte card structs at 0x1A7AE4 are only reliably cleaned up
+ *   during the player's turn at phases 0x02 (cleanup), 0x03 (draw),
+ *   and 0x04 (hand selection). During other phases (field play, fusion,
+ *   battle, opponent turn), consumed materials keep status=0x80 and are
+ *   indistinguishable from genuine hand cards.
  *
- *   We track the hand through phase transitions:
- *   - At phase 0x04: snapshot the correct hand (all slots with status=0x80).
- *   - When fusion counter increases: we know N fusions happened.
- *     Use the fusion result + fusion table to identify consumed materials
- *     from the phase-0x04 snapshot.
- *   - At phase 0x02: re-read to confirm (ground truth).
+ *   We report a `handReliable` flag so the UI can freeze the display
+ *   during unreliable phases and show a phase indicator instead.
  */
 
 import koffi from "koffi";
-import { findFusionPartner, loadFusionLookup } from "./fusions.mjs";
 
 // ── Windows constants ──────────────────────────────────────────────
 const FILE_MAP_READ = 0x0004;
@@ -33,22 +28,28 @@ const LP_P1_OFFSET = 0x0ea004;
 const LP_P2_OFFSET = 0x0ea024;
 const SCENE_ID_OFFSET = 0x09b26c;
 
-// From RetroAchievements code notes
-const FUSION_RESULT_OFFSET = 0x0ea118;
-const FUSION_COUNTER_OFFSET = 0x0e9ff8;
+// From RetroAchievements code notes + Data Crystal
 const DUEL_PHASE_OFFSET = 0x09b23a;
-// Turn indicator (from FM-Online: 0x09B1D5)
 const TURN_INDICATOR_OFFSET = 0x09b1d5;
+const FUSION_COUNTER_OFFSET = 0x0e9ff8;
+const TERRAIN_OFFSET = 0x09b364;
+const DUELIST_ID_OFFSET = 0x09b361;
 
 const PS1_RAM_SIZE = 0x200000;
 
+// ── Status byte flags (at +0x0B in card struct) ────────────────────
 const STATUS_PRESENT = 0x80;
 const STATUS_TRANSITIONING = 0x10;
 
-// Duel phases
+// Duel phases where hand data is reliable (player turn only)
 const PHASE_CLEANUP = 0x02;
 const PHASE_DRAW = 0x03;
 const PHASE_HAND_SELECT = 0x04;
+// Other known phases (for UI display)
+const PHASE_FIELD = 0x05;
+const PHASE_FUSION = 0x07;
+const PHASE_FUSION_RESOLVE = 0x08;
+const PHASE_BATTLE = 0x09;
 
 // ── Load Windows kernel32 ──────────────────────────────────────────
 const kernel32 = koffi.load("kernel32.dll");
@@ -62,14 +63,6 @@ const UnmapViewOfFile = kernel32.func("int __stdcall UnmapViewOfFile(void* lpBas
 const CloseHandle = kernel32.func("int __stdcall CloseHandle(void* hObject)");
 const GetLastError = kernel32.func("uint32_t __stdcall GetLastError()");
 
-// ── Fusion lookup ──────────────────────────────────────────────────
-let fusionLookup = null;
-try {
-  fusionLookup = loadFusionLookup();
-} catch (err) {
-  console.error("Warning: could not load fusion lookup:", err.message);
-}
-
 // ── Memory read helpers ────────────────────────────────────────────
 function readU16(view, offset) {
   return koffi.decode(view, offset, "uint16");
@@ -81,8 +74,6 @@ function readCardSlot(view, base, index) {
   const offset = base + index * HAND_STRIDE;
   return {
     cardId: readU16(view, offset),
-    atk: readU16(view, offset + 2),
-    def: readU16(view, offset + 4),
     status: readU8(view, offset + 0x0b),
   };
 }
@@ -104,6 +95,7 @@ export async function findDuckStationPids() {
     return [];
   }
 }
+
 export function openSharedMemory(pid) {
   const name = `duckstation_${pid}`;
   const handle = OpenFileMappingW(FILE_MAP_READ, 0, name);
@@ -120,6 +112,7 @@ export function openSharedMemory(pid) {
   console.log(`Mapped shared memory for PID ${pid} (${name})`);
   return { handle, view, pid };
 }
+
 export function closeSharedMemory(mapping) {
   if (mapping.view) UnmapViewOfFile(mapping.view);
   if (mapping.handle) CloseHandle(mapping.handle);
@@ -127,19 +120,6 @@ export function closeSharedMemory(mapping) {
 
 // ── State tracking ─────────────────────────────────────────────────
 let prevDuelPhase = -1;
-let prevFusionCounter = -1;
-let prevFusionResult = 0; // tracks the last fusion result for chain detection
-let prevFieldIds = [];
-
-// The "confirmed hand" is the set of card IDs known to be genuinely in hand.
-// Updated at reliable phases (0x02 cleanup, 0x03 draw, 0x04 hand selection).
-// During unreliable phases (post-fusion), used as a filter.
-let confirmedHand = []; // card IDs
-
-function setConfirmedHand(cardIds) {
-  confirmedHand = [...cardIds];
-  log(`  confirmedHand = [${cardIds.join(", ")}] (${cardIds.length} cards)`);
-}
 
 /**
  * Read the full game state from mapped PS1 RAM.
@@ -147,136 +127,60 @@ function setConfirmedHand(cardIds) {
 export function readGameState(view) {
   const sceneId = readU16(view, SCENE_ID_OFFSET);
   const duelPhase = readU8(view, DUEL_PHASE_OFFSET);
-  const fusionResult = readU16(view, FUSION_RESULT_OFFSET);
-  const fusionCounter = readU8(view, FUSION_COUNTER_OFFSET);
   const turnIndicator = readU8(view, TURN_INDICATOR_OFFSET);
 
-  // Read all slots
+  // Read all hand and field slots
   const handSlots = [];
   for (let i = 0; i < HAND_SLOTS; i++) handSlots.push(readCardSlot(view, HAND_BASE, i));
   const fieldSlots = [];
   for (let i = 0; i < FIELD_SLOTS; i++) fieldSlots.push(readCardSlot(view, FIELD_BASE, i));
 
-  const fieldIds = fieldSlots
-    .filter((s) => s.cardId > 0 && (s.status & STATUS_PRESENT) !== 0)
-    .map((s) => s.cardId);
-
-  // Read all present hand cards from slots (raw, unfiltered except by status bits)
-  const rawHand = [];
+  // Build card ID lists from status-byte filtering
+  const hand = [];
   for (const s of handSlots) {
     const present = (s.status & STATUS_PRESENT) !== 0;
     const transitioning = (s.status & STATUS_TRANSITIONING) !== 0;
     if (s.cardId > 0 && present && !transitioning) {
-      rawHand.push(s.cardId);
+      hand.push(s.cardId);
     }
   }
+  const field = fieldSlots
+    .filter((s) => s.cardId > 0 && (s.status & STATUS_PRESENT) !== 0)
+    .map((s) => s.cardId);
 
-  // ── Phase-based hand tracking ──────────────────────────────────
-  const phaseChanged = duelPhase !== prevDuelPhase;
-
-  if (phaseChanged) {
-    log(`Phase: 0x${prevDuelPhase.toString(16)} → 0x${duelPhase.toString(16)}, turn=${turnIndicator}, rawHand=[${rawHand.join(",")}]`);
-  }
-
-  // Phase 0x02/0x03/0x04 are reliable ONLY during the player's turn (turn=0).
-  // During the opponent's turn, these phases cycle too but the player's hand
-  // slots still contain ghost cards from previous fusions.
+  // Hand data is reliable only during the player's turn at specific phases
   const isPlayerTurn = turnIndicator === 0;
-  if (isPlayerTurn && (duelPhase === PHASE_CLEANUP || duelPhase === PHASE_DRAW || duelPhase === PHASE_HAND_SELECT)) {
-    if (rawHand.join(",") !== confirmedHand.join(",")) {
-      log(`Reliable phase 0x${duelPhase.toString(16)} (player turn): updating confirmed hand`);
-      setConfirmedHand(rawHand);
-    }
-  }
-
-  // Fusion detection: when fusion counter increases, identify consumed materials
-  const fusionJustHappened = prevFusionCounter >= 0 && fusionCounter > prevFusionCounter;
-  if (fusionJustHappened && fusionLookup) {
-    const numFusions = fusionCounter - prevFusionCounter;
-    log(`FUSION x${numFusions}: result=card#${fusionResult}, field=[${fieldIds.join(",")}]`);
-
-    // Try hand+hand materials first, then hand+intermediateResult (chain),
-    // then hand+field
-    let consumed = identifyConsumedMaterials(confirmedHand, fusionResult, numFusions);
-    if (consumed.length === 0 && prevFusionResult > 0) {
-      // Chain fusion: one material from hand, one is the previous fusion result
-      consumed = identifyChainFusion(confirmedHand, prevFusionResult, fusionResult);
-    }
-    if (consumed.length === 0) {
-      // Hand + field fusion: one material from hand, one from field
-      consumed = identifyHandFieldFusion(confirmedHand, fieldIds, fusionResult);
-    }
-
-    if (consumed.length > 0) {
-      log(`  consumed from hand: [${consumed.join(", ")}]`);
-      const remaining = [...confirmedHand];
-      for (const materialId of consumed) {
-        const idx = remaining.indexOf(materialId);
-        if (idx >= 0) remaining.splice(idx, 1);
-      }
-      setConfirmedHand(remaining);
-    } else {
-      log("  could not identify consumed materials");
-    }
-    prevFusionResult = fusionResult;
-  } else if (!fusionJustHappened) {
-    // Reset chain tracking when no fusion is happening
-    prevFusionResult = 0;
-  }
-
-  // Detect cards played directly to field (no fusion, e.g. failed fusion chain or simple play).
-  // If a confirmed hand card now appears on the field but wasn't there before,
-  // and no fusion produced it, it was played directly.
-  if (prevFieldIds.length > 0 && confirmedHand.length > 0) {
-    const prevFieldSet = new Set(prevFieldIds);
-    const newFieldCards = fieldIds.filter((id) => !prevFieldSet.has(id));
-    for (const newFieldCard of newFieldCards) {
-      // Skip if this card is the fusion result (already handled above)
-      if (fusionJustHappened && newFieldCard === fusionResult) continue;
-      // Check if this card is in confirmedHand
-      const idx = confirmedHand.indexOf(newFieldCard);
-      if (idx >= 0) {
-        log(`PLAYED TO FIELD: card#${newFieldCard} (was in confirmed hand)`);
-        const remaining = [...confirmedHand];
-        remaining.splice(idx, 1);
-        setConfirmedHand(remaining);
-      }
-    }
-  }
-  prevFieldIds = [...fieldIds];
-
-  // ── Build the output hand ──────────────────────────────────────
-  // During reliable phases, use rawHand directly.
-  // During unreliable phases, use confirmedHand as a filter on rawHand.
-  let hand;
-  const reliablePhase =
+  const isReliablePhase =
     duelPhase === PHASE_CLEANUP || duelPhase === PHASE_DRAW || duelPhase === PHASE_HAND_SELECT;
+  const handReliable = isPlayerTurn && isReliablePhase;
 
-  if (reliablePhase || confirmedHand.length === 0) {
-    hand = rawHand;
+  // Determine the game phase label for UI display
+  let phase;
+  if (!isPlayerTurn) {
+    phase = "opponent";
+  } else if (duelPhase === PHASE_HAND_SELECT) {
+    phase = "hand";
+  } else if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) {
+    phase = "draw";
+  } else if (duelPhase === PHASE_FUSION || duelPhase === PHASE_FUSION_RESOLVE) {
+    phase = "fusion";
+  } else if (duelPhase === PHASE_FIELD) {
+    phase = "field";
+  } else if (duelPhase === PHASE_BATTLE) {
+    phase = "battle";
   } else {
-    // Filter rawHand to only include cards in confirmedHand.
-    // Handle duplicates: for each card in rawHand, include it only if
-    // confirmedHand has a remaining instance.
-    const budget = new Map();
-    for (const id of confirmedHand) {
-      budget.set(id, (budget.get(id) || 0) + 1);
-    }
-    hand = [];
-    for (const id of rawHand) {
-      const remaining = budget.get(id) || 0;
-      if (remaining > 0) {
-        hand.push(id);
-        budget.set(id, remaining - 1);
-      }
-    }
+    phase = "other";
   }
 
-  // Save state
+  // Log phase transitions
+  if (duelPhase !== prevDuelPhase) {
+    log(
+      `Phase: 0x${prevDuelPhase.toString(16)} → 0x${duelPhase.toString(16)}, turn=${turnIndicator}, hand=${hand.length} cards, reliable=${handReliable}`,
+    );
+  }
   prevDuelPhase = duelPhase;
-  prevFusionCounter = fusionCounter;
 
-  const inDuel = hand.length > 0 || fieldIds.length > 0;
+  const inDuel = hand.length > 0 || field.length > 0;
   const lpP1 = readU16(view, LP_P1_OFFSET);
   const lpP2 = readU16(view, LP_P2_OFFSET);
 
@@ -284,106 +188,16 @@ export function readGameState(view) {
     inDuel,
     sceneId,
     hand,
-    field: fieldIds,
+    field,
     lp: [lpP1, lpP2],
-    debug: {
-      duelPhase,
-      turnIndicator,
-      fusionResult,
-      fusionCounter,
-      rawHand,
-      confirmedHand: [...confirmedHand],
-      handSlots,
+    handReliable,
+    phase,
+    stats: {
+      fusions: readU8(view, FUSION_COUNTER_OFFSET),
+      terrain: readU8(view, TERRAIN_OFFSET),
+      duelistId: readU8(view, DUELIST_ID_OFFSET),
     },
   };
-}
-
-/**
- * Given the confirmed hand, the final fusion result, and the number of fusions,
- * identify which hand cards were consumed as materials.
- *
- * For a single fusion (A + B → R): find A, B in confirmedHand where fusion(A,B)=R.
- * For a chain (A + B → C, C + D → R): find A, B, D in confirmedHand.
- */
-function identifyConsumedMaterials(handCards, finalResult, numFusions) {
-  if (!fusionLookup || handCards.length === 0) return [];
-
-  if (numFusions === 1) {
-    // Simple case: find 2 cards in hand that fuse into finalResult
-    return findMaterialPair(handCards, finalResult);
-  }
-
-  // Chain case: work backwards from the final result
-  // Last fusion: X + D → finalResult, where X is an intermediate result
-  // We need to find D in handCards, and then recurse to find materials for X
-  for (let d = 0; d < handCards.length; d++) {
-    const cardD = handCards[d];
-    // Check: is there some intermediate result X where fusion(X, cardD) = finalResult?
-    const partnersForD = findFusionPartner(fusionLookup, cardD, finalResult);
-    for (const intermediateResult of partnersForD) {
-      // Now find materials for the intermediate result from remaining hand cards
-      const remainingHand = handCards.filter((_, i) => i !== d);
-      const earlierMaterials = identifyConsumedMaterials(
-        remainingHand,
-        intermediateResult,
-        numFusions - 1,
-      );
-      if (earlierMaterials.length > 0) {
-        return [...earlierMaterials, cardD];
-      }
-    }
-  }
-
-  return []; // Could not trace the fusion chain
-}
-
-/**
- * Chain fusion: one material is the previous fusion result (intermediate),
- * the other is from hand. Returns the hand card consumed (0 or 1 cards).
- */
-function identifyChainFusion(handCards, intermediateResult, fusionResult) {
-  if (!fusionLookup) return [];
-  const partners = findFusionPartner(fusionLookup, intermediateResult, fusionResult);
-  for (const handCard of handCards) {
-    if (partners.has(handCard)) {
-      log(`  chain fusion: intermediate card#${intermediateResult} + hand card#${handCard} → ${fusionResult}`);
-      return [handCard];
-    }
-  }
-  return [];
-}
-
-/**
- * Hand + field fusion: one material from hand, one from field.
- * Returns the hand card IDs that were consumed (0 or 1 cards).
- */
-function identifyHandFieldFusion(handCards, fieldCards, fusionResult) {
-  if (!fusionLookup) return [];
-  for (const handCard of handCards) {
-    const partners = findFusionPartner(fusionLookup, handCard, fusionResult);
-    for (const fieldCard of fieldCards) {
-      if (partners.has(fieldCard)) {
-        log(`  hand+field fusion: hand card#${handCard} + field card#${fieldCard} → ${fusionResult}`);
-        return [handCard];
-      }
-    }
-  }
-  return [];
-}
-
-/**
- * Find 2 cards in handCards that fuse into the given result.
- */
-function findMaterialPair(handCards, result) {
-  for (let i = 0; i < handCards.length; i++) {
-    const partners = findFusionPartner(fusionLookup, handCards[i], result);
-    for (let j = i + 1; j < handCards.length; j++) {
-      if (partners.has(handCards[j])) {
-        return [handCards[i], handCards[j]];
-      }
-    }
-  }
-  return [];
 }
 
 // ── Logging ─────────────────────────────────────────────────────────

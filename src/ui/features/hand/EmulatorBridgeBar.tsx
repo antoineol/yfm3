@@ -2,7 +2,17 @@ import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import type { HandCard } from "../../db/use-hand.ts";
-import type { BridgeStatus, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { DuelPhase, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+
+const TERRAIN_NAMES: Record<number, string> = {
+  0: "Normal",
+  1: "Forest",
+  2: "Wasteland",
+  3: "Mountain",
+  4: "Meadow",
+  5: "Sea",
+  6: "Dark",
+};
 
 export function EmulatorBridgeBar({
   bridge,
@@ -14,14 +24,8 @@ export function EmulatorBridgeBar({
   const batchMigrateHand = useMutation(api.hand.batchMigrateHand);
   const lastSyncedRef = useRef("");
 
-  const bridgeHandKey = bridge.hand.join(",");
-  const currentHandKey = currentHand.map((c) => c.cardId).join(",");
-  const handsDiffer = bridgeHandKey !== currentHandKey && bridge.hand.length > 0;
-
-  // Auto-sync when bridge hand changes and differs from current hand
   const syncHand = useCallback(() => {
     if (bridge.hand.length === 0) return;
-
     const key = bridge.hand.join(",");
     if (key === lastSyncedRef.current) return;
     lastSyncedRef.current = key;
@@ -35,51 +39,154 @@ export function EmulatorBridgeBar({
     });
   }, [bridge.hand, batchMigrateHand]);
 
-  // Auto-sync when in a duel and hand changes
+  // Auto-sync ONLY when hand data is reliable
+  const bridgeHandKey = bridge.hand.join(",");
+  const currentHandKey = currentHand.map((c) => c.cardId).join(",");
+  const handsDiffer = bridgeHandKey !== currentHandKey && bridge.hand.length > 0;
+
   useEffect(() => {
-    if (bridge.inDuel && handsDiffer) {
+    if (bridge.inDuel && bridge.handReliable && handsDiffer) {
       syncHand();
     }
-  }, [bridge.inDuel, handsDiffer, syncHand]);
+  }, [bridge.inDuel, bridge.handReliable, handsDiffer, syncHand]);
+
+  // ── Not connected / not in duel ──────────────────────────────────
+  if (bridge.status !== "connected") {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
+        <StatusDot color="neutral" pulse={bridge.status === "connecting"} />
+        <span className="text-text-muted">
+          {bridge.status === "connecting" ? "Connecting to bridge..." : "Bridge offline"}
+        </span>
+      </div>
+    );
+  }
+
+  if (!bridge.inDuel) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
+        <StatusDot color="yellow" />
+        <span className="text-text-muted">Connected — waiting for duel</span>
+      </div>
+    );
+  }
+
+  // ── In duel ──────────────────────────────────────────────────────
+  const phaseInfo = PHASE_CONFIG[bridge.phase];
+  const terrain = bridge.stats ? (TERRAIN_NAMES[bridge.stats.terrain] ?? "Unknown") : null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
-      <StatusDot inDuel={bridge.inDuel} status={bridge.status} />
-      <span className="text-text-muted">{statusLabel(bridge)}</span>
-      {bridge.status === "connected" && bridge.inDuel && bridge.lp && (
-        <span className="ml-auto text-text-muted tabular-nums">
-          LP {String(bridge.lp[0])} vs {String(bridge.lp[1])}
-        </span>
-      )}
-      {bridge.status === "connected" && handsDiffer && !bridge.inDuel && (
-        <button
-          className="ml-auto text-accent-primary hover:text-accent-hover transition-colors cursor-pointer"
-          onClick={syncHand}
-          type="button"
-        >
-          Sync hand
-        </button>
+    <div className={`rounded-lg text-xs transition-colors ${phaseInfo.bg}`}>
+      {/* Phase + LP row */}
+      <div className="flex items-center gap-2 px-3 py-2">
+        <StatusDot color={phaseInfo.dotColor} pulse={phaseInfo.pulse} />
+        <span className={phaseInfo.textColor}>{phaseInfo.label}</span>
+        {bridge.lp && (
+          <span className="ml-auto text-text-muted tabular-nums">
+            LP {String(bridge.lp[0])} vs {String(bridge.lp[1])}
+          </span>
+        )}
+      </div>
+
+      {/* Stats row */}
+      {bridge.stats && (
+        <div className="flex items-center gap-4 px-3 pb-2 text-text-muted/70">
+          {terrain && <Stat label="Terrain" value={terrain} />}
+          <Stat label="Fusions" value={String(bridge.stats.fusions)} />
+          <Stat label="Field" value={`${String(bridge.field.length)}/5`} />
+        </div>
       )}
     </div>
   );
 }
 
-function StatusDot({ status, inDuel }: { status: BridgeStatus; inDuel: boolean }) {
-  const color =
-    status === "connected" && inDuel
-      ? "bg-green-400"
-      : status === "connected"
-        ? "bg-yellow-400"
-        : status === "connecting"
-          ? "bg-yellow-400 animate-pulse"
-          : "bg-neutral-500";
-
-  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <span>
+      <span className="text-text-muted/50">{label}</span>{" "}
+      <span className="tabular-nums">{value}</span>
+    </span>
+  );
 }
 
-function statusLabel(bridge: EmulatorBridge): string {
-  if (bridge.status === "disconnected") return "Bridge offline";
-  if (bridge.status === "connecting") return "Connecting to bridge...";
-  if (!bridge.inDuel) return "Connected — waiting for duel";
-  return `In duel — ${String(bridge.hand.length)} cards detected`;
+// ── Phase display configuration ──────────────────────────────────
+
+type PhaseConfig = {
+  label: string;
+  dotColor: "green" | "yellow" | "blue" | "neutral";
+  pulse?: boolean;
+  bg: string;
+  textColor: string;
+};
+
+const PHASE_CONFIG: Record<DuelPhase, PhaseConfig> = {
+  hand: {
+    label: "Your turn",
+    dotColor: "green",
+    bg: "bg-surface-secondary",
+    textColor: "text-green-400",
+  },
+  draw: {
+    label: "Drawing...",
+    dotColor: "green",
+    pulse: true,
+    bg: "bg-surface-secondary",
+    textColor: "text-green-400",
+  },
+  fusion: {
+    label: "Fusing",
+    dotColor: "yellow",
+    pulse: true,
+    bg: "bg-yellow-950/20",
+    textColor: "text-yellow-400/90",
+  },
+  field: {
+    label: "Field play",
+    dotColor: "yellow",
+    bg: "bg-yellow-950/20",
+    textColor: "text-yellow-400/90",
+  },
+  battle: {
+    label: "Battle",
+    dotColor: "yellow",
+    bg: "bg-yellow-950/20",
+    textColor: "text-yellow-400/90",
+  },
+  opponent: {
+    label: "Opponent's turn",
+    dotColor: "blue",
+    bg: "bg-blue-950/20",
+    textColor: "text-blue-400/90",
+  },
+  other: {
+    label: "In duel",
+    dotColor: "neutral",
+    bg: "bg-surface-secondary",
+    textColor: "text-text-muted",
+  },
+};
+
+// ── Status dot ───────────────────────────────────────────────────
+
+function StatusDot({
+  color,
+  pulse,
+}: {
+  color: "green" | "yellow" | "blue" | "neutral";
+  pulse?: boolean;
+}) {
+  const colorClass =
+    color === "green"
+      ? "bg-green-400"
+      : color === "yellow"
+        ? "bg-yellow-400"
+        : color === "blue"
+          ? "bg-blue-400"
+          : "bg-neutral-500";
+
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full shrink-0 ${colorClass} ${pulse ? "animate-pulse" : ""}`}
+    />
+  );
 }
