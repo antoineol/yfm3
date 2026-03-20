@@ -677,6 +677,115 @@ input[type="number"] {
   justify-content: center;
 }
 
+/* ── Card Detail Modal Animation ─────────────────────────────── *
+ * Inspired by Yu-Gi-Oh! Forbidden Memories card reveal:
+ *   – golden radial glow backdrop
+ *   – card scales up from a tilted "placed on field" pose
+ *   – golden border flash + holo shimmer sweep
+ * Uses Base UI data attributes for enter/exit transitions.
+ * ─────────────────────────────────────────────────────────────── */
+
+/* Backdrop — dark vignette with warm golden center glow */
+.fm-modal-backdrop {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(201, 168, 76, 0.06) 0%,
+    rgba(0, 0, 0, 0.76) 50%,
+    rgba(0, 0, 0, 0.84) 100%
+  );
+  transition: opacity 300ms ease;
+}
+.fm-modal-backdrop[data-starting-style],
+.fm-modal-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+/* Popup — scale + tilt entrance, golden glow burst */
+.fm-modal-popup {
+  overflow-x: hidden;
+  box-shadow:
+    0 0 60px rgba(0, 0, 0, 0.5),
+    0 0 0 rgba(201, 168, 76, 0);
+  transition:
+    opacity 300ms ease,
+    scale 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 500ms ease;
+}
+
+.fm-modal-popup[data-open] {
+  box-shadow:
+    0 0 60px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(201, 168, 76, 0.15),
+    0 0 16px rgba(201, 168, 76, 0.08);
+  animation: fm-border-glow 1s ease-out;
+}
+
+/* Enter — scaled down, slightly tilted forward like a card being placed */
+.fm-modal-popup[data-starting-style] {
+  opacity: 0;
+  scale: 0.78;
+  transform: perspective(800px) rotateX(6deg);
+}
+
+/* Exit — shrink back quickly */
+.fm-modal-popup[data-ending-style] {
+  opacity: 0;
+  scale: 0.92;
+  transition-duration: 200ms;
+}
+
+/* Golden border flash + intensified glow burst on open */
+@keyframes fm-border-glow {
+  0% {
+    border-color: rgba(232, 199, 90, 0.7);
+    box-shadow:
+      0 0 60px rgba(0, 0, 0, 0.5),
+      0 0 100px rgba(201, 168, 76, 0.4),
+      0 0 40px rgba(201, 168, 76, 0.2);
+  }
+  100% {
+    border-color: var(--color-border-accent);
+    box-shadow:
+      0 0 60px rgba(0, 0, 0, 0.5),
+      0 0 60px rgba(201, 168, 76, 0.15),
+      0 0 16px rgba(201, 168, 76, 0.08);
+  }
+}
+
+/* Holographic shimmer sweep across the card face */
+.fm-modal-popup[data-open]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(201, 168, 76, 0.08) 43%,
+    rgba(232, 199, 90, 0.18) 50%,
+    rgba(201, 168, 76, 0.08) 57%,
+    transparent 70%
+  );
+  animation: fm-shimmer-sweep 600ms ease-out 220ms both;
+}
+
+@keyframes fm-shimmer-sweep {
+  0% {
+    transform: translateX(-150%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(150%);
+    opacity: 0;
+  }
+}
+
 /* Animations */
 @keyframes spin-gold {
   to {

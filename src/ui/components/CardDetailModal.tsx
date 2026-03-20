@@ -13,9 +13,9 @@ export function CardDetailModal() {
 
   return (
     <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={cardId !== null}>
-      <BaseDialog.Portal>
-        <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/70" />
-        <BaseDialog.Popup className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl shadow-overlay w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto focus:outline-none">
+      <BaseDialog.Portal keepMounted>
+        <BaseDialog.Backdrop className="fm-modal-backdrop fixed inset-0 z-50" />
+        <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto focus:outline-none">
           {card && <CardDetailContent card={card} />}
         </BaseDialog.Popup>
       </BaseDialog.Portal>
