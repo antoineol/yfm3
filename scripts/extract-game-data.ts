@@ -21,6 +21,7 @@ import path from "node:path";
 
 // sharp lives in scripts/package.json to avoid bloating the Vercel deployment.
 // Run `cd scripts && bun install` before using this script.
+// Type stub in scripts/sharp.d.ts keeps tsc happy without installing the package.
 // biome-ignore lint/suspicious/noExplicitAny: dynamic import avoids build-time dependency
 const sharp: any = await import("sharp")
   .then((m) => m.default)
