@@ -14,7 +14,7 @@ export function CardName({
 
   return (
     <button
-      className={`text-left hover:underline decoration-gold/40 underline-offset-2 cursor-pointer transition-colors duration-150 hover:text-gold ${className ?? ""}`}
+      className={`text-left truncate hover:underline decoration-gold/40 underline-offset-2 cursor-pointer transition-colors duration-150 hover:text-gold ${className ?? ""}`}
       onClick={(e) => {
         e.stopPropagation();
         openCard(cardId);

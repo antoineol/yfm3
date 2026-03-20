@@ -1,5 +1,7 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useConvexAuth } from "convex/react";
+import { useAtomValue } from "jotai";
+import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { CardDetailModal } from "./components/CardDetailModal.tsx";
 import { LoaderBlock } from "./components/Loader.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
@@ -9,8 +11,10 @@ import { SignIn } from "./features/auth/SignIn.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
 import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
+import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
+import { deckSubTabAtom } from "./lib/atoms.ts";
 import { useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
@@ -35,36 +39,57 @@ export default function App() {
   }
 
   return (
-    <Tabs.Root className="h-screen xl:h-screen flex flex-col" onValueChange={setTab} value={tab}>
+    <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
       <Header />
 
       <Tabs.Panel
-        className="flex-1 grid grid-cols-1 lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-3 xl:overflow-y-auto"
+        className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
         value="deck"
       >
         <RequireReferenceData>
-          <PanelCard>
+          <DeckSubTabs />
+          <DeckSubPanel value="collection">
             <CollectionPanel />
-          </PanelCard>
-          <PanelCard>
+          </DeckSubPanel>
+          <DeckSubPanel value="deck">
             <DeckPanel />
-          </PanelCard>
-          <PanelCard className="lg:col-span-2 xl:col-span-1">
+          </DeckSubPanel>
+          <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
             <ResultPanel />
-          </PanelCard>
+          </DeckSubPanel>
         </RequireReferenceData>
       </Tabs.Panel>
 
-      <Tabs.Panel className="flex-1 px-3 pt-4 pb-6 overflow-y-auto" value="hand">
+      <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="hand">
         <RequireReferenceData>
           <HandFusionCalculator />
         </RequireReferenceData>
       </Tabs.Panel>
 
-      <Tabs.Panel className="flex-1 px-3 pt-2 pb-3 overflow-y-auto" value="data">
+      <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-3 overflow-y-auto" value="data">
         <DataPanel />
       </Tabs.Panel>
+      <BottomTabBar />
       <CardDetailModalWhenReady />
     </Tabs.Root>
+  );
+}
+
+function DeckSubPanel({
+  value,
+  className = "",
+  children,
+}: {
+  value: "collection" | "deck" | "result";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const activeSubTab = useAtomValue(deckSubTabAtom);
+  const isActive = activeSubTab === value;
+
+  return (
+    <PanelCard className={`${isActive ? "" : "max-lg:hidden"} ${className} max-lg:flex-1`}>
+      {children}
+    </PanelCard>
   );
 }

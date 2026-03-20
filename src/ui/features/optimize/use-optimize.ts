@@ -7,6 +7,7 @@ import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
 import {
   currentDeckScoreAtom,
+  deckSubTabAtom,
   isOptimizingAtom,
   liveBestDeckAtom,
   liveBestScoreAtom,
@@ -19,6 +20,7 @@ export function useOptimize() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
   const setIsOptimizing = useSetAtom(isOptimizingAtom);
   const setResult = useSetAtom(resultAtom);
+  const setDeckSubTab = useSetAtom(deckSubTabAtom);
   const setLiveBestScore = useSetAtom(liveBestScoreAtom);
   const setLiveBestDeck = useSetAtom(liveBestDeckAtom);
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
@@ -65,7 +67,10 @@ export function useOptimize() {
         }
       },
     })
-      .then((res) => setResult(res))
+      .then((res) => {
+        setResult(res);
+        setDeckSubTab("result");
+      })
       .catch((err) => console.error("Optimization failed:", err))
       .finally(() => {
         setIsOptimizing(false);

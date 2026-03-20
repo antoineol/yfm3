@@ -80,7 +80,7 @@ export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: 
 }
 
 export function PanelBody({ children }: { children: ReactNode }) {
-  return <div className="max-xl:max-h-[70vh] flex-1 overflow-y-auto">{children}</div>;
+  return <div className="lg:max-xl:max-h-[70vh] flex-1 overflow-y-auto">{children}</div>;
 }
 
 export function SectionLabel({ children }: { children: ReactNode }) {

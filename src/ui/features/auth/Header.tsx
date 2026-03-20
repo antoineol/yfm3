@@ -14,10 +14,10 @@ export function Header() {
   const [configOpen, setConfigOpen] = useState(false);
 
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center px-3 py-2 border-b border-border-subtle">
-      <h1 className="font-display text-lg font-bold text-gold">YFM Deck Optimizer</h1>
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
+      <h1 className="font-display text-base lg:text-lg font-bold text-gold">YFM Deck Optimizer</h1>
 
-      <Tabs.List className="relative flex items-center gap-8 self-stretch">
+      <Tabs.List className="relative hidden lg:flex items-center gap-8 self-stretch">
         <Tabs.Tab
           className={tabClass}
           nativeButton={false}

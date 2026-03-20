@@ -76,7 +76,7 @@ export function CollectionPanel() {
       const canAddToDeck = entry.availableInCollection > 0 && !deckFull;
 
       return (
-        <span className="inline-flex items-center gap-0.5">
+        <span className="inline-flex items-center gap-1.5 lg:gap-0.5">
           <CardActionButton
             disabled={entry.totalOwned >= MAX_COPIES_PER_CARD}
             onClick={() => void addCard({ cardId: entry.id })}

@@ -85,7 +85,7 @@ function HeaderAction({
   return (
     <button
       aria-label={label}
-      className="h-8 w-8 flex items-center justify-center rounded-md transition-colors text-text-secondary hover:text-text-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+      className="h-10 w-10 lg:h-8 lg:w-8 flex items-center justify-center rounded-md transition-colors text-text-secondary hover:text-text-primary hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
       disabled={disabled}
       onClick={onClick}
       title={label}

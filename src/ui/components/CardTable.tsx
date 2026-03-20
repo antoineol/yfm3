@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { formatCardId } from "../lib/format.ts";
+import { useIsDesktop } from "../lib/use-is-desktop.ts";
 import { CardName } from "./CardName.tsx";
 import type { SortKey, SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
@@ -102,6 +103,7 @@ export function CardTable<T extends CardEntry>({
   defaultSort?: SortState;
   showKinds?: boolean;
 }) {
+  const isDesktop = useIsDesktop();
   const [animateRef] = useAutoAnimate();
   const [sort, setSort] = useState<SortState>(defaultSort ?? { key: "id", dir: "asc" });
 
@@ -115,6 +117,24 @@ export function CardTable<T extends CardEntry>({
   const showC = first?.collectionCount !== undefined;
   const showD = first?.deckCount !== undefined;
   const hasCopyColumns = showC || showD;
+
+  if (!isDesktop) {
+    return (
+      <div ref={animateRef}>
+        {sorted.map((e) => (
+          <MobileCardRow
+            actions={actions}
+            entry={e}
+            hasCopyColumns={hasCopyColumns}
+            key={e.rowKey ?? e.id}
+            leftActions={leftActions}
+            showC={showC}
+            showD={showD}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -256,6 +276,103 @@ export function CardTable<T extends CardEntry>({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* ── Mobile card row ── */
+
+function MobileCardRow<T extends CardEntry>({
+  entry: e,
+  leftActions,
+  actions,
+  hasCopyColumns,
+  showC,
+  showD,
+}: {
+  entry: T;
+  leftActions?: (entry: T) => ReactNode;
+  actions?: (entry: T) => ReactNode;
+  hasCopyColumns: boolean;
+  showC: boolean;
+  showD: boolean;
+}) {
+  const diff = e.diffStatus;
+  const rowBg =
+    diff === "removed" ? "bg-red-950/20 opacity-60" : diff === "added" ? "bg-green-950/20" : "";
+  const nameColor =
+    diff === "removed" ? "text-red-400" : diff === "added" ? "text-green-400" : "text-text-primary";
+  const atkColor =
+    diff === "removed" ? "text-red-400" : diff === "added" ? "text-green-400" : "text-stat-atk";
+  const defColor =
+    diff === "removed"
+      ? "text-red-400/70"
+      : diff === "added"
+        ? "text-green-400/70"
+        : "text-stat-def";
+  const idColor =
+    diff === "removed"
+      ? "text-red-400/70"
+      : diff === "added"
+        ? "text-green-400/70"
+        : "text-text-muted";
+  const qtyColor =
+    diff === "removed" ? "text-red-400/70" : diff === "added" ? "text-green-400/70" : "text-gold";
+
+  const hasPills = showC || showD;
+
+  return (
+    <div
+      className={`flex flex-col gap-1.5 py-3 px-3 border-b border-border-subtle/50 ${rowBg} ${e.qty === 0 ? "opacity-40" : ""}`}
+    >
+      {/* Row 1: Name + stats */}
+      <div className="flex items-baseline gap-3">
+        <span className={`flex-1 min-w-0 truncate flex text-[15px] ${nameColor}`}>
+          <CardName cardId={e.id} className={nameColor} name={e.name} />
+          {!hasCopyColumns && e.qty > 1 && (
+            <span className={`${qtyColor} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
+          )}
+        </span>
+        {e.isMonster && (
+          <span className="shrink-0 flex items-baseline gap-1.5">
+            <span className={`font-mono font-bold text-base ${atkColor}`}>{e.atk}</span>
+            <span className={`font-mono text-xs ${defColor}`}>/ {e.def}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Row 2: Ownership pills + actions */}
+      <div className="flex items-center gap-2">
+        <div className={`text-[11px] font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
+        {hasPills && (
+          <div className="flex items-center gap-1.5">
+            {showC && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-bg-surface rounded px-1.5 py-0.5 text-text-secondary">
+                <span
+                  className={`font-bold ${(e.collectionCount ?? 0) > 0 ? "text-text-primary" : "text-text-muted"}`}
+                >
+                  {e.collectionCount ?? 0}
+                </span>
+              </span>
+            )}
+            {showD && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-bg-surface rounded px-1.5 py-0.5 text-text-secondary">
+                <span
+                  className={`font-bold ${(e.deckCount ?? 0) > 0 ? "text-gold" : "text-text-muted"}`}
+                >
+                  {e.deckCount ?? 0}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+        {(leftActions || actions) && (
+          <div className="ml-auto flex items-center gap-2">
+            {leftActions?.(e)}
+            {actions?.(e)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
