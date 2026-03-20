@@ -33,7 +33,7 @@ export function PanelHeader({
 }) {
   return (
     <div className="relative flex items-center gap-3 pb-3 mb-2 border-b border-border-subtle">
-      <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
+      <h2 className="max-lg:hidden font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
         {title}
       </h2>
       {badge && <span className="text-xs text-text-secondary shrink-0">{badge}</span>}
