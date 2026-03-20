@@ -1,6 +1,7 @@
 import type {
   RefCard,
   RefDuelistCard,
+  RefEquip,
   RefFusion,
 } from "../../engine/reference/build-reference-table.ts";
 
@@ -12,17 +13,20 @@ export async function loadReferenceCsvs(): Promise<{
   cards: RefCard[];
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
+  equips: RefEquip[];
 }> {
-  const [cardsCsv, fusionsCsv, duelistsCsv] = await Promise.all([
+  const [cardsCsv, fusionsCsv, duelistsCsv, equipsCsv] = await Promise.all([
     fetch("/data/cards.csv").then((r) => r.text()),
     fetch("/data/fusions.csv").then((r) => r.text()),
     fetch("/data/duelists.csv").then((r) => r.text()),
+    fetch("/data/equips.csv").then((r) => r.text()),
   ]);
 
   const cards = parseCardsCsv(cardsCsv);
   const fusions = parseFusionsCsv(fusionsCsv);
   const duelists = parseDuelistsCsv(duelistsCsv);
-  return { cards, fusions, duelists };
+  const equips = parseEquipsCsv(equipsCsv);
+  return { cards, fusions, duelists, equips };
 }
 
 function parseCsvRows(csv: string): string[][] {
@@ -130,4 +134,15 @@ function parseDuelistsCsv(csv: string): RefDuelistCard[] {
     });
   }
   return rows;
+}
+
+function parseEquipsCsv(csv: string): RefEquip[] {
+  const equips: RefEquip[] = [];
+  for (const [eqs = "", ms = ""] of parseCsvRows(csv)) {
+    const equipId = parseInt(eqs, 10);
+    const monsterId = parseInt(ms, 10);
+    if (!Number.isFinite(equipId) || !Number.isFinite(monsterId)) continue;
+    equips.push({ equipId, monsterId });
+  }
+  return equips;
 }

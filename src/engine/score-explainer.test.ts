@@ -33,6 +33,7 @@ function makeBuffers(deckCardIds: number[]): OptBuffers {
   return {
     fusionTable,
     cardAtk,
+    equipCompat: new Uint8Array(MAX_CARD_ID * MAX_CARD_ID),
     deck,
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),

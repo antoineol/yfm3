@@ -11,6 +11,7 @@ import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
 export interface ReferenceTableData {
   fusionTable: Int16Array;
   cardAtk: Int16Array;
+  equipCompat: Uint8Array;
   cardDb: CardDb;
   maxCardId: number;
   fusions: RefFusion[];
@@ -74,10 +75,16 @@ function parseGuardianStar(raw: string): GuardianStar | undefined {
   return validGuardianStars.has(raw) ? (raw as GuardianStar) : undefined;
 }
 
+export interface RefEquip {
+  equipId: number;
+  monsterId: number;
+}
+
 export function buildReferenceTableData(rows: {
   cards: RefCard[];
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
+  equips: RefEquip[];
 }): ReferenceTableData {
   const cardDb = createCardDb();
   for (const c of rows.cards) {
@@ -113,9 +120,22 @@ export function buildReferenceTableData(rows: {
     fusionTable[f.material2Id * MAX_CARD_ID + f.material1Id] = f.resultId;
   }
 
+  const equipCompat = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+  for (const e of rows.equips) {
+    if (
+      e.equipId >= 1 &&
+      e.equipId < MAX_CARD_ID &&
+      e.monsterId >= 1 &&
+      e.monsterId < MAX_CARD_ID
+    ) {
+      equipCompat[e.equipId * MAX_CARD_ID + e.monsterId] = 1;
+    }
+  }
+
   return {
     fusionTable,
     cardAtk,
+    equipCompat,
     cardDb,
     maxCardId: MAX_CARD_ID,
     fusions: rows.fusions,

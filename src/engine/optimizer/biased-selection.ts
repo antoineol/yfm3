@@ -10,7 +10,8 @@ const ALPHA = 200;
  * uniformly at random — that would waste most attempts on weak cards with no
  * fusion synergy. Instead, each card gets a selection weight:
  *
- *   weight(card) = baseATK + ALPHA × (# of current deck cards it fuses with)
+ *   weight(card) = baseATK + ALPHA × (# of current deck cards it fuses with
+ *                                      OR is equip-compatible with)
  *
  * Higher-weight cards are picked proportionally more often.
  *
@@ -32,15 +33,21 @@ export function createBiasedSelector() {
    * and every ~100 accepted swaps.
    */
   function recomputeWeights(buf: OptBuffers): void {
-    const { deck, fusionTable, cardAtk } = buf;
+    const { deck, fusionTable, cardAtk, equipCompat } = buf;
 
-    // For each card in the game, count how many current deck cards it fuses with
+    // For each card in the game, count how many current deck cards it
+    // fuses with OR is equip-compatible with (equip boosts the deck card,
+    // or a deck card equips this card).
     partnerCount.fill(0);
     for (let c = 0; c < MAX_CARD_ID; c++) {
       let count = 0;
       for (let s = 0; s < buf.deck.length; s++) {
         const deckCard = deck[s] ?? 0;
-        if (fusionTable[c * MAX_CARD_ID + deckCard] !== FUSION_NONE) {
+        if (
+          fusionTable[c * MAX_CARD_ID + deckCard] !== FUSION_NONE ||
+          equipCompat[c * MAX_CARD_ID + deckCard] ||
+          equipCompat[deckCard * MAX_CARD_ID + c]
+        ) {
           count++;
         }
       }

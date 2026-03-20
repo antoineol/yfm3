@@ -14,14 +14,16 @@ describe("loadGameDataFromStrings", () => {
 
     const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards.csv"), "utf-8");
     const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions.csv"), "utf-8");
+    const equipsCsv = fs.readFileSync(path.join(DATA_DIR, "equips.csv"), "utf-8");
 
     const buf2 = createBuffers();
-    const cards2 = loadGameDataFromStrings(buf2, cardsCsv, fusionsCsv);
+    const cards2 = loadGameDataFromStrings(buf2, cardsCsv, fusionsCsv, equipsCsv);
 
     expect(cards2.map((c) => c.id)).toEqual(cards1.map((c) => c.id));
     expect(cards2.map((c) => c.attack)).toEqual(cards1.map((c) => c.attack));
     expect(Array.from(buf2.cardAtk)).toEqual(Array.from(buf1.cardAtk));
     expect(Array.from(buf2.fusionTable)).toEqual(Array.from(buf1.fusionTable));
+    expect(Array.from(buf2.equipCompat)).toEqual(Array.from(buf1.equipCompat));
   });
 
   it("loads all 722 cards and populates cardAtk", () => {

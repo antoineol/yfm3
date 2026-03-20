@@ -4,11 +4,21 @@ import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID, MAX_FUSION_DEPTH } from "../types/constants.ts";
 import type { IScorer } from "../types/interfaces.ts";
 
+const MEGAMORPH_ID = 657;
+
+function equipBonus(equipId: number): number {
+  return equipId === MEGAMORPH_ID ? 1000 : 500;
+}
+
 /**
  * DFS fusion-chain hand evaluator.
  *
  * Given 5 cards, explores all fusion chains up to `fusionDepth` fusions deep
- * (fusionDepth + 1 materials consumed) and returns the highest ATK achievable.
+ * (fusionDepth + 1 materials consumed) and returns the highest ATK achievable,
+ * including equip bonuses applied after the last fusion in a chain.
+ *
+ * Equipment is always the terminal action: after all fusions, compatible
+ * equip cards remaining in hand are applied (bonuses cumulate).
  *
  * Zero allocations in the hot path — uses a pre-allocated Int16Array
  * with stride-5 addressing for the DFS stack.
@@ -24,18 +34,30 @@ export class FusionScorer implements IScorer {
     const sb = this.stackBuffer;
     const ft = buf.fusionTable;
     const atk = buf.cardAtk;
+    const ec = buf.equipCompat;
     const maxLevel = getConfig().fusionDepth;
 
-    // Copy hand into level 0 and find max base ATK
-    let maxAtk = 0;
+    // Copy hand into level 0
     for (let i = 0; i < 5; i++) {
-      const id = hand[i] ?? 0;
-      sb[i] = id;
-      const a = atk[id] ?? 0;
-      if (a > maxAtk) maxAtk = a;
+      sb[i] = hand[i] ?? 0;
     }
 
-    maxAtk = this.dfs(sb, ft, atk, 0, 5, maxAtk, maxLevel);
+    // Direct plays: base ATK + all compatible equip bonuses from other hand cards
+    let maxAtk = 0;
+    for (let i = 0; i < 5; i++) {
+      const id = sb[i] ?? 0;
+      let effective = atk[id] ?? 0;
+      for (let j = 0; j < 5; j++) {
+        if (j === i) continue;
+        const eqId = sb[j] ?? 0;
+        if (ec[eqId * MAX_CARD_ID + id]) {
+          effective += equipBonus(eqId);
+        }
+      }
+      if (effective > maxAtk) maxAtk = effective;
+    }
+
+    maxAtk = this.dfs(sb, ft, atk, ec, 0, 5, maxAtk, maxLevel);
     return maxAtk;
   }
 
@@ -43,6 +65,7 @@ export class FusionScorer implements IScorer {
     sb: Int16Array,
     ft: Int16Array,
     atk: Int16Array,
+    ec: Uint8Array,
     level: number,
     handSize: number,
     maxAtk: number,
@@ -62,8 +85,17 @@ export class FusionScorer implements IScorer {
         const result = ft[cardA * MAX_CARD_ID + cardB] ?? FUSION_NONE;
         if (result === FUSION_NONE) continue;
 
+        // Effective ATK = fusion result + all compatible equip bonuses from remaining cards
         const resultAtk = atk[result] ?? 0;
-        if (resultAtk > maxAtk) maxAtk = resultAtk;
+        let effective = resultAtk;
+        for (let k = 0; k < handSize; k++) {
+          if (k === i || k === j) continue;
+          const eqId = sb[base + k] ?? 0;
+          if (ec[eqId * MAX_CARD_ID + result]) {
+            effective += equipBonus(eqId);
+          }
+        }
+        if (effective > maxAtk) maxAtk = effective;
 
         const newHandSize = handSize - 1;
         if (newHandSize < 2 || level >= maxLevel - 1) continue;
@@ -79,7 +111,7 @@ export class FusionScorer implements IScorer {
         }
         sb[nextBase + write] = result;
 
-        maxAtk = this.dfs(sb, ft, atk, level + 1, newHandSize, maxAtk, maxLevel);
+        maxAtk = this.dfs(sb, ft, atk, ec, level + 1, newHandSize, maxAtk, maxLevel);
       }
     }
 

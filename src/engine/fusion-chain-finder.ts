@@ -1,6 +1,12 @@
 import type { CardDb } from "./data/game-db.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
+const MEGAMORPH_ID = 657;
+
+function equipBonus(equipId: number): number {
+  return equipId === MEGAMORPH_ID ? 1000 : 500;
+}
+
 export type FusionStep = {
   material1CardId: number;
   material2CardId: number;
@@ -16,6 +22,8 @@ export type FusionChainResult = {
   steps: FusionStep[];
   /** All material card IDs consumed from the hand (original hand cards only). */
   materialCardIds: number[];
+  /** Equip cards applied after fusions (empty if none). */
+  equipCardIds: number[];
 };
 
 /**
@@ -26,7 +34,8 @@ export type FusionChainResult = {
 type TaggedCard = { cardId: number; originalIndex: number };
 
 /**
- * Find all achievable fusion chains from a hand of up to 5 cards.
+ * Find all achievable fusion chains from a hand of up to 5 cards,
+ * including equip bonuses applied after the last fusion.
  *
  * Unlike FusionScorer (hot-path, typed arrays, returns only max ATK),
  * this returns full chain details for UI display. Runs once per user action.
@@ -36,11 +45,58 @@ export function findFusionChains(
   fusionTable: Int16Array,
   cardDb: CardDb,
   fusionDepth: number,
+  equipCompat?: Uint8Array,
 ): FusionChainResult[] {
   const tagged: TaggedCard[] = handCardIds.map((cardId, i) => ({ cardId, originalIndex: i }));
-  const results = new Map<number, FusionChainResult>();
-  dfs(tagged, handCardIds, fusionTable, cardDb, fusionDepth, 0, [], [], results);
+  const results = new Map<string, FusionChainResult>();
+  dfs(tagged, handCardIds, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat);
+
+  // Also check direct plays (no fusion) with equip bonuses
+  if (equipCompat) {
+    for (let i = 0; i < tagged.length; i++) {
+      const monster = tagged[i];
+      if (!monster) continue;
+      const baseAtk = cardDb.cardsById.get(monster.cardId)?.attack ?? 0;
+      if (baseAtk === 0) continue;
+      const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
+      if (equips.length === 0) continue;
+      const bonus = equips.reduce((sum, eqId) => sum + equipBonus(eqId), 0);
+      const card = cardDb.cardsById.get(monster.cardId);
+      const key = `${String(monster.cardId)}+${equips.join(",")}`;
+      const existing = results.get(key);
+      if (existing && existing.resultAtk >= baseAtk + bonus) continue;
+      results.set(key, {
+        resultCardId: monster.cardId,
+        resultAtk: baseAtk + bonus,
+        resultDef: (card?.defense ?? 0) + bonus,
+        resultName: card?.name ?? `Card #${monster.cardId}`,
+        steps: [],
+        materialCardIds: [monster.cardId],
+        equipCardIds: equips,
+      });
+    }
+  }
+
   return sortByAtkDesc(Array.from(results.values()));
+}
+
+/** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */
+function findCompatibleEquips(
+  hand: TaggedCard[],
+  skipIndices: number[],
+  monsterId: number,
+  equipCompat: Uint8Array,
+): number[] {
+  const equips: number[] = [];
+  for (let k = 0; k < hand.length; k++) {
+    if (skipIndices.includes(k)) continue;
+    const card = hand[k];
+    if (!card) continue;
+    if (equipCompat[card.cardId * MAX_CARD_ID + monsterId]) {
+      equips.push(card.cardId);
+    }
+  }
+  return equips;
 }
 
 function dfs(
@@ -52,7 +108,8 @@ function dfs(
   depth: number,
   steps: FusionStep[],
   consumedIndices: number[],
-  results: Map<number, FusionChainResult>,
+  results: Map<string, FusionChainResult>,
+  equipCompat?: Uint8Array,
 ): void {
   for (let i = 0; i < hand.length - 1; i++) {
     for (let j = i + 1; j < hand.length; j++) {
@@ -79,7 +136,15 @@ function dfs(
       if (b.originalIndex >= 0) newConsumed.push(b.originalIndex);
 
       const materialCardIds = newConsumed.map((idx) => originalHand[idx] ?? 0);
-      recordResult(resultId, newSteps, materialCardIds, cardDb, results);
+
+      // Check equip bonuses from remaining hand cards
+      let equips: number[] = [];
+      let bonus = 0;
+      if (equipCompat) {
+        equips = findCompatibleEquips(hand, [i, j], resultId, equipCompat);
+        bonus = equips.reduce((sum: number, eqId: number) => sum + equipBonus(eqId), 0);
+      }
+      recordResult(resultId, newSteps, materialCardIds, equips, bonus, cardDb, results);
 
       // Recurse: fuse result with remaining hand cards
       const remaining = buildRemainingHand(hand, i, j, resultId);
@@ -94,6 +159,7 @@ function dfs(
           newSteps,
           newConsumed,
           results,
+          equipCompat,
         );
       }
     }
@@ -115,25 +181,30 @@ function buildRemainingHand(
   return remaining;
 }
 
-/** Keep chain with fewest steps per resultCardId. */
+/** Keep result with highest effective ATK per unique (resultCardId + equips) combo. */
 function recordResult(
   resultId: number,
   steps: FusionStep[],
   materialCardIds: number[],
+  equipCardIds: number[],
+  equipBonusTotal: number,
   cardDb: CardDb,
-  results: Map<number, FusionChainResult>,
+  results: Map<string, FusionChainResult>,
 ): void {
-  const existing = results.get(resultId);
-  if (existing && existing.steps.length <= steps.length) return;
-
+  const key = `${String(resultId)}+${equipCardIds.join(",")}`;
   const card = cardDb.cardsById.get(resultId);
-  results.set(resultId, {
+  const effectiveAtk = (card?.attack ?? 0) + equipBonusTotal;
+  const existing = results.get(key);
+  if (existing && existing.resultAtk >= effectiveAtk) return;
+
+  results.set(key, {
     resultCardId: resultId,
-    resultAtk: card?.attack ?? 0,
-    resultDef: card?.defense ?? 0,
+    resultAtk: effectiveAtk,
+    resultDef: (card?.defense ?? 0) + equipBonusTotal,
     resultName: card?.name ?? `Card #${resultId}`,
     steps,
     materialCardIds,
+    equipCardIds,
   });
 }
 

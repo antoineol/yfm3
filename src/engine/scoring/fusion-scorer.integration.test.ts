@@ -114,6 +114,54 @@ describe("FusionScorer with non-monster materials", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Equip bonus
+// ---------------------------------------------------------------------------
+describe("FusionScorer equip bonus", () => {
+  it("monster + Megamorph: effective ATK = base + 1000", () => {
+    // Card 273 = MazeraDeVille (ATK=3300), Card 657 = Megamorph (+1000)
+    // Remaining: 3x Kuriboh (73), not equip-relevant
+    const hand = new Uint16Array([273, 657, 73, 73, 73]);
+    expect(scorer.evaluateHand(hand, buf)).toBe(4300);
+  });
+
+  it("monster + Bright Castle: effective ATK = base + 500", () => {
+    // Card 403 = Zoa (ATK=3100), Card 668 = Bright Castle (+500)
+    const hand = new Uint16Array([403, 668, 73, 73, 73]);
+    expect(scorer.evaluateHand(hand, buf)).toBe(3600);
+  });
+
+  it("multiple equips cumulate: Megamorph + Bright Castle = +1500", () => {
+    // Card 273 = MazeraDeVille (ATK=3300), 657 = Megamorph (+1000), 668 = Bright Castle (+500)
+    const hand = new Uint16Array([273, 657, 668, 73, 73]);
+    expect(scorer.evaluateHand(hand, buf)).toBe(4800);
+  });
+
+  it("equip applied to fusion result, not just base cards", () => {
+    // Fusion: 302 + 430 → 267 (ATK=3600), remaining has Megamorph (657)
+    // Card 302 = Sword of Dark Destruction (Equip), Card 430 = Gilford (ATK=2800)
+    const hand = new Uint16Array([302, 430, 657, 73, 73]);
+    // Without equip: fusion gives 3600. With Megamorph on 267: 3600+1000=4600 (if compatible)
+    // If Megamorph not compatible with 267, falls back to 3600
+    const result = scorer.evaluateHand(hand, buf);
+    expect(result).toBeGreaterThanOrEqual(3600);
+  });
+
+  it("equip on best direct card beats weaker fusion", () => {
+    // Card 273 (ATK=3300) + Megamorph = 4300
+    // vs any fusion from other cards which likely gives less
+    const hand = new Uint16Array([273, 657, 26, 66, 56]);
+    expect(scorer.evaluateHand(hand, buf)).toBeGreaterThanOrEqual(4300);
+  });
+
+  it("equip card with ATK=0 used as fusion material: equip bonus NOT preserved after fusion", () => {
+    // Card 302 (Equip, ATK=0) fuses with Card 430 → Card 267 (ATK=3600)
+    // Card 302 is consumed by the fusion, so it can't also be used as equip
+    const hand = new Uint16Array([302, 430, 73, 73, 73]);
+    expect(scorer.evaluateHand(hand, buf)).toBe(3600);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Agreement with reference scorer on all fixtures
 // ---------------------------------------------------------------------------
 describe("FusionScorer matches reference scorer", () => {

@@ -274,6 +274,80 @@ describe("findFusionChains enforces sequential chains", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Equip bonus
+// ---------------------------------------------------------------------------
+describe("findFusionChains with equip bonus", () => {
+  let eqCardDb: CardDb;
+  let eqFusionTable: Int16Array;
+  let equipCompat: Uint8Array;
+
+  beforeAll(() => {
+    eqCardDb = createCardDb();
+    addTestCard(eqCardDb, 60, "Warrior", 2000);
+    addTestCard(eqCardDb, 61, "Dragon", 2500);
+    addCard(eqCardDb, {
+      id: 62,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    addCard(eqCardDb, {
+      id: 657,
+      name: "Megamorph",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    addTestCard(eqCardDb, 64, "Filler", 300);
+    addTestCard(eqCardDb, 65, "SwordDragon", 3500);
+
+    eqFusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    eqFusionTable.fill(FUSION_NONE);
+    setFusion(eqFusionTable, 60, 61, 65); // Warrior + Dragon → SwordDragon (3500)
+
+    equipCompat = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+    equipCompat[62 * MAX_CARD_ID + 60] = 1; // Power Sword equips Warrior
+    equipCompat[62 * MAX_CARD_ID + 61] = 1; // Power Sword equips Dragon
+    equipCompat[657 * MAX_CARD_ID + 60] = 1; // Megamorph equips Warrior
+    equipCompat[657 * MAX_CARD_ID + 65] = 1; // Megamorph equips SwordDragon
+  });
+
+  it("shows direct play + equip as a result", () => {
+    const results = findFusionChains([60, 62, 64], eqFusionTable, eqCardDb, 3, equipCompat);
+    const equipped = results.find((r) => r.resultCardId === 60 && r.equipCardIds.length > 0);
+    expect(equipped).toBeDefined();
+    expect(equipped?.resultAtk).toBe(2500); // 2000 + 500
+    expect(equipped?.equipCardIds).toEqual([62]);
+  });
+
+  it("shows fusion result + equip", () => {
+    // Warrior(60) + Dragon(61) → SwordDragon(65, ATK 3500)
+    // Megamorph(657) equips SwordDragon → 3500 + 1000 = 4500
+    const results = findFusionChains([60, 61, 657, 64], eqFusionTable, eqCardDb, 3, equipCompat);
+    const fusionEquipped = results.find((r) => r.resultCardId === 65 && r.equipCardIds.length > 0);
+    expect(fusionEquipped).toBeDefined();
+    expect(fusionEquipped?.resultAtk).toBe(4500); // 3500 + 1000
+  });
+
+  it("multiple equips cumulate on a direct play", () => {
+    // Warrior(60) + Power Sword(62, +500) + Megamorph(657, +1000) = 3500
+    const results = findFusionChains([60, 62, 657, 64], eqFusionTable, eqCardDb, 3, equipCompat);
+    const doubleEquip = results.find((r) => r.resultCardId === 60 && r.equipCardIds.length === 2);
+    expect(doubleEquip).toBeDefined();
+    expect(doubleEquip?.resultAtk).toBe(3500); // 2000 + 500 + 1000
+  });
+
+  it("without equipCompat, no equip results are shown", () => {
+    const results = findFusionChains([60, 62, 64], eqFusionTable, eqCardDb, 3);
+    // No fusions possible (60+62 not in fusion table, 60+64 not, 62+64 not)
+    expect(results).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("findFusionChains edge cases", () => {

@@ -8,13 +8,16 @@ import { addCard, createCardDb } from "./game-db.ts";
  *
  * Cards CSV format:   id,name,atk,def,guardian_star_1,guardian_star_2,type,color
  * Fusions CSV format: material1_id,material2_id,result_id,result_atk
+ * Equips CSV format:  equip_id,monster_id
  *
- * Fills buf.cardAtk and buf.fusionTable. Returns all cards for deck building.
+ * Fills buf.cardAtk, buf.fusionTable, and buf.equipCompat.
+ * Returns all cards for deck building.
  */
 export function loadGameDataFromStrings(
   buf: OptBuffers,
   cardsCsvContent: string,
   fusionsCsvContent: string,
+  equipsCsvContent: string,
 ): CardSpec[] {
   const cardDb = createCardDb();
 
@@ -47,6 +50,15 @@ export function loadGameDataFromStrings(
     if (!Number.isFinite(mat1) || !Number.isFinite(mat2) || !Number.isFinite(result)) continue;
     buf.fusionTable[mat1 * MAX_CARD_ID + mat2] = result;
     buf.fusionTable[mat2 * MAX_CARD_ID + mat1] = result;
+  }
+
+  for (const [eqs = "", ms = ""] of parseCsvRows(equipsCsvContent)) {
+    const equipId = parseInt(eqs, 10);
+    const monsterId = parseInt(ms, 10);
+    if (!Number.isFinite(equipId) || !Number.isFinite(monsterId)) continue;
+    if (equipId < 1 || equipId >= MAX_CARD_ID || monsterId < 1 || monsterId >= MAX_CARD_ID)
+      continue;
+    buf.equipCompat[equipId * MAX_CARD_ID + monsterId] = 1;
   }
 
   return cardDb.cards;

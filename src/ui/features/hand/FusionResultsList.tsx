@@ -30,12 +30,13 @@ export function FusionResultsList({
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
 
+  const { equipCompat } = useFusionTable();
   const results = useMemo(
     () =>
       handCardIds.length >= 2
-        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth)
+        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat)
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth],
+    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat],
   );
 
   if (handCardIds.length < 2) return null;
@@ -43,7 +44,7 @@ export function FusionResultsList({
   if (results.length === 0) {
     return (
       <div className="text-center py-6">
-        <p className="text-text-muted text-sm">No fusions possible with this hand</p>
+        <p className="text-text-muted text-sm">No fusions or equips possible with this hand</p>
       </div>
     );
   }
@@ -115,7 +116,7 @@ function FusionResultRow({
         </div>
 
         {/* Chain steps — numbered material list */}
-        <FusionChainSteps cardDb={cardDb} steps={result.steps} />
+        <FusionChainSteps cardDb={cardDb} equipCardIds={result.equipCardIds} steps={result.steps} />
       </div>
     </div>
   );
@@ -238,9 +239,18 @@ export function extractMaterialLines(steps: FusionStep[]): MaterialLine[] {
   return lines;
 }
 
-function FusionChainSteps({ steps, cardDb }: { steps: FusionStep[]; cardDb: CardDb }) {
+function FusionChainSteps({
+  steps,
+  cardDb,
+  equipCardIds,
+}: {
+  steps: FusionStep[];
+  cardDb: CardDb;
+  equipCardIds: number[];
+}) {
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
   const lines = extractMaterialLines(steps);
+  const stepCount = lines.length;
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -267,6 +277,18 @@ function FusionChainSteps({ steps, cardDb }: { steps: FusionStep[]; cardDb: Card
               />
             </>
           )}
+        </p>
+      ))}
+      {equipCardIds.map((eqId, i) => (
+        <p
+          className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5"
+          key={`eq-${String(eqId)}-${String(i)}`}
+        >
+          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
+            {STEP_NUMBERS[stepCount + i] ?? String(stepCount + i + 1)}
+          </span>
+          <span className="text-emerald-400 text-xs">Equip</span>
+          <CardName cardId={eqId} className="text-text-primary" name={getName(eqId)} />
         </p>
       ))}
     </div>

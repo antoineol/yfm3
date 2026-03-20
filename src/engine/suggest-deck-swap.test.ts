@@ -14,6 +14,7 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
       return {
         fusionTable: new Int16Array(0),
         cardAtk: new Int16Array(16),
+        equipCompat: new Uint8Array(0),
         deck: new Int16Array(deckSize),
         cardCounts: new Uint8Array(16),
         availableCounts: new Uint8Array(16),

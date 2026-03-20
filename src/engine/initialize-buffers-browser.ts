@@ -7,14 +7,16 @@ import { createBuffers } from "./types/buffers.ts";
 
 let cardsCsvRaw: string;
 let fusionsCsvRaw: string;
+let equipsCsvRaw: string;
 let csvLoaded = false;
 
 /** Fetch CSV game data. Safe to call multiple times — only fetches once. */
 export async function ensureCsvLoaded(): Promise<void> {
   if (csvLoaded) return;
-  [cardsCsvRaw, fusionsCsvRaw] = await Promise.all([
+  [cardsCsvRaw, fusionsCsvRaw, equipsCsvRaw] = await Promise.all([
     fetch("/data/cards.csv").then((r) => r.text()),
     fetch("/data/fusions.csv").then((r) => r.text()),
+    fetch("/data/equips.csv").then((r) => r.text()),
   ]);
   csvLoaded = true;
 }
@@ -38,7 +40,7 @@ export function initializeSuggestionBuffersBrowser(rand: () => number): OptBuffe
 
 function initializeBrowserGameBuffers(rand: () => number) {
   const buf = createBuffers();
-  const cards = loadGameDataFromStrings(buf, cardsCsvRaw, fusionsCsvRaw);
+  const cards = loadGameDataFromStrings(buf, cardsCsvRaw, fusionsCsvRaw, equipsCsvRaw);
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);
   return { buf, cards };

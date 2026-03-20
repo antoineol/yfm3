@@ -13,6 +13,8 @@ export interface OptBuffers {
   readonly fusionTable: Int16Array;
   /** cardAtk[cardId] = base attack value of that card. */
   readonly cardAtk: Int16Array;
+  /** Flat equip compatibility table. equipCompat[equipId * 723 + monsterId] = 1 if compatible. */
+  readonly equipCompat: Uint8Array;
   /** The current deck, stored as card IDs. Length = deckSize. Mutated during optimization. */
   readonly deck: Int16Array;
   /** cardCounts[cardId] = how many copies of that card are currently in the deck. */
@@ -47,6 +49,7 @@ export function createBuffers(): OptBuffers {
   return {
     fusionTable: new Int16Array(MAX_CARD_ID * MAX_CARD_ID),
     cardAtk: new Int16Array(MAX_CARD_ID),
+    equipCompat: new Uint8Array(MAX_CARD_ID * MAX_CARD_ID),
     deck: new Int16Array(deckSize),
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),
