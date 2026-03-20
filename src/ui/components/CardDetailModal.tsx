@@ -12,18 +12,7 @@ export function CardDetailModal() {
   const { cardsById } = useCardDb();
   const card = cardId ? cardsById.get(cardId) : undefined;
   const isOpen = cardId !== null;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    history.pushState({ cardDetailOpen: true }, "");
-    const onPopState = () => closeCard();
-    window.addEventListener("popstate", onPopState);
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      // If modal closes programmatically (not via back button), remove the history entry
-      if (history.state?.cardDetailOpen) history.back();
-    };
-  }, [isOpen, closeCard]);
+  useBackClose(isOpen, closeCard);
 
   return (
     <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={isOpen}>
@@ -35,6 +24,35 @@ export function CardDetailModal() {
       </BaseDialog.Portal>
     </BaseDialog.Root>
   );
+}
+
+const BACK_CLOSE_KEY = "cardDetailModal";
+
+/** Clean up orphaned history entry left by a page refresh while the modal was open. */
+if (typeof window !== "undefined" && (history.state as Record<string, unknown>)?.[BACK_CLOSE_KEY]) {
+  history.back();
+}
+
+/** Push a history entry while `isOpen` is true so the hardware back button calls `onClose`. */
+function useBackClose(isOpen: boolean, onClose: () => void) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    history.pushState({ [BACK_CLOSE_KEY]: true }, "");
+    let closedByBack = false;
+
+    const onPopState = () => {
+      closedByBack = true;
+      onClose();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      // Closed via UI (backdrop / close button / Escape) — remove the history entry we pushed.
+      if (!closedByBack) history.back();
+    };
+  }, [isOpen, onClose]);
 }
 
 function CardDetailContent({ card }: { card: CardSpec }) {
