@@ -75,6 +75,9 @@ export const addToDeck = mutation({
       .withIndex('by_user', q => q.eq('userId', userId))
       .filter(q => q.eq(q.field('cardId'), cardId))
       .collect();
+    if (deckCopies.length >= 3) {
+      throw new Error('Maximum copies of this card in deck');
+    }
     if (deckCopies.length >= collectionEntry.quantity) {
       throw new Error('No available copies in collection');
     }

@@ -7,6 +7,7 @@ export { mulberry32 } from "./mulberry32.ts";
 
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
+import { MAX_COPIES } from "./types/constants.ts";
 
 /**
  * Full initialization pipeline:
@@ -22,7 +23,7 @@ export function initializeBuffers(collection: Collection, rand: () => number): O
   const buf = createBuffers();
   const cards = loadGameData(buf);
   for (const card of cards) {
-    buf.availableCounts[card.id] = collection.get(card.id) ?? 0;
+    buf.availableCounts[card.id] = Math.min(collection.get(card.id) ?? 0, MAX_COPIES);
   }
   buildInitialDeck(buf, cards);
   generateHandSlots(buf, rand);

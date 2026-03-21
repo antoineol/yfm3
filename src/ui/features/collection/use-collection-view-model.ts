@@ -1,3 +1,4 @@
+import { MAX_COPIES } from "../../../engine/types/constants.ts";
 import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
 import { useCollectionViewModelFromState, useHydrateCollectionState } from "./collection-state.ts";
 
@@ -32,7 +33,7 @@ export function buildCollectionViewModel(
     Object.entries(ownedCardTotals).map(([cardId, totalOwned]) => {
       const id = Number(cardId);
       const inDeck = deckCounts.get(id) ?? 0;
-      const availableInCollection = Math.max(totalOwned - inDeck, 0);
+      const availableInCollection = Math.max(Math.min(totalOwned, MAX_COPIES) - inDeck, 0);
       return [id, availableInCollection] as const;
     }),
     cardDb,

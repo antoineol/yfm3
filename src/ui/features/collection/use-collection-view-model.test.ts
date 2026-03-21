@@ -67,6 +67,27 @@ describe("buildCollectionViewModel", () => {
       qty: 0,
     });
   });
+
+  it("caps availableInCollection at MAX_COPIES (3) even when totalOwned exceeds it", () => {
+    // Bridge sync can import quantities > 3 (e.g., 17 copies from game trunk)
+    const result = buildCollectionViewModel({ 1: 17 }, [1, 1, 1], fakeCardDb);
+
+    expect(result.entriesByCardId.get(1)).toMatchObject({
+      totalOwned: 17,
+      inDeck: 3,
+      availableInCollection: 0, // min(17, 3) - 3 = 0
+    });
+  });
+
+  it("allows adding to deck when totalOwned > 3 but inDeck < 3", () => {
+    const result = buildCollectionViewModel({ 1: 10 }, [1, 1], fakeCardDb);
+
+    expect(result.entriesByCardId.get(1)).toMatchObject({
+      totalOwned: 10,
+      inDeck: 2,
+      availableInCollection: 1, // min(10, 3) - 2 = 1
+    });
+  });
 });
 
 describe("useCollectionViewModel", () => {
