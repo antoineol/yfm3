@@ -506,6 +506,22 @@ input[type="number"] {
   text-align: center;
 }
 
+.fm-mini-stats--type {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+}
+
+.fm-mini-stat-type {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--fm-text);
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 @media (min-width: 640px) {
   .fm-mini-stats {
     padding: 2px 2px 1px;
@@ -515,6 +531,9 @@ input[type="number"] {
     font-size: 13px;
   }
   .fm-mini-stat-sep {
+    font-size: 11px;
+  }
+  .fm-mini-stat-type {
     font-size: 11px;
   }
 }

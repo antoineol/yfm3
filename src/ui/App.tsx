@@ -18,7 +18,7 @@ import { deckSubTabAtom } from "./lib/atoms.ts";
 import { useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
-const TABS = ["deck", "hand", "data"] as const;
+const TABS = ["deck", "duel", "data"] as const;
 
 function CardDetailModalWhenReady() {
   const hasData = useHasReferenceData();
@@ -60,7 +60,7 @@ export default function App() {
         </RequireReferenceData>
       </Tabs.Panel>
 
-      <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="hand">
+      <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
         <RequireReferenceData>
           <HandFusionCalculator />
         </RequireReferenceData>

@@ -22,7 +22,7 @@ export function useHash() {
 }
 
 /**
- * Sync selected tab with the URL hash (`#deck`, `#hand`, `#data/duelists/5`, …).
+ * Sync selected tab with the URL hash (`#deck`, `#duel`, `#data/duelists/5`, …).
  * Matches on the first path segment so `#data/duelists/5` resolves to tab `"data"`.
  * Falls back to `defaultTab` when hash is empty or not in `validTabs`.
  */

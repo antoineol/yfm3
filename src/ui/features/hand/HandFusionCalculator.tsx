@@ -180,7 +180,7 @@ export function HandFusionCalculator() {
           <ZonePanel
             active={focusedZone === "hand"}
             count={hand.length}
-            label="Duel"
+            label="Hand"
             maxCount={HAND_SIZE}
             onFocus={() => setFocusedZone("hand")}
             zone="hand"

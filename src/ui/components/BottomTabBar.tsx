@@ -18,11 +18,11 @@ export function BottomTabBar() {
       <Tabs.Tab
         className={tabClass}
         nativeButton={false}
-        render={(props) => <a {...props} href="#hand" />}
-        value="hand"
+        render={(props) => <a {...props} href="#duel" />}
+        value="duel"
       >
         <HandIcon />
-        Hand
+        Duel
       </Tabs.Tab>
       <Tabs.Tab
         className={tabClass}

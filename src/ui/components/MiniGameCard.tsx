@@ -81,12 +81,16 @@ export function MiniGameCard({ card, onRemove }: { card: CardSpec; onRemove?: ()
               <img alt={card.name} className="fm-mini-art-img" loading="lazy" src={artSrc} />
             </div>
 
-            {/* ATK / DFD */}
-            {card.isMonster && (
+            {/* ATK / DFD or card-type label */}
+            {card.isMonster ? (
               <div className="fm-mini-stats">
                 <span className="fm-mini-stat-value fm-mini-stat-value--atk">{card.attack}</span>
                 <span className="fm-mini-stat-sep">/</span>
                 <span className="fm-mini-stat-value fm-mini-stat-value--def">{card.defense}</span>
+              </div>
+            ) : (
+              <div className="fm-mini-stats fm-mini-stats--type">
+                <span className="fm-mini-stat-type">{ct || "Magic"}</span>
               </div>
             )}
           </div>
