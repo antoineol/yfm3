@@ -67,3 +67,53 @@ export const importData = mutation({
     };
   },
 });
+
+/**
+ * Sync collection and deck from the emulator bridge.
+ * Accepts pre-computed total owned quantities (trunk + deck) and the deck card IDs.
+ */
+export const syncCollectionFromBridge = mutation({
+  args: {
+    ownedCards: v.array(v.object({ cardId: v.number(), quantity: v.number() })),
+    deck: v.array(v.number()),
+  },
+  handler: async (ctx, { ownedCards, deck }) => {
+    const userId = await requireAuth(ctx);
+
+    // Clear existing ownedCards
+    const existingOwned = await ctx.db
+      .query("ownedCards")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const card of existingOwned) {
+      await ctx.db.delete(card._id);
+    }
+
+    // Insert owned cards
+    for (const { cardId, quantity } of ownedCards) {
+      await ctx.db.insert("ownedCards", { userId, cardId, quantity });
+    }
+
+    // Clear existing deck (with aggregate)
+    const existingDeck = await ctx.db
+      .query("deck")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const card of existingDeck) {
+      await ctx.db.delete(card._id);
+      await deckAggregate.delete(ctx, card);
+    }
+
+    // Insert deck
+    for (const cardId of deck) {
+      const id = await ctx.db.insert("deck", { userId, cardId });
+      const doc = await ctx.db.get(id);
+      if (doc) await deckAggregate.insert(ctx, doc);
+    }
+
+    return {
+      collectionCount: ownedCards.length,
+      deckCount: deck.length,
+    };
+  },
+});

@@ -12,7 +12,7 @@ export function SignIn() {
         }}
       />
       <div className="relative text-center">
-        <h1 className="font-display text-4xl font-bold text-gold mb-2">YFM Deck Optimizer</h1>
+        <h1 className="font-display text-4xl font-bold text-gold mb-2">YFM Copilot</h1>
         <p className="text-text-secondary text-xs uppercase tracking-[0.25em]">
           Forbidden Memories &middot; Remastered Perfected
         </p>

@@ -45,19 +45,7 @@ vi.mock("./FieldDisplay.tsx", () => ({
   FieldDisplay: () => <div data-testid="field-display" />,
 }));
 
-vi.mock("../../lib/use-emulator-bridge.ts", () => ({
-  useEmulatorBridge: vi.fn(() => ({
-    status: "disconnected",
-    hand: [],
-    field: [],
-    handReliable: false,
-    phase: "other",
-    inDuel: false,
-    lp: null,
-    stats: null,
-    scan: vi.fn(),
-  })),
-}));
+vi.mock("../../lib/use-emulator-bridge.ts", () => ({}));
 
 vi.mock("./EmulatorBridgeBar.tsx", () => ({
   EmulatorBridgeBar: () => <div data-testid="emulator-bridge-bar" />,
@@ -67,8 +55,25 @@ vi.mock("./use-auto-sync-hand.ts", () => ({
   useAutoSyncHand: vi.fn(),
 }));
 
-import { useEmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { HandFusionCalculator } from "./HandFusionCalculator.tsx";
+
+function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
+  return {
+    status: "disconnected",
+    hand: [],
+    field: [],
+    handReliable: false,
+    phase: "other",
+    inDuel: false,
+    lp: null,
+    stats: null,
+    collection: null,
+    deckDefinition: null,
+    scan: vi.fn(),
+    ...overrides,
+  };
+}
 
 afterEach(() => {
   cleanup();
@@ -77,7 +82,7 @@ afterEach(() => {
 
 describe("HandFusionCalculator", () => {
   it("hydrates source mode from preferences and persists toggle changes", () => {
-    render(<HandFusionCalculator />);
+    render(<HandFusionCalculator bridge={makeBridge()} />);
 
     expect(screen.getByTestId("hand-card-selector").textContent).toBe("deck");
 
@@ -87,7 +92,7 @@ describe("HandFusionCalculator", () => {
   });
 
   it("hides manual controls and shows bridge bar in synced mode", () => {
-    vi.mocked(useEmulatorBridge).mockReturnValue({
+    const bridge = makeBridge({
       status: "connected",
       hand: [1, 2, 3],
       field: [4, 5],
@@ -96,10 +101,9 @@ describe("HandFusionCalculator", () => {
       inDuel: true,
       lp: [9900, 9900],
       stats: { fusions: 2, terrain: 0, duelistId: 1 },
-      scan: vi.fn(),
     });
 
-    render(<HandFusionCalculator />);
+    render(<HandFusionCalculator bridge={bridge} />);
 
     expect(screen.getByTestId("emulator-bridge-bar")).toBeTruthy();
     expect(screen.queryByTestId("hand-card-selector")).toBeNull();
@@ -107,7 +111,7 @@ describe("HandFusionCalculator", () => {
   });
 
   it("hides bridge bar when disconnected", () => {
-    render(<HandFusionCalculator />);
+    render(<HandFusionCalculator bridge={makeBridge()} />);
 
     expect(screen.queryByTestId("emulator-bridge-bar")).toBeNull();
     expect(screen.getByTestId("hand-card-selector")).toBeTruthy();

@@ -29,6 +29,14 @@ const FUSION_COUNTER_OFFSET = 0x0e9ff8;
 const TERRAIN_OFFSET = 0x09b364;
 const DUELIST_ID_OFFSET = 0x09b361;
 
+// Collection & deck
+const DECK_DEF_OFFSET = 0x1d0200; // Player's deck definition (40 × uint16 LE)
+const DECK_DEF_CARDS = 40;
+const COLLECTION_OFFSET = 0x1d0250; // Cards owned (722 bytes, 1 per card ID)
+const COLLECTION_SIZE = 722;
+const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
+const _CPU_SHUFFLED_DECK_OFFSET = 0x178038; // eslint-disable-line -- documented for reference
+
 const PS1_RAM_SIZE = 0x200000;
 
 // ── Load Windows kernel32 ──────────────────────────────────────────
@@ -49,6 +57,16 @@ function readU16(view, offset) {
 }
 function readU8(view, offset) {
   return koffi.decode(view, offset, "uint8");
+}
+function readU16Array(view, offset, count) {
+  const result = [];
+  for (let i = 0; i < count; i++) result.push(readU16(view, offset + i * 2));
+  return result;
+}
+function readU8Array(view, offset, count) {
+  const result = [];
+  for (let i = 0; i < count; i++) result.push(readU8(view, offset + i));
+  return result;
 }
 function readCardSlot(view, base, index) {
   const offset = base + index * HAND_STRIDE;
@@ -120,5 +138,37 @@ export function readGameState(view) {
     fusions: readU8(view, FUSION_COUNTER_OFFSET),
     terrain: readU8(view, TERRAIN_OFFSET),
     duelistId: readU8(view, DUELIST_ID_OFFSET),
+    trunk: readCollection(view),
+    deckDefinition: readDeckDefinition(view),
   };
+}
+
+/**
+ * Read the player's card collection (722 bytes, one per card ID 1–722).
+ * Each byte = number of copies owned (expected 0–3).
+ */
+export function readCollection(view) {
+  return readU8Array(view, COLLECTION_OFFSET, COLLECTION_SIZE);
+}
+
+/**
+ * Read the player's deck definition (40 card IDs as uint16 LE).
+ */
+export function readDeckDefinition(view) {
+  return readU16Array(view, DECK_DEF_OFFSET, DECK_DEF_CARDS);
+}
+
+/**
+ * Read the player's shuffled deck during a duel (40 card IDs).
+ */
+export function readShuffledDeck(view) {
+  return readU16Array(view, PLAYER_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
+}
+
+/**
+ * Read raw bytes as hex string for memory exploration.
+ */
+export function readRawHex(view, offset, length) {
+  const bytes = readU8Array(view, offset, length);
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join(" ");
 }

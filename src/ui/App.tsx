@@ -1,14 +1,18 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useConvexAuth } from "convex/react";
 import { useAtomValue } from "jotai";
+import { useCallback } from "react";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { CardDetailModal } from "./components/CardDetailModal.tsx";
 import { LoaderBlock } from "./components/Loader.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
 import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
+import { useUpdatePreferences } from "./db/use-update-preferences.ts";
+import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
 import { SignIn } from "./features/auth/SignIn.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
+import { useAutoSyncCollection } from "./features/collection/use-auto-sync-collection.ts";
 import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
@@ -16,6 +20,7 @@ import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { deckSubTabAtom } from "./lib/atoms.ts";
 import { useHasReferenceData } from "./lib/fusion-table-context.tsx";
+import { useEmulatorBridge } from "./lib/use-emulator-bridge.ts";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "duel", "data"] as const;
@@ -38,9 +43,23 @@ export default function App() {
     return <SignIn />;
   }
 
+  return <AuthenticatedApp setTab={setTab} tab={tab} />;
+}
+
+function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) => void }) {
+  const bridgeAutoSync = useBridgeAutoSync();
+  const bridge = useEmulatorBridge(bridgeAutoSync);
+  const updatePreferences = useUpdatePreferences();
+
+  useAutoSyncCollection(bridge);
+
+  const handleToggleBridge = useCallback(() => {
+    updatePreferences({ bridgeAutoSync: !bridgeAutoSync });
+  }, [bridgeAutoSync, updatePreferences]);
+
   return (
     <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
-      <Header />
+      <Header bridge={bridge} onToggleBridge={handleToggleBridge} />
 
       <Tabs.Panel
         className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
@@ -62,7 +81,7 @@ export default function App() {
 
       <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
         <RequireReferenceData>
-          <HandFusionCalculator />
+          <HandFusionCalculator bridge={bridge} />
         </RequireReferenceData>
       </Tabs.Panel>
 

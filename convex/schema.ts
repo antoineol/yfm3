@@ -7,7 +7,7 @@ export default defineSchema({
   ownedCards: defineTable({
     userId: v.string(), // Stable auth identity from Clerk via Convex
     cardId: v.number(), // CardId from the game
-    quantity: v.number(), // Number of copies owned (max 3)
+    quantity: v.number(), // Number of copies owned (bridge sync may exceed 3)
   })
     .index('by_user', ['userId'])
     .index('by_user_card', ['userId', 'cardId']),
@@ -37,6 +37,7 @@ export default defineSchema({
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     handSourceMode: v.optional(handSourceModeValidator),
+    bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   }).index('by_user', ['userId']),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { interpretRawState } from "./use-emulator-bridge.ts";
+import { computeOwnedCards, interpretRawState } from "./use-emulator-bridge.ts";
 
 function makeRaw(overrides: Record<string, unknown> = {}) {
   return {
@@ -26,6 +26,8 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     fusions: 0,
     terrain: 0,
     duelistId: 5,
+    trunk: new Array(722).fill(0) as number[],
+    deckDefinition: new Array(40).fill(0) as number[],
     ...overrides,
   };
 }
@@ -252,5 +254,45 @@ describe("interpretRawState", () => {
       expect(result.lp).toEqual([6000, 3000]);
       expect(result.stats).toEqual({ fusions: 2, terrain: 4, duelistId: 12 });
     });
+  });
+});
+
+describe("computeOwnedCards", () => {
+  it("returns empty record for all-zero trunk and deck", () => {
+    const trunk = new Array(722).fill(0) as number[];
+    const deck = new Array(40).fill(0) as number[];
+    expect(computeOwnedCards(trunk, deck)).toEqual({});
+  });
+
+  it("counts trunk copies (index 0 = card 1)", () => {
+    const trunk = new Array(722).fill(0) as number[];
+    trunk[0] = 8; // card 1: 8 copies
+    trunk[2] = 3; // card 3: 3 copies
+    const result = computeOwnedCards(trunk, []);
+    expect(result).toEqual({ 1: 8, 3: 3 });
+  });
+
+  it("counts deck copies", () => {
+    const trunk = new Array(722).fill(0) as number[];
+    const deck = [5, 5, 5, 10];
+    const result = computeOwnedCards(trunk, deck);
+    expect(result).toEqual({ 5: 3, 10: 1 });
+  });
+
+  it("merges trunk + deck into total owned", () => {
+    const trunk = new Array(722).fill(0) as number[];
+    trunk[2] = 1; // card 3: 1 spare
+    trunk[7] = 0; // card 8: 0 spare
+    const deck = [3, 3, 3, 8, 8, 8]; // 3 copies of card 3, 3 copies of card 8
+    const result = computeOwnedCards(trunk, deck);
+    expect(result[3]).toBe(4); // 1 trunk + 3 deck
+    expect(result[8]).toBe(3); // 0 trunk + 3 deck
+  });
+
+  it("ignores zero card IDs in deck", () => {
+    const trunk = new Array(722).fill(0) as number[];
+    const deck = [0, 0, 5];
+    const result = computeOwnedCards(trunk, deck);
+    expect(result).toEqual({ 5: 1 });
   });
 });

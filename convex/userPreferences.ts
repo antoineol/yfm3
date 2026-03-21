@@ -46,6 +46,7 @@ export const updatePreferences = mutation({
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
     handSourceMode: v.optional(handSourceModeValidator),
+    bridgeAutoSync: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -59,6 +60,7 @@ export const updatePreferences = mutation({
     if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
     if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
     if (args.handSourceMode !== undefined) patch.handSourceMode = args.handSourceMode;
+    if (args.bridgeAutoSync !== undefined) patch.bridgeAutoSync = args.bridgeAutoSync;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);
@@ -71,6 +73,7 @@ export const updatePreferences = mutation({
       deckSize: args.deckSize,
       fusionDepth: args.fusionDepth,
       handSourceMode: args.handSourceMode,
+      bridgeAutoSync: args.bridgeAutoSync,
       createdAt: now,
       updatedAt: now,
     });

@@ -11,7 +11,7 @@ import {
   useFusionDepth,
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
-import { useEmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
@@ -24,35 +24,18 @@ const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "deck", label: "Deck only" },
 ];
 
-type BridgeMode = "manual" | "auto";
-
-const MODE_OPTIONS: { value: BridgeMode; label: string }[] = [
-  { value: "manual", label: "Manual" },
-  { value: "auto", label: "Auto-sync" },
-];
-
-const BRIDGE_ENABLED_KEY = "yfm-bridge-enabled";
-
 type FocusedZone = "hand" | "field";
 
 /** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
 const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
 
-export function HandFusionCalculator() {
+export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
   const hand = useHand();
   const deck = useDeck();
   const fusionDepth = useFusionDepth();
   const sourceMode = useHandSourceMode();
   const updatePreferences = useUpdatePreferences();
   const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
-  const [bridgeEnabled, setBridgeEnabled] = useState(() => {
-    try {
-      return localStorage.getItem(BRIDGE_ENABLED_KEY) !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const bridge = useEmulatorBridge(bridgeEnabled);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingFocusRef = useRef(false);
 
@@ -108,16 +91,6 @@ export function HandFusionCalculator() {
     [removeMultipleFromHand, requestInputFocus],
   );
 
-  const handleBridgeModeChange = useCallback((mode: BridgeMode) => {
-    const next = mode === "auto";
-    setBridgeEnabled(next);
-    try {
-      localStorage.setItem(BRIDGE_ENABLED_KEY, String(next));
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
-
   const handleSourceModeChange = useCallback(
     (value: HandSourceMode) => {
       if (value === sourceMode) return;
@@ -132,13 +105,6 @@ export function HandFusionCalculator() {
   const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
-      {/* ── Bridge mode toggle ── */}
-      <ToggleGroup
-        onChange={handleBridgeModeChange}
-        options={MODE_OPTIONS}
-        value={bridgeEnabled ? "auto" : "manual"}
-      />
-
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar bridge={bridge} />}
 

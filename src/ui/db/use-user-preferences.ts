@@ -27,3 +27,8 @@ export function useHandSourceMode(): HandSourceMode {
   const prefs = useUserPreferences();
   return prefs?.handSourceMode ?? DEFAULT_HAND_SOURCE_MODE;
 }
+
+export function useBridgeAutoSync() {
+  const prefs = useUserPreferences();
+  return prefs?.bridgeAutoSync ?? false;
+}

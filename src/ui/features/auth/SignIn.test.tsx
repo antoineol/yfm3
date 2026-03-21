@@ -18,7 +18,7 @@ describe("SignIn", () => {
 
   it("renders the product title", () => {
     render(<SignIn />);
-    expect(screen.getByText("YFM Deck Optimizer")).toBeDefined();
+    expect(screen.getByText("YFM Copilot")).toBeDefined();
   });
 
   it("does not render a local sign-in error message", () => {

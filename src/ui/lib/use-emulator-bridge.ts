@@ -25,6 +25,8 @@ type RawBridgeState = {
   fusions: number;
   terrain: number;
   duelistId: number;
+  trunk: number[];
+  deckDefinition: number[];
 };
 
 type BridgeDisconnected = {
@@ -100,6 +102,21 @@ function filterCardSlots(slots: RawCardSlot[]): number[] {
   return result;
 }
 
+/**
+ * Merge trunk (spare copies) + deck definition into total owned per card.
+ * trunk[i] = spare copies of card (i+1), deckDef = array of 40 card IDs.
+ */
+export function computeOwnedCards(trunk: number[], deckDef: number[]): Record<number, number> {
+  const owned: Record<number, number> = {};
+  for (const [i, count] of trunk.entries()) {
+    if (count > 0) owned[i + 1] = count;
+  }
+  for (const cardId of deckDef) {
+    if (cardId > 0) owned[cardId] = (owned[cardId] ?? 0) + 1;
+  }
+  return owned;
+}
+
 function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
   if (!isPlayerTurn) return "opponent";
   if (duelPhase === PHASE_HAND_SELECT) return "hand";
@@ -123,6 +140,8 @@ export type EmulatorBridge = {
   inDuel: boolean;
   lp: [number, number] | null;
   stats: DuelStats | null;
+  collection: Record<number, number> | null;
+  deckDefinition: number[] | null;
   scan: () => void;
 };
 
@@ -142,6 +161,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [inDuel, setInDuel] = useState(false);
   const [lp, setLp] = useState<[number, number] | null>(null);
   const [stats, setStats] = useState<DuelStats | null>(null);
+  const [collection, setCollection] = useState<Record<number, number> | null>(null);
+  const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
@@ -178,6 +199,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setInDuel(state.inDuel);
           setLp(state.lp);
           setStats(state.stats);
+          setCollection(computeOwnedCards(msg.trunk, msg.deckDefinition));
+          setDeckDefinition(msg.deckDefinition);
         } else {
           setStatus("connected");
           setHand([]);
@@ -187,6 +210,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setInDuel(false);
           setLp(null);
           setStats(null);
+          setCollection(null);
+          setDeckDefinition(null);
         }
       } catch {
         // Ignore malformed messages
@@ -203,6 +228,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setInDuel(false);
       setLp(null);
       setStats(null);
+      setCollection(null);
+      setDeckDefinition(null);
       if (enabledRef.current) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
       }
@@ -226,6 +253,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setInDuel(false);
       setLp(null);
       setStats(null);
+      setCollection(null);
+      setDeckDefinition(null);
       return;
     }
     connect();
@@ -242,5 +271,17 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     }
   }, []);
 
-  return { status, hand, field, handReliable, phase, inDuel, lp, stats, scan };
+  return {
+    status,
+    hand,
+    field,
+    handReliable,
+    phase,
+    inDuel,
+    lp,
+    stats,
+    collection,
+    deckDefinition,
+    scan,
+  };
 }
