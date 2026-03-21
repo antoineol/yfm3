@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { handSourceModeValidator } from './userPreferences';
+import { handSourceModeValidator, postDuelSuggestionValidator } from './userPreferences';
 
 export default defineSchema({
   // User's owned cards - total copies owned regardless of deck assignment.
@@ -38,6 +38,7 @@ export default defineSchema({
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     handSourceMode: v.optional(handSourceModeValidator),
     bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
+    postDuelSuggestion: v.optional(postDuelSuggestionValidator), // Persisted post-duel optimization result
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   }).index('by_user', ['userId']),

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Duel phase labels derived from raw bridge data. */
-export type DuelPhase = "hand" | "draw" | "fusion" | "field" | "battle" | "opponent" | "other";
+export type DuelPhase =
+  | "hand"
+  | "draw"
+  | "fusion"
+  | "field"
+  | "battle"
+  | "opponent"
+  | "ended"
+  | "other";
 
 export type DuelStats = {
   fusions: number;
@@ -36,10 +44,6 @@ type BridgeDisconnected = {
 
 type RawBridgeMessage = RawBridgeState | BridgeDisconnected;
 
-// ── Status byte flags (from PS1 card struct at +0x0B) ────────────────
-
-const STATUS_PRESENT = 0x80;
-
 // ── Duel phase bytes ─────────────────────────────────────────────────
 
 const PHASE_CLEANUP = 0x02;
@@ -49,6 +53,9 @@ const PHASE_FIELD = 0x05;
 const PHASE_FUSION = 0x07;
 const PHASE_FUSION_RESOLVE = 0x08;
 const PHASE_BATTLE = 0x09;
+const PHASE_POST_BATTLE = 0x0a;
+const PHASE_DUEL_END = 0x0c;
+const PHASE_RESULTS = 0x0d;
 
 // ── Interpretation logic (pure, testable) ────────────────────────────
 
@@ -78,7 +85,18 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       raw.duelPhase === PHASE_DRAW ||
       raw.duelPhase === PHASE_HAND_SELECT);
 
-  const inDuel = hand.length > 0 || field.length > 0;
+  // Hand/field RAM retains stale card data after a duel ends, so card
+  // presence alone is not reliable. Require a recognized duel phase too.
+  const isDuelPhase =
+    raw.duelPhase === PHASE_CLEANUP ||
+    raw.duelPhase === PHASE_DRAW ||
+    raw.duelPhase === PHASE_HAND_SELECT ||
+    raw.duelPhase === PHASE_FIELD ||
+    raw.duelPhase === PHASE_FUSION ||
+    raw.duelPhase === PHASE_FUSION_RESOLVE ||
+    raw.duelPhase === PHASE_BATTLE ||
+    raw.duelPhase === PHASE_POST_BATTLE;
+  const inDuel = isDuelPhase && (hand.length > 0 || field.length > 0);
 
   return {
     hand,
@@ -94,8 +112,11 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 function filterCardSlots(slots: RawCardSlot[]): number[] {
   const result: number[] = [];
   for (const s of slots) {
-    const present = (s.status & STATUS_PRESENT) !== 0;
-    if (s.cardId > 0 && s.cardId < 723 && present) {
+    // Any non-zero status means the card is in an active state.
+    // During battle the game temporarily clears the STATUS_PRESENT (0x80)
+    // bit on the attacker while keeping other bits (e.g. 0x04 = face-up).
+    // Truly empty slots always have status === 0x00.
+    if (s.cardId > 0 && s.cardId < 723 && s.status !== 0) {
       result.push(s.cardId);
     }
   }
@@ -118,6 +139,7 @@ export function computeOwnedCards(trunk: number[], deckDef: number[]): Record<nu
 }
 
 function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
+  if (duelPhase === PHASE_DUEL_END || duelPhase === PHASE_RESULTS) return "ended";
   if (!isPlayerTurn) return "opponent";
   if (duelPhase === PHASE_HAND_SELECT) return "hand";
   if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";

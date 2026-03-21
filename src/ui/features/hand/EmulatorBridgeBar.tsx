@@ -12,10 +12,18 @@ const TERRAIN_NAMES: Record<number, string> = {
 
 export function EmulatorBridgeBar({ bridge }: { bridge: EmulatorBridge }) {
   if (!bridge.inDuel) {
+    const isEnded = bridge.phase === "ended";
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
-        <StatusDot color="yellow" />
-        <span className="text-text-muted">Connected — waiting for duel</span>
+        <StatusDot color={isEnded ? "green" : "yellow"} />
+        <span className="text-text-muted">
+          {isEnded ? "Duel complete" : "Connected — waiting for duel"}
+        </span>
+        {isEnded && bridge.lp && (
+          <span className="ml-auto text-text-muted tabular-nums">
+            LP {String(bridge.lp[0])} vs {String(bridge.lp[1])}
+          </span>
+        )}
       </div>
     );
   }
@@ -105,6 +113,12 @@ const PHASE_CONFIG: Record<DuelPhase, PhaseConfig> = {
     dotColor: "blue",
     bg: "bg-blue-950/20",
     textColor: "text-blue-400/90",
+  },
+  ended: {
+    label: "Duel complete",
+    dotColor: "green",
+    bg: "bg-surface-secondary",
+    textColor: "text-green-400",
   },
   other: {
     label: "In duel",

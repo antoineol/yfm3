@@ -11,13 +11,15 @@ import {
   useFusionDepth,
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { DuelStats, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { HandCardSelector } from "./HandCardSelector.tsx";
 import { HandDisplay } from "./HandDisplay.tsx";
+import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
+import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
 
 const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "all", label: "All cards" },
@@ -41,6 +43,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
 
   // Auto-sync hand from bridge (always active, even when bar is hidden)
   useAutoSyncHand(bridge, hand ?? []);
+  const postDuel = usePostDuelSuggestion(bridge);
 
   const isSynced = bridge.status === "connected" && bridge.inDuel;
 
@@ -103,13 +106,26 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
   if (hand === undefined) return <PanelLoadingState />;
 
   const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
+  const hasPostDuelContent =
+    postDuel.state === "optimizing" ||
+    postDuel.state === "result" ||
+    postDuel.state === "no_change";
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar bridge={bridge} />}
 
-      {/* ── Waiting for duel: empty state ── */}
-      {isWaitingForDuel && <WaitingForDuel />}
+      {/* ── Post-duel suggestion (shown even while inDuel is stale) ── */}
+      {hasPostDuelContent && <PostDuelSuggestion suggestion={postDuel} />}
+
+      {/* ── Waiting for duel / duel ended (only when no post-duel content) ── */}
+      {isWaitingForDuel &&
+        !hasPostDuelContent &&
+        (bridge.phase === "ended" ? (
+          <DuelEnded lp={bridge.lp} stats={bridge.stats} />
+        ) : (
+          <WaitingForDuel />
+        ))}
 
       {/* ── Manual controls (only when bridge is not connected) ── */}
       {bridge.status !== "connected" && (
@@ -227,6 +243,28 @@ function WaitingForDuel() {
         ))}
       </div>
       <p className="text-text-muted text-sm">Start a duel to see your hand and fusions</p>
+    </div>
+  );
+}
+
+// ── Duel-ended summary ───────────────────────────────────────
+
+function DuelEnded({ lp, stats }: { lp: [number, number] | null; stats: DuelStats | null }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+      <p className="text-gold font-display font-semibold tracking-wider uppercase text-sm">
+        Duel complete
+      </p>
+      {lp && (
+        <p className="text-text-muted text-xs tabular-nums">
+          LP {String(lp[0])} vs {String(lp[1])}
+        </p>
+      )}
+      {stats && stats.fusions > 0 && (
+        <p className="text-text-muted/60 text-xs">
+          {String(stats.fusions)} fusion{stats.fusions > 1 ? "s" : ""} performed
+        </p>
+      )}
     </div>
   );
 }

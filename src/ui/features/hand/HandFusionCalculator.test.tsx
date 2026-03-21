@@ -23,6 +23,7 @@ vi.mock("../../db/use-update-preferences.ts", () => ({
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
+  useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useHandSourceMode: vi.fn(() => "deck"),
 }));
@@ -53,6 +54,21 @@ vi.mock("./EmulatorBridgeBar.tsx", () => ({
 
 vi.mock("./use-auto-sync-hand.ts", () => ({
   useAutoSyncHand: vi.fn(),
+}));
+
+vi.mock("./use-post-duel-suggestion.ts", () => ({
+  usePostDuelSuggestion: vi.fn(() => ({
+    state: "idle",
+    progress: 0,
+    liveBestScore: 0,
+    result: null,
+    currentDeck: [],
+    dismiss: vi.fn(),
+  })),
+}));
+
+vi.mock("./PostDuelSuggestion.tsx", () => ({
+  PostDuelSuggestion: () => <div data-testid="post-duel-suggestion" />,
 }));
 
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";

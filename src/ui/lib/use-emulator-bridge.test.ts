@@ -59,12 +59,12 @@ describe("interpretRawState", () => {
       expect(result.hand).toEqual([100, 200]);
     });
 
-    it("excludes cards without present bit", () => {
+    it("excludes cards with status 0x00 (truly empty)", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 100, status: 0x00 }, // not present
-            { cardId: 200, status: 0x40 }, // some other flag, not present
+            { cardId: 100, status: 0x00 }, // status cleared = not present
+            { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
@@ -72,6 +72,21 @@ describe("interpretRawState", () => {
         }),
       );
       expect(result.hand).toEqual([]);
+    });
+
+    it("includes cards with any non-zero status (e.g. 0x04 attacker during battle)", () => {
+      const result = interpretRawState(
+        makeRaw({
+          hand: [
+            { cardId: 100, status: 0x04 }, // attacker: no 0x80 but still active
+            { cardId: 200, status: 0x40 }, // other active flag
+            { cardId: 0, status: 0 },
+            { cardId: 0, status: 0 },
+            { cardId: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.hand).toEqual([100, 200]);
     });
 
     it("excludes out-of-range card IDs (>= 723)", () => {
@@ -89,13 +104,13 @@ describe("interpretRawState", () => {
       expect(result.hand).toEqual([722]);
     });
 
-    it("filters field cards the same way (present bit required)", () => {
+    it("filters field cards the same way (any non-zero status = active)", () => {
       const result = interpretRawState(
         makeRaw({
           field: [
             { cardId: 50, status: 0x80 },
-            { cardId: 60, status: 0x90 }, // present + other flags
-            { cardId: 70, status: 0x00 }, // not present
+            { cardId: 60, status: 0x04 }, // attacker during battle
+            { cardId: 70, status: 0x00 }, // truly empty
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
           ],

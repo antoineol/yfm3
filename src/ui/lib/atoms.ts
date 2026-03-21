@@ -15,3 +15,14 @@ export const openCardIdAtom = atom<CardId | null>(null);
 /** Active sub-tab within the Deck panel on mobile. */
 export type DeckSubTab = "collection" | "deck" | "result";
 export const deckSubTabAtom = atom<DeckSubTab>("collection");
+
+// ── Post-duel suggestion atoms (persist across tab switches) ─────────
+
+export type PostDuelState = "idle" | "duel_active" | "optimizing" | "result" | "no_change";
+
+export const postDuelStateAtom = atom<PostDuelState>("idle");
+export const postDuelResultAtom = atom<OptimizeDeckParallelResult | null>(null);
+/** The deck that was current when the post-duel optimization started (needed to compute diff). */
+export const postDuelCurrentDeckAtom = atom<number[]>([]);
+export const postDuelProgressAtom = atom(0);
+export const postDuelLiveBestScoreAtom = atom(0);
