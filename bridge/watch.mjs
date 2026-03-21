@@ -22,10 +22,11 @@ const DEBOUNCE_MS = 300;
 function killGhost() {
   let pid;
   try {
-    pid = execSync(
-      `netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`,
-      { encoding: "utf8", stdio: "pipe", timeout: 3000 },
-    )
+    pid = execSync(`netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`, {
+      encoding: "utf8",
+      stdio: "pipe",
+      timeout: 3000,
+    })
       .trim()
       .split(/\s+/)
       .pop()
@@ -93,10 +94,10 @@ function stop() {
 
 function portFree() {
   try {
-    execSync(
-      `netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`,
-      { stdio: "pipe", timeout: 3000 },
-    );
+    execSync(`netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`, {
+      stdio: "pipe",
+      timeout: 3000,
+    });
     return false;
   } catch {
     return true;
@@ -130,7 +131,7 @@ const watcher = watch(__dirname, (_event, filename) => {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    restart(filename);
+    void restart(filename);
   }, DEBOUNCE_MS);
 });
 
@@ -142,7 +143,7 @@ function shutdown() {
   console.log("[watch] shutting down...");
   if (debounceTimer) clearTimeout(debounceTimer);
   watcher.close();
-  stop().then(() => process.exit(0));
+  void stop().then(() => process.exit(0));
 }
 
 process.on("SIGINT", shutdown);

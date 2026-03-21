@@ -11,7 +11,6 @@ import {
   useFusionDepth,
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
-import { formatCardId } from "../../lib/format.ts";
 import { useEmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
@@ -131,8 +130,6 @@ export function HandFusionCalculator() {
   if (hand === undefined) return <PanelLoadingState />;
 
   const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
-  const handCardIds = hand.map((c) => c.cardId);
-
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
       {/* ── Bridge mode toggle ── */}
@@ -166,37 +163,31 @@ export function HandFusionCalculator() {
         </div>
       )}
 
-      {/* ── Synced mode: zone switcher + crossfade stage + shelf ── */}
+      {/* ── Synced mode: 3D arena with both zones always visible ── */}
       {isSynced && (
-        <>
-          <ZoneSwitcher
-            fieldCount={bridge.field.length}
-            focusedZone={focusedZone}
-            handCount={hand.length}
-            onSwitch={setFocusedZone}
-          />
+        <div className="fm-zone-arena">
+          <ZonePanel
+            active={focusedZone === "field"}
+            count={bridge.field.length}
+            label="Field"
+            maxCount={5}
+            onFocus={() => setFocusedZone("field")}
+            zone="field"
+          >
+            <FieldDisplay cardIds={bridge.field} />
+          </ZonePanel>
 
-          <div className="fm-zone-stage">
-            <div
-              className={`fm-zone-pane ${focusedZone === "hand" ? "fm-zone-pane--active" : "fm-zone-pane--inactive"}`}
-            >
-              <HandDisplay cards={hand} frozen={bridge.inDuel && !bridge.handReliable} />
-            </div>
-            <div
-              className={`fm-zone-pane ${focusedZone === "field" ? "fm-zone-pane--active" : "fm-zone-pane--inactive"}`}
-            >
-              <FieldDisplay cardIds={bridge.field} />
-            </div>
-          </div>
-
-          <ZoneShelf
-            cardIds={focusedZone === "hand" ? bridge.field : handCardIds}
-            count={focusedZone === "hand" ? bridge.field.length : hand.length}
-            label={focusedZone === "hand" ? "Field" : "Hand"}
-            maxCount={focusedZone === "hand" ? 5 : HAND_SIZE}
-            onClick={() => setFocusedZone(focusedZone === "hand" ? "field" : "hand")}
-          />
-        </>
+          <ZonePanel
+            active={focusedZone === "hand"}
+            count={hand.length}
+            label="Hand"
+            maxCount={HAND_SIZE}
+            onFocus={() => setFocusedZone("hand")}
+            zone="hand"
+          >
+            <HandDisplay cards={hand} frozen={bridge.inDuel && !bridge.handReliable} />
+          </ZonePanel>
+        </div>
       )}
 
       {/* ── Manual mode: hand section ── */}
@@ -274,103 +265,42 @@ function WaitingForDuel() {
   );
 }
 
-// ── Zone switcher (hand/field tabs) ────────────────────────────
+// ── Zone panel (3D-perspective card zone) ──────────────────────
 
-function ZoneSwitcher({
-  focusedZone,
-  onSwitch,
-  handCount,
-  fieldCount,
-}: {
-  focusedZone: FocusedZone;
-  onSwitch: (zone: FocusedZone) => void;
-  handCount: number;
-  fieldCount: number;
-}) {
-  return (
-    <div className="fm-zone-switcher" role="tablist">
-      <button
-        aria-selected={focusedZone === "hand"}
-        className={`fm-zone-tab ${focusedZone === "hand" ? "fm-zone-tab--active" : ""}`}
-        onClick={() => onSwitch("hand")}
-        role="tab"
-        type="button"
-      >
-        <span className="fm-zone-tab-label">Hand</span>
-        <span className="fm-zone-tab-count">
-          {String(handCount)}/{String(HAND_SIZE)}
-        </span>
-      </button>
-      <button
-        aria-selected={focusedZone === "field"}
-        className={`fm-zone-tab ${focusedZone === "field" ? "fm-zone-tab--active" : ""}`}
-        onClick={() => onSwitch("field")}
-        role="tab"
-        type="button"
-      >
-        <span className="fm-zone-tab-label">Field</span>
-        <span className="fm-zone-tab-count">{String(fieldCount)}/5</span>
-      </button>
-      <div
-        aria-hidden="true"
-        className="fm-zone-indicator"
-        style={{
-          transform: focusedZone === "field" ? "translateX(calc(100% + 2px))" : "translateX(0)",
-        }}
-      />
-    </div>
-  );
-}
-
-// ── Zone shelf (inactive zone preview) ─────────────────────────
-
-function ZoneShelf({
-  cardIds,
+function ZonePanel({
+  zone,
+  active,
   label,
   count,
   maxCount,
-  onClick,
+  onFocus,
+  children,
 }: {
-  cardIds: number[];
+  zone: FocusedZone;
+  active: boolean;
   label: string;
   count: number;
   maxCount: number;
-  onClick: () => void;
+  onFocus: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <button className="fm-zone-shelf" onClick={onClick} type="button">
-      <div className="fm-zone-shelf-info">
-        <span className="fm-zone-shelf-label">{label}</span>
-        <span className="fm-zone-shelf-count">
+    <div className={`fm-zone fm-zone--${zone} ${active ? "fm-zone--active" : "fm-zone--inactive"}`}>
+      <div className="fm-zone-header">
+        <span className="fm-zone-header-label">{label}</span>
+        <span className="fm-zone-header-count">
           {String(count)}/{String(maxCount)}
         </span>
       </div>
-      <div className="fm-zone-shelf-cards">
-        {cardIds.length > 0 ? (
-          cardIds.map((cardId, i) => (
-            <img
-              alt="card"
-              className="fm-zone-shelf-thumb"
-              key={`shelf-${String(i)}-${String(cardId)}`}
-              src={`/images/artwork/${formatCardId(cardId)}.webp`}
-            />
-          ))
-        ) : (
-          <span className="fm-zone-shelf-empty">Empty</span>
-        )}
-      </div>
-      <svg
-        aria-hidden="true"
-        className="fm-zone-shelf-chevron"
-        fill="none"
-        height="12"
-        stroke="currentColor"
-        strokeWidth={2.5}
-        viewBox="0 0 24 24"
-        width="12"
-      >
-        <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
+      {children}
+      {!active && (
+        <button
+          aria-label={`Switch to ${label.toLowerCase()}`}
+          className="fm-zone-focus-btn"
+          onClick={onFocus}
+          type="button"
+        />
+      )}
+    </div>
   );
 }
