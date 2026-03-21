@@ -678,34 +678,226 @@ input[type="number"] {
   justify-content: center;
 }
 
-/* ── Zone expand/collapse (hand/field toggle) ────────────────── *
- * Uses CSS grid row trick for smooth height animation to/from 0.
- * ─────────────────────────────────────────────────────────────── */
+/* ── Zone switcher (hand/field tabs) ─────────────────────────── */
 
-.fm-zone-content {
+.fm-zone-switcher {
+  display: flex;
+  position: relative;
+  background: linear-gradient(180deg, #0a0f1a 0%, #0e1320 100%);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.fm-zone-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  transition: color 350ms ease;
+}
+
+.fm-zone-tab-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  transition: color 350ms ease;
+}
+
+.fm-zone-tab--active .fm-zone-tab-label {
+  color: var(--color-gold-bright);
+}
+
+.fm-zone-tab-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  transition:
+    color 350ms ease,
+    opacity 350ms ease;
+}
+
+.fm-zone-tab--active .fm-zone-tab-count {
+  color: var(--color-gold);
+  opacity: 0.7;
+}
+
+/* Sliding golden indicator pill */
+.fm-zone-indicator {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 4px);
+  height: calc(100% - 6px);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(201, 168, 76, 0.1) 0%, rgba(201, 168, 76, 0.03) 100%);
+  border: 1px solid rgba(201, 168, 76, 0.12);
+  box-shadow: 0 0 16px rgba(201, 168, 76, 0.04);
+  transition: transform 450ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Zone stage (crossfade container) ────────────────────────── */
+
+.fm-zone-stage {
   display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms ease-out;
+  position: relative;
 }
 
-.fm-zone-content--expanded {
-  grid-template-rows: 1fr;
+.fm-zone-pane {
+  grid-area: 1 / 1;
 }
 
-/* Inline card artwork thumbnails for collapsed zone headers */
-.fm-zone-thumb {
+.fm-zone-pane--active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  z-index: 1;
+  transition:
+    opacity 350ms ease-out,
+    transform 350ms ease-out;
+}
+
+.fm-zone-pane--inactive {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    opacity 200ms ease-in,
+    transform 200ms ease-in;
+}
+
+/* ── Zone shelf (inactive zone preview) ──────────────────────── */
+
+.fm-zone-shelf {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-subtle);
+  background: linear-gradient(180deg, #0a0f1a 0%, #0e1320 100%);
+  cursor: pointer;
+  transition:
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+.fm-zone-shelf:hover {
+  border-color: rgba(201, 168, 76, 0.2);
+  box-shadow: 0 0 20px rgba(201, 168, 76, 0.04);
+}
+
+.fm-zone-shelf-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.fm-zone-shelf-label {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  transition: color 300ms ease;
+}
+
+.fm-zone-shelf:hover .fm-zone-shelf-label {
+  color: var(--color-gold-dim);
+}
+
+.fm-zone-shelf-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.45;
+}
+
+.fm-zone-shelf-cards {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.fm-zone-shelf-thumb {
   width: 24px;
-  height: 24px;
+  height: 32px;
   border-radius: 3px;
   object-fit: cover;
   border: 1px solid var(--color-border-subtle);
+  opacity: 0.6;
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease,
+    border-color 200ms ease;
+}
+
+.fm-zone-shelf:hover .fm-zone-shelf-thumb {
   opacity: 0.85;
+  border-color: rgba(201, 168, 76, 0.15);
+}
+
+.fm-zone-shelf-empty {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.35;
+}
+
+.fm-zone-shelf-chevron {
+  color: var(--color-text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+  transition:
+    opacity 200ms ease,
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.fm-zone-shelf:hover .fm-zone-shelf-chevron {
+  opacity: 0.7;
+  color: var(--color-gold-dim);
+  transform: translateX(2px);
 }
 
 @media (min-width: 640px) {
-  .fm-zone-thumb {
+  .fm-zone-tab {
+    padding: 10px 16px;
+  }
+  .fm-zone-tab-label {
+    font-size: 12px;
+  }
+  .fm-zone-tab-count {
+    font-size: 11px;
+  }
+  .fm-zone-shelf {
+    padding: 10px 14px;
+  }
+  .fm-zone-shelf-label {
+    font-size: 10px;
+  }
+  .fm-zone-shelf-thumb {
     width: 28px;
-    height: 28px;
+    height: 36px;
   }
 }
 

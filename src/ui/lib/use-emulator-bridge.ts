@@ -133,7 +133,7 @@ const RECONNECT_MS = 3_000;
  * Connects to the emulator bridge WebSocket and returns live game state.
  * Automatically reconnects on disconnect.
  */
-export function useEmulatorBridge(): EmulatorBridge {
+export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [status, setStatus] = useState<BridgeStatus>("disconnected");
   const [hand, setHand] = useState<number[]>([]);
   const [field, setField] = useState<number[]>([]);
@@ -144,8 +144,11 @@ export function useEmulatorBridge(): EmulatorBridge {
   const [stats, setStats] = useState<DuelStats | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const connect = useCallback(() => {
+    if (!enabledRef.current) return;
     if (
       wsRef.current?.readyState === WebSocket.CONNECTING ||
       wsRef.current?.readyState === WebSocket.OPEN
@@ -200,7 +203,9 @@ export function useEmulatorBridge(): EmulatorBridge {
       setInDuel(false);
       setLp(null);
       setStats(null);
-      reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
+      if (enabledRef.current) {
+        reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
+      }
     };
 
     ws.onerror = () => {
@@ -209,13 +214,27 @@ export function useEmulatorBridge(): EmulatorBridge {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+      wsRef.current = null;
+      setStatus("disconnected");
+      setHand([]);
+      setField([]);
+      setHandReliable(false);
+      setPhase("other");
+      setInDuel(false);
+      setLp(null);
+      setStats(null);
+      return;
+    }
     connect();
     return () => {
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [connect]);
+  }, [enabled, connect]);
 
   const scan = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

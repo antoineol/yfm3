@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Reads DuckStation shared memory and serves hand card data over WebSocket",
   "scripts": {
-    "start": "node serve.mjs"
+    "start": "node serve.mjs",
+    "dev": "node watch.mjs"
   },
   "dependencies": {
     "koffi": "^2.9.0",

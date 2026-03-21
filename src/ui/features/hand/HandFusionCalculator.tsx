@@ -25,10 +25,19 @@ const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "deck", label: "Deck only" },
 ];
 
+type BridgeMode = "manual" | "auto";
+
+const MODE_OPTIONS: { value: BridgeMode; label: string }[] = [
+  { value: "manual", label: "Manual" },
+  { value: "auto", label: "Auto-sync" },
+];
+
+const BRIDGE_ENABLED_KEY = "yfm-bridge-enabled";
+
 type FocusedZone = "hand" | "field";
 
-/** Phases where fusion suggestions are irrelevant — the player has already committed. */
-const HIDE_FUSIONS_PHASES = new Set(["fusion", "field", "battle"]);
+/** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
+const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
 
 export function HandFusionCalculator() {
   const hand = useHand();
@@ -37,7 +46,14 @@ export function HandFusionCalculator() {
   const sourceMode = useHandSourceMode();
   const updatePreferences = useUpdatePreferences();
   const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
-  const bridge = useEmulatorBridge();
+  const [bridgeEnabled, setBridgeEnabled] = useState(() => {
+    try {
+      return localStorage.getItem(BRIDGE_ENABLED_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const bridge = useEmulatorBridge(bridgeEnabled);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingFocusRef = useRef(false);
 
@@ -54,13 +70,15 @@ export function HandFusionCalculator() {
       setFocusedZone("hand");
       return;
     }
-    // Auto-switch based on game phase
-    if (bridge.phase === "field" || bridge.phase === "battle") {
-      setFocusedZone("field");
-    } else if (bridge.phase === "hand" || bridge.phase === "draw") {
+    // Auto-switch based on game phase:
+    // hand/draw → hand expanded (player is deciding)
+    // fusion/field/battle/opponent → field expanded (action is on the board)
+    // other → keep current (transitional, don't flicker)
+    if (bridge.phase === "hand" || bridge.phase === "draw") {
       setFocusedZone("hand");
+    } else if (bridge.phase !== "other") {
+      setFocusedZone("field");
     }
-    // Don't auto-switch during opponent/fusion/other — keep current
   }, [bridge.phase, isSynced]);
 
   // ── Manual mode input focus management ───────────────────────
@@ -91,6 +109,16 @@ export function HandFusionCalculator() {
     [removeMultipleFromHand, requestInputFocus],
   );
 
+  const handleBridgeModeChange = useCallback((mode: BridgeMode) => {
+    const next = mode === "auto";
+    setBridgeEnabled(next);
+    try {
+      localStorage.setItem(BRIDGE_ENABLED_KEY, String(next));
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+
   const handleSourceModeChange = useCallback(
     (value: HandSourceMode) => {
       if (value === sourceMode) return;
@@ -102,13 +130,26 @@ export function HandFusionCalculator() {
 
   if (hand === undefined) return <PanelLoadingState />;
 
+  const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
+  const handCardIds = hand.map((c) => c.cardId);
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
+      {/* ── Bridge mode toggle ── */}
+      <ToggleGroup
+        onChange={handleBridgeModeChange}
+        options={MODE_OPTIONS}
+        value={bridgeEnabled ? "auto" : "manual"}
+      />
+
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar bridge={bridge} />}
 
-      {/* ── Manual controls (hidden in synced mode) ── */}
-      {!isSynced && (
+      {/* ── Waiting for duel: empty state ── */}
+      {isWaitingForDuel && <WaitingForDuel />}
+
+      {/* ── Manual controls (only when bridge is not connected) ── */}
+      {bridge.status !== "connected" && (
         <div className="flex flex-col gap-2">
           <ToggleGroup
             onChange={handleSourceModeChange}
@@ -125,61 +166,74 @@ export function HandFusionCalculator() {
         </div>
       )}
 
-      {/* ── Hand zone ── */}
-      <ZoneSection
-        actions={
-          hand.length > 0 && !isSynced ? (
-            <button
-              className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
-              onClick={() => {
-                void clearHand();
-                requestInputFocus();
-              }}
-              type="button"
-            >
-              Clear hand
-            </button>
-          ) : undefined
-        }
-        cardIds={hand.map((c) => c.cardId)}
-        collapsible={isSynced}
-        count={hand.length}
-        expanded={!isSynced || focusedZone === "hand"}
-        label="Your Hand"
-        maxCount={HAND_SIZE}
-        onToggle={() => setFocusedZone("hand")}
-      >
-        <HandDisplay
-          cards={hand}
-          frozen={bridge.inDuel && !bridge.handReliable}
-          onRemove={
-            isSynced
-              ? undefined
-              : (docId) => {
-                  void removeFromHand({ id: docId });
-                  requestInputFocus();
-                }
-          }
-        />
-      </ZoneSection>
-
-      {/* ── Field zone (synced mode only) ── */}
+      {/* ── Synced mode: zone switcher + crossfade stage + shelf ── */}
       {isSynced && (
-        <ZoneSection
-          cardIds={bridge.field}
-          collapsible
-          count={bridge.field.length}
-          expanded={focusedZone === "field"}
-          label="Field"
-          maxCount={5}
-          onToggle={() => setFocusedZone("field")}
-        >
-          <FieldDisplay cardIds={bridge.field} />
-        </ZoneSection>
+        <>
+          <ZoneSwitcher
+            fieldCount={bridge.field.length}
+            focusedZone={focusedZone}
+            handCount={hand.length}
+            onSwitch={setFocusedZone}
+          />
+
+          <div className="fm-zone-stage">
+            <div
+              className={`fm-zone-pane ${focusedZone === "hand" ? "fm-zone-pane--active" : "fm-zone-pane--inactive"}`}
+            >
+              <HandDisplay cards={hand} frozen={bridge.inDuel && !bridge.handReliable} />
+            </div>
+            <div
+              className={`fm-zone-pane ${focusedZone === "field" ? "fm-zone-pane--active" : "fm-zone-pane--inactive"}`}
+            >
+              <FieldDisplay cardIds={bridge.field} />
+            </div>
+          </div>
+
+          <ZoneShelf
+            cardIds={focusedZone === "hand" ? bridge.field : handCardIds}
+            count={focusedZone === "hand" ? bridge.field.length : hand.length}
+            label={focusedZone === "hand" ? "Field" : "Hand"}
+            maxCount={focusedZone === "hand" ? 5 : HAND_SIZE}
+            onClick={() => setFocusedZone(focusedZone === "hand" ? "field" : "hand")}
+          />
+        </>
       )}
 
-      {/* ── Fusion results (hidden during fusion/field/battle in synced mode) ── */}
-      {(!isSynced || !HIDE_FUSIONS_PHASES.has(bridge.phase)) && (
+      {/* ── Manual mode: hand section ── */}
+      {!isSynced && !isWaitingForDuel && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <SectionLabel>
+              Your Hand
+              <span className="text-text-muted font-body font-normal ml-1.5">
+                ({String(hand.length)}/{String(HAND_SIZE)})
+              </span>
+            </SectionLabel>
+            {hand.length > 0 && (
+              <button
+                className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
+                onClick={() => {
+                  void clearHand();
+                  requestInputFocus();
+                }}
+                type="button"
+              >
+                Clear hand
+              </button>
+            )}
+          </div>
+          <HandDisplay
+            cards={hand}
+            onRemove={(docId) => {
+              void removeFromHand({ id: docId });
+              requestInputFocus();
+            }}
+          />
+        </section>
+      )}
+
+      {/* ── Fusion results (only during hand/draw in synced mode, always in manual) ── */}
+      {!isWaitingForDuel && (!isSynced || SHOW_FUSIONS_PHASES.has(bridge.phase)) && (
         <section>
           <div className="mb-2">
             <SectionLabel>Possible Fusions</SectionLabel>
@@ -195,95 +249,128 @@ export function HandFusionCalculator() {
   );
 }
 
-// ── Zone section with animated expand/collapse ─────────────────
+// ── Waiting-for-duel empty state ────────────────────────────────
 
-function ZoneSection({
-  expanded,
-  collapsible,
+function WaitingForDuel() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+      {/* Five face-down card silhouettes */}
+      <div className="flex gap-2">
+        {["a", "b", "c", "d", "e"].map((slot) => (
+          <div
+            className="w-10 h-14 sm:w-12 sm:h-16 rounded border border-border-subtle/40 bg-bg-surface/60"
+            key={slot}
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, var(--color-border-subtle) 25%, transparent 25%, transparent 50%, var(--color-border-subtle) 50%, var(--color-border-subtle) 75%, transparent 75%)",
+              backgroundSize: "8px 8px",
+              opacity: 0.25,
+            }}
+          />
+        ))}
+      </div>
+      <p className="text-text-muted text-sm">Start a duel to see your hand and fusions</p>
+    </div>
+  );
+}
+
+// ── Zone switcher (hand/field tabs) ────────────────────────────
+
+function ZoneSwitcher({
+  focusedZone,
+  onSwitch,
+  handCount,
+  fieldCount,
+}: {
+  focusedZone: FocusedZone;
+  onSwitch: (zone: FocusedZone) => void;
+  handCount: number;
+  fieldCount: number;
+}) {
+  return (
+    <div className="fm-zone-switcher" role="tablist">
+      <button
+        aria-selected={focusedZone === "hand"}
+        className={`fm-zone-tab ${focusedZone === "hand" ? "fm-zone-tab--active" : ""}`}
+        onClick={() => onSwitch("hand")}
+        role="tab"
+        type="button"
+      >
+        <span className="fm-zone-tab-label">Hand</span>
+        <span className="fm-zone-tab-count">
+          {String(handCount)}/{String(HAND_SIZE)}
+        </span>
+      </button>
+      <button
+        aria-selected={focusedZone === "field"}
+        className={`fm-zone-tab ${focusedZone === "field" ? "fm-zone-tab--active" : ""}`}
+        onClick={() => onSwitch("field")}
+        role="tab"
+        type="button"
+      >
+        <span className="fm-zone-tab-label">Field</span>
+        <span className="fm-zone-tab-count">{String(fieldCount)}/5</span>
+      </button>
+      <div
+        aria-hidden="true"
+        className="fm-zone-indicator"
+        style={{
+          transform: focusedZone === "field" ? "translateX(calc(100% + 2px))" : "translateX(0)",
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Zone shelf (inactive zone preview) ─────────────────────────
+
+function ZoneShelf({
+  cardIds,
   label,
   count,
   maxCount,
-  cardIds,
-  onToggle,
-  actions,
-  children,
+  onClick,
 }: {
-  expanded: boolean;
-  collapsible: boolean;
+  cardIds: number[];
   label: string;
   count: number;
   maxCount: number;
-  cardIds: number[];
-  onToggle: () => void;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <section>
-      <div className="flex items-center justify-between mb-2">
-        {collapsible ? (
-          <button
-            className="flex items-center gap-1.5 group/zone cursor-pointer"
-            onClick={onToggle}
-            type="button"
-          >
-            <ZoneChevron expanded={expanded} />
-            <SectionLabel>
-              {label}
-              <span className="text-text-muted font-body font-normal ml-1.5">
-                ({String(count)}/{String(maxCount)})
-              </span>
-            </SectionLabel>
-          </button>
+    <button className="fm-zone-shelf" onClick={onClick} type="button">
+      <div className="fm-zone-shelf-info">
+        <span className="fm-zone-shelf-label">{label}</span>
+        <span className="fm-zone-shelf-count">
+          {String(count)}/{String(maxCount)}
+        </span>
+      </div>
+      <div className="fm-zone-shelf-cards">
+        {cardIds.length > 0 ? (
+          cardIds.map((cardId, i) => (
+            <img
+              alt="card"
+              className="fm-zone-shelf-thumb"
+              key={`shelf-${String(i)}-${String(cardId)}`}
+              src={`/images/artwork/${formatCardId(cardId)}.webp`}
+            />
+          ))
         ) : (
-          <SectionLabel>
-            {label}
-            <span className="text-text-muted font-body font-normal ml-1.5">
-              ({String(count)}/{String(maxCount)})
-            </span>
-          </SectionLabel>
+          <span className="fm-zone-shelf-empty">Empty</span>
         )}
-
-        {/* Collapsed: inline thumbnails | Expanded: action buttons */}
-        {!expanded && collapsible && cardIds.length > 0 && <InlineThumbnails cardIds={cardIds} />}
-        {expanded && actions}
       </div>
-
-      <div className={`fm-zone-content ${expanded ? "fm-zone-content--expanded" : ""}`}>
-        <div className="min-h-0 overflow-hidden">{children}</div>
-      </div>
-    </section>
-  );
-}
-
-function ZoneChevron({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={`w-3 h-3 text-text-muted transition-transform duration-300 ${expanded ? "rotate-90" : ""}`}
-      fill="none"
-      role="img"
-      stroke="currentColor"
-      strokeWidth={2.5}
-      viewBox="0 0 24 24"
-    >
-      <title>Toggle</title>
-      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function InlineThumbnails({ cardIds }: { cardIds: number[] }) {
-  return (
-    <div className="flex gap-1 items-center">
-      {cardIds.map((cardId, i) => (
-        <img
-          alt="card"
-          className="fm-zone-thumb"
-          key={`thumb-${String(i)}-${String(cardId)}`}
-          src={`/images/artwork/${formatCardId(cardId)}.webp`}
-        />
-      ))}
-    </div>
+      <svg
+        aria-hidden="true"
+        className="fm-zone-shelf-chevron"
+        fill="none"
+        height="12"
+        stroke="currentColor"
+        strokeWidth={2.5}
+        viewBox="0 0 24 24"
+        width="12"
+      >
+        <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }
