@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Duel phase labels from the bridge. */
+/** Duel phase labels derived from raw bridge data. */
 export type DuelPhase = "hand" | "draw" | "fusion" | "field" | "battle" | "opponent" | "other";
 
 export type DuelStats = {
@@ -9,18 +9,22 @@ export type DuelStats = {
   duelistId: number;
 };
 
-/** Game state received from the bridge WebSocket server. */
-type BridgeGameState = {
+// ── Raw bridge message types (internal) ──────────────────────────────
+
+type RawCardSlot = { cardId: number; status: number };
+
+type RawBridgeState = {
   connected: true;
   pid: number;
-  inDuel: boolean;
   sceneId: number;
-  hand: number[];
-  field: number[];
+  duelPhase: number;
+  turnIndicator: number;
+  hand: RawCardSlot[];
+  field: RawCardSlot[];
   lp: [number, number];
-  handReliable: boolean;
-  phase: DuelPhase;
-  stats: DuelStats;
+  fusions: number;
+  terrain: number;
+  duelistId: number;
 };
 
 type BridgeDisconnected = {
@@ -28,7 +32,87 @@ type BridgeDisconnected = {
   reason?: string;
 };
 
-type BridgeMessage = BridgeGameState | BridgeDisconnected;
+type RawBridgeMessage = RawBridgeState | BridgeDisconnected;
+
+// ── Status byte flags (from PS1 card struct at +0x0B) ────────────────
+
+const STATUS_PRESENT = 0x80;
+const STATUS_TRANSITIONING = 0x10;
+
+// ── Duel phase bytes ─────────────────────────────────────────────────
+
+const PHASE_CLEANUP = 0x02;
+const PHASE_DRAW = 0x03;
+const PHASE_HAND_SELECT = 0x04;
+const PHASE_FIELD = 0x05;
+const PHASE_FUSION = 0x07;
+const PHASE_FUSION_RESOLVE = 0x08;
+const PHASE_BATTLE = 0x09;
+
+// ── Interpretation logic (pure, testable) ────────────────────────────
+
+type InterpretedState = {
+  hand: number[];
+  field: number[];
+  handReliable: boolean;
+  phase: DuelPhase;
+  inDuel: boolean;
+  lp: [number, number];
+  stats: DuelStats;
+};
+
+/**
+ * Interpret raw bridge state into game-meaningful values.
+ * Pure function — all game logic lives here, not in the bridge.
+ */
+export function interpretRawState(raw: RawBridgeState): InterpretedState {
+  const hand = filterCardSlots(raw.hand);
+  const field = filterCardSlots(raw.field);
+
+  const isPlayerTurn = raw.turnIndicator === 0;
+  const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
+  const handReliable =
+    isPlayerTurn &&
+    (raw.duelPhase === PHASE_CLEANUP ||
+      raw.duelPhase === PHASE_DRAW ||
+      raw.duelPhase === PHASE_HAND_SELECT);
+
+  const inDuel = hand.length > 0 || field.length > 0;
+
+  return {
+    hand,
+    field,
+    handReliable,
+    phase,
+    inDuel,
+    lp: raw.lp,
+    stats: { fusions: raw.fusions, terrain: raw.terrain, duelistId: raw.duelistId },
+  };
+}
+
+function filterCardSlots(slots: RawCardSlot[]): number[] {
+  const result: number[] = [];
+  for (const s of slots) {
+    const present = (s.status & STATUS_PRESENT) !== 0;
+    const transitioning = (s.status & STATUS_TRANSITIONING) !== 0;
+    if (s.cardId > 0 && s.cardId < 723 && present && !transitioning) {
+      result.push(s.cardId);
+    }
+  }
+  return result;
+}
+
+function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
+  if (!isPlayerTurn) return "opponent";
+  if (duelPhase === PHASE_HAND_SELECT) return "hand";
+  if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";
+  if (duelPhase === PHASE_FUSION || duelPhase === PHASE_FUSION_RESOLVE) return "fusion";
+  if (duelPhase === PHASE_FIELD) return "field";
+  if (duelPhase === PHASE_BATTLE) return "battle";
+  return "other";
+}
+
+// ── Public hook types ────────────────────────────────────────────────
 
 export type BridgeStatus = "disconnected" | "connecting" | "connected";
 
@@ -82,16 +166,17 @@ export function useEmulatorBridge(): EmulatorBridge {
 
     ws.onmessage = (event) => {
       try {
-        const msg: BridgeMessage = JSON.parse(event.data as string);
+        const msg: RawBridgeMessage = JSON.parse(event.data as string);
         if (msg.connected) {
           setStatus("connected");
-          setHand(msg.hand.filter((id) => id > 0 && id < 723));
-          setField(msg.field.filter((id) => id > 0 && id < 723));
-          setHandReliable(msg.handReliable);
-          setPhase(msg.phase);
-          setInDuel(msg.inDuel);
-          setLp(msg.lp);
-          setStats(msg.stats);
+          const state = interpretRawState(msg);
+          setHand(state.hand);
+          setField(state.field);
+          setHandReliable(state.handReliable);
+          setPhase(state.phase);
+          setInDuel(state.inDuel);
+          setLp(state.lp);
+          setStats(state.stats);
         } else {
           setStatus("connected");
           setHand([]);
