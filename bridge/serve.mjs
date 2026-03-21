@@ -11,6 +11,9 @@
  * Connects to ws://localhost:3333
  */
 
+import { createWriteStream } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import {
   closeSharedMemory,
@@ -19,12 +22,30 @@ import {
   readGameState,
 } from "./memory.mjs";
 
+// ── File logging (so Claude can read bridge/bridge.log) ─────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LOG_PATH = join(__dirname, "bridge.log");
+const logStream = createWriteStream(LOG_PATH, { flags: "w" });
+
+function timestamp() {
+  return new Date().toISOString();
+}
+
+for (const level of ["log", "info", "warn", "error", "debug"]) {
+  const orig = console[level].bind(console);
+  console[level] = (...args) => {
+    orig(...args);
+    logStream.write(`${timestamp()} [${level}] ${args.join(" ")}\n`);
+  };
+}
+
 const PORT = Number(process.env.BRIDGE_PORT || 3333);
 const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 200);
 
 // ── State ──────────────────────────────────────────────────────────
 let mapping = null; // { handle, view, pid }
 let lastJson = ""; // deduplicate broadcasts
+let lastLogState = null; // previous state for change-based logging
 
 // ── WebSocket server ───────────────────────────────────────────────
 const wss = new WebSocketServer({ port: PORT });
@@ -36,8 +57,21 @@ wss.on("listening", () => {
 wss.on("connection", (ws) => {
   console.log(`Client connected (${wss.clients.size} total)`);
 
-  // Send current state immediately on connect
-  if (lastJson) {
+  // Always send fresh state on connect — never rely solely on cache.
+  // Handles: bridge restart, app reconnect, app started late.
+  if (mapping) {
+    try {
+      const state = readGameState(mapping.view);
+      const json = JSON.stringify({ connected: true, pid: mapping.pid, ...state });
+      ws.send(json);
+      if (json !== lastJson) {
+        logStateChange(state);
+        lastJson = json;
+      }
+    } catch {
+      ws.send(JSON.stringify({ connected: false, reason: "Failed to read game state" }));
+    }
+  } else if (lastJson) {
     ws.send(lastJson);
   }
 
@@ -95,6 +129,55 @@ async function tryConnect() {
   return false;
 }
 
+// ── Diagnostic logging ────────────────────────────────────────────
+
+function slotSummary(slot) {
+  if (slot.cardId === 0 && slot.status === 0) return null;
+  return `${String(slot.cardId)}:0x${slot.status.toString(16).padStart(2, "0")}`;
+}
+
+function slotsSummary(slots) {
+  const parts = slots.map(slotSummary).filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : "(empty)";
+}
+
+function logStateChange(state) {
+  const prev = lastLogState;
+  lastLogState = state;
+
+  const parts = [];
+
+  if (!prev || prev.duelPhase !== state.duelPhase) {
+    parts.push(`phase=0x${state.duelPhase.toString(16).padStart(2, "0")}`);
+  }
+  if (!prev || prev.turnIndicator !== state.turnIndicator) {
+    parts.push(`turn=${state.turnIndicator === 0 ? "player" : "opponent"}`);
+  }
+
+  const prevHand = prev ? slotsSummary(prev.hand) : null;
+  const currHand = slotsSummary(state.hand);
+  if (prevHand !== currHand) {
+    parts.push(`hand=[${currHand}]`);
+  }
+
+  const prevField = prev ? slotsSummary(prev.field) : null;
+  const currField = slotsSummary(state.field);
+  if (prevField !== currField) {
+    parts.push(`field=[${currField}]`);
+  }
+
+  if (!prev || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1]) {
+    parts.push(`lp=${state.lp[0]}/${state.lp[1]}`);
+  }
+  if (!prev || prev.fusions !== state.fusions) {
+    parts.push(`fusions=${state.fusions}`);
+  }
+
+  if (parts.length > 0) {
+    console.log(`[state] ${parts.join("  ")}`);
+  }
+}
+
 // ── Poll loop ──────────────────────────────────────────────────────
 async function poll() {
   // Try to connect if not connected
@@ -109,6 +192,7 @@ async function poll() {
 
       // Only broadcast on change
       if (json !== lastJson) {
+        logStateChange(state);
         lastJson = json;
         broadcast(json);
       }

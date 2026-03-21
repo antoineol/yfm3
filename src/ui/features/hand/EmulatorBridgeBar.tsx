@@ -1,7 +1,3 @@
-import { useMutation } from "convex/react";
-import { useCallback, useEffect, useRef } from "react";
-import { api } from "../../../../convex/_generated/api";
-import type { HandCard } from "../../db/use-hand.ts";
 import type { DuelPhase, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 
 const TERRAIN_NAMES: Record<number, string> = {
@@ -14,54 +10,7 @@ const TERRAIN_NAMES: Record<number, string> = {
   6: "Dark",
 };
 
-export function EmulatorBridgeBar({
-  bridge,
-  currentHand,
-}: {
-  bridge: EmulatorBridge;
-  currentHand: HandCard[];
-}) {
-  const batchMigrateHand = useMutation(api.hand.batchMigrateHand);
-  const lastSyncedRef = useRef("");
-
-  const syncHand = useCallback(() => {
-    if (bridge.hand.length === 0) return;
-    const key = bridge.hand.join(",");
-    if (key === lastSyncedRef.current) return;
-    lastSyncedRef.current = key;
-
-    void batchMigrateHand({
-      handData: bridge.hand.map((cardId, i) => ({
-        cardId,
-        copyId: `emu-${String(i)}`,
-        order: i,
-      })),
-    });
-  }, [bridge.hand, batchMigrateHand]);
-
-  // Auto-sync ONLY when hand data is reliable
-  const bridgeHandKey = bridge.hand.join(",");
-  const currentHandKey = currentHand.map((c) => c.cardId).join(",");
-  const handsDiffer = bridgeHandKey !== currentHandKey && bridge.hand.length > 0;
-
-  useEffect(() => {
-    if (bridge.inDuel && bridge.handReliable && handsDiffer) {
-      syncHand();
-    }
-  }, [bridge.inDuel, bridge.handReliable, handsDiffer, syncHand]);
-
-  // ── Not connected / not in duel ──────────────────────────────────
-  if (bridge.status !== "connected") {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
-        <StatusDot color="neutral" pulse={bridge.status === "connecting"} />
-        <span className="text-text-muted">
-          {bridge.status === "connecting" ? "Connecting to bridge..." : "Bridge offline"}
-        </span>
-      </div>
-    );
-  }
-
+export function EmulatorBridgeBar({ bridge }: { bridge: EmulatorBridge }) {
   if (!bridge.inDuel) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">
@@ -93,7 +42,6 @@ export function EmulatorBridgeBar({
         <div className="flex items-center gap-4 px-3 pb-2 text-text-muted/70">
           {terrain && <Stat label="Terrain" value={terrain} />}
           <Stat label="Fusions" value={String(bridge.stats.fusions)} />
-          <Stat label="Field" value={`${String(bridge.field.length)}/5`} />
         </div>
       )}
     </div>

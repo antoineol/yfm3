@@ -64,6 +64,8 @@ export async function findDuckStationPids() {
   try {
     const output = execSync('tasklist /FI "IMAGENAME eq duckstation*" /FO CSV /NH', {
       encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+      cwd: "C:\\",
     });
     const pids = [];
     for (const line of output.split("\n")) {

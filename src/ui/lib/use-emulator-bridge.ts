@@ -37,7 +37,6 @@ type RawBridgeMessage = RawBridgeState | BridgeDisconnected;
 // ── Status byte flags (from PS1 card struct at +0x0B) ────────────────
 
 const STATUS_PRESENT = 0x80;
-const STATUS_TRANSITIONING = 0x10;
 
 // ── Duel phase bytes ─────────────────────────────────────────────────
 
@@ -94,8 +93,7 @@ function filterCardSlots(slots: RawCardSlot[]): number[] {
   const result: number[] = [];
   for (const s of slots) {
     const present = (s.status & STATUS_PRESENT) !== 0;
-    const transitioning = (s.status & STATUS_TRANSITIONING) !== 0;
-    if (s.cardId > 0 && s.cardId < 723 && present && !transitioning) {
+    if (s.cardId > 0 && s.cardId < 723 && present) {
       result.push(s.cardId);
     }
   }

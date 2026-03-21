@@ -23,7 +23,7 @@ export function FusionResultsList({
 }: {
   handCards: HandCard[];
   fusionDepth: number;
-  onPlayFusion: (materialDocIds: Id<"hand">[]) => void;
+  onPlayFusion?: (materialDocIds: Id<"hand">[]) => void;
 }) {
   const { fusionTable } = useFusionTable();
   const cardDb = useCardDb();
@@ -56,7 +56,7 @@ export function FusionResultsList({
           cardDb={cardDb}
           handCards={handCards}
           key={r.resultCardId}
-          onPlay={onPlayFusion}
+          onPlay={onPlayFusion ?? undefined}
           result={r}
         />
       ))}
@@ -73,11 +73,11 @@ function FusionResultRow({
   result: FusionChainResult;
   cardDb: CardDb;
   handCards: HandCard[];
-  onPlay: (materialDocIds: Id<"hand">[]) => void;
+  onPlay?: (materialDocIds: Id<"hand">[]) => void;
 }) {
   const materialDocIds = useMemo(
-    () => resolveMaterialDocs(result.materialCardIds, handCards),
-    [result.materialCardIds, handCards],
+    () => (onPlay ? resolveMaterialDocs(result.materialCardIds, handCards) : []),
+    [result.materialCardIds, handCards, onPlay],
   );
   const card = cardDb.cardsById.get(result.resultCardId);
 
@@ -109,9 +109,11 @@ function FusionResultRow({
                 {result.resultDef}
               </span>
             </div>
-            <Button onClick={() => onPlay(materialDocIds)} size="md" variant="outline">
-              Play
-            </Button>
+            {onPlay && (
+              <Button onClick={() => onPlay(materialDocIds)} size="md" variant="outline">
+                Play
+              </Button>
+            )}
           </div>
         </div>
 

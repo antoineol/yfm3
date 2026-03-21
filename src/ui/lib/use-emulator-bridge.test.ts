@@ -42,19 +42,19 @@ describe("interpretRawState", () => {
       expect(result.hand).toHaveLength(3);
     });
 
-    it("excludes transitioning cards (status 0x90 = present + transitioning)", () => {
+    it("includes cards with other status flags (0x90 = present + sticky marker)", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
             { cardId: 100, status: 0x80 },
-            { cardId: 200, status: 0x90 }, // transitioning to field
+            { cardId: 200, status: 0x90 }, // present + 0x10 flag (sticky after selection)
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
           ],
         }),
       );
-      expect(result.hand).toEqual([100]);
+      expect(result.hand).toEqual([100, 200]);
     });
 
     it("excludes cards without present bit", () => {
@@ -87,19 +87,19 @@ describe("interpretRawState", () => {
       expect(result.hand).toEqual([722]);
     });
 
-    it("filters field cards the same way", () => {
+    it("filters field cards the same way (present bit required)", () => {
       const result = interpretRawState(
         makeRaw({
           field: [
             { cardId: 50, status: 0x80 },
-            { cardId: 60, status: 0x90 }, // transitioning
-            { cardId: 0, status: 0 },
+            { cardId: 60, status: 0x90 }, // present + other flags
+            { cardId: 70, status: 0x00 }, // not present
             { cardId: 0, status: 0 },
             { cardId: 0, status: 0 },
           ],
         }),
       );
-      expect(result.field).toEqual([50]);
+      expect(result.field).toEqual([50, 60]);
     });
   });
 
@@ -179,6 +179,24 @@ describe("interpretRawState", () => {
     it("unreliable on opponent turn even at reliable phase", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x04, turnIndicator: 1 }));
       expect(result.handReliable).toBe(false);
+    });
+
+    it("reliable during hand select with previously-selected cards (0x90 sticky flag)", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04, // HAND_SELECT
+          turnIndicator: 0,
+          hand: [
+            { cardId: 100, status: 0x80 },
+            { cardId: 200, status: 0x90 }, // present + 0x10 sticky flag
+            { cardId: 300, status: 0x80 },
+            { cardId: 0, status: 0 },
+            { cardId: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.hand).toEqual([100, 200, 300]);
+      expect(result.handReliable).toBe(true);
     });
   });
 

@@ -678,6 +678,37 @@ input[type="number"] {
   justify-content: center;
 }
 
+/* ── Zone expand/collapse (hand/field toggle) ────────────────── *
+ * Uses CSS grid row trick for smooth height animation to/from 0.
+ * ─────────────────────────────────────────────────────────────── */
+
+.fm-zone-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease-out;
+}
+
+.fm-zone-content--expanded {
+  grid-template-rows: 1fr;
+}
+
+/* Inline card artwork thumbnails for collapsed zone headers */
+.fm-zone-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid var(--color-border-subtle);
+  opacity: 0.85;
+}
+
+@media (min-width: 640px) {
+  .fm-zone-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}
+
 /* ── Card Detail Modal Animation ─────────────────────────────── *
  * Inspired by Yu-Gi-Oh! Forbidden Memories card reveal:
  *   – golden radial glow backdrop

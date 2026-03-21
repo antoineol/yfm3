@@ -12,7 +12,7 @@ export function HandDisplay({
   frozen,
 }: {
   cards: HandCard[];
-  onRemove: (id: Id<"hand">) => void;
+  onRemove?: (id: Id<"hand">) => void;
   frozen?: boolean;
 }) {
   const { cardsById } = useCardDb();
@@ -31,7 +31,7 @@ export function HandDisplay({
             <FilledSlot
               card={cardsById.get(card.cardId)}
               key={card.docId}
-              onRemove={() => onRemove(card.docId)}
+              onRemove={onRemove ? () => onRemove(card.docId) : undefined}
             />
           ) : (
             <EmptySlot index={i + 1} key={`empty-${String(i)}`} />
@@ -49,7 +49,7 @@ export function HandDisplay({
   );
 }
 
-function FilledSlot({ card, onRemove }: { card: CardSpec | undefined; onRemove: () => void }) {
+function FilledSlot({ card, onRemove }: { card: CardSpec | undefined; onRemove?: () => void }) {
   if (!card) return null;
 
   return (
