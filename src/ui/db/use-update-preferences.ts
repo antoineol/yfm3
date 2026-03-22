@@ -2,11 +2,19 @@ import { useMutation } from "convex/react";
 import type { FunctionArgs } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 
-type UpdatePreferencesArgs = FunctionArgs<typeof api.userPreferences.updatePreferences>;
+type UpdateModSettingsArgs = FunctionArgs<typeof api.userModSettings.updateModSettings>;
+type UpdateUserSettingsArgs = FunctionArgs<typeof api.userSettings.updateUserSettings>;
+
+export type UpdatePreferencesArgs = UpdateModSettingsArgs & UpdateUserSettingsArgs;
 
 export function useUpdatePreferences() {
-  const mutate = useMutation(api.userPreferences.updatePreferences);
+  const mutateModSettings = useMutation(api.userModSettings.updateModSettings);
+  const mutateUserSettings = useMutation(api.userSettings.updateUserSettings);
   return (values: UpdatePreferencesArgs) => {
-    void mutate(values);
+    const { bridgeAutoSync, handSourceMode, ...modValues } = values;
+    const hasModValues = Object.values(modValues).some((v) => v !== undefined);
+    const hasGlobalValues = bridgeAutoSync !== undefined || handSourceMode !== undefined;
+    if (hasModValues) void mutateModSettings(modValues);
+    if (hasGlobalValues) void mutateUserSettings({ bridgeAutoSync, handSourceMode });
   };
 }

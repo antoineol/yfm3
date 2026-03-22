@@ -33,7 +33,7 @@ vi.mock("sonner", () => ({
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     ownedCards: { addCard: "addCard", removeCard: "removeCard" },
-    userPreferences: { clearLastAddedCard: "clearLastAddedCard" },
+    userModSettings: { clearLastAddedCard: "clearLastAddedCard" },
     deck: { applySuggestedSwap: "applySuggestedSwap" },
   },
 }));

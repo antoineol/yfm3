@@ -219,7 +219,7 @@ async function updateLastAddedCard(
   cardId: number,
 ) {
   const existing = await ctx.db
-    .query("userPreferences")
+    .query("userModSettings")
     .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
     .first();
   const now = Date.now();
@@ -232,7 +232,7 @@ async function updateLastAddedCard(
     return;
   }
 
-  await ctx.db.insert("userPreferences", {
+  await ctx.db.insert("userModSettings", {
     userId,
     lastAddedCard: cardId,
     mod,

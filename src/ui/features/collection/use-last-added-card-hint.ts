@@ -63,7 +63,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
   const [appliedSwap, setAppliedSwap] = useState<AppliedSwap | null>(null);
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
-  const clearHint = useMutation(api.userPreferences.clearLastAddedCard);
+  const clearHint = useMutation(api.userModSettings.clearLastAddedCard);
   const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
   const [applying, setApplying] = useState(false);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({

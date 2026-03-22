@@ -15,7 +15,7 @@ export type ConfigFormValues = z.infer<typeof configSchema>;
 // If a config field is added/renamed in the Convex schema, this line will error.
 type MutationArgs = Required<
   Pick<
-    FunctionArgs<typeof api.userPreferences.updatePreferences>,
+    FunctionArgs<typeof api.userModSettings.updateModSettings>,
     "deckSize" | "fusionDepth" | "useEquipment"
   >
 >;

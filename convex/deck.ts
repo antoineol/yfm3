@@ -75,7 +75,7 @@ export const addToDeck = mutation({
 
     // Server-side deck size cap
     const prefs = await ctx.db
-      .query('userPreferences')
+      .query('userModSettings')
       .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .first();
     const targetSize = prefs?.deckSize ?? 40;

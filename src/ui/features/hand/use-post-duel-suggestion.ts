@@ -9,7 +9,7 @@ import {
   useDeckSize,
   useFusionDepth,
   useUseEquipment,
-  useUserPreferences,
+  useUserModSettings,
 } from "../../db/use-user-preferences.ts";
 import {
   type PostDuelState,
@@ -67,8 +67,8 @@ export function usePostDuelSuggestion(
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
-  const prefs = useUserPreferences();
-  const savePreferences = useMutation(api.userPreferences.updatePreferences);
+  const prefs = useUserModSettings();
+  const savePreferences = useMutation(api.userModSettings.updateModSettings);
 
   const wasInDuelRef = useRef(false);
   const preDuelCollectionRef = useRef<Record<number, number> | null>(null);

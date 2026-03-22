@@ -16,7 +16,7 @@ import type * as importExport from "../importExport.js";
 import type * as migrations from "../migrations.js";
 import type * as modHelper from "../modHelper.js";
 import type * as ownedCards from "../ownedCards.js";
-import type * as userPreferences from "../userPreferences.js";
+import type * as userModSettings from "../userModSettings.js";
 import type * as userSettings from "../userSettings.js";
 import type * as utils from "../utils.js";
 
@@ -35,7 +35,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   modHelper: typeof modHelper;
   ownedCards: typeof ownedCards;
-  userPreferences: typeof userPreferences;
+  userModSettings: typeof userModSettings;
   userSettings: typeof userSettings;
   utils: typeof utils;
 }>;

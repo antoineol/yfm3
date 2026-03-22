@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { handSourceModeValidator, postDuelSuggestionValidator } from './userPreferences';
+import { handSourceModeValidator, postDuelSuggestionValidator } from './userModSettings';
 
 export default defineSchema({
   // User's owned cards - total copies owned regardless of deck assignment.
@@ -39,14 +39,12 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_user_mod', ['userId', 'mod']),
 
-  // User metadata and preferences (per mod)
-  userPreferences: defineTable({
+  // Per-mod user settings (deck config, optimization state)
+  userModSettings: defineTable({
     userId: v.string(),
     lastAddedCard: v.optional(v.number()), // CardId of last added card for UI hints
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
-    handSourceMode: v.optional(handSourceModeValidator),
-    bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
     useEquipment: v.optional(v.boolean()), // Consider equip boosts (+500/+1000) in deck optimization
     postDuelSuggestion: v.optional(postDuelSuggestionValidator), // Persisted post-duel optimization result
     mod: v.optional(v.string()),
@@ -60,5 +58,7 @@ export default defineSchema({
   userSettings: defineTable({
     userId: v.string(),
     selectedMod: v.string(), // Currently active mod (e.g. "rp", "vanilla")
+    bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
+    handSourceMode: v.optional(handSourceModeValidator),
   }).index('by_user', ['userId']),
 });
