@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
+import { MAX_COPIES } from "../../../engine/types/constants.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import type { SortDir } from "../../components/sortable-header.tsx";
@@ -36,11 +37,19 @@ function getDropCards(rows: RefDuelistCard[], duelistId: number) {
 // Generic sort helper (reuses SortableHeader visuals)
 // ---------------------------------------------------------------------------
 
-type DuelistSortKey = "id" | "atk" | "def" | "deck" | "saPow" | "bcd" | "saTec";
+type DuelistSortKey = "id" | "atk" | "def" | "deck" | "saPow" | "bcd" | "saTec" | "owned";
 type DuelistSortState = { key: DuelistSortKey; dir: SortDir } | null;
 
 /** Keys where "higher is more interesting" → default desc first. */
-const DESC_FIRST: Set<DuelistSortKey> = new Set(["atk", "def", "deck", "saPow", "bcd", "saTec"]);
+const DESC_FIRST: Set<DuelistSortKey> = new Set([
+  "atk",
+  "def",
+  "deck",
+  "saPow",
+  "bcd",
+  "saTec",
+  "owned",
+]);
 
 function toggleDuelistSort(prev: DuelistSortState, key: DuelistSortKey): DuelistSortState {
   const firstDir: SortDir = DESC_FIRST.has(key) ? "desc" : "asc";
@@ -54,6 +63,7 @@ function sortRows(
   rows: RefDuelistCard[],
   sort: DuelistSortState,
   cardDb: CardDb,
+  ownedTotals?: Record<number, number>,
 ): RefDuelistCard[] {
   if (!sort) return rows;
   const dir = sort.dir === "asc" ? 1 : -1;
@@ -65,6 +75,7 @@ function sortRows(
     saPow: (r) => r.saPow,
     bcd: (r) => r.bcd,
     saTec: (r) => r.saTec,
+    owned: (r) => ownedTotals?.[r.cardId] ?? 0,
   };
   const getter = getters[sort.key];
   return [...rows].sort((a, b) => dir * (getter(a) - getter(b)));
@@ -79,11 +90,13 @@ export function DuelistsPanel({
   cardDb,
   selectedDuelistId,
   onDuelistChange,
+  ownedTotals,
 }: {
   duelists: RefDuelistCard[];
   cardDb: CardDb;
   selectedDuelistId?: number;
   onDuelistChange: (id: number) => void;
+  ownedTotals?: Record<number, number>;
 }) {
   const duelistList = useMemo(() => extractDuelists(duelists), [duelists]);
   const selectedId = selectedDuelistId ?? duelistList[0]?.id ?? 1;
@@ -97,12 +110,12 @@ export function DuelistsPanel({
   const [dropSort, setDropSort] = useState<DuelistSortState>({ key: "saPow", dir: "desc" });
 
   const sortedDeck = useMemo(
-    () => sortRows(deckCards, deckSort, cardDb),
-    [deckCards, deckSort, cardDb],
+    () => sortRows(deckCards, deckSort, cardDb, ownedTotals),
+    [deckCards, deckSort, cardDb, ownedTotals],
   );
   const sortedDrops = useMemo(
-    () => sortRows(dropCards, dropSort, cardDb),
-    [dropCards, dropSort, cardDb],
+    () => sortRows(dropCards, dropSort, cardDb, ownedTotals),
+    [dropCards, dropSort, cardDb, ownedTotals],
   );
 
   const handleDeckSort = useCallback(
@@ -113,6 +126,8 @@ export function DuelistsPanel({
     (key: DuelistSortKey) => setDropSort((prev) => toggleDuelistSort(prev, key)),
     [],
   );
+
+  const showOwned = ownedTotals !== undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -164,6 +179,15 @@ export function DuelistsPanel({
                   onClick={() => handleDropSort("id")}
                 />
                 <th className="text-left py-2 px-1 font-normal">Card</th>
+                {showOwned && (
+                  <SortableHeader
+                    align="text-right"
+                    dir={dropSort?.key === "owned" ? dropSort.dir : undefined}
+                    label="Own"
+                    onClick={() => handleDropSort("owned")}
+                    px="px-2"
+                  />
+                )}
                 <SortableHeader
                   dir={dropSort?.key === "atk" ? dropSort.dir : undefined}
                   label="ATK"
@@ -203,14 +227,26 @@ export function DuelistsPanel({
               {sortedDrops.map((row) => {
                 const card = cardDb.cardsById.get(row.cardId);
                 const isMonster = card?.isMonster ?? true;
+                const needMore = showOwned && (ownedTotals[row.cardId] ?? 0) < MAX_COPIES;
                 return (
-                  <DuelistRow key={row.cardId}>
+                  <DuelistRow className={needMore ? "owned-need-row" : undefined} key={row.cardId}>
                     <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
                       {formatCardId(row.cardId)}
                     </td>
                     <td className="py-1.5 px-1 text-text-primary">
-                      <CardName cardId={row.cardId} name={card?.name ?? `#${row.cardId}`} />
+                      <CardName
+                        cardId={row.cardId}
+                        className={needMore ? "text-text-need" : undefined}
+                        name={card?.name ?? `#${row.cardId}`}
+                      />
                     </td>
+                    {showOwned && (
+                      <td
+                        className={`py-1.5 px-2 text-right font-mono text-xs ${needMore ? "font-bold text-text-need owned-need" : "text-text-muted"}`}
+                      >
+                        {ownedTotals[row.cardId] ?? 0}
+                      </td>
+                    )}
                     <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
                       {isMonster ? (card?.attack ?? 0) : ""}
                     </td>
@@ -252,6 +288,15 @@ export function DuelistsPanel({
                   onClick={() => handleDeckSort("id")}
                 />
                 <th className="text-left py-2 px-1 font-normal">Card</th>
+                {showOwned && (
+                  <SortableHeader
+                    align="text-right"
+                    dir={deckSort?.key === "owned" ? deckSort.dir : undefined}
+                    label="Own"
+                    onClick={() => handleDeckSort("owned")}
+                    px="px-2"
+                  />
+                )}
                 <SortableHeader
                   dir={deckSort?.key === "atk" ? deckSort.dir : undefined}
                   label="ATK"
@@ -277,14 +322,26 @@ export function DuelistsPanel({
               {sortedDeck.map((row) => {
                 const card = cardDb.cardsById.get(row.cardId);
                 const isMonster = card?.isMonster ?? true;
+                const needMore = showOwned && (ownedTotals[row.cardId] ?? 0) < MAX_COPIES;
                 return (
-                  <DuelistRow key={row.cardId}>
+                  <DuelistRow className={needMore ? "owned-need-row" : undefined} key={row.cardId}>
                     <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
                       {formatCardId(row.cardId)}
                     </td>
                     <td className="py-1.5 px-1 text-text-primary">
-                      <CardName cardId={row.cardId} name={card?.name ?? `#${row.cardId}`} />
+                      <CardName
+                        cardId={row.cardId}
+                        className={needMore ? "text-text-need" : undefined}
+                        name={card?.name ?? `#${row.cardId}`}
+                      />
                     </td>
+                    {showOwned && (
+                      <td
+                        className={`py-1.5 px-2 text-right font-mono text-xs ${needMore ? "font-bold text-text-need owned-need" : "text-text-muted"}`}
+                      >
+                        {ownedTotals[row.cardId] ?? 0}
+                      </td>
+                    )}
                     <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
                       {isMonster ? (card?.attack ?? 0) : ""}
                     </td>
@@ -315,9 +372,11 @@ function DuelistTable({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DuelistRow({ children }: { children: React.ReactNode }) {
+function DuelistRow({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <tr className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30">
+    <tr
+      className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30 ${className ?? ""}`}
+    >
       {children}
     </tr>
   );

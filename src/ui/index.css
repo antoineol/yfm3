@@ -25,6 +25,8 @@
   --color-stat-def: #6a9af0;
   --color-stat-up: #5ae87a;
 
+  --color-text-need: #e8a34c;
+
   --shadow-panel: 0 0 40px rgba(0, 0, 0, 0.3);
   --shadow-overlay: 0 0 60px rgba(0, 0, 0, 0.5);
   --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 1px rgba(201, 168, 76, 0.1);
@@ -49,6 +51,14 @@ body {
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(90, 138, 232, 0.02) 0%, transparent 50%);
+}
+
+/* "Need more copies" indicators in duelist tables */
+.owned-need-row {
+  box-shadow: inset 3px 0 0 var(--color-text-need);
+}
+.owned-need {
+  text-shadow: 0 0 6px rgba(232, 163, 76, 0.5);
 }
 
 /* Scrollbar */

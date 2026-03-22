@@ -21,6 +21,11 @@ vi.mock("../lib/fusion-table-context.tsx", () => ({
   useHasReferenceData: () => true,
 }));
 
+const mockOwnedTotals = vi.fn<() => Record<number, number> | undefined>(() => undefined);
+vi.mock("../db/use-owned-card-totals.ts", () => ({
+  useOwnedCardTotals: () => mockOwnedTotals(),
+}));
+
 afterEach(cleanup);
 
 const testCard: CardSpec = {
@@ -173,5 +178,31 @@ describe("CardDetailModal", () => {
     // Click SA-TEC → desc: Simon (15) > Teana (0)
     fireEvent.click(screen.getByText("SA-TEC"));
     expect(firstDuelist(rows())).toBe("Simon Muran");
+  });
+
+  it("hides Owned badge when ownedTotals is undefined", () => {
+    renderModal();
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.queryByText("Owned")).toBeNull();
+  });
+
+  it("shows Owned badge with need styling when below max copies", () => {
+    mockOwnedTotals.mockReturnValue({ 1: 1 });
+    renderModal();
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Owned")).toBeTruthy();
+    const badge = screen.getByText("1");
+    expect(badge.className).toContain("text-text-need");
+  });
+
+  it("shows Owned badge with muted styling at max copies", () => {
+    mockOwnedTotals.mockReturnValue({ 1: 3 });
+    renderModal();
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Owned")).toBeTruthy();
+    // The "3" appears in multiple places (level, owned), find the one in the owned badge
+    const ownedSection = screen.getByText("Owned").closest("div");
+    const badge = ownedSection?.querySelector(".text-text-muted");
+    expect(badge).not.toBeNull();
   });
 });

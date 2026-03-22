@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
+import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
 import { CardDetailPage } from "./CardDetailPage.tsx";
@@ -34,6 +35,7 @@ function parseDataHash(hash: string): {
 
 export function DataPanel() {
   const data = useFusionTable();
+  const ownedTotals = useOwnedCardTotals();
   const [hash, setHash] = useHash();
   const { view, duelistId, cardId } = parseDataHash(hash);
 
@@ -81,6 +83,7 @@ export function DataPanel() {
             cardDb={data.cardDb}
             duelists={data.duelists}
             onDuelistChange={handleDuelistChange}
+            ownedTotals={ownedTotals}
             selectedDuelistId={duelistId}
           />
         )}

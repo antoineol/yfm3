@@ -45,12 +45,14 @@ const noop = () => {};
 function renderPanel(props?: {
   selectedDuelistId?: number;
   onDuelistChange?: (id: number) => void;
+  ownedTotals?: Record<number, number>;
 }) {
   return render(
     <DuelistsPanel
       cardDb={cardDb}
       duelists={duelists}
       onDuelistChange={props?.onDuelistChange ?? noop}
+      ownedTotals={props?.ownedTotals}
       selectedDuelistId={props?.selectedDuelistId}
     />,
   );
@@ -98,5 +100,37 @@ describe("DuelistsPanel", () => {
     const select = screen.getByLabelText("Duelist") as HTMLSelectElement;
     expect(select.value).toBe("2");
     expect(screen.getByText("#2")).toBeTruthy();
+  });
+
+  it("does not show Own column when ownedTotals is undefined", () => {
+    renderPanel();
+    expect(screen.queryByText("Own")).toBeNull();
+  });
+
+  it("shows Own column in both tables when ownedTotals is provided", () => {
+    renderPanel({ ownedTotals: { 10: 2, 20: 1 } });
+    const ownHeaders = screen.getAllByText("Own");
+    expect(ownHeaders.length).toBe(2);
+  });
+
+  it("displays owned counts for each card", () => {
+    renderPanel({ ownedTotals: { 10: 3, 20: 1, 30: 0 } });
+    // Dragon A (id=10) appears in both drops and deck → two cells showing "3"
+    const threes = screen.getAllByText("3");
+    expect(threes.length).toBe(2);
+  });
+
+  it("sorts drops by owned count when Own header is clicked", () => {
+    const { container } = renderPanel({ ownedTotals: { 10: 1, 20: 3 } });
+    const ownHeaders = screen.getAllByText("Own");
+    expect(ownHeaders.length).toBe(2);
+    // Click the first "Own" header (drops table) → sorts desc (higher first)
+    fireEvent.click(ownHeaders[0] as HTMLElement);
+    // The drops table is the first <table> in the container
+    const tables = container.querySelectorAll("table");
+    const dropRows = Array.from(tables[0]?.querySelectorAll("tbody tr") ?? []);
+    // First drop row should be Fairy B (owned=3), second Dragon A (owned=1)
+    expect(dropRows[0]?.textContent).toContain("Fairy B");
+    expect(dropRows[1]?.textContent).toContain("Dragon A");
   });
 });

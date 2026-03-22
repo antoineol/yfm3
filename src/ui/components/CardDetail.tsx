@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
+import { MAX_COPIES } from "../../engine/types/constants.ts";
+import { useOwnedCardTotals } from "../db/use-owned-card-totals.ts";
 import { formatRate } from "../lib/format.ts";
 import { useFusionTable } from "../lib/fusion-table-context.tsx";
 import { GameCard } from "./GameCard.tsx";
@@ -28,6 +30,7 @@ export function CardDetailBody({ card, header }: { card: CardSpec; header: React
 
 function DetailPanel({ card }: { card: CardSpec }) {
   const typeDisplay = card.kinds[0] ? formatKind(card.kinds[0]) : card.cardType;
+  const ownedTotals = useOwnedCardTotals();
 
   return (
     <div className="flex flex-col gap-3">
@@ -57,6 +60,7 @@ function DetailPanel({ card }: { card: CardSpec }) {
             </DetailSection>
           </>
         )}
+        {ownedTotals !== undefined && <OwnedBadge count={ownedTotals[card.id] ?? 0} />}
       </div>
 
       {card.guardianStar1 && card.guardianStar1 !== "None" && (
@@ -210,6 +214,20 @@ function DroppedBySection({ cardId }: { cardId: number }) {
         </div>
       )}
     </div>
+  );
+}
+
+function OwnedBadge({ count }: { count: number }) {
+  const needMore = count < MAX_COPIES;
+  return (
+    <DetailSection label="Owned">
+      <span
+        className={`text-base font-mono font-bold ${needMore ? "text-text-need owned-need" : "text-text-muted"}`}
+      >
+        {count}
+        <span className="text-text-muted font-normal text-xs"> / {MAX_COPIES}</span>
+      </span>
+    </DetailSection>
   );
 }
 
