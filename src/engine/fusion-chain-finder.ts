@@ -28,14 +28,24 @@ export type FusionChainResult = {
   equipCardIds: number[];
 };
 
+/** A field card with its live (equip-boosted) ATK/DEF from game RAM. */
+export type FieldCardInfo = { cardId: number; atk: number; def: number };
+
 type CardSource = "hand" | "field" | "result";
 
 /**
  * A card in the working hand with its source tracked.
  * originalIndex >= 0 identifies the card's position in its source array.
  * source "result" means it's a fusion result (intermediate or final).
+ * liveAtk/liveDef are set only for field cards to carry their current boosted values.
  */
-type TaggedCard = { cardId: number; originalIndex: number; source: CardSource };
+type TaggedCard = {
+  cardId: number;
+  originalIndex: number;
+  source: CardSource;
+  liveAtk?: number;
+  liveDef?: number;
+};
 
 type ConsumedCard = { cardId: number; source: CardSource };
 
@@ -54,14 +64,16 @@ export function findFusionChains(
   cardDb: CardDb,
   fusionDepth: number,
   equipCompat?: Uint8Array,
-  fieldCardIds?: number[],
+  fieldCards?: FieldCardInfo[],
 ): FusionChainResult[] {
   const tagged: TaggedCard[] = [
     ...handCardIds.map((cardId, i) => ({ cardId, originalIndex: i, source: "hand" as const })),
-    ...(fieldCardIds ?? []).map((cardId, i) => ({
-      cardId,
+    ...(fieldCards ?? []).map((fc, i) => ({
+      cardId: fc.cardId,
       originalIndex: i,
       source: "field" as const,
+      liveAtk: fc.atk,
+      liveDef: fc.def,
     })),
   ];
   const results = new Map<string, FusionChainResult>();
@@ -72,20 +84,22 @@ export function findFusionChains(
     for (let i = 0; i < tagged.length; i++) {
       const monster = tagged[i];
       if (!monster) continue;
-      const baseAtk = cardDb.cardsById.get(monster.cardId)?.attack ?? 0;
-      if (baseAtk === 0) continue;
+      const card = cardDb.cardsById.get(monster.cardId);
+      // For field cards, use live ATK (includes existing equip boosts); otherwise use DB base ATK
+      const currentAtk = monster.liveAtk ?? card?.attack ?? 0;
+      const currentDef = monster.liveDef ?? card?.defense ?? 0;
+      if (currentAtk === 0) continue;
       const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
       if (equips.length === 0) continue;
       const bonus = equips.reduce((sum, eqId) => sum + equipBonus(eqId), 0);
-      const card = cardDb.cardsById.get(monster.cardId);
       const fieldPrefix = monster.source === "field" ? "f" : "";
       const key = `${fieldPrefix}${String(monster.cardId)}+${equips.join(",")}`;
       const existing = results.get(key);
-      if (existing && existing.resultAtk >= baseAtk + bonus) continue;
+      if (existing && existing.resultAtk >= currentAtk + bonus) continue;
       results.set(key, {
         resultCardId: monster.cardId,
-        resultAtk: baseAtk + bonus,
-        resultDef: (card?.defense ?? 0) + bonus,
+        resultAtk: currentAtk + bonus,
+        resultDef: currentDef + bonus,
         resultName: card?.name ?? `Card #${monster.cardId}`,
         steps: [],
         materialCardIds: monster.source === "hand" ? [monster.cardId] : [],

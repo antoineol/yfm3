@@ -32,16 +32,15 @@ export function FusionResultsList({
   const cardDb = useCardDb();
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
-  const fieldCardIds = useMemo(() => fieldCards?.map((fc) => fc.cardId), [fieldCards]);
-  const fieldLen = fieldCardIds?.length ?? 0;
+  const fieldLen = fieldCards?.length ?? 0;
 
   const { equipCompat } = useFusionTable();
   const results = useMemo(
     () =>
       handCardIds.length >= 1 && handCardIds.length + fieldLen >= 2
-        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCardIds)
+        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards)
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCardIds, fieldLen],
+    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards, fieldLen],
   );
 
   if (handCardIds.length < 1 || handCardIds.length + fieldLen < 2) return null;
