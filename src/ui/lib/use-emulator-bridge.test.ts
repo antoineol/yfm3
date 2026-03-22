@@ -9,18 +9,18 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     duelPhase: 0x04, // hand select
     turnIndicator: 0, // player's turn
     hand: [
-      { cardId: 100, status: 0x80 },
-      { cardId: 200, status: 0x80 },
-      { cardId: 300, status: 0x80 },
-      { cardId: 0, status: 0 },
-      { cardId: 0, status: 0 },
+      { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+      { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+      { cardId: 300, atk: 900, def: 700, status: 0x80 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
     ],
     field: [
-      { cardId: 0, status: 0 },
-      { cardId: 0, status: 0 },
-      { cardId: 0, status: 0 },
-      { cardId: 0, status: 0 },
-      { cardId: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
     ],
     lp: [8000, 8000] as [number, number],
     fusions: 0,
@@ -48,11 +48,11 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 100, status: 0x80 },
-            { cardId: 200, status: 0x90 }, // present + 0x10 flag (sticky after selection)
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + 0x10 flag (sticky after selection)
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -63,11 +63,11 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 100, status: 0x00 }, // status cleared = not present
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 100, atk: 1200, def: 800, status: 0x00 }, // status cleared = not present
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -78,11 +78,11 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 100, status: 0x04 }, // attacker: no 0x80 but still active
-            { cardId: 200, status: 0x40 }, // other active flag
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 100, atk: 1200, def: 800, status: 0x04 }, // attacker: no 0x80 but still active
+            { cardId: 200, atk: 1500, def: 1000, status: 0x40 }, // other active flag
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -93,11 +93,11 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 722, status: 0x80 },
-            { cardId: 723, status: 0x80 },
-            { cardId: 999, status: 0x80 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 722, atk: 2000, def: 1800, status: 0x80 },
+            { cardId: 723, atk: 500, def: 500, status: 0x80 },
+            { cardId: 999, atk: 500, def: 500, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -108,15 +108,33 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           field: [
-            { cardId: 50, status: 0x80 },
-            { cardId: 60, status: 0x04 }, // attacker during battle
-            { cardId: 70, status: 0x00 }, // truly empty
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 50, atk: 1000, def: 600, status: 0x80 },
+            { cardId: 60, atk: 1100, def: 700, status: 0x04 }, // attacker during battle
+            { cardId: 70, atk: 800, def: 500, status: 0x00 }, // truly empty
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
-      expect(result.field).toEqual([50, 60]);
+      expect(result.field).toEqual([
+        { cardId: 50, atk: 1000, def: 600 },
+        { cardId: 60, atk: 1100, def: 700 },
+      ]);
+    });
+
+    it("preserves equip-boosted ATK/DEF from RAM for field cards", () => {
+      const result = interpretRawState(
+        makeRaw({
+          field: [
+            { cardId: 50, atk: 1500, def: 1100, status: 0x80 }, // +500 equip boost
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.field).toEqual([{ cardId: 50, atk: 1500, def: 1100 }]);
     });
   });
 
@@ -204,11 +222,11 @@ describe("interpretRawState", () => {
           duelPhase: 0x04, // HAND_SELECT
           turnIndicator: 0,
           hand: [
-            { cardId: 100, status: 0x80 },
-            { cardId: 200, status: 0x90 }, // present + 0x10 sticky flag
-            { cardId: 300, status: 0x80 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + 0x10 sticky flag
+            { cardId: 300, atk: 900, def: 700, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -227,18 +245,18 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
           field: [
-            { cardId: 400, status: 0x80 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 400, atk: 1800, def: 1200, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
@@ -249,11 +267,11 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
-            { cardId: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );

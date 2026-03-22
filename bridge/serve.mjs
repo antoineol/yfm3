@@ -73,7 +73,7 @@ wss.on("listening", () => {
 });
 
 wss.on("connection", (ws) => {
-  console.log(`Client connected 27 (${wss.clients.size} total)`);
+  console.log(`Client connected (${wss.clients.size} total)`);
 
   // Always send fresh state on connect — never rely solely on cache.
   // Handles: bridge restart, app reconnect, app started late.
@@ -173,7 +173,7 @@ async function tryConnect() {
 
 function slotSummary(slot) {
   if (slot.cardId === 0 && slot.status === 0) return null;
-  return `${String(slot.cardId)}:0x${slot.status.toString(16).padStart(2, "0")}`;
+  return `${String(slot.cardId)}(${slot.atk}/${slot.def}):0x${slot.status.toString(16).padStart(2, "0")}`;
 }
 
 function slotsSummary(slots) {
@@ -214,7 +214,7 @@ function logStateChange(state) {
   }
 
   if (parts.length > 0) {
-    console.log(`[state2] ${parts.join("  ")}`);
+    console.log(`[state] ${parts.join("  ")}`);
   }
 }
 

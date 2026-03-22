@@ -156,7 +156,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
             onFocus={() => setFocusedZone("field")}
             zone="field"
           >
-            <FieldDisplay cardIds={bridge.field} />
+            <FieldDisplay cards={bridge.field} />
           </ZonePanel>
 
           <ZonePanel
@@ -209,7 +209,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
       {!isWaitingForDuel && (!isSynced || SHOW_FUSIONS_PHASES.has(bridge.phase)) && (
         <section>
           <div className="mb-2">
-            <SectionLabel>Possible Fusions</SectionLabel>
+            <SectionLabel>Best Plays</SectionLabel>
           </div>
           <FusionResultsList
             fusionDepth={fusionDepth}

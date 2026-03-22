@@ -498,6 +498,10 @@ input[type="number"] {
   text-align: left;
 }
 
+.fm-mini-stat-value--boosted {
+  color: #1e6b2e;
+}
+
 .fm-mini-stat-sep {
   font-size: 9px;
   font-weight: 700;

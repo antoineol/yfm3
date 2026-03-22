@@ -81,7 +81,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     detailMessage: null,
     version: null,
     hand: [],
-    field: [],
+    field: [] as import("../../lib/use-emulator-bridge.ts").FieldCard[],
     handReliable: false,
     phase: "other",
     inDuel: false,
@@ -114,7 +114,10 @@ describe("HandFusionCalculator", () => {
     const bridge = makeBridge({
       status: "connected",
       hand: [1, 2, 3],
-      field: [4, 5],
+      field: [
+        { cardId: 4, atk: 1200, def: 800 },
+        { cardId: 5, atk: 1000, def: 600 },
+      ],
       handReliable: true,
       phase: "hand",
       inDuel: true,

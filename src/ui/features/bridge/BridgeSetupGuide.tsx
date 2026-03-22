@@ -131,11 +131,7 @@ function SetupSteps({ detail }: { detail: BridgeDetail }) {
         title="Extract the zip and double-click start-bridge.bat"
       />
 
-      <Step
-        number={3}
-        state={states[2]}
-        title="Open DuckStation"
-      />
+      <Step number={3} state={states[2]} title="Open DuckStation" />
 
       <Step number={4} state={states[3]} title="Enable shared memory export in DuckStation">
         <DuckStationInstructions />

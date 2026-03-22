@@ -19,7 +19,7 @@ export type DuelStats = {
 
 // ── Raw bridge message types (internal) ──────────────────────────────
 
-type RawCardSlot = { cardId: number; status: number };
+type RawCardSlot = { cardId: number; atk: number; def: number; status: number };
 
 type RawBridgeState = {
   connected: true;
@@ -61,11 +61,14 @@ const PHASE_POST_BATTLE = 0x0a;
 const PHASE_DUEL_END = 0x0c;
 const PHASE_RESULTS = 0x0d;
 
+/** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
+export type FieldCard = { cardId: number; atk: number; def: number };
+
 // ── Interpretation logic (pure, testable) ────────────────────────────
 
 type InterpretedState = {
   hand: number[];
-  field: number[];
+  field: FieldCard[];
   handReliable: boolean;
   phase: DuelPhase;
   inDuel: boolean;
@@ -79,7 +82,7 @@ type InterpretedState = {
  */
 export function interpretRawState(raw: RawBridgeState): InterpretedState {
   const hand = filterCardSlots(raw.hand);
-  const field = filterCardSlots(raw.field);
+  const field = filterFieldSlots(raw.field);
 
   const isPlayerTurn = raw.turnIndicator === 0;
   const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
@@ -113,16 +116,26 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   };
 }
 
+function isActiveSlot(s: RawCardSlot): boolean {
+  // Any non-zero status means the card is in an active state.
+  // During battle the game temporarily clears the STATUS_PRESENT (0x80)
+  // bit on the attacker while keeping other bits (e.g. 0x04 = face-up).
+  // Truly empty slots always have status === 0x00.
+  return s.cardId > 0 && s.cardId < 723 && s.status !== 0;
+}
+
 function filterCardSlots(slots: RawCardSlot[]): number[] {
   const result: number[] = [];
   for (const s of slots) {
-    // Any non-zero status means the card is in an active state.
-    // During battle the game temporarily clears the STATUS_PRESENT (0x80)
-    // bit on the attacker while keeping other bits (e.g. 0x04 = face-up).
-    // Truly empty slots always have status === 0x00.
-    if (s.cardId > 0 && s.cardId < 723 && s.status !== 0) {
-      result.push(s.cardId);
-    }
+    if (isActiveSlot(s)) result.push(s.cardId);
+  }
+  return result;
+}
+
+function filterFieldSlots(slots: RawCardSlot[]): FieldCard[] {
+  const result: FieldCard[] = [];
+  for (const s of slots) {
+    if (isActiveSlot(s)) result.push({ cardId: s.cardId, atk: s.atk, def: s.def });
   }
   return result;
 }
@@ -171,7 +184,7 @@ export type EmulatorBridge = {
   detailMessage: string | null;
   version: string | null;
   hand: number[];
-  field: number[];
+  field: FieldCard[];
   handReliable: boolean;
   phase: DuelPhase;
   inDuel: boolean;
@@ -195,7 +208,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [detailMessage, setDetailMessage] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   const [hand, setHand] = useState<number[]>([]);
-  const [field, setField] = useState<number[]>([]);
+  const [field, setField] = useState<FieldCard[]>([]);
   const [handReliable, setHandReliable] = useState(false);
   const [phase, setPhase] = useState<DuelPhase>("other");
   const [inDuel, setInDuel] = useState(false);

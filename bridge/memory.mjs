@@ -70,8 +70,11 @@ function readU8Array(view, offset, count) {
 }
 function readCardSlot(view, base, index) {
   const offset = base + index * HAND_STRIDE;
+  const equipBoost = readU16(view, offset + 0x06);
   return {
     cardId: readU16(view, offset),
+    atk: readU16(view, offset + 0x02) + equipBoost,
+    def: readU16(view, offset + 0x04) + equipBoost,
     status: readU8(view, offset + 0x0b),
   };
 }

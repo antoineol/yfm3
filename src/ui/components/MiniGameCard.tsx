@@ -34,7 +34,19 @@ const cardTypePalettes: Record<string, FramePalette> = {
   Ritual: { lo: "#183880", mid: "#2858c0", hi: "#4070e0", border: "#1e3090", text: "#0a0e2a" },
 };
 
-export function MiniGameCard({ card, onRemove }: { card: CardSpec; onRemove?: () => void }) {
+export function MiniGameCard({
+  card,
+  onRemove,
+  atkOverride,
+  defOverride,
+}: {
+  card: CardSpec;
+  onRemove?: () => void;
+  /** Live ATK from RAM (includes equip boosts). Shown instead of base ATK when provided. */
+  atkOverride?: number;
+  /** Live DEF from RAM (includes equip boosts). Shown instead of base DEF when provided. */
+  defOverride?: number;
+}) {
   const openCard = useOpenCard();
   const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
   const ct = card.cardType ?? "";
@@ -81,12 +93,20 @@ export function MiniGameCard({ card, onRemove }: { card: CardSpec; onRemove?: ()
               <img alt={card.name} className="fm-mini-art-img" loading="lazy" src={artSrc} />
             </div>
 
-            {/* ATK / DFD or card-type label */}
+            {/* ATK / DEF or card-type label */}
             {card.isMonster ? (
               <div className="fm-mini-stats">
-                <span className="fm-mini-stat-value fm-mini-stat-value--atk">{card.attack}</span>
+                <span
+                  className={`fm-mini-stat-value fm-mini-stat-value--atk${atkOverride !== undefined ? " fm-mini-stat-value--boosted" : ""}`}
+                >
+                  {atkOverride ?? card.attack}
+                </span>
                 <span className="fm-mini-stat-sep">/</span>
-                <span className="fm-mini-stat-value fm-mini-stat-value--def">{card.defense}</span>
+                <span
+                  className={`fm-mini-stat-value fm-mini-stat-value--def${defOverride !== undefined ? " fm-mini-stat-value--boosted" : ""}`}
+                >
+                  {defOverride ?? card.defense}
+                </span>
               </div>
             ) : (
               <div className="fm-mini-stats fm-mini-stats--type">

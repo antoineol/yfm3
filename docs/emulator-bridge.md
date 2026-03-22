@@ -38,9 +38,10 @@ Card IDs are **1-indexed** — they directly match this project's card IDs (1..7
 | Offset | Size | Description |
 |--------|------|-------------|
 | +0x00 | 2 bytes | Card ID (uint16 LE, 1-indexed, matches project's card DB) |
-| +0x02 | 2 bytes | ATK value |
-| +0x04 | 2 bytes | DEF value |
-| +0x06 | 5 bytes | Unknown (always 0 in observed data) |
+| +0x02 | 2 bytes | Base ATK value |
+| +0x04 | 2 bytes | Base DEF value |
+| +0x06 | 2 bytes | Equip boost (added to both ATK and DEF; 0 when no equip) |
+| +0x08 | 3 bytes | Unknown (always 0 in observed data) |
 | +0x0B | 1 byte | Status flags (see below) |
 | +0x0C | 1 byte | Slot index |
 | +0x0D | 3 bytes | Padding / unknown |
