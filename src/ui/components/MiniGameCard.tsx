@@ -109,7 +109,7 @@ export function MiniGameCard({
                 </span>
               </div>
             ) : (
-              <div className="fm-mini-stats fm-mini-stats--type">
+              <div className="fm-mini-stats">
                 <span className="fm-mini-stat-type">{ct || "Magic"}</span>
               </div>
             )}

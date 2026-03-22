@@ -23,7 +23,7 @@ export function HandDisplay({
     <div className="relative">
       <ul
         aria-label="Your hand"
-        className={`grid grid-cols-5 items-start gap-2 sm:gap-3 list-none p-0 m-0 transition-all duration-300 ${frozen ? "opacity-40 saturate-0 pointer-events-none" : ""}`}
+        className={`grid grid-cols-5 gap-2 sm:gap-3 list-none p-0 m-0 transition-all duration-300 ${frozen ? "opacity-40 saturate-0 pointer-events-none" : ""}`}
         ref={animateRef}
       >
         {slots.map((card, i) =>
