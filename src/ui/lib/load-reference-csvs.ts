@@ -56,7 +56,8 @@ function splitCsvLine(line: string): string[] {
   return cols;
 }
 
-function parseCardsCsv(csv: string): RefCard[] {
+/** @internal exported for testing */
+export function parseCardsCsv(csv: string): RefCard[] {
   const cards: RefCard[] = [];
   for (const cols of parseCsvRows(csv)) {
     const id = parseInt(cols[0] ?? "", 10);
@@ -87,7 +88,7 @@ function parseCardsCsv(csv: string): RefCard[] {
       starchipCost: Number.isFinite(starchipCost) ? starchipCost : undefined,
       password: Number.isFinite(password) ? password : undefined,
       description: description
-        ? description.replaceAll("\\n", " ").replace(/ {2,}/g, " ").trim()
+        ? description.replaceAll("-\\n", "-").replaceAll("\\n", " ").replace(/ {2,}/g, " ").trim()
         : undefined,
     });
   }
