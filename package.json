@@ -18,6 +18,7 @@
     "typecheck": "tsc -b",
     "gen:ref": "bun run scripts/generate-fixtures.ts",
     "bridge": "node bridge/watch.mjs",
+    "bridge:build": "bash scripts/build-bridge-zip.sh",
     "release:bridge": "TAG=bridge-v$(node -p \"require('./bridge/package.json').version\") && git tag $TAG && git push origin $TAG"
   },
   "dependencies": {

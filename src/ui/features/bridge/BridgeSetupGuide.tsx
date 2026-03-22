@@ -46,7 +46,7 @@ const STATUS_CONFIG: Record<
     text: "text-text-secondary",
   },
   emulator_not_found: {
-    label: "DuckStation not found — open DuckStation and load the game",
+    label: "DuckStation not found — open DuckStation",
     dot: "bg-yellow-400 animate-pulse",
     bg: "bg-yellow-950/20",
     text: "text-yellow-400/90",
@@ -79,7 +79,9 @@ const STEP_PENDING = "pending";
 type StepState = typeof STEP_DONE | typeof STEP_ACTIVE | typeof STEP_PENDING;
 
 function stepStatesForDetail(detail: BridgeDetail): [StepState, StepState, StepState, StepState] {
-  // Steps: 0=download, 1=run bridge, 2=open DuckStation, 3=enable shared memory
+  // Gray out (pending) steps whose prerequisites we can detect.
+  // Steps 1-2 (download + run) can't be individually detected, so they stay
+  // active together. Steps 3-4 are gated by detectable bridge states.
   switch (detail) {
     case "ready":
       return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE];
@@ -88,14 +90,18 @@ function stepStatesForDetail(detail: BridgeDetail): [StepState, StepState, StepS
     case "emulator_not_found":
       return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
     case "bridge_not_found":
-      return [STEP_ACTIVE, STEP_PENDING, STEP_PENDING, STEP_PENDING];
+      return [STEP_ACTIVE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
     case "error":
-      return [STEP_DONE, STEP_DONE, STEP_PENDING, STEP_PENDING];
+      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
   }
 }
 
 function SetupSteps({ detail }: { detail: BridgeDetail }) {
+  const [downloaded, setDownloaded] = useState(false);
   const states = stepStatesForDetail(detail);
+
+  // If download was clicked and bridge isn't detected yet, check off step 1
+  const step1 = downloaded && states[0] === STEP_ACTIVE ? STEP_DONE : states[0];
 
   return (
     <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
@@ -106,11 +112,12 @@ function SetupSteps({ detail }: { detail: BridgeDetail }) {
         <strong className="text-text-secondary">DuckStation</strong> emulator.
       </p>
 
-      <Step number={1} state={states[0]} title="Download the bridge">
+      <Step number={1} state={step1} title="Download the bridge">
         <a
           className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors"
           download
           href={BRIDGE_DOWNLOAD_URL}
+          onClick={() => setDownloaded(true)}
           rel="noopener noreferrer"
         >
           <DownloadIcon />
@@ -127,7 +134,7 @@ function SetupSteps({ detail }: { detail: BridgeDetail }) {
       <Step
         number={3}
         state={states[2]}
-        title="Open DuckStation and load the FM Remastered Perfected ROM"
+        title="Open DuckStation"
       />
 
       <Step number={4} state={states[3]} title="Enable shared memory export in DuckStation">

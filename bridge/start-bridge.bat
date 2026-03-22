@@ -9,17 +9,17 @@ echo  +----------------------------------------------+
 echo  ^|                                              ^|
 echo  ^|  1. Open DuckStation                         ^|
 echo  ^|  2. Settings ^> Advanced ^>                    ^|
-echo  ^|     Enable "Export Shared Memory"             ^|
-echo  ^|  3. Load the FM Remastered Perfected ROM      ^|
-echo  ^|  4. Open the web app in your browser          ^|
-echo  ^|  5. Turn on "Sync" in the top-right corner    ^|
+echo  ^|     Enable "Export Shared Memory"            ^|
+echo  ^|  3. Load the FM Remastered Perfected ROM     ^|
+echo  ^|  4. Open the web app in your browser         ^|
+echo  ^|  5. Turn on "Sync" in the top-right corner   ^|
 echo  ^|                                              ^|
 echo  +----------------------------------------------+
 echo.
 echo  Starting bridge...
 echo.
 
-"%~dp0node.exe" "%~dp0serve.mjs"
+"%~dp0runtime\node.exe" "%~dp0runtime\serve.mjs"
 
 if %errorlevel% neq 0 (
     echo.
