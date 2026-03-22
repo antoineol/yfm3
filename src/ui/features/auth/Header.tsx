@@ -1,7 +1,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
@@ -24,6 +24,11 @@ export function Header({
   const [updateOpen, setUpdateOpen] = useState(false);
 
   const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
+
+  // Auto-dismiss the update modal once the bridge reports a current version
+  useEffect(() => {
+    if (!hasUpdate) setUpdateOpen(false);
+  }, [hasUpdate]);
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
