@@ -50,7 +50,6 @@ function OptimizingState({ progress, liveBestScore }: { progress: number; liveBe
 interface DiffRow {
   cardId: number;
   card: CardSpec | undefined;
-  qty: number;
   type: "removed" | "added";
 }
 
@@ -77,7 +76,7 @@ function ResultState({
       ? ((result.improvement / result.currentDeckScore) * 100).toFixed(1)
       : null;
 
-  const changeCount = removedRows.reduce((s, r) => s + r.qty, 0);
+  const changeCount = removedRows.length;
 
   return (
     <div className="fm-post-duel">
@@ -126,19 +125,14 @@ function DiffSection({
     <div className="fm-post-duel-diff-section">
       <div className={`fm-post-duel-diff-label ${colorClass}`}>{label}</div>
       <ul className="fm-post-duel-diff-list">
-        {rows.map((row) => (
-          <li className="fm-post-duel-diff-row" key={`${type}-${String(row.cardId)}`}>
+        {rows.map((row, i) => (
+          <li className="fm-post-duel-diff-row" key={`${type}-${String(row.cardId)}-${String(i)}`}>
             <span className={`fm-post-duel-diff-icon ${colorClass}`}>{icon}</span>
             <CardName
               cardId={row.cardId}
               className={`flex-1 min-w-0 text-sm ${colorClass}`}
               name={`#${formatCardId(row.cardId)} ${row.card?.name ?? "?"}`}
             />
-            {row.qty > 1 && (
-              <span className={`font-mono text-xs ${colorClass} opacity-70`}>
-                \u00d7{String(row.qty)}
-              </span>
-            )}
             {row.card?.isMonster && (
               <span className={`font-mono text-xs ${colorClass} tabular-nums`}>
                 {row.card.attack}
@@ -198,9 +192,9 @@ export function buildPostDuelDiff(
     const card = cardsById.get(id);
 
     if (cur > sug) {
-      rows.push({ cardId: id, card, qty: cur - sug, type: "removed" });
+      for (let i = 0; i < cur - sug; i++) rows.push({ cardId: id, card, type: "removed" });
     } else if (sug > cur) {
-      rows.push({ cardId: id, card, qty: sug - cur, type: "added" });
+      for (let i = 0; i < sug - cur; i++) rows.push({ cardId: id, card, type: "added" });
     }
   }
 
