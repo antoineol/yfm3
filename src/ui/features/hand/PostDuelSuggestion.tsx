@@ -198,10 +198,11 @@ export function buildPostDuelDiff(
     }
   }
 
-  // Sort: removed first (by ATK desc), then added (by ATK desc)
+  // Sort: removed first, then added; within each group sort by card ID ascending
+  // so the player can apply changes in order while scrolling through their collection.
   rows.sort((a, b) => {
     if (a.type !== b.type) return a.type === "removed" ? -1 : 1;
-    return (b.card?.attack ?? 0) - (a.card?.attack ?? 0);
+    return a.cardId - b.cardId;
   });
 
   return rows;

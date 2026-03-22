@@ -50,22 +50,20 @@ describe("buildPostDuelDiff", () => {
     expect(buildPostDuelDiff(deck, deck, cardsById)).toEqual([]);
   });
 
-  it("sorts removed first then by ATK descending", () => {
-    const current = [1, 2];
-    const suggested = [3, 4];
+  it("sorts removed first then by card ID ascending", () => {
+    const current = [2, 1];
+    const suggested = [4, 3];
     const cardsById = makeCardsById([1, 2, 3, 4]);
 
     const rows = buildPostDuelDiff(current, suggested, cardsById);
 
     expect(rows[0]?.type).toBe("removed");
     expect(rows[1]?.type).toBe("removed");
-    // card2 has higher ATK (200) than card1 (100)
-    expect(rows[0]?.cardId).toBe(2);
-    expect(rows[1]?.cardId).toBe(1);
+    expect(rows[0]?.cardId).toBe(1);
+    expect(rows[1]?.cardId).toBe(2);
     expect(rows[2]?.type).toBe("added");
     expect(rows[3]?.type).toBe("added");
-    // card4 (400) > card3 (300)
-    expect(rows[2]?.cardId).toBe(4);
-    expect(rows[3]?.cardId).toBe(3);
+    expect(rows[2]?.cardId).toBe(3);
+    expect(rows[3]?.cardId).toBe(4);
   });
 });
