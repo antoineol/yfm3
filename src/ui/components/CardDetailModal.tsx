@@ -18,7 +18,7 @@ export function CardDetailModal() {
     <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={isOpen}>
       <BaseDialog.Portal keepMounted>
         <BaseDialog.Backdrop className="fm-modal-backdrop fixed inset-0 z-50" />
-        <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto focus:outline-none">
+        <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto focus:outline-none">
           {card && <CardDetailContent card={card} />}
         </BaseDialog.Popup>
       </BaseDialog.Portal>
@@ -61,10 +61,10 @@ function CardDetailContent({ card }: { card: CardSpec }) {
       card={card}
       footer={
         <div className="flex justify-end pt-1 lg:hidden">
-          <BaseDialog.Close className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-surface/60 px-3.5 py-2 text-xs font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
+          <BaseDialog.Close className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-surface/60 px-4 py-2.5 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
             <svg
               aria-hidden="true"
-              className="size-3.5"
+              className="size-4"
               fill="none"
               stroke="currentColor"
               strokeLinecap="round"
