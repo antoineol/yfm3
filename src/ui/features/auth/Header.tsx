@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
+import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";
 import { ConfigPanel } from "../config/ConfigPanel.tsx";
 
 const tabClass =
@@ -19,6 +21,9 @@ export function Header({
 }) {
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
+
+  const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
@@ -53,12 +58,24 @@ export function Header({
       </Tabs.List>
 
       <div className="flex items-center gap-3 justify-end">
-        <BridgeToggle bridge={bridge} onToggle={onToggleBridge} />
+        <BridgeToggle
+          bridge={bridge}
+          hasUpdate={hasUpdate}
+          onToggle={onToggleBridge}
+          onUpdate={() => setUpdateOpen(true)}
+        />
         <HeaderMenu onSettings={() => setConfigOpen(true)} onSignOut={() => void signOut()} />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
         <ConfigPanel onClose={() => setConfigOpen(false)} />
       </Dialog>
+      {bridge.version && (
+        <BridgeUpdateDialog
+          currentVersion={bridge.version}
+          onClose={() => setUpdateOpen(false)}
+          open={updateOpen}
+        />
+      )}
     </div>
   );
 }
@@ -66,23 +83,44 @@ export function Header({
 const menuItemClass =
   "w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer";
 
-function BridgeToggle({ bridge, onToggle }: { bridge: EmulatorBridge; onToggle: () => void }) {
+function BridgeToggle({
+  bridge,
+  hasUpdate,
+  onToggle,
+  onUpdate,
+}: {
+  bridge: EmulatorBridge;
+  hasUpdate: boolean;
+  onToggle: () => void;
+  onUpdate: () => void;
+}) {
   const isOn = bridge.status !== "disconnected";
   const isConnected = bridge.status === "connected";
   return (
-    <button
-      aria-label={isOn ? "Disable auto-sync" : "Enable auto-sync"}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-      onClick={onToggle}
-      type="button"
-    >
-      <span
-        className={`size-2 rounded-full ${isConnected ? "bg-green-400" : isOn ? "bg-yellow-400 animate-pulse" : "bg-text-muted/40"}`}
-      />
-      <span className="hidden sm:inline">
-        {isConnected ? "Synced" : isOn ? "Connecting" : "Sync off"}
-      </span>
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        aria-label={isOn ? "Disable auto-sync" : "Enable auto-sync"}
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+        onClick={onToggle}
+        type="button"
+      >
+        <span
+          className={`size-2 rounded-full ${isConnected ? "bg-green-400" : isOn ? "bg-yellow-400 animate-pulse" : "bg-text-muted/40"}`}
+        />
+        <span className="hidden sm:inline">
+          {isConnected ? "Synced" : isOn ? "Connecting" : "Sync off"}
+        </span>
+      </button>
+      {hasUpdate && (
+        <button
+          className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
+          onClick={onUpdate}
+          type="button"
+        >
+          Update
+        </button>
+      )}
+    </div>
   );
 }
 

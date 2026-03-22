@@ -40,6 +40,9 @@ function makeWrapper(store: ReturnType<typeof createStore>) {
 function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
   return {
     status: "connected",
+    detail: "ready",
+    detailMessage: null,
+    version: null,
     hand: [],
     field: [],
     handReliable: false,

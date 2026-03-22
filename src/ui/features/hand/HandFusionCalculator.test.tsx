@@ -77,6 +77,9 @@ import { HandFusionCalculator } from "./HandFusionCalculator.tsx";
 function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
   return {
     status: "disconnected",
+    detail: "bridge_not_found",
+    detailMessage: null,
+    version: null,
     hand: [],
     field: [],
     handReliable: false,

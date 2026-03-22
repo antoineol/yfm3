@@ -11,6 +11,7 @@ import { useUpdatePreferences } from "./db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
 import { SignIn } from "./features/auth/SignIn.tsx";
+import { BridgeSetupGuide } from "./features/bridge/BridgeSetupGuide.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
 import { useAutoSyncCollection } from "./features/collection/use-auto-sync-collection.ts";
 import { DataPanel } from "./features/data/DataPanel.tsx";
@@ -80,9 +81,13 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
       </Tabs.Panel>
 
       <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
-        <RequireReferenceData>
-          <HandFusionCalculator bridge={bridge} />
-        </RequireReferenceData>
+        {bridgeAutoSync && bridge.detail !== "ready" ? (
+          <BridgeSetupGuide bridge={bridge} />
+        ) : (
+          <RequireReferenceData>
+            <HandFusionCalculator bridge={bridge} />
+          </RequireReferenceData>
+        )}
       </Tabs.Panel>
 
       <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-3 overflow-y-auto" value="data">

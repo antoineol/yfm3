@@ -23,6 +23,8 @@ type RawCardSlot = { cardId: number; status: number };
 
 type RawBridgeState = {
   connected: true;
+  status?: "ready";
+  version?: string;
   pid: number;
   sceneId: number;
   duelPhase: number;
@@ -39,6 +41,8 @@ type RawBridgeState = {
 
 type BridgeDisconnected = {
   connected: false;
+  status?: "no_emulator" | "no_shared_memory" | "error";
+  version?: string;
   reason?: string;
 };
 
@@ -153,8 +157,19 @@ function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
 
 export type BridgeStatus = "disconnected" | "connecting" | "connected";
 
+/** Granular connection detail for the setup guide UI. */
+export type BridgeDetail =
+  | "bridge_not_found"
+  | "emulator_not_found"
+  | "no_shared_memory"
+  | "ready"
+  | "error";
+
 export type EmulatorBridge = {
   status: BridgeStatus;
+  detail: BridgeDetail;
+  detailMessage: string | null;
+  version: string | null;
   hand: number[];
   field: number[];
   handReliable: boolean;
@@ -176,6 +191,9 @@ const RECONNECT_MS = 3_000;
  */
 export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [status, setStatus] = useState<BridgeStatus>("disconnected");
+  const [detail, setDetail] = useState<BridgeDetail>("bridge_not_found");
+  const [detailMessage, setDetailMessage] = useState<string | null>(null);
+  const [version, setVersion] = useState<string | null>(null);
   const [hand, setHand] = useState<number[]>([]);
   const [field, setField] = useState<number[]>([]);
   const [handReliable, setHandReliable] = useState(false);
@@ -213,6 +231,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
         const msg: RawBridgeMessage = JSON.parse(event.data as string);
         if (msg.connected) {
           setStatus("connected");
+          setDetail("ready");
+          setDetailMessage(null);
+          setVersion(msg.version ?? null);
           const state = interpretRawState(msg);
           setHand(state.hand);
           setField(state.field);
@@ -225,6 +246,15 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setDeckDefinition(msg.deckDefinition);
         } else {
           setStatus("connected");
+          setDetail(
+            msg.status === "no_emulator"
+              ? "emulator_not_found"
+              : msg.status === "no_shared_memory"
+                ? "no_shared_memory"
+                : "error",
+          );
+          setDetailMessage(msg.reason ?? null);
+          setVersion(msg.version ?? null);
           setHand([]);
           setField([]);
           setHandReliable(false);
@@ -243,6 +273,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     ws.onclose = () => {
       wsRef.current = null;
       setStatus("disconnected");
+      setDetail("bridge_not_found");
+      setDetailMessage(null);
+      setVersion(null);
       setHand([]);
       setField([]);
       setHandReliable(false);
@@ -268,6 +301,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       wsRef.current?.close();
       wsRef.current = null;
       setStatus("disconnected");
+      setDetail("bridge_not_found");
+      setDetailMessage(null);
+      setVersion(null);
       setHand([]);
       setField([]);
       setHandReliable(false);
@@ -295,6 +331,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
   return {
     status,
+    detail,
+    detailMessage,
+    version,
     hand,
     field,
     handReliable,

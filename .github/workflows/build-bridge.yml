@@ -1,0 +1,33 @@
+name: Build Bridge Zip
+
+on:
+  push:
+    tags: ["bridge-v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zip
+        run: sudo apt-get install -y zip
+
+      - name: Build bridge zip
+        run: bash scripts/build-bridge-zip.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yfm-bridge-win-x64
+          path: dist/yfm-bridge-win-x64.zip
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/yfm-bridge-win-x64.zip
+          generate_release_notes: true

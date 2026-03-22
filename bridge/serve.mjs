@@ -11,7 +11,7 @@
  * Connects to ws://localhost:3333
  */
 
-import { createWriteStream } from "node:fs";
+import { createWriteStream, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
@@ -28,6 +28,7 @@ import {
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const VERSION = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8")).version;
 const LOG_PATH = join(__dirname, "bridge.log");
 const logStream = createWriteStream(LOG_PATH, { flags: "w" });
 
@@ -79,14 +80,27 @@ wss.on("connection", (ws) => {
   if (mapping) {
     try {
       const state = readGameState(mapping.view);
-      const json = JSON.stringify({ connected: true, pid: mapping.pid, ...state });
+      const json = JSON.stringify({
+        connected: true,
+        status: "ready",
+        version: VERSION,
+        pid: mapping.pid,
+        ...state,
+      });
       ws.send(json);
       if (json !== lastJson) {
         logStateChange(state);
         lastJson = json;
       }
     } catch {
-      ws.send(JSON.stringify({ connected: false, reason: "Failed to read game state" }));
+      ws.send(
+        JSON.stringify({
+          connected: false,
+          status: "error",
+          version: VERSION,
+          reason: "Failed to read game state",
+        }),
+      );
     }
   } else if (lastJson) {
     ws.send(lastJson);
@@ -124,7 +138,14 @@ async function tryConnect() {
 
   const pids = await findDuckStationPids();
   if (pids.length === 0) {
-    broadcast(JSON.stringify({ connected: false, reason: "DuckStation not found" }));
+    broadcast(
+      JSON.stringify({
+        connected: false,
+        status: "no_emulator",
+        version: VERSION,
+        reason: "DuckStation not found",
+      }),
+    );
     return false;
   }
 
@@ -132,7 +153,7 @@ async function tryConnect() {
     const m = openSharedMemory(pid);
     if (m) {
       mapping = m;
-      broadcast(JSON.stringify({ connected: true, pid }));
+      broadcast(JSON.stringify({ connected: true, status: "ready", version: VERSION, pid }));
       return true;
     }
   }
@@ -140,6 +161,8 @@ async function tryConnect() {
   broadcast(
     JSON.stringify({
       connected: false,
+      status: "no_shared_memory",
+      version: VERSION,
       reason: `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Enable Settings > Advanced > Export Shared Memory in DuckStation.`,
     }),
   );
@@ -289,7 +312,13 @@ async function poll() {
   if (mapping) {
     try {
       const state = readGameState(mapping.view);
-      const json = JSON.stringify({ connected: true, pid: mapping.pid, ...state });
+      const json = JSON.stringify({
+        connected: true,
+        status: "ready",
+        version: VERSION,
+        pid: mapping.pid,
+        ...state,
+      });
 
       // Only broadcast on change
       if (json !== lastJson) {
@@ -310,7 +339,14 @@ async function poll() {
       }
       mapping = null;
       lastJson = "";
-      broadcast(JSON.stringify({ connected: false, reason: "DuckStation disconnected" }));
+      broadcast(
+        JSON.stringify({
+          connected: false,
+          status: "error",
+          version: VERSION,
+          reason: "DuckStation disconnected",
+        }),
+      );
     }
   }
 
