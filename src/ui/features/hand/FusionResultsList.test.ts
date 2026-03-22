@@ -41,4 +41,31 @@ describe("extractMaterialLines", () => {
       { cardId: 4, resultCardId: 5 },
     ]);
   });
+
+  it("marks field material in single-step fusion", () => {
+    const steps: FusionStep[] = [{ material1CardId: 10, material2CardId: 20, resultCardId: 30 }];
+
+    expect(extractMaterialLines(steps, [10])).toEqual([
+      { cardId: 10, fromField: true },
+      { cardId: 20, resultCardId: 30 },
+    ]);
+  });
+
+  it("does not mark non-field materials", () => {
+    const steps: FusionStep[] = [{ material1CardId: 10, material2CardId: 20, resultCardId: 30 }];
+
+    expect(extractMaterialLines(steps, [99])).toEqual([
+      { cardId: 10 },
+      { cardId: 20, resultCardId: 30 },
+    ]);
+  });
+
+  it("no field marking when fieldMaterialCardIds is empty", () => {
+    const steps: FusionStep[] = [{ material1CardId: 10, material2CardId: 20, resultCardId: 30 }];
+
+    expect(extractMaterialLines(steps, [])).toEqual([
+      { cardId: 10 },
+      { cardId: 20, resultCardId: 30 },
+    ]);
+  });
 });

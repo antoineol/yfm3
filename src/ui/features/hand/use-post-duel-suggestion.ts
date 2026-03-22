@@ -46,7 +46,10 @@ export interface PostDuelSuggestion {
  * screen. We therefore trigger on collection change WHILE in duel_active
  * (the game writes all 15 loot cards atomically in a single RAM update).
  */
-export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestion {
+export function usePostDuelSuggestion(
+  bridge: EmulatorBridge,
+  deckCardIds: number[] | undefined,
+): PostDuelSuggestion {
   const state = useAtomValue(postDuelStateAtom);
   const setState = useSetAtom(postDuelStateAtom);
   const result = useAtomValue(postDuelResultAtom);
@@ -264,6 +267,34 @@ export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestio
     savePreferences,
   ]);
 
+  // ── React to Convex deck changes while showing result ─────────
+  // Convex subscriptions only fire on actual data changes, so no
+  // manual deduplication is needed (unlike bridge polling).
+  useEffect(() => {
+    if (state !== "result" || !result || !deckCardIds) return;
+
+    if (decksMatch(deckCardIds, result.deck)) {
+      // All suggestions applied — auto-dismiss
+      dismiss();
+      return;
+    }
+
+    // Deck changed but doesn't fully match suggestion — update diff
+    if (!decksMatch(deckCardIds, currentDeck)) {
+      setCurrentDeck(deckCardIds);
+      void savePreferences({
+        postDuelSuggestion: {
+          deck: result.deck,
+          expectedAtk: result.expectedAtk,
+          currentDeckScore: result.currentDeckScore ?? null,
+          improvement: result.improvement ?? null,
+          elapsedMs: result.elapsedMs,
+          currentDeck: deckCardIds,
+        },
+      });
+    }
+  }, [state, result, deckCardIds, currentDeck, dismiss, setCurrentDeck, savePreferences]);
+
   // ── Cleanup on unmount ─────────────────────────────────────────
   useEffect(() => {
     return () => {
@@ -272,6 +303,20 @@ export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestio
   }, []);
 
   return { state, progress, liveBestScore, result, currentDeck, dismiss };
+}
+
+/** Check whether two decks contain the same cards (order-independent). */
+export function decksMatch(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const countsA = new Map<number, number>();
+  for (const id of a) countsA.set(id, (countsA.get(id) ?? 0) + 1);
+  const countsB = new Map<number, number>();
+  for (const id of b) countsB.set(id, (countsB.get(id) ?? 0) + 1);
+  if (countsA.size !== countsB.size) return false;
+  for (const [id, qty] of countsA) {
+    if (countsB.get(id) !== qty) return false;
+  }
+  return true;
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */

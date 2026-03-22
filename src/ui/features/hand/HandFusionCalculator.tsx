@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
 import { PanelLoadingState, SectionLabel } from "../../components/panel-chrome.tsx";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
@@ -11,7 +12,7 @@ import {
   useFusionDepth,
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
-import type { DuelStats, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { DuelStats, EmulatorBridge, FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
@@ -43,9 +44,13 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
 
   // Auto-sync hand from bridge (always active, even when bar is hidden)
   useAutoSyncHand(bridge, hand ?? []);
-  const postDuel = usePostDuelSuggestion(bridge);
+  const deckCardIds = deck?.map((d) => d.cardId);
+  const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
 
   const isSynced = bridge.status === "connected" && bridge.inDuel;
+
+  // ── Manual mode field (populated when user clicks "Play") ─────
+  const [manualField, setManualField] = useState<FieldCard[]>([]);
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
   const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
@@ -67,7 +72,6 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
   }, [bridge.phase, isSynced]);
 
   // ── Manual mode input focus management ───────────────────────
-  const deckCardIds = deck?.map((d) => d.cardId);
 
   const handLength = hand?.length ?? 0;
   useEffect(() => {
@@ -85,11 +89,27 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
   }, []);
 
   const handlePlayFusion = useCallback(
-    (materialDocIds: Id<"hand">[]) => {
+    (materialDocIds: Id<"hand">[], result: FusionChainResult) => {
       if (materialDocIds.length > 0) {
         void removeMultipleFromHand({ ids: materialDocIds });
-        requestInputFocus();
       }
+      // Remove consumed field cards
+      if (result.fieldMaterialCardIds.length > 0) {
+        setManualField((prev) => {
+          const next = [...prev];
+          for (const fieldCardId of result.fieldMaterialCardIds) {
+            const idx = next.findIndex((fc) => fc.cardId === fieldCardId);
+            if (idx >= 0) next.splice(idx, 1);
+          }
+          return next;
+        });
+      }
+      // Add fusion result to field
+      setManualField((prev) => [
+        ...prev,
+        { cardId: result.resultCardId, atk: result.resultAtk, def: result.resultDef },
+      ]);
+      requestInputFocus();
     },
     [removeMultipleFromHand, requestInputFocus],
   );
@@ -172,6 +192,28 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
         </div>
       )}
 
+      {/* ── Manual mode: field section ── */}
+      {!isSynced && !isWaitingForDuel && manualField.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <SectionLabel>
+              Your Field
+              <span className="text-text-muted font-body font-normal ml-1.5">
+                ({String(manualField.length)}/5)
+              </span>
+            </SectionLabel>
+            <button
+              className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
+              onClick={() => setManualField([])}
+              type="button"
+            >
+              Clear field
+            </button>
+          </div>
+          <FieldDisplay cards={manualField} />
+        </section>
+      )}
+
       {/* ── Manual mode: hand section ── */}
       {!isSynced && !isWaitingForDuel && (
         <section>
@@ -212,6 +254,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
             <SectionLabel>Best Plays</SectionLabel>
           </div>
           <FusionResultsList
+            fieldCards={isSynced ? bridge.field : manualField}
             fusionDepth={fusionDepth}
             handCards={hand}
             onPlayFusion={isSynced ? undefined : handlePlayFusion}

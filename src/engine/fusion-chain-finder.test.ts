@@ -373,3 +373,100 @@ describe("findFusionChains edge cases", () => {
     expect(results[0]?.resultCardId).toBe(10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Field cards as first material
+// ---------------------------------------------------------------------------
+describe("findFusionChains with field cards", () => {
+  it("field card as first fusion material", () => {
+    // Alpha(1) on field + Beta(2) in hand → AlphaBeta(10)
+    const results = findFusionChains([2, 5], fusionTable, cardDb, 3, undefined, [1]);
+    const ab = results.find((r) => r.resultCardId === 10);
+    expect(ab).toBeDefined();
+    expect(ab?.fieldMaterialCardIds).toEqual([1]);
+    expect(ab?.materialCardIds).toEqual([2]);
+    expect(ab?.steps[0]?.material1CardId).toBe(1); // field card is material1
+    expect(ab?.steps[0]?.material2CardId).toBe(2);
+  });
+
+  it("field card alone without fusion or equip is excluded", () => {
+    // Delta(4) on field, Epsilon(5) in hand — no fusion between 4 and 5
+    const results = findFusionChains([5], fusionTable, cardDb, 3, undefined, [4]);
+    expect(results).toEqual([]);
+  });
+
+  it("field monster with equip from hand is included", () => {
+    // Reuse equip test universe inline
+    const eqDb = createCardDb();
+    addTestCard(eqDb, 60, "Warrior", 2000);
+    addCard(eqDb, {
+      id: 62,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    addTestCard(eqDb, 64, "Filler", 300);
+    const eqFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    eqFt.fill(FUSION_NONE);
+    const ec = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+    ec[62 * MAX_CARD_ID + 60] = 1; // Power Sword equips Warrior
+
+    // Warrior(60) on field, Power Sword(62) in hand
+    const results = findFusionChains([62, 64], eqFt, eqDb, 3, ec, [60]);
+    const equipped = results.find((r) => r.resultCardId === 60 && r.equipCardIds.length > 0);
+    expect(equipped).toBeDefined();
+    expect(equipped?.resultAtk).toBe(2500); // 2000 + 500
+    expect(equipped?.fieldMaterialCardIds).toEqual([60]);
+    expect(equipped?.materialCardIds).toEqual([]); // no hand monster consumed
+  });
+
+  it("both materials from field is excluded (FM rule)", () => {
+    // Alpha(1) and Beta(2) both on field, Epsilon(5) in hand
+    const results = findFusionChains([5], fusionTable, cardDb, 3, undefined, [1, 2]);
+    // Alpha+Beta fusion should NOT appear since both are field cards
+    const ab = results.find((r) => r.resultCardId === 10);
+    expect(ab).toBeUndefined();
+  });
+
+  it("field card at depth > 0 is excluded (stripped after first fusion)", () => {
+    // Alpha(1) in hand, Beta(2) in hand, Gamma(3) on field
+    // Possible: Alpha+Beta→AlphaBeta(10), then AlphaBeta+Gamma→ABGamma(11)
+    // But Gamma is on field, so it's stripped after depth 0 — can't participate at depth 1
+    const results = findFusionChains([1, 2], fusionTable, cardDb, 3, undefined, [3]);
+    const abg = results.find((r) => r.resultCardId === 11);
+    expect(abg).toBeUndefined();
+    // But Alpha+Beta single fusion still works
+    const ab = results.find((r) => r.resultCardId === 10);
+    expect(ab).toBeDefined();
+    expect(ab?.fieldMaterialCardIds).toEqual([]);
+  });
+
+  it("field card always appears as material1CardId in the step", () => {
+    // Beta(2) on field + Alpha(1) in hand → AlphaBeta(10)
+    const results = findFusionChains([1, 5], fusionTable, cardDb, 3, undefined, [2]);
+    const ab = results.find((r) => r.resultCardId === 10);
+    expect(ab).toBeDefined();
+    expect(ab?.steps[0]?.material1CardId).toBe(2); // field card (Beta) is material1
+    expect(ab?.steps[0]?.material2CardId).toBe(1); // hand card (Alpha) is material2
+  });
+
+  it("fieldMaterialCardIds is empty when no field cards provided", () => {
+    const results = findFusionChains([1, 2, 5], fusionTable, cardDb, 3);
+    for (const r of results) {
+      expect(r.fieldMaterialCardIds).toEqual([]);
+    }
+  });
+
+  it("field card in first fusion allows chain to continue with hand cards", () => {
+    // Alpha(1) on field, Beta(2)+Gamma(3)+Epsilon(5) in hand
+    // Chain: field Alpha(1)+Beta(2)→AlphaBeta(10), AlphaBeta(10)+Gamma(3)→ABGamma(11)
+    const results = findFusionChains([2, 3, 5], fusionTable, cardDb, 3, undefined, [1]);
+    const abg = results.find((r) => r.resultCardId === 11);
+    expect(abg).toBeDefined();
+    expect(abg?.fieldMaterialCardIds).toEqual([1]);
+    expect(abg?.materialCardIds.sort()).toEqual([2, 3]);
+    expect(abg?.steps).toHaveLength(2);
+  });
+});

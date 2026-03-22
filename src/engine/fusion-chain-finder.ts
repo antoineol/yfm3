@@ -22,20 +22,28 @@ export type FusionChainResult = {
   steps: FusionStep[];
   /** All material card IDs consumed from the hand (original hand cards only). */
   materialCardIds: number[];
+  /** Material card IDs that came from the field (empty if none). */
+  fieldMaterialCardIds: number[];
   /** Equip cards applied after fusions (empty if none). */
   equipCardIds: number[];
 };
 
+type CardSource = "hand" | "field" | "result";
+
 /**
- * A card in the working hand: either an original hand card or a fusion result.
- * originalIndex >= 0 means it came from the original hand at that position.
- * originalIndex === -1 means it's a fusion result (intermediate or final).
+ * A card in the working hand with its source tracked.
+ * originalIndex >= 0 identifies the card's position in its source array.
+ * source "result" means it's a fusion result (intermediate or final).
  */
-type TaggedCard = { cardId: number; originalIndex: number };
+type TaggedCard = { cardId: number; originalIndex: number; source: CardSource };
+
+type ConsumedCard = { cardId: number; source: CardSource };
 
 /**
  * Find all achievable fusion chains from a hand of up to 5 cards,
  * including equip bonuses applied after the last fusion.
+ * Optionally includes field cards as first material (FM rule: field card
+ * can only be material1 at depth 0).
  *
  * Unlike FusionScorer (hot-path, typed arrays, returns only max ATK),
  * this returns full chain details for UI display. Runs once per user action.
@@ -46,10 +54,18 @@ export function findFusionChains(
   cardDb: CardDb,
   fusionDepth: number,
   equipCompat?: Uint8Array,
+  fieldCardIds?: number[],
 ): FusionChainResult[] {
-  const tagged: TaggedCard[] = handCardIds.map((cardId, i) => ({ cardId, originalIndex: i }));
+  const tagged: TaggedCard[] = [
+    ...handCardIds.map((cardId, i) => ({ cardId, originalIndex: i, source: "hand" as const })),
+    ...(fieldCardIds ?? []).map((cardId, i) => ({
+      cardId,
+      originalIndex: i,
+      source: "field" as const,
+    })),
+  ];
   const results = new Map<string, FusionChainResult>();
-  dfs(tagged, handCardIds, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat);
+  dfs(tagged, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat);
 
   // Also check direct plays (no fusion) with equip bonuses
   if (equipCompat) {
@@ -62,7 +78,8 @@ export function findFusionChains(
       if (equips.length === 0) continue;
       const bonus = equips.reduce((sum, eqId) => sum + equipBonus(eqId), 0);
       const card = cardDb.cardsById.get(monster.cardId);
-      const key = `${String(monster.cardId)}+${equips.join(",")}`;
+      const fieldPrefix = monster.source === "field" ? "f" : "";
+      const key = `${fieldPrefix}${String(monster.cardId)}+${equips.join(",")}`;
       const existing = results.get(key);
       if (existing && existing.resultAtk >= baseAtk + bonus) continue;
       results.set(key, {
@@ -71,13 +88,19 @@ export function findFusionChains(
         resultDef: (card?.defense ?? 0) + bonus,
         resultName: card?.name ?? `Card #${monster.cardId}`,
         steps: [],
-        materialCardIds: [monster.cardId],
+        materialCardIds: monster.source === "hand" ? [monster.cardId] : [],
+        fieldMaterialCardIds: monster.source === "field" ? [monster.cardId] : [],
         equipCardIds: equips,
       });
     }
   }
 
-  return sortByAtkDesc(Array.from(results.values()));
+  // Filter out results that consume no hand cards at all (field-only, no equips)
+  const filtered = Array.from(results.values()).filter(
+    (r) => r.materialCardIds.length > 0 || r.equipCardIds.length > 0,
+  );
+
+  return sortByAtkDesc(filtered);
 }
 
 /** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */
@@ -91,7 +114,7 @@ function findCompatibleEquips(
   for (let k = 0; k < hand.length; k++) {
     if (skipIndices.includes(k)) continue;
     const card = hand[k];
-    if (!card) continue;
+    if (!card || card.source === "field") continue;
     if (equipCompat[card.cardId * MAX_CARD_ID + monsterId]) {
       equips.push(card.cardId);
     }
@@ -101,13 +124,12 @@ function findCompatibleEquips(
 
 function dfs(
   hand: TaggedCard[],
-  originalHand: number[],
   fusionTable: Int16Array,
   cardDb: CardDb,
   maxDepth: number,
   depth: number,
   steps: FusionStep[],
-  consumedIndices: number[],
+  consumedCards: ConsumedCard[],
   results: Map<string, FusionChainResult>,
   equipCompat?: Uint8Array,
 ): void {
@@ -120,22 +142,32 @@ function dfs(
       const a = hand[i];
       const b = hand[j];
       if (!a || !b) continue;
-      const resultId = fusionTable[a.cardId * MAX_CARD_ID + b.cardId] ?? FUSION_NONE;
+
+      // FM field rule: skip if both materials are field-sourced
+      if (a.source === "field" && b.source === "field") continue;
+
+      // Field card must be material1 (it's already on the board)
+      let m1 = a;
+      let m2 = b;
+      if (b.source === "field") {
+        m1 = b;
+        m2 = a;
+      }
+
+      const resultId = fusionTable[m1.cardId * MAX_CARD_ID + m2.cardId] ?? FUSION_NONE;
       if (resultId === FUSION_NONE) continue;
 
       const step: FusionStep = {
-        material1CardId: a.cardId,
-        material2CardId: b.cardId,
+        material1CardId: m1.cardId,
+        material2CardId: m2.cardId,
         resultCardId: resultId,
       };
       const newSteps = [...steps, step];
 
-      // Track which original hand cards are consumed
-      const newConsumed = [...consumedIndices];
-      if (a.originalIndex >= 0) newConsumed.push(a.originalIndex);
-      if (b.originalIndex >= 0) newConsumed.push(b.originalIndex);
-
-      const materialCardIds = newConsumed.map((idx) => originalHand[idx] ?? 0);
+      // Track which original cards are consumed
+      const newConsumed = [...consumedCards];
+      if (m1.source !== "result") newConsumed.push({ cardId: m1.cardId, source: m1.source });
+      if (m2.source !== "result") newConsumed.push({ cardId: m2.cardId, source: m2.source });
 
       // Check equip bonuses from remaining hand cards
       let equips: number[] = [];
@@ -144,14 +176,13 @@ function dfs(
         equips = findCompatibleEquips(hand, [i, j], resultId, equipCompat);
         bonus = equips.reduce((sum: number, eqId: number) => sum + equipBonus(eqId), 0);
       }
-      recordResult(resultId, newSteps, materialCardIds, equips, bonus, cardDb, results);
+      recordResult(resultId, newSteps, newConsumed, equips, bonus, cardDb, results);
 
       // Recurse: fuse result with remaining hand cards
       const remaining = buildRemainingHand(hand, i, j, resultId);
       if (remaining.length >= 2 && depth < maxDepth - 1) {
         dfs(
           remaining,
-          originalHand,
           fusionTable,
           cardDb,
           maxDepth,
@@ -166,6 +197,8 @@ function dfs(
   }
 }
 
+/** Build remaining hand after consuming cards at skipI/skipJ, adding the fusion result.
+ *  Field-sourced cards are stripped — they can only participate at depth 0. */
 function buildRemainingHand(
   hand: TaggedCard[],
   skipI: number,
@@ -175,23 +208,30 @@ function buildRemainingHand(
   const remaining: TaggedCard[] = [];
   for (let k = 0; k < hand.length; k++) {
     const card = hand[k];
-    if (k !== skipI && k !== skipJ && card) remaining.push(card);
+    if (k === skipI || k === skipJ || !card) continue;
+    if (card.source === "field") continue;
+    remaining.push(card);
   }
-  remaining.push({ cardId: resultId, originalIndex: -1 });
+  remaining.push({ cardId: resultId, originalIndex: -1, source: "result" });
   return remaining;
 }
 
-/** Keep result with highest effective ATK per unique (resultCardId + equips) combo. */
+/** Keep result with highest effective ATK per unique (resultCardId + equips + field flag) combo. */
 function recordResult(
   resultId: number,
   steps: FusionStep[],
-  materialCardIds: number[],
+  consumedCards: ConsumedCard[],
   equipCardIds: number[],
   equipBonusTotal: number,
   cardDb: CardDb,
   results: Map<string, FusionChainResult>,
 ): void {
-  const key = `${String(resultId)}+${equipCardIds.join(",")}`;
+  const materialCardIds = consumedCards.filter((c) => c.source === "hand").map((c) => c.cardId);
+  const fieldMaterialCardIds = consumedCards
+    .filter((c) => c.source === "field")
+    .map((c) => c.cardId);
+  const fieldPrefix = fieldMaterialCardIds.length > 0 ? "f" : "";
+  const key = `${fieldPrefix}${String(resultId)}+${equipCardIds.join(",")}`;
   const card = cardDb.cardsById.get(resultId);
   const effectiveAtk = (card?.attack ?? 0) + equipBonusTotal;
   const existing = results.get(key);
@@ -204,6 +244,7 @@ function recordResult(
     resultName: card?.name ?? `Card #${resultId}`,
     steps,
     materialCardIds,
+    fieldMaterialCardIds,
     equipCardIds,
   });
 }

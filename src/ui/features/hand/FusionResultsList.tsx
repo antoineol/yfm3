@@ -15,31 +15,36 @@ import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
+import type { FieldCard } from "../../lib/use-emulator-bridge.ts";
 
 export function FusionResultsList({
   handCards,
   fusionDepth,
+  fieldCards,
   onPlayFusion,
 }: {
   handCards: HandCard[];
   fusionDepth: number;
-  onPlayFusion?: (materialDocIds: Id<"hand">[]) => void;
+  fieldCards?: FieldCard[];
+  onPlayFusion?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
 }) {
   const { fusionTable } = useFusionTable();
   const cardDb = useCardDb();
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
+  const fieldCardIds = useMemo(() => fieldCards?.map((fc) => fc.cardId), [fieldCards]);
+  const fieldLen = fieldCardIds?.length ?? 0;
 
   const { equipCompat } = useFusionTable();
   const results = useMemo(
     () =>
-      handCardIds.length >= 2
-        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat)
+      handCardIds.length >= 1 && handCardIds.length + fieldLen >= 2
+        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCardIds)
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat],
+    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCardIds, fieldLen],
   );
 
-  if (handCardIds.length < 2) return null;
+  if (handCardIds.length < 1 || handCardIds.length + fieldLen < 2) return null;
 
   if (results.length === 0) {
     return (
@@ -55,7 +60,7 @@ export function FusionResultsList({
         <FusionResultRow
           cardDb={cardDb}
           handCards={handCards}
-          key={r.resultCardId}
+          key={`${r.fieldMaterialCardIds.length > 0 ? "f" : ""}${String(r.resultCardId)}`}
           onPlay={onPlayFusion ?? undefined}
           result={r}
         />
@@ -73,13 +78,14 @@ function FusionResultRow({
   result: FusionChainResult;
   cardDb: CardDb;
   handCards: HandCard[];
-  onPlay?: (materialDocIds: Id<"hand">[]) => void;
+  onPlay?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
 }) {
   const materialDocIds = useMemo(
     () => (onPlay ? resolveMaterialDocs(result.materialCardIds, handCards) : []),
     [result.materialCardIds, handCards, onPlay],
   );
   const card = cardDb.cardsById.get(result.resultCardId);
+  const usesField = result.fieldMaterialCardIds.length > 0;
 
   return (
     <div className="group flex gap-2.5 rounded-lg border border-border-subtle/60 bg-bg-surface/60 px-3 py-3 lg:py-2.5 hover:border-border-accent transition-colors duration-150">
@@ -90,7 +96,7 @@ function FusionResultRow({
       <div className="flex flex-col gap-1.5 min-w-0 flex-1">
         {/* Result header */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="shrink-0 font-mono text-[10px] tabular-nums text-text-muted">
               {formatCardId(result.resultCardId)}
             </span>
@@ -99,6 +105,7 @@ function FusionResultRow({
               className="font-display text-sm text-gold-bright truncate"
               name={result.resultName}
             />
+            {usesField && <FieldBadge />}
           </div>
           <div className="flex items-baseline gap-3 shrink-0">
             <div className="flex items-baseline gap-1.5 w-24 justify-end">
@@ -110,7 +117,7 @@ function FusionResultRow({
               </span>
             </div>
             {onPlay && (
-              <Button onClick={() => onPlay(materialDocIds)} size="md" variant="outline">
+              <Button onClick={() => onPlay(materialDocIds, result)} size="md" variant="outline">
                 Play
               </Button>
             )}
@@ -118,9 +125,35 @@ function FusionResultRow({
         </div>
 
         {/* Chain steps — numbered material list */}
-        <FusionChainSteps cardDb={cardDb} equipCardIds={result.equipCardIds} steps={result.steps} />
+        <FusionChainSteps
+          cardDb={cardDb}
+          equipCardIds={result.equipCardIds}
+          fieldMaterialCardIds={result.fieldMaterialCardIds}
+          steps={result.steps}
+        />
       </div>
     </div>
+  );
+}
+
+function FieldBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-sky-400/15 text-sky-400 border border-sky-400/25 shrink-0">
+      <svg
+        aria-hidden="true"
+        className="size-2.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        viewBox="0 0 16 16"
+      >
+        <rect height="10" rx="1.5" width="14" x="1" y="3" />
+        <line x1="8" x2="8" y1="3" y2="13" />
+      </svg>
+      Field
+    </span>
   );
 }
 
@@ -220,14 +253,22 @@ const STEP_NUMBERS = ["\u2460", "\u2461", "\u2462", "\u2463", "\u2464"];
 export type MaterialLine = {
   cardId: number;
   resultCardId?: number;
+  fromField?: boolean;
 };
 
-export function extractMaterialLines(steps: FusionStep[]): MaterialLine[] {
+export function extractMaterialLines(
+  steps: FusionStep[],
+  fieldMaterialCardIds?: number[],
+): MaterialLine[] {
+  const fieldSet = fieldMaterialCardIds ? new Set(fieldMaterialCardIds) : undefined;
   const lines: MaterialLine[] = [];
 
   for (const [i, step] of steps.entries()) {
     if (i === 0) {
-      lines.push({ cardId: step.material1CardId });
+      lines.push({
+        cardId: step.material1CardId,
+        ...(fieldSet?.has(step.material1CardId) ? { fromField: true } : {}),
+      });
       lines.push({ cardId: step.material2CardId, resultCardId: step.resultCardId });
     } else {
       const prev = steps[i - 1];
@@ -245,13 +286,15 @@ function FusionChainSteps({
   steps,
   cardDb,
   equipCardIds,
+  fieldMaterialCardIds,
 }: {
   steps: FusionStep[];
   cardDb: CardDb;
   equipCardIds: number[];
+  fieldMaterialCardIds: number[];
 }) {
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
-  const lines = extractMaterialLines(steps);
+  const lines = extractMaterialLines(steps, fieldMaterialCardIds);
   const stepCount = lines.length;
 
   return (
@@ -264,6 +307,7 @@ function FusionChainSteps({
           <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
             {STEP_NUMBERS[i] ?? String(i + 1)}
           </span>
+          {line.fromField && <span className="text-sky-400 text-xs font-semibold">Field</span>}
           <CardName
             cardId={line.cardId}
             className="text-text-primary"
