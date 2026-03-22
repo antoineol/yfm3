@@ -236,23 +236,17 @@ describe("interpretRawState", () => {
   });
 
   describe("inDuel detection", () => {
-    it("true when hand has cards", () => {
+    it("true when in a recognized duel phase with cards", () => {
       const result = interpretRawState(makeRaw());
       expect(result.inDuel).toBe(true);
     });
 
-    it("true when only field has cards", () => {
+    it("true during draw phase even with no cards yet (initial deal)", () => {
       const result = interpretRawState(
         makeRaw({
+          duelPhase: 0x03, // DRAW
           hand: [
             { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-          ],
-          field: [
-            { cardId: 400, atk: 1800, def: 1200, status: 0x80 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -263,18 +257,18 @@ describe("interpretRawState", () => {
       expect(result.inDuel).toBe(true);
     });
 
-    it("false when no cards present", () => {
-      const result = interpretRawState(
-        makeRaw({
-          hand: [
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-            { cardId: 0, atk: 0, def: 0, status: 0 },
-          ],
-        }),
-      );
+    it("false when phase is DUEL_END", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0x0c }));
+      expect(result.inDuel).toBe(false);
+    });
+
+    it("false when phase is RESULTS", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0x0d }));
+      expect(result.inDuel).toBe(false);
+    });
+
+    it("false when phase is unrecognized", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0xff }));
       expect(result.inDuel).toBe(false);
     });
   });

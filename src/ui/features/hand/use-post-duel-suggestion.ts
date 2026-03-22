@@ -41,10 +41,11 @@ export interface PostDuelSuggestion {
  * State machine:
  *   idle → duel_active → optimizing → result | no_change
  *
- * `inDuel` is based on hand/field card presence in RAM. After a duel the game
- * does NOT clear these slots, so `inDuel` stays true on the duelist selection
- * screen. We therefore trigger on collection change WHILE in duel_active
- * (the game writes all 15 loot cards atomically in a single RAM update).
+ * `inDuel` is true whenever the duel-phase byte is a recognized mid-duel
+ * value (CLEANUP through POST_BATTLE). The game progresses to DUEL_END /
+ * RESULTS at end-of-duel, so `inDuel` goes false reliably. We trigger on
+ * collection change WHILE in duel_active (the game writes all 15 loot
+ * cards atomically in a single RAM update).
  */
 export function usePostDuelSuggestion(
   bridge: EmulatorBridge,

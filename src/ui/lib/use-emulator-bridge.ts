@@ -92,8 +92,10 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       raw.duelPhase === PHASE_DRAW ||
       raw.duelPhase === PHASE_HAND_SELECT);
 
-  // Hand/field RAM retains stale card data after a duel ends, so card
-  // presence alone is not reliable. Require a recognized duel phase too.
+  // A recognized duel phase means we are in a duel, even if cards have not
+  // been dealt yet (e.g. first DRAW).  The game always progresses through
+  // DUEL_END / RESULTS at end-of-duel, which are excluded here, so
+  // isDuelPhase reliably goes false when the duel ends.
   const isDuelPhase =
     raw.duelPhase === PHASE_CLEANUP ||
     raw.duelPhase === PHASE_DRAW ||
@@ -103,7 +105,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
     raw.duelPhase === PHASE_FUSION_RESOLVE ||
     raw.duelPhase === PHASE_BATTLE ||
     raw.duelPhase === PHASE_POST_BATTLE;
-  const inDuel = isDuelPhase && (hand.length > 0 || field.length > 0);
+  const inDuel = isDuelPhase;
 
   return {
     hand,
@@ -221,6 +223,13 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
+  // Track duel-end transitions to detect stale "ended" phase.
+  // When inDuel goes true→false with phase "ended", we record the sceneId.
+  // If sceneId later changes (user left results screen), we override phase
+  // to "other" so the UI stops showing "Duel complete".
+  const wasInDuelRef = useRef(false);
+  const endedSceneIdRef = useRef<number | null>(null);
+
   const connect = useCallback(() => {
     if (!enabledRef.current) return;
     if (
@@ -248,10 +257,29 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setDetailMessage(null);
           setVersion(msg.version ?? null);
           const state = interpretRawState(msg);
+
+          // Resolve stale "ended" phase via sceneId tracking.
+          let effectivePhase = state.phase;
+          if (state.inDuel) {
+            endedSceneIdRef.current = null;
+          } else if (state.phase === "ended") {
+            if (wasInDuelRef.current) {
+              // Just transitioned out of duel → record scene
+              endedSceneIdRef.current = msg.sceneId;
+            } else if (
+              endedSceneIdRef.current === null ||
+              endedSceneIdRef.current !== msg.sceneId
+            ) {
+              // Never saw a duel this session, or scene changed → stale
+              effectivePhase = "other";
+            }
+          }
+          wasInDuelRef.current = state.inDuel;
+
           setHand(state.hand);
           setField(state.field);
           setHandReliable(state.handReliable);
-          setPhase(state.phase);
+          setPhase(effectivePhase);
           setInDuel(state.inDuel);
           setLp(state.lp);
           setStats(state.stats);
