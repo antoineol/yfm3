@@ -17,7 +17,8 @@
     "lint:fix": "biome check --write .",
     "typecheck": "tsc -b",
     "gen:ref": "bun run scripts/generate-fixtures.ts",
-    "bridge": "node bridge/watch.mjs"
+    "bridge": "node bridge/watch.mjs",
+    "release:bridge": "TAG=bridge-v$(node -p \"require('./bridge/package.json').version\") && git tag $TAG && git push origin $TAG"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
