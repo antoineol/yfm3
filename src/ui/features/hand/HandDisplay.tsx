@@ -10,10 +10,12 @@ export function HandDisplay({
   cards,
   onRemove,
   frozen,
+  drawing,
 }: {
   cards: HandCard[];
   onRemove?: (id: Id<"hand">) => void;
   frozen?: boolean;
+  drawing?: boolean;
 }) {
   const { cardsById } = useCardDb();
   const [animateRef] = useAutoAnimate();
@@ -23,7 +25,7 @@ export function HandDisplay({
     <div className="relative">
       <ul
         aria-label="Your hand"
-        className={`grid grid-cols-5 gap-2 sm:gap-3 list-none p-0 m-0 transition-all duration-300 ${frozen ? "opacity-40 saturate-0 pointer-events-none" : ""}`}
+        className={`grid grid-cols-5 gap-2 sm:gap-3 list-none p-0 m-0 transition-all duration-300 ${frozen || drawing ? "opacity-40 saturate-0 pointer-events-none" : ""}`}
         ref={animateRef}
       >
         {slots.map((card, i) =>
@@ -38,10 +40,10 @@ export function HandDisplay({
           ),
         )}
       </ul>
-      {frozen && (
+      {(frozen || drawing) && (
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-xs text-text-muted bg-surface-primary/80 px-3 py-1.5 rounded-full backdrop-blur-sm">
-            Hand may have changed — updates at next turn
+            {drawing ? "Drawing\u2026" : "Hand may have changed \u2014 updates at next turn"}
           </span>
         </div>
       )}

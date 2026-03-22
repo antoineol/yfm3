@@ -187,7 +187,11 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
             onFocus={() => setFocusedZone("hand")}
             zone="hand"
           >
-            <HandDisplay cards={hand} frozen={bridge.inDuel && !bridge.handReliable} />
+            <HandDisplay
+              cards={hand}
+              drawing={bridge.phase === "draw"}
+              frozen={bridge.inDuel && !bridge.handReliable}
+            />
           </ZonePanel>
         </div>
       )}
