@@ -4,6 +4,7 @@ import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.t
 import { CardName } from "../../components/CardName.tsx";
 import { countById } from "../../components/CardTable.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { formatCardId } from "../../lib/format.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
 
 export function PostDuelSuggestion({ suggestion }: { suggestion: PostDuelSuggestionData }) {
@@ -131,7 +132,7 @@ function DiffSection({
             <CardName
               cardId={row.cardId}
               className={`flex-1 min-w-0 text-sm ${colorClass}`}
-              name={row.card?.name ?? `#${String(row.cardId)}`}
+              name={`#${formatCardId(row.cardId)} ${row.card?.name ?? "?"}`}
             />
             {row.qty > 1 && (
               <span className={`font-mono text-xs ${colorClass} opacity-70`}>
