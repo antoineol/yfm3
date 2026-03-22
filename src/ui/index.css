@@ -55,7 +55,7 @@ body {
 
 /* "Need more copies" indicators in duelist tables */
 .owned-need-row {
-  box-shadow: inset 3px 0 0 var(--color-text-need);
+  box-shadow: inset 1px 0 0 var(--color-text-need);
 }
 .owned-need {
   text-shadow: 0 0 6px rgba(232, 163, 76, 0.5);
@@ -941,7 +941,8 @@ input[type="number"] {
  * feature.  Three visual states: off / connecting / on.
  * ─────────────────────────────────────────────────────────────── */
 
-.bridge-toggle {
+/* ── Bridge Sync Switch (toggle) ── */
+.bridge-switch {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -955,139 +956,150 @@ input[type="number"] {
     background 300ms ease,
     box-shadow 400ms ease;
 }
-
-.bridge-toggle:hover {
+.bridge-switch:hover {
   background: var(--color-bg-surface);
+  border-color: var(--color-border-accent);
 }
 
-/* ── Track ── */
-.bridge-toggle-track {
+.bridge-switch-track {
   position: relative;
-  width: 48px;
-  height: 26px;
-  border-radius: 13px;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
   flex-shrink: 0;
+  background: var(--color-bg-deep);
+  border: 1px solid var(--color-border-subtle);
   transition:
     background 300ms ease,
-    border-color 300ms ease,
-    box-shadow 300ms ease;
+    border-color 300ms ease;
 }
 
-/* ── Thumb ── */
-.bridge-toggle-thumb {
+.bridge-switch-thumb {
   position: absolute;
-  top: 3px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text-muted), transparent 40%);
   transition:
     left 350ms cubic-bezier(0.16, 1, 0.3, 1),
     background 300ms ease,
     box-shadow 300ms ease;
 }
 
-/* ── Label ── */
-.bridge-toggle-label {
+.bridge-switch-label {
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  transition: color 300ms ease;
+  color: var(--color-text-muted);
+  opacity: 0.6;
+  transition:
+    color 300ms ease,
+    opacity 300ms ease;
+  white-space: nowrap;
+  user-select: none;
+}
+.bridge-switch:hover .bridge-switch-label {
+  opacity: 0.85;
+}
+
+/* ON state — always gold, reflects user intent */
+.bridge-switch--on {
+  border-color: rgba(201, 168, 76, 0.3);
+}
+.bridge-switch--on:hover {
+  border-color: rgba(201, 168, 76, 0.5);
+}
+.bridge-switch--on .bridge-switch-track {
+  background: rgba(201, 168, 76, 0.12);
+  border-color: rgba(201, 168, 76, 0.3);
+}
+.bridge-switch--on .bridge-switch-thumb {
+  left: calc(100% - 19px);
+  background: var(--color-gold);
+  box-shadow: 0 0 8px var(--color-gold-dim);
+}
+.bridge-switch--on .bridge-switch-label {
+  color: var(--color-gold);
+  opacity: 1;
+}
+
+/* ── Bridge Status Indicator ── */
+.bridge-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.bridge-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bridge-status-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   white-space: nowrap;
   user-select: none;
 }
 
-/* ── OFF state ── */
-.bridge-toggle--off {
-  border-color: var(--color-border-subtle);
+/* Connected — green */
+.bridge-status--connected {
+  border-color: rgba(34, 197, 94, 0.15);
 }
-.bridge-toggle--off:hover {
-  border-color: var(--color-border-accent);
-}
-.bridge-toggle--off .bridge-toggle-track {
-  background: var(--color-bg-deep);
-  border: 1px solid var(--color-border-subtle);
-}
-.bridge-toggle--off .bridge-toggle-thumb {
-  left: 3px;
-  background: color-mix(in srgb, var(--color-text-muted), transparent 50%);
-}
-.bridge-toggle--off .bridge-toggle-label {
-  color: var(--color-text-muted);
-  opacity: 0.6;
-}
-.bridge-toggle--off:hover .bridge-toggle-label {
-  opacity: 0.85;
-}
-
-/* ── CONNECTING state ── */
-.bridge-toggle--connecting {
-  border-color: rgba(201, 168, 76, 0.3);
-  animation: bridge-border-pulse 2s ease-in-out infinite;
-}
-.bridge-toggle--connecting .bridge-toggle-track {
-  background: rgba(201, 168, 76, 0.08);
-  border: 1px solid rgba(201, 168, 76, 0.3);
-}
-.bridge-toggle--connecting .bridge-toggle-thumb {
-  left: calc(100% - 23px);
-  background: var(--color-gold);
-  box-shadow: 0 0 8px var(--color-gold-dim);
-  animation: bridge-thumb-pulse 1.5s ease-in-out infinite;
-}
-.bridge-toggle--connecting .bridge-toggle-label {
-  color: var(--color-gold);
-}
-
-/* ── ON (connected) state ── */
-.bridge-toggle--on {
-  border-color: rgba(34, 197, 94, 0.25);
-  box-shadow:
-    0 0 16px rgba(34, 197, 94, 0.06),
-    0 0 4px rgba(34, 197, 94, 0.04);
-}
-.bridge-toggle--on:hover {
-  border-color: rgba(34, 197, 94, 0.4);
-  box-shadow:
-    0 0 20px rgba(34, 197, 94, 0.1),
-    0 0 6px rgba(34, 197, 94, 0.06);
-}
-.bridge-toggle--on .bridge-toggle-track {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  box-shadow: inset 0 0 8px rgba(34, 197, 94, 0.08);
-}
-.bridge-toggle--on .bridge-toggle-thumb {
-  left: calc(100% - 23px);
+.bridge-status--connected .bridge-status-dot {
   background: #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
 }
-.bridge-toggle--on .bridge-toggle-label {
+.bridge-status--connected .bridge-status-label {
   color: #4ade80;
 }
 
-@keyframes bridge-border-pulse {
-  0%,
-  100% {
-    border-color: rgba(201, 168, 76, 0.15);
-    box-shadow: 0 0 8px rgba(201, 168, 76, 0.03);
-  }
-  50% {
-    border-color: rgba(201, 168, 76, 0.4);
-    box-shadow: 0 0 16px rgba(201, 168, 76, 0.1);
-  }
+/* Connecting — pulsing gold */
+.bridge-status--connecting {
+  border-color: rgba(201, 168, 76, 0.12);
+}
+.bridge-status--connecting .bridge-status-dot {
+  background: var(--color-gold);
+  animation: bridge-dot-pulse 1.8s ease-in-out infinite;
+}
+.bridge-status--connecting .bridge-status-label {
+  color: var(--color-gold-dim);
 }
 
-@keyframes bridge-thumb-pulse {
+/* Issue — amber (bridge connected but emulator not ready) */
+.bridge-status--issue {
+  border-color: rgba(245, 158, 11, 0.15);
+}
+.bridge-status--issue .bridge-status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.4);
+}
+.bridge-status--issue .bridge-status-label {
+  color: #fbbf24;
+}
+
+@keyframes bridge-dot-pulse {
   0%,
   100% {
-    opacity: 1;
-    box-shadow: 0 0 6px var(--color-gold-dim);
+    opacity: 0.4;
+    box-shadow: 0 0 4px rgba(201, 168, 76, 0.2);
   }
   50% {
-    opacity: 0.7;
-    box-shadow: 0 0 14px var(--color-gold);
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(201, 168, 76, 0.6);
   }
 }
 

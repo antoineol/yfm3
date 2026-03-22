@@ -60,7 +60,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
 
   return (
     <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
-      <Header bridge={bridge} onToggleBridge={handleToggleBridge} />
+      <Header bridge={bridge} bridgeAutoSync={bridgeAutoSync} onToggleBridge={handleToggleBridge} />
 
       <Tabs.Panel
         className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"

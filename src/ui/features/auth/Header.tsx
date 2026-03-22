@@ -14,9 +14,11 @@ const tabClass =
 
 export function Header({
   bridge,
+  bridgeAutoSync,
   onToggleBridge,
 }: {
   bridge: EmulatorBridge;
+  bridgeAutoSync: boolean;
   onToggleBridge: () => void;
 }) {
   const { signOut } = useClerk();
@@ -65,6 +67,7 @@ export function Header({
       <div className="flex items-center gap-3 justify-end">
         <BridgeToggle
           bridge={bridge}
+          bridgeAutoSync={bridgeAutoSync}
           hasUpdate={hasUpdate}
           onToggle={onToggleBridge}
           onUpdate={() => setUpdateOpen(true)}
@@ -90,34 +93,63 @@ const menuItemClass =
 
 function BridgeToggle({
   bridge,
+  bridgeAutoSync,
   hasUpdate,
   onToggle,
   onUpdate,
 }: {
   bridge: EmulatorBridge;
+  bridgeAutoSync: boolean;
   hasUpdate: boolean;
   onToggle: () => void;
   onUpdate: () => void;
 }) {
-  const isOn = bridge.status !== "disconnected";
-  const isConnected = bridge.status === "connected";
-  const state = isConnected ? "on" : isOn ? "connecting" : "off";
+  const isReady = bridge.status === "connected" && bridge.detail === "ready";
+  const hasIssue = bridge.status === "connected" && bridge.detail !== "ready";
+
+  const statusClass = isReady
+    ? "bridge-status--connected"
+    : hasIssue
+      ? "bridge-status--issue"
+      : "bridge-status--connecting";
+
+  const statusLabel = isReady
+    ? "Synced"
+    : hasIssue
+      ? bridge.detail === "emulator_not_found"
+        ? "No emulator"
+        : bridge.detail === "no_shared_memory"
+          ? "Setup needed"
+          : "Error"
+      : "Connecting";
+
+  const statusTitle = isReady
+    ? "Emulator connected and syncing"
+    : hasIssue
+      ? `Bridge connected — ${bridge.detail.replace(/_/g, " ")}`
+      : "Connecting to bridge…";
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
+      {bridgeAutoSync && (
+        <span className={`bridge-status ${statusClass}`} title={statusTitle}>
+          <span className="bridge-status-dot" />
+          <span className="bridge-status-label">{statusLabel}</span>
+        </span>
+      )}
+
       <button
-        aria-label={isOn ? "Disable game sync" : "Enable game sync"}
-        className={`bridge-toggle bridge-toggle--${state}`}
+        aria-label={bridgeAutoSync ? "Disable game sync" : "Enable game sync"}
+        className={`bridge-switch ${bridgeAutoSync ? "bridge-switch--on" : ""}`}
         onClick={onToggle}
         type="button"
       >
-        <span className="bridge-toggle-track">
-          <span className="bridge-toggle-thumb" />
+        <span className="bridge-switch-track">
+          <span className="bridge-switch-thumb" />
         </span>
-        <span className="bridge-toggle-label">
-          {isConnected ? "Synced" : isOn ? "Syncing" : "Sync"}
-        </span>
+        <span className="bridge-switch-label">Sync</span>
       </button>
+
       {hasUpdate && (
         <button
           className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
