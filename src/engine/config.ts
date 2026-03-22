@@ -4,9 +4,14 @@ import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "./types/constants.ts";
 export interface EngineConfig {
   deckSize: number;
   fusionDepth: number;
+  useEquipment: boolean;
 }
 
-const defaults: Readonly<EngineConfig> = { deckSize: DECK_SIZE, fusionDepth: DEFAULT_FUSION_DEPTH };
+const defaults: Readonly<EngineConfig> = {
+  deckSize: DECK_SIZE,
+  fusionDepth: DEFAULT_FUSION_DEPTH,
+  useEquipment: true,
+};
 
 const config: EngineConfig = { ...defaults };
 

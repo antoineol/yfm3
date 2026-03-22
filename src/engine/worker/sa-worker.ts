@@ -1,4 +1,4 @@
-import { setConfig } from "../config.ts";
+import { getConfig, setConfig } from "../config.ts";
 import { ensureCsvLoaded, initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { SAOptimizer } from "../optimizer/sa-optimizer.ts";
@@ -17,6 +17,7 @@ self.onmessage = async (e: MessageEvent<WorkerInit>) => {
   );
   const rand = mulberry32(seed);
   const buf = initializeBuffersBrowser(collectionMap, rand);
+  if (!getConfig().useEquipment) buf.equipCompat.fill(0);
 
   // Override greedy deck with the provided initial deck if any
   if (initialDeck) {

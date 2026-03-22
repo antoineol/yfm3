@@ -14,7 +14,7 @@ describe("ConfigInput", () => {
   let formRef: UseFormReturn<ConfigFormValues>;
 
   function Wrapper({
-    defaultValues = { deckSize: 40, fusionDepth: 3 },
+    defaultValues = { deckSize: 40, fusionDepth: 3, useEquipment: true },
     disabled = false,
     onBlur = vi.fn(),
   }: {
@@ -46,7 +46,9 @@ describe("ConfigInput", () => {
   }
 
   it("shows the current value", () => {
-    const { input } = renderInput({ defaultValues: { deckSize: 30, fusionDepth: 3 } });
+    const { input } = renderInput({
+      defaultValues: { deckSize: 30, fusionDepth: 3, useEquipment: true },
+    });
     expect(input.value).toBe("30");
   });
 
@@ -107,7 +109,7 @@ describe("ConfigInput", () => {
   it("syncs from external value via form.reset", async () => {
     const { input, getForm } = renderInput();
     expect(input.value).toBe("40");
-    getForm().reset({ deckSize: 30, fusionDepth: 3 });
+    getForm().reset({ deckSize: 30, fusionDepth: 3, useEquipment: true });
     await waitFor(() => {
       expect(input.value).toBe("30");
     });

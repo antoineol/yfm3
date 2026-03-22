@@ -44,6 +44,7 @@ vi.mock("../../db/use-owned-card-totals.ts", () => ({ useOwnedCardTotals: vi.fn(
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 5),
   useFusionDepth: vi.fn(() => 3),
+  useUseEquipment: vi.fn(() => true),
 }));
 vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
 

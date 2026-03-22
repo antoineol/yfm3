@@ -10,6 +10,7 @@ vi.mock("../../db/use-owned-card-totals.ts", () => ({
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 5),
   useFusionDepth: vi.fn(() => 3),
+  useUseEquipment: vi.fn(() => true),
 }));
 
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";

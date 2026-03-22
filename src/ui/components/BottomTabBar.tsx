@@ -21,7 +21,7 @@ export function BottomTabBar() {
         render={(props) => <a {...props} href="#duel" />}
         value="duel"
       >
-        <HandIcon />
+        <DuelIcon />
         Duel
       </Tabs.Tab>
       <Tabs.Tab
@@ -54,19 +54,21 @@ function DeckIcon() {
   );
 }
 
-function HandIcon() {
+function DuelIcon() {
   return (
     <svg
       aria-hidden="true"
       className="size-6"
       fill="none"
       stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       strokeWidth="1.5"
       viewBox="0 0 24 24"
     >
-      <path d="M18 11V6a2 2 0 10-4 0v5" />
-      <path d="M14 11V4a2 2 0 10-4 0v7" />
-      <path d="M10 10.5V6a2 2 0 10-4 0v8c0 4.4 3.6 8 8 8h0a8 8 0 008-8v-4a2 2 0 10-4 0v4" />
+      <path d="M6 3l10 10M6 3H3v3l10 10" />
+      <path d="M18 3L8 13m10-10h3v3L11 16" />
+      <path d="M3 21l5-5M21 21l-5-5" />
     </svg>
   );
 }

@@ -56,6 +56,7 @@ export const updatePreferences = mutation({
     fusionDepth: v.optional(v.number()),
     handSourceMode: v.optional(handSourceModeValidator),
     bridgeAutoSync: v.optional(v.boolean()),
+    useEquipment: v.optional(v.boolean()),
     postDuelSuggestion: v.optional(v.union(postDuelSuggestionValidator, v.null())),
   },
   handler: async (ctx, args) => {
@@ -71,6 +72,7 @@ export const updatePreferences = mutation({
     if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
     if (args.handSourceMode !== undefined) patch.handSourceMode = args.handSourceMode;
     if (args.bridgeAutoSync !== undefined) patch.bridgeAutoSync = args.bridgeAutoSync;
+    if (args.useEquipment !== undefined) patch.useEquipment = args.useEquipment;
     if (args.postDuelSuggestion !== undefined) {
       // null = clear the field, object = set it
       patch.postDuelSuggestion = args.postDuelSuggestion === null ? undefined : args.postDuelSuggestion;
@@ -88,6 +90,7 @@ export const updatePreferences = mutation({
       fusionDepth: args.fusionDepth,
       handSourceMode: args.handSourceMode,
       bridgeAutoSync: args.bridgeAutoSync,
+      useEquipment: args.useEquipment,
       createdAt: now,
       updatedAt: now,
     });

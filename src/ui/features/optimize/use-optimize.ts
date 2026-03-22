@@ -4,7 +4,7 @@ import type { Collection } from "../../../engine/data/card-model.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import {
   currentDeckScoreAtom,
   deckSubTabAtom,
@@ -28,6 +28,7 @@ export function useOptimize() {
   const deck = useDeck();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
+  const useEquipment = useUseEquipment();
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastDeckUpdateRef = useRef(0);
 
@@ -57,6 +58,7 @@ export function useOptimize() {
       currentDeckScore,
       deckSize,
       fusionDepth,
+      useEquipment,
       signal: controller.signal,
       onProgress: (_progress, bestScore, bestDeck) => {
         setLiveBestScore(bestScore);

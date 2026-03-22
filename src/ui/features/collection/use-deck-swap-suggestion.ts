@@ -16,11 +16,19 @@ interface UseDeckSwapSuggestionOptions {
   deck: Array<{ cardId: number }> | undefined;
   deckSize: number;
   fusionDepth: number;
+  useEquipment: boolean;
 }
 
 export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
-  const { addedCardId, addedCardAvailableCopies, currentDeckScore, deck, deckSize, fusionDepth } =
-    options;
+  const {
+    addedCardId,
+    addedCardAvailableCopies,
+    currentDeckScore,
+    deck,
+    deckSize,
+    fusionDepth,
+    useEquipment,
+  } = options;
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -49,7 +57,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
 
     return {
       addedCardId,
-      config: { deckSize, fusionDepth },
+      config: { deckSize, fusionDepth, useEquipment },
       currentDeckScore,
       deck: stableDeckCardIds,
     };
@@ -59,6 +67,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     currentDeckScore,
     deckSize,
     fusionDepth,
+    useEquipment,
     stableDeckCardIds,
   ]);
 

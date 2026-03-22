@@ -1,4 +1,4 @@
-import { setConfig } from "../config.ts";
+import { getConfig, setConfig } from "../config.ts";
 import { ensureCsvLoaded, initializeBuffersBrowser } from "../initialize-buffers-browser.ts";
 import { mulberry32 } from "../mulberry32.ts";
 import { explainScore } from "../score-explainer.ts";
@@ -14,6 +14,7 @@ self.onmessage = async (e: MessageEvent<ExplainerInit>) => {
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),
   );
   const buf = initializeBuffersBrowser(collectionMap, mulberry32(42));
+  if (!getConfig().useEquipment) buf.equipCompat.fill(0);
   for (let i = 0; i < deck.length; i++) {
     buf.deck[i] = deck[i] ?? 0;
   }

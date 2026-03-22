@@ -28,6 +28,11 @@ export function useHandSourceMode(): HandSourceMode {
   return prefs?.handSourceMode ?? DEFAULT_HAND_SOURCE_MODE;
 }
 
+export function useUseEquipment() {
+  const prefs = useUserPreferences();
+  return prefs?.useEquipment ?? true;
+}
+
 export function useBridgeAutoSync() {
   const prefs = useUserPreferences();
   return prefs?.bridgeAutoSync ?? false;

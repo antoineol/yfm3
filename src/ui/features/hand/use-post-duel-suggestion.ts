@@ -5,7 +5,12 @@ import { api } from "../../../../convex/_generated/api.js";
 import type { Collection } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
-import { useDeckSize, useFusionDepth, useUserPreferences } from "../../db/use-user-preferences.ts";
+import {
+  useDeckSize,
+  useFusionDepth,
+  useUseEquipment,
+  useUserPreferences,
+} from "../../db/use-user-preferences.ts";
 import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
@@ -55,6 +60,7 @@ export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestio
 
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
+  const useEquipment = useUseEquipment();
   const prefs = useUserPreferences();
   const savePreferences = useMutation(api.userPreferences.updatePreferences);
 
@@ -207,6 +213,7 @@ export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestio
       currentDeck: deckForOpt.length === deckSize ? deckForOpt : undefined,
       deckSize,
       fusionDepth,
+      useEquipment,
       onProgress: (p, bestScore) => {
         setProgress(p);
         setLiveBestScore(bestScore);
@@ -248,6 +255,7 @@ export function usePostDuelSuggestion(bridge: EmulatorBridge): PostDuelSuggestio
     state,
     deckSize,
     fusionDepth,
+    useEquipment,
     setState,
     setResult,
     setCurrentDeck,

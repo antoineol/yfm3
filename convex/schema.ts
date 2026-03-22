@@ -38,6 +38,7 @@ export default defineSchema({
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     handSourceMode: v.optional(handSourceModeValidator),
     bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
+    useEquipment: v.optional(v.boolean()), // Consider equip boosts (+500/+1000) in deck optimization
     postDuelSuggestion: v.optional(postDuelSuggestionValidator), // Persisted post-duel optimization result
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp

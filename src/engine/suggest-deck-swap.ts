@@ -44,6 +44,7 @@ export function findBestDeckSwapSuggestion(
 
   setConfig(config);
   const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED));
+  if (!config.useEquipment) buf.equipCompat.fill(0);
 
   buf.cardCounts.fill(0);
   for (let i = 0; i < deck.length; i++) {

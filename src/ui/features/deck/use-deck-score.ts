@@ -2,7 +2,7 @@ import { useAtom } from "jotai";
 import { useEffect } from "react";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 
 /**
@@ -22,6 +22,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
   const ownedCardTotals = useOwnedCardTotals();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
+  const useEquipment = useUseEquipment();
 
   useEffect(() => {
     // Stable identity check: sort + join to ignore order changes from re-renders
@@ -64,14 +65,14 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       type: "SCORE",
       collection: ownedCardTotals,
       deck: deckCardIds,
-      config: { deckSize, fusionDepth },
+      config: { deckSize, fusionDepth, useEquipment },
     });
 
     return () => {
       cancelled = true;
       worker.terminate();
     };
-  }, [deckCardIds, deckSize, fusionDepth, ownedCardTotals, setScore]);
+  }, [deckCardIds, deckSize, fusionDepth, useEquipment, ownedCardTotals, setScore]);
 
   return score;
 }

@@ -58,6 +58,7 @@ describe("useDeckSwapSuggestion", () => {
         deck: [{ cardId: 1 }, { cardId: 2 }],
         deckSize: 2,
         fusionDepth: 3,
+        useEquipment: true,
       }),
     );
 
@@ -77,6 +78,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: [{ cardId: 1 }, { cardId: 2 }],
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps },
     );
@@ -99,6 +101,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: props.deck,
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps: { deck: [{ cardId: 1 }, { cardId: 2 }] } },
     );
@@ -123,6 +126,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: [{ cardId: 1 }, { cardId: 2 }],
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps: { addedCardAvailableCopies: 1 } },
     );
@@ -145,6 +149,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: [{ cardId: 1 }, { cardId: 2 }],
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps: { addedCardAvailableCopies: 1 } },
     );
@@ -170,6 +175,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: props.deck,
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps: { deck: [{ cardId: 1 }, { cardId: 2 }] } },
     );
@@ -192,6 +198,7 @@ describe("useDeckSwapSuggestion", () => {
           deck: [{ cardId: 1 }, { cardId: 2 }],
           deckSize: 2,
           fusionDepth: 3,
+          useEquipment: true,
         }),
       { initialProps: { addedCardAvailableCopies: 1 } },
     );
@@ -213,6 +220,7 @@ describe("useDeckSwapSuggestion", () => {
         deck: [{ cardId: 1 }, { cardId: 2 }],
         deckSize: 2,
         fusionDepth: 3,
+        useEquipment: true,
       }),
     );
 

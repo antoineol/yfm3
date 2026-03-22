@@ -89,12 +89,14 @@ export async function optimizeDeckParallel(
     currentDeckScore?: number | null;
     deckSize?: number;
     fusionDepth?: number;
+    useEquipment?: boolean;
     onProgress?: (progress: number, bestScore: number, bestDeck: number[]) => void;
   },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
   const deckSize = options?.deckSize ?? DECK_SIZE;
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
+  const useEquipment = options?.useEquipment ?? true;
   const start = performance.now();
 
   if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
@@ -114,7 +116,7 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize, fusionDepth });
+  setConfig({ deckSize, fusionDepth, useEquipment });
 
   // Serialize collection for worker transfer (workers receive plain objects)
   const collectionRecord: Record<number, number> = {};

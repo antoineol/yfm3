@@ -3,7 +3,7 @@ import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
-import { useDeckSize, useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import {
@@ -73,6 +73,7 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
     deck,
     deckSize: useDeckSize(),
     fusionDepth: useFusionDepth(),
+    useEquipment: useUseEquipment(),
   });
 
   useEffect(() => {

@@ -17,6 +17,7 @@ vi.mock("convex/react", () => ({
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
+  useUseEquipment: vi.fn(() => true),
   useUserPreferences: vi.fn(() => null),
 }));
 vi.mock("../../../engine/index-browser.ts", () => ({
