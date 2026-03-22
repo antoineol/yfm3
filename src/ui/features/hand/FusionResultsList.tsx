@@ -32,23 +32,21 @@ export function FusionResultsList({
   const cardDb = useCardDb();
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
-  const fieldLen = fieldCards?.length ?? 0;
-
   const { equipCompat } = useFusionTable();
   const results = useMemo(
     () =>
-      handCardIds.length >= 1 && handCardIds.length + fieldLen >= 2
+      handCardIds.length >= 1
         ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards)
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards, fieldLen],
+    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards],
   );
 
-  if (handCardIds.length < 1 || handCardIds.length + fieldLen < 2) return null;
+  if (handCardIds.length < 1) return null;
 
   if (results.length === 0) {
     return (
       <div className="text-center py-6">
-        <p className="text-text-muted text-sm">No fusions or equips possible with this hand</p>
+        <p className="text-text-muted text-sm">No plays possible with this hand</p>
       </div>
     );
   }
@@ -59,7 +57,7 @@ export function FusionResultsList({
         <FusionResultRow
           cardDb={cardDb}
           handCards={handCards}
-          key={`${r.fieldMaterialCardIds.length > 0 ? "f" : ""}${String(r.resultCardId)}`}
+          key={`${r.fieldMaterialCardIds.length > 0 ? "f" : ""}${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
           onPlay={onPlayFusion ?? undefined}
           result={r}
         />
@@ -295,9 +293,18 @@ function FusionChainSteps({
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
   const lines = extractMaterialLines(steps, fieldMaterialCardIds);
   const stepCount = lines.length;
+  const isDirectPlay = steps.length === 0 && equipCardIds.length === 0;
 
   return (
     <div className="flex flex-col gap-0.5">
+      {isDirectPlay && (
+        <p className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5">
+          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
+            {STEP_NUMBERS[0]}
+          </span>
+          <span className="text-amber-400 text-xs font-semibold">Direct</span>
+        </p>
+      )}
       {lines.map((line, i) => (
         <p
           className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5"

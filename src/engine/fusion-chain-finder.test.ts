@@ -50,9 +50,11 @@ function byAtk(results: FusionChainResult[]): number[] {
 // Core behavior
 // ---------------------------------------------------------------------------
 describe("findFusionChains", () => {
-  it("returns empty array when no fusions are possible", () => {
+  it("returns raw plays when no fusions are possible", () => {
     const results = findFusionChains([4, 5], fusionTable, cardDb, 3);
-    expect(results).toEqual([]);
+    // No fusions between Delta(4) and Epsilon(5), but both appear as direct plays
+    expect(results.map((r) => r.resultCardId)).toEqual([5, 4]); // sorted by ATK desc: 900, 800
+    expect(results.every((r) => r.steps.length === 0 && r.equipCardIds.length === 0)).toBe(true);
   });
 
   it("finds a single-step fusion", () => {
@@ -89,11 +91,12 @@ describe("findFusionChains", () => {
     }
   });
 
-  it("deduplicates by resultCardId, keeping fewest steps", () => {
+  it("deduplicates by resultCardId+equips, keeping highest ATK", () => {
     // Card 11 (ABGamma) can be reached via 2 steps. There shouldn't be duplicates.
     const results = findFusionChains([1, 2, 3, 4, 5], fusionTable, cardDb, 3);
-    const ids = results.map((r) => r.resultCardId);
-    expect(ids.length).toBe(new Set(ids).size);
+    // Each unique (cardId + equips) combo should appear at most once
+    const keys = results.map((r) => `${String(r.resultCardId)}+${r.equipCardIds.join(",")}`);
+    expect(keys.length).toBe(new Set(keys).size);
   });
 
   it("materialCardIds contains only original hand cards", () => {
@@ -128,11 +131,14 @@ describe("findFusionChains", () => {
 // Fusion depth limit
 // ---------------------------------------------------------------------------
 describe("findFusionChains respects fusionDepth", () => {
-  it("fusionDepth=1: only single fusions", () => {
+  it("fusionDepth=1: only single fusions (plus raw plays)", () => {
     const results = findFusionChains([1, 2, 3, 4, 5], fusionTable, cardDb, 1);
     for (const r of results) {
-      expect(r.steps).toHaveLength(1);
+      // Raw plays have 0 steps, fusions at depth 1 have exactly 1 step
+      expect(r.steps.length).toBeLessThanOrEqual(1);
     }
+    // At least one actual fusion exists
+    expect(results.some((r) => r.steps.length === 1)).toBe(true);
   });
 
   it("fusionDepth=2: chains up to 2 steps", () => {
@@ -340,10 +346,14 @@ describe("findFusionChains with equip bonus", () => {
     expect(doubleEquip?.resultAtk).toBe(3500); // 2000 + 500 + 1000
   });
 
-  it("without equipCompat, no equip results are shown", () => {
+  it("without equipCompat, no equip results are shown but raw plays appear", () => {
     const results = findFusionChains([60, 62, 64], eqFusionTable, eqCardDb, 3);
-    // No fusions possible (60+62 not in fusion table, 60+64 not, 62+64 not)
-    expect(results).toEqual([]);
+    // No fusions possible, no equip compat — only raw monster plays
+    const ids = results.map((r) => r.resultCardId);
+    expect(ids).toContain(60); // Warrior (2000)
+    expect(ids).toContain(64); // Filler (300)
+    expect(ids).not.toContain(62); // Power Sword (ATK 0, non-monster)
+    expect(results.every((r) => r.equipCardIds.length === 0)).toBe(true);
   });
 });
 
@@ -355,8 +365,14 @@ describe("findFusionChains edge cases", () => {
     expect(findFusionChains([], fusionTable, cardDb, 3)).toEqual([]);
   });
 
-  it("single card returns no results", () => {
-    expect(findFusionChains([1], fusionTable, cardDb, 3)).toEqual([]);
+  it("single card returns a raw play", () => {
+    const results = findFusionChains([1], fusionTable, cardDb, 3);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultCardId).toBe(1);
+    expect(results[0]?.resultAtk).toBe(500);
+    expect(results[0]?.steps).toEqual([]);
+    expect(results[0]?.equipCardIds).toEqual([]);
+    expect(results[0]?.materialCardIds).toEqual([1]);
   });
 
   it("duplicate cards in hand: both copies usable as materials", () => {
@@ -367,10 +383,14 @@ describe("findFusionChains edge cases", () => {
     expect(ab?.materialCardIds).toEqual([1, 2]);
   });
 
-  it("hand with 2 cards that fuse", () => {
+  it("hand with 2 cards that fuse includes fusion and raw plays", () => {
     const results = findFusionChains([1, 2], fusionTable, cardDb, 3);
-    expect(results).toHaveLength(1);
-    expect(results[0]?.resultCardId).toBe(10);
+    const ids = results.map((r) => r.resultCardId);
+    expect(ids).toContain(10); // AlphaBeta fusion
+    expect(ids).toContain(1); // Alpha raw
+    expect(ids).toContain(2); // Beta raw
+    // Sorted by ATK: AlphaBeta(1200), Beta(600), Alpha(500)
+    expect(results.map((r) => r.resultAtk)).toEqual([1200, 600, 500]);
   });
 });
 
@@ -391,12 +411,17 @@ describe("findFusionChains with field cards", () => {
     expect(ab?.steps[0]?.material2CardId).toBe(2);
   });
 
-  it("field card alone without fusion or equip is excluded", () => {
+  it("field card alone without fusion or equip is excluded, hand card appears as raw play", () => {
     // Delta(4) on field, Epsilon(5) in hand — no fusion between 4 and 5
     const results = findFusionChains([5], fusionTable, cardDb, 3, undefined, [
       { cardId: 4, atk: 800, def: 0 },
     ]);
-    expect(results).toEqual([]);
+    // Field card should NOT appear as a raw play
+    expect(results.find((r) => r.resultCardId === 4)).toBeUndefined();
+    // Hand card Epsilon appears as a raw play
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultCardId).toBe(5);
+    expect(results[0]?.resultAtk).toBe(900);
   });
 
   it("field monster with equip from hand is included", () => {
@@ -511,5 +536,59 @@ describe("findFusionChains with field cards", () => {
     expect(equipped).toBeDefined();
     expect(equipped?.resultAtk).toBe(3000); // 2500 (live) + 500 (new equip)
     expect(equipped?.resultDef).toBe(1000); // 500 (live) + 500 (new equip)
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Raw (direct) plays
+// ---------------------------------------------------------------------------
+describe("findFusionChains raw plays", () => {
+  it("raw hand monsters appear sorted by ATK alongside fusions", () => {
+    // Hand: Alpha(500), Beta(600), Gamma(700) — fusions: AlphaBeta(1200), BetaGamma(1400), ABGamma(1800)
+    const results = findFusionChains([1, 2, 3], fusionTable, cardDb, 3);
+    const atks = byAtk(results);
+    // Raw plays (700, 600, 500) should appear below fusions (1800, 1400, 1200)
+    expect(atks).toEqual([1800, 1400, 1200, 700, 600, 500]);
+  });
+
+  it("raw play has empty steps, empty equips, and materialCardIds with the card", () => {
+    const results = findFusionChains([5], fusionTable, cardDb, 3);
+    expect(results).toHaveLength(1);
+    const r = results[0];
+    expect(r?.steps).toEqual([]);
+    expect(r?.equipCardIds).toEqual([]);
+    expect(r?.materialCardIds).toEqual([5]);
+    expect(r?.fieldMaterialCardIds).toEqual([]);
+  });
+
+  it("field monster without equip does NOT appear as a raw play", () => {
+    const results = findFusionChains([5], fusionTable, cardDb, 3, undefined, [
+      { cardId: 4, atk: 800, def: 0 },
+    ]);
+    expect(results.find((r) => r.resultCardId === 4)).toBeUndefined();
+  });
+
+  it("non-monster card (ATK 0) does not appear as a raw play", () => {
+    const nmDb = createCardDb();
+    addCard(nmDb, {
+      id: 50,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    const nmFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    nmFt.fill(FUSION_NONE);
+    const results = findFusionChains([50], nmFt, nmDb, 3);
+    expect(results).toEqual([]);
+  });
+
+  it("duplicate hand cards produce only one raw entry", () => {
+    const results = findFusionChains([1, 1], fusionTable, cardDb, 3);
+    const rawAlphas = results.filter(
+      (r) => r.resultCardId === 1 && r.steps.length === 0 && r.equipCardIds.length === 0,
+    );
+    expect(rawAlphas).toHaveLength(1);
   });
 });

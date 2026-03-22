@@ -79,16 +79,36 @@ export function findFusionChains(
   const results = new Map<string, FusionChainResult>();
   dfs(tagged, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat);
 
-  // Also check direct plays (no fusion) with equip bonuses
-  if (equipCompat) {
-    for (let i = 0; i < tagged.length; i++) {
-      const monster = tagged[i];
-      if (!monster) continue;
-      const card = cardDb.cardsById.get(monster.cardId);
-      // For field cards, use live ATK (includes existing equip boosts); otherwise use DB base ATK
-      const currentAtk = monster.liveAtk ?? card?.attack ?? 0;
-      const currentDef = monster.liveDef ?? card?.defense ?? 0;
-      if (currentAtk === 0) continue;
+  // Direct plays: hand monsters played as-is, and equip boosts on hand/field monsters
+  for (let i = 0; i < tagged.length; i++) {
+    const monster = tagged[i];
+    if (!monster) continue;
+    const card = cardDb.cardsById.get(monster.cardId);
+    // For field cards, use live ATK (includes existing equip boosts); otherwise use DB base ATK
+    const currentAtk = monster.liveAtk ?? card?.attack ?? 0;
+    const currentDef = monster.liveDef ?? card?.defense ?? 0;
+    if (currentAtk === 0) continue;
+
+    // Raw play: hand monster with no fusion, no equip
+    if (monster.source === "hand") {
+      const key = `${String(monster.cardId)}+`;
+      const existing = results.get(key);
+      if (!existing || existing.resultAtk < currentAtk) {
+        results.set(key, {
+          resultCardId: monster.cardId,
+          resultAtk: currentAtk,
+          resultDef: currentDef,
+          resultName: card?.name ?? `Card #${monster.cardId}`,
+          steps: [],
+          materialCardIds: [monster.cardId],
+          fieldMaterialCardIds: [],
+          equipCardIds: [],
+        });
+      }
+    }
+
+    // Equip-boosted play: hand or field monster with compatible equips from hand
+    if (equipCompat) {
       const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
       if (equips.length === 0) continue;
       const bonus = equips.reduce((sum, eqId) => sum + equipBonus(eqId), 0);
