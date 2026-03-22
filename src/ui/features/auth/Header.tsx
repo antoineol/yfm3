@@ -38,18 +38,18 @@ export function Header({
         <Tabs.Tab
           className={tabClass}
           nativeButton={false}
-          render={(props) => <a {...props} href="#deck" />}
-          value="deck"
-        >
-          Deck
-        </Tabs.Tab>
-        <Tabs.Tab
-          className={tabClass}
-          nativeButton={false}
           render={(props) => <a {...props} href="#duel" />}
           value="duel"
         >
           Duel
+        </Tabs.Tab>
+        <Tabs.Tab
+          className={tabClass}
+          nativeButton={false}
+          render={(props) => <a {...props} href="#deck" />}
+          value="deck"
+        >
+          Deck
         </Tabs.Tab>
         <Tabs.Tab
           className={tabClass}
