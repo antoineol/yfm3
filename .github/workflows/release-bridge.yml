@@ -1,0 +1,61 @@
+name: Release Bridge
+
+on:
+  push:
+    branches: [main]
+    paths: [bridge/package.json]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check version and decide whether to release
+        id: version
+        run: |
+          VERSION=$(node -p "require('./bridge/package.json').version")
+          TAG="bridge-v${VERSION}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping release"
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version $VERSION, will release"
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag
+        if: steps.version.outputs.new == 'true'
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Install zip
+        if: steps.version.outputs.new == 'true'
+        run: sudo apt-get install -y zip
+
+      - name: Build bridge zip
+        if: steps.version.outputs.new == 'true'
+        run: bash scripts/build-bridge-zip.sh
+
+      - name: Upload artifact
+        if: steps.version.outputs.new == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: yfm-bridge-win-x64
+          path: dist/yfm-bridge-win-x64.zip
+
+      - name: Create Release
+        if: steps.version.outputs.new == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: dist/yfm-bridge-win-x64.zip
+          generate_release_notes: true
