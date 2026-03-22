@@ -9,20 +9,20 @@ export function BottomTabBar() {
       <Tabs.Tab
         className={tabClass}
         nativeButton={false}
-        render={(props) => <a {...props} href="#deck" />}
-        value="deck"
-      >
-        <DeckIcon />
-        Deck
-      </Tabs.Tab>
-      <Tabs.Tab
-        className={tabClass}
-        nativeButton={false}
         render={(props) => <a {...props} href="#duel" />}
         value="duel"
       >
         <DuelIcon />
         Duel
+      </Tabs.Tab>
+      <Tabs.Tab
+        className={tabClass}
+        nativeButton={false}
+        render={(props) => <a {...props} href="#deck" />}
+        value="deck"
+      >
+        <DeckIcon />
+        Deck
       </Tabs.Tab>
       <Tabs.Tab
         className={tabClass}
