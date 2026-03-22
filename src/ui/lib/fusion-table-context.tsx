@@ -5,6 +5,7 @@ import {
 } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "./card-db-context.tsx";
 import { loadReferenceCsvs } from "./load-reference-csvs.ts";
+import { useSelectedMod } from "./use-selected-mod.ts";
 
 export type FusionTableData = ReferenceTableData;
 
@@ -12,10 +13,12 @@ const FusionTableContext = createContext<FusionTableData | null>(null);
 
 export function FusionTableProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<FusionTableData | null>(null);
+  const selectedMod = useSelectedMod();
 
   useEffect(() => {
-    void loadReferenceCsvs().then((rows) => setData(buildReferenceTableData(rows)));
-  }, []);
+    setData(null);
+    void loadReferenceCsvs(selectedMod).then((rows) => setData(buildReferenceTableData(rows)));
+  }, [selectedMod]);
 
   return (
     <FusionTableContext.Provider value={data}>

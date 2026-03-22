@@ -1,5 +1,6 @@
 import { getConfig, setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
+import { DEFAULT_MOD, MODS, type ModId } from "./mods.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { generateInitialDecks } from "./optimizer/seed-strategies.ts";
 import {
@@ -46,7 +47,11 @@ const SEED_STRATEGY_SEED = 42;
  * Spawn a scorer worker to exact-score a deck off the main thread.
  * Returns a Promise that resolves with the expected ATK value.
  */
-function scoreInWorker(collectionRecord: Record<number, number>, deck: number[]): Promise<number> {
+function scoreInWorker(
+  collectionRecord: Record<number, number>,
+  deck: number[],
+  modId: ModId,
+): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const worker = new Worker(new URL("./worker/scorer-worker.ts", import.meta.url), {
       type: "module",
@@ -60,7 +65,7 @@ function scoreInWorker(collectionRecord: Record<number, number>, deck: number[])
       worker.terminate();
     };
     const config = getConfig();
-    const msg: ScorerInit = { type: "SCORE", collection: collectionRecord, deck, config };
+    const msg: ScorerInit = { type: "SCORE", collection: collectionRecord, deck, config, modId };
     worker.postMessage(msg);
   });
 }
@@ -90,6 +95,7 @@ export async function optimizeDeckParallel(
     deckSize?: number;
     fusionDepth?: number;
     useEquipment?: boolean;
+    modId?: ModId;
     onProgress?: (progress: number, bestScore: number, bestDeck: number[]) => void;
   },
 ): Promise<OptimizeDeckParallelResult> {
@@ -97,6 +103,7 @@ export async function optimizeDeckParallel(
   const deckSize = options?.deckSize ?? DECK_SIZE;
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const useEquipment = options?.useEquipment ?? true;
+  const modId = options?.modId ?? DEFAULT_MOD;
   const start = performance.now();
 
   if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
@@ -116,7 +123,7 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize, fusionDepth, useEquipment });
+  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId });
 
   // Serialize collection for worker transfer (workers receive plain objects)
   const collectionRecord: Record<number, number> = {};
@@ -129,7 +136,7 @@ export async function optimizeDeckParallel(
   if (options?.currentDeckScore != null) {
     currentDeckPromise = Promise.resolve(options.currentDeckScore);
   } else if (options?.currentDeck && options.currentDeck.length === deckSize) {
-    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck);
+    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, modId);
   }
 
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
@@ -244,6 +251,7 @@ export async function optimizeDeckParallel(
       timeBudgetMs,
       initialDeck: initialDecks[i],
       config: getConfig(),
+      modId,
     };
     worker.postMessage(init);
   }
@@ -276,7 +284,7 @@ export async function optimizeDeckParallel(
 
   // 4. Exact-score best deck + await current deck score (both in parallel)
   const [expectedAtk, currentDeckScore] = await Promise.all([
-    scoreInWorker(collectionRecord, best?.bestDeck ?? []),
+    scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId),
     currentDeckPromise,
   ]);
 

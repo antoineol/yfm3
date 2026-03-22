@@ -2,6 +2,11 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeckSwapSuggestion } from "../../../engine/suggest-deck-swap.ts";
+
+vi.mock("../../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: vi.fn(() => "rp"),
+}));
+
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 const originalWorker = globalThis.Worker;

@@ -3,12 +3,14 @@ import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 import { type ImportExportData, importExportSchema } from "./import-export-schema.ts";
 
 export function useImportExport() {
   const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
   const importMutation = useMutation(api.importExport.importData);
+  const modId = useSelectedMod();
 
   const isExportReady = ownedCardTotals !== undefined && deck !== undefined;
 
@@ -19,8 +21,9 @@ export function useImportExport() {
     const deckIds = deck.map((d) => d.cardId);
 
     const data: ImportExportData = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
+      mod: modId,
       collection: collectionIds,
       deck: deckIds,
     };
@@ -31,7 +34,7 @@ export function useImportExport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `yfm-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `yfm-backup-${modId}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
 

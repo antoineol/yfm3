@@ -5,7 +5,7 @@ import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
 import { loadGameData, loadGameDataFromStrings } from "./load-game-data.ts";
 
-const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data");
+const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data/rp");
 
 describe("loadGameDataFromStrings", () => {
   it("produces identical buffers and cards as loadGameData", () => {

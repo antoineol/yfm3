@@ -13,6 +13,10 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useUseEquipment: vi.fn(() => true),
 }));
 
+vi.mock("../../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: vi.fn(() => "rp"),
+}));
+
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 

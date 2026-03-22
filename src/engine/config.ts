@@ -1,3 +1,4 @@
+import { MODS } from "./mods.ts";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "./types/constants.ts";
 
 /** Engine-wide configuration. Mutable at module level — safe for single-user apps. */
@@ -5,12 +6,14 @@ export interface EngineConfig {
   deckSize: number;
   fusionDepth: number;
   useEquipment: boolean;
+  megamorphId: number;
 }
 
 const defaults: Readonly<EngineConfig> = {
   deckSize: DECK_SIZE,
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
+  megamorphId: MODS.rp.megamorphId,
 };
 
 const config: EngineConfig = { ...defaults };

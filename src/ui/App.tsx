@@ -20,7 +20,7 @@ import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { deckSubTabAtom } from "./lib/atoms.ts";
-import { useHasReferenceData } from "./lib/fusion-table-context.tsx";
+import { FusionTableProvider, useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { useEmulatorBridge } from "./lib/use-emulator-bridge.ts";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
@@ -59,43 +59,51 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
   }, [bridgeAutoSync, updatePreferences]);
 
   return (
-    <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
-      <Header bridge={bridge} bridgeAutoSync={bridgeAutoSync} onToggleBridge={handleToggleBridge} />
+    <FusionTableProvider>
+      <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
+        <Header
+          bridge={bridge}
+          bridgeAutoSync={bridgeAutoSync}
+          onToggleBridge={handleToggleBridge}
+        />
 
-      <Tabs.Panel
-        className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
-        value="deck"
-      >
-        <RequireReferenceData>
-          <DeckSubTabs />
-          <DeckSubPanel value="collection">
-            <CollectionPanel />
-          </DeckSubPanel>
-          <DeckSubPanel value="deck">
-            <DeckPanel />
-          </DeckSubPanel>
-          <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
-            <ResultPanel />
-          </DeckSubPanel>
-        </RequireReferenceData>
-      </Tabs.Panel>
-
-      <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
-        {bridgeAutoSync && bridge.detail !== "ready" ? (
-          <BridgeSetupGuide bridge={bridge} />
-        ) : (
+        <Tabs.Panel
+          className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
+          value="deck"
+        >
           <RequireReferenceData>
-            <HandFusionCalculator bridge={bridge} />
+            <DeckSubTabs />
+            <DeckSubPanel value="collection">
+              <CollectionPanel />
+            </DeckSubPanel>
+            <DeckSubPanel value="deck">
+              <DeckPanel />
+            </DeckSubPanel>
+            <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
+              <ResultPanel />
+            </DeckSubPanel>
           </RequireReferenceData>
-        )}
-      </Tabs.Panel>
+        </Tabs.Panel>
 
-      <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-3 overflow-y-auto" value="data">
-        <DataPanel />
-      </Tabs.Panel>
-      <BottomTabBar />
-      <CardDetailModalWhenReady />
-    </Tabs.Root>
+        <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
+          {bridgeAutoSync && bridge.detail !== "ready" ? (
+            <BridgeSetupGuide bridge={bridge} />
+          ) : (
+            <RequireReferenceData>
+              <HandFusionCalculator bridge={bridge} />
+            </RequireReferenceData>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-3 overflow-y-auto" value="data">
+          <RequireReferenceData>
+            <DataPanel />
+          </RequireReferenceData>
+        </Tabs.Panel>
+        <BottomTabBar />
+        <CardDetailModalWhenReady />
+      </Tabs.Root>
+    </FusionTableProvider>
   );
 }
 

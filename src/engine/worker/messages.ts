@@ -1,4 +1,5 @@
 import type { EngineConfig } from "../config.ts";
+import type { ModId } from "../mods.ts";
 
 /** Main thread → Worker: initialize buffers and run SA. */
 export type WorkerInit = {
@@ -11,6 +12,8 @@ export type WorkerInit = {
   initialDeck?: number[];
   /** Engine configuration snapshot for this worker. */
   config: EngineConfig;
+  /** Which game mod's data to load. */
+  modId: ModId;
 };
 
 /** Worker → Main thread: SA finished, here's the best result. */
@@ -36,6 +39,8 @@ export type ScorerInit = {
   deck: number[];
   /** Engine configuration snapshot for this worker. */
   config: EngineConfig;
+  /** Which game mod's data to load. */
+  modId: ModId;
 };
 
 /** Scorer Worker → Main thread: exact scoring result. */
@@ -53,6 +58,8 @@ export type ExplainerInit = {
   deck: number[];
   /** Engine configuration snapshot for this worker. */
   config: EngineConfig;
+  /** Which game mod's data to load. */
+  modId: ModId;
 };
 
 /** Explainer Worker → Main thread: score explanation result. */

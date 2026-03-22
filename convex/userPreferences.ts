@@ -1,6 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireAuth } from "./authHelper";
+import { getUserMod } from "./modHelper";
 
 export const handSourceModeValidator = v.union(v.literal("all"), v.literal("deck"));
 
@@ -19,9 +20,10 @@ export const getUserPreferences = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const prefs = await ctx.db
       .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .first();
 
     return prefs ?? null;
@@ -32,9 +34,10 @@ export const getLastAddedCard = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const userPrefs = await ctx.db
       .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .first();
 
     if (!userPrefs?.lastAddedCard) {
@@ -43,8 +46,8 @@ export const getLastAddedCard = query({
 
     return await ctx.db
       .query("ownedCards")
-      .withIndex("by_user_card", (q) =>
-        q.eq("userId", userId).eq("cardId", userPrefs.lastAddedCard as number),
+      .withIndex("by_user_mod_card", (q) =>
+        q.eq("userId", userId).eq("mod", mod).eq("cardId", userPrefs.lastAddedCard as number),
       )
       .first();
   },
@@ -61,9 +64,10 @@ export const updatePreferences = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .first();
 
     const now = Date.now();
@@ -86,6 +90,7 @@ export const updatePreferences = mutation({
     await ctx.db.insert("userPreferences", {
       userId,
       ...patch,
+      mod,
       deckSize: args.deckSize,
       fusionDepth: args.fusionDepth,
       handSourceMode: args.handSourceMode,
@@ -101,9 +106,10 @@ export const clearLastAddedCard = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const prefs = await ctx.db
       .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .first();
 
     if (prefs) {
@@ -118,9 +124,10 @@ export const batchMigrateUserPreferences = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("userPreferences")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .first();
 
     const now = Date.now();
@@ -136,6 +143,7 @@ export const batchMigrateUserPreferences = mutation({
     await ctx.db.insert("userPreferences", {
       userId,
       lastAddedCard: args.lastAddedCard,
+      mod,
       createdAt: now,
       updatedAt: now,
     });

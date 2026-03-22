@@ -2,32 +2,42 @@ import type { Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
 import { loadGameDataFromStrings } from "./data/load-game-data-core.ts";
+import { DEFAULT_MOD, type ModId } from "./mods.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
 import { MAX_COPIES } from "./types/constants.ts";
 
-let cardsCsvRaw: string;
-let fusionsCsvRaw: string;
-let equipsCsvRaw: string;
-let csvLoaded = false;
+type CsvCache = { cards: string; fusions: string; equips: string };
+const csvCache = new Map<ModId, CsvCache>();
 
-/** Fetch CSV game data. Safe to call multiple times — only fetches once. */
-export async function ensureCsvLoaded(): Promise<void> {
-  if (csvLoaded) return;
-  [cardsCsvRaw, fusionsCsvRaw, equipsCsvRaw] = await Promise.all([
-    fetch("/data/cards.csv").then((r) => r.text()),
-    fetch("/data/fusions.csv").then((r) => r.text()),
-    fetch("/data/equips.csv").then((r) => r.text()),
+/** Fetch CSV game data for a mod. Safe to call multiple times — only fetches once per mod. */
+export async function ensureCsvLoaded(modId: ModId = DEFAULT_MOD): Promise<void> {
+  if (csvCache.has(modId)) return;
+  const [cards, fusions, equips] = await Promise.all([
+    fetch(`/data/${modId}/cards.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/fusions.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/equips.csv`).then((r) => r.text()),
   ]);
-  csvLoaded = true;
+  csvCache.set(modId, { cards, fusions, equips });
+}
+
+function getCsvCache(modId: ModId = DEFAULT_MOD): CsvCache {
+  const cached = csvCache.get(modId);
+  if (!cached)
+    throw new Error(`CSV data not loaded for mod "${modId}". Call ensureCsvLoaded() first.`);
+  return cached;
 }
 
 /**
  * Browser-compatible initialization pipeline.
- * Caller must `await ensureCsvLoaded()` before calling this.
+ * Caller must `await ensureCsvLoaded(modId)` before calling this.
  */
-export function initializeBuffersBrowser(collection: Collection, rand: () => number): OptBuffers {
-  const { buf, cards } = initializeBrowserGameBuffers(rand);
+export function initializeBuffersBrowser(
+  collection: Collection,
+  rand: () => number,
+  modId: ModId = DEFAULT_MOD,
+): OptBuffers {
+  const { buf, cards } = initializeBrowserGameBuffers(rand, modId);
   for (const card of cards) {
     buf.availableCounts[card.id] = Math.min(collection.get(card.id) ?? 0, MAX_COPIES);
   }
@@ -35,13 +45,17 @@ export function initializeBuffersBrowser(collection: Collection, rand: () => num
   return buf;
 }
 
-export function initializeSuggestionBuffersBrowser(rand: () => number): OptBuffers {
-  return initializeBrowserGameBuffers(rand).buf;
+export function initializeSuggestionBuffersBrowser(
+  rand: () => number,
+  modId: ModId = DEFAULT_MOD,
+): OptBuffers {
+  return initializeBrowserGameBuffers(rand, modId).buf;
 }
 
-function initializeBrowserGameBuffers(rand: () => number) {
+function initializeBrowserGameBuffers(rand: () => number, modId: ModId) {
+  const csv = getCsvCache(modId);
   const buf = createBuffers();
-  const cards = loadGameDataFromStrings(buf, cardsCsvRaw, fusionsCsvRaw, equipsCsvRaw);
+  const cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);
   return { buf, cards };

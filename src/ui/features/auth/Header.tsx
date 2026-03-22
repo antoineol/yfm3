@@ -2,9 +2,11 @@ import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
+import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
 import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";
 import { ConfigPanel } from "../config/ConfigPanel.tsx";
@@ -24,6 +26,8 @@ export function Header({
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
+  const selectedMod = useSelectedMod();
+  const showBridge = MODS[selectedMod].bridgeSupported;
 
   const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
 
@@ -34,7 +38,10 @@ export function Header({
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
-      <h1 className="font-display text-base lg:text-lg font-bold text-gold">YFM Copilot</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="font-display text-base lg:text-lg font-bold text-gold">YFM Copilot</h1>
+        <ModSelector />
+      </div>
 
       <Tabs.List className="relative hidden lg:flex items-center gap-8 self-stretch">
         <Tabs.Tab
@@ -65,13 +72,15 @@ export function Header({
       </Tabs.List>
 
       <div className="flex items-center gap-3 justify-end">
-        <BridgeToggle
-          bridge={bridge}
-          bridgeAutoSync={bridgeAutoSync}
-          hasUpdate={hasUpdate}
-          onToggle={onToggleBridge}
-          onUpdate={() => setUpdateOpen(true)}
-        />
+        {showBridge && (
+          <BridgeToggle
+            bridge={bridge}
+            bridgeAutoSync={bridgeAutoSync}
+            hasUpdate={hasUpdate}
+            onToggle={onToggleBridge}
+            onUpdate={() => setUpdateOpen(true)}
+          />
+        )}
         <HeaderMenu onSettings={() => setConfigOpen(true)} onSignOut={() => void signOut()} />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
@@ -160,6 +169,26 @@ function BridgeToggle({
         </button>
       )}
     </div>
+  );
+}
+
+function ModSelector() {
+  const selectedMod = useSelectedMod();
+  const setSelectedMod = useSetSelectedMod();
+  const modEntries = Object.values(MODS);
+
+  return (
+    <select
+      className="bg-bg-panel border border-border-subtle rounded px-1.5 py-0.5 text-xs font-display text-text-secondary hover:text-text-primary cursor-pointer focus:outline-none focus:border-border-accent"
+      onChange={(e) => void setSelectedMod({ selectedMod: e.target.value as ModId })}
+      value={selectedMod}
+    >
+      {modEntries.map((mod) => (
+        <option key={mod.id} value={mod.id}>
+          {mod.name}
+        </option>
+      ))}
+    </select>
   );
 }
 

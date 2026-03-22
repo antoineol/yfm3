@@ -1,10 +1,9 @@
+import { getConfig } from "./config.ts";
 import type { CardDb } from "./data/game-db.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
-const MEGAMORPH_ID = 657;
-
 function equipBonus(equipId: number): number {
-  return equipId === MEGAMORPH_ID ? 1000 : 500;
+  return equipId === getConfig().megamorphId ? 1000 : 500;
 }
 
 export type FusionStep = {

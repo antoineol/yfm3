@@ -1,3 +1,4 @@
+import { DEFAULT_MOD, type ModId } from "../../engine/mods.ts";
 import type {
   RefCard,
   RefDuelistCard,
@@ -6,20 +7,20 @@ import type {
 } from "../../engine/reference/build-reference-table.ts";
 
 /**
- * Fetch and parse the reference CSVs from /data/ (static assets in /public).
+ * Fetch and parse the reference CSVs from /data/{modId}/ (static assets in /public).
  * Cards CSV now includes names and colors directly.
  */
-export async function loadReferenceCsvs(): Promise<{
+export async function loadReferenceCsvs(modId: ModId = DEFAULT_MOD): Promise<{
   cards: RefCard[];
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
   equips: RefEquip[];
 }> {
   const [cardsCsv, fusionsCsv, duelistsCsv, equipsCsv] = await Promise.all([
-    fetch("/data/cards.csv").then((r) => r.text()),
-    fetch("/data/fusions.csv").then((r) => r.text()),
-    fetch("/data/duelists.csv").then((r) => r.text()),
-    fetch("/data/equips.csv").then((r) => r.text()),
+    fetch(`/data/${modId}/cards.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/fusions.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/duelists.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/equips.csv`).then((r) => r.text()),
   ]);
 
   const cards = parseCardsCsv(cardsCsv);

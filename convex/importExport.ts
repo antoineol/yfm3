@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { requireAuth } from "./authHelper";
 import { deckAggregate } from "./deckAggregate";
+import { getUserMod } from "./modHelper";
 
 export const importData = mutation({
   args: {
@@ -10,6 +11,7 @@ export const importData = mutation({
   },
   handler: async (ctx, { collection, deck }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
 
     // Count collection copies per cardId
     const collectionCounts = new Map<number, number>();
@@ -30,10 +32,10 @@ export const importData = mutation({
       }
     }
 
-    // Clear existing ownedCards
+    // Clear existing ownedCards for this mod
     const existingOwned = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     for (const card of existingOwned) {
       await ctx.db.delete(card._id);
@@ -41,13 +43,13 @@ export const importData = mutation({
 
     // Insert imported collection
     for (const [cardId, quantity] of collectionCounts) {
-      await ctx.db.insert("ownedCards", { userId, cardId, quantity });
+      await ctx.db.insert("ownedCards", { userId, cardId, quantity, mod });
     }
 
-    // Clear existing deck (with aggregate)
+    // Clear existing deck for this mod (with aggregate)
     const existingDeck = await ctx.db
       .query("deck")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     for (const card of existingDeck) {
       await ctx.db.delete(card._id);
@@ -56,7 +58,7 @@ export const importData = mutation({
 
     // Insert imported deck
     for (const cardId of deck) {
-      const id = await ctx.db.insert("deck", { userId, cardId });
+      const id = await ctx.db.insert("deck", { userId, cardId, mod });
       const doc = await ctx.db.get(id);
       if (doc) await deckAggregate.insert(ctx, doc);
     }
@@ -71,19 +73,22 @@ export const importData = mutation({
 /**
  * Sync collection and deck from the emulator bridge.
  * Accepts pre-computed total owned quantities (trunk + deck) and the deck card IDs.
+ * The caller passes the mod the bridge was reading from, so the data is written
+ * to the correct mod even if the user switches mod mid-sync.
  */
 export const syncCollectionFromBridge = mutation({
   args: {
     ownedCards: v.array(v.object({ cardId: v.number(), quantity: v.number() })),
     deck: v.array(v.number()),
+    mod: v.string(),
   },
-  handler: async (ctx, { ownedCards, deck }) => {
+  handler: async (ctx, { ownedCards, deck, mod }) => {
     const userId = await requireAuth(ctx);
 
-    // Clear existing ownedCards
+    // Clear existing ownedCards for this mod
     const existingOwned = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     for (const card of existingOwned) {
       await ctx.db.delete(card._id);
@@ -91,13 +96,13 @@ export const syncCollectionFromBridge = mutation({
 
     // Insert owned cards
     for (const { cardId, quantity } of ownedCards) {
-      await ctx.db.insert("ownedCards", { userId, cardId, quantity });
+      await ctx.db.insert("ownedCards", { userId, cardId, quantity, mod });
     }
 
-    // Clear existing deck (with aggregate)
+    // Clear existing deck for this mod (with aggregate)
     const existingDeck = await ctx.db
       .query("deck")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     for (const card of existingDeck) {
       await ctx.db.delete(card._id);
@@ -106,7 +111,7 @@ export const syncCollectionFromBridge = mutation({
 
     // Insert deck
     for (const cardId of deck) {
-      const id = await ctx.db.insert("deck", { userId, cardId });
+      const id = await ctx.db.insert("deck", { userId, cardId, mod });
       const doc = await ctx.db.get(id);
       if (doc) await deckAggregate.insert(ctx, doc);
     }

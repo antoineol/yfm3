@@ -2,16 +2,18 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
 import { requireAuth } from './authHelper';
-import { deckAggregate } from './deckAggregate';
+import { deckAggregate, deckAggregateKey } from './deckAggregate';
+import { getUserMod } from './modHelper';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
 export const getDeck = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     return deckCards.sort((a, b) => a.cardId - b.cardId);
@@ -22,9 +24,10 @@ export const getDeckCardIds = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
     const cardIds = deckCards.map(card => card.cardId);
     const uniqueCardIds = [...new Set(cardIds)];
@@ -35,7 +38,22 @@ export const getDeckCardIds = query({
 export const getDeckCount = query({
   args: {},
   handler: async (ctx) => {
-    return await deckAggregate.count(ctx);
+    const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
+    const key = deckAggregateKey(userId, mod);
+    const aggregateCount = await deckAggregate.count(ctx, {
+      bounds: {
+        lower: { key, inclusive: true },
+        upper: { key, inclusive: true },
+      },
+    });
+    if (aggregateCount > 0) return aggregateCount;
+    // Fallback: aggregate may be stale after sortKey migration.
+    const rows = await ctx.db
+      .query('deck')
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
+      .collect();
+    return rows.length;
   },
 });
 
@@ -52,27 +70,33 @@ export const addToDeck = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const { cardId } = args;
 
     // Server-side deck size cap
     const prefs = await ctx.db
       .query('userPreferences')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .first();
     const targetSize = prefs?.deckSize ?? 40;
-    const currentCount = await deckAggregate.count(ctx);
-    if (currentCount >= targetSize) throw new Error('Deck is full');
+    // Direct query count for correctness — the aggregate may be stale after
+    // a sortKey migration until rebuildDeckAggregate runs.
+    const deckCards = await ctx.db
+      .query('deck')
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
+      .collect();
+    if (deckCards.length >= targetSize) throw new Error('Deck is full');
 
     // Verify the user has an available copy in their collection
     const collectionEntry = await ctx.db
       .query('ownedCards')
-      .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', cardId))
+      .withIndex('by_user_mod_card', q => q.eq('userId', userId).eq('mod', mod).eq('cardId', cardId))
       .first();
     if (!collectionEntry) throw new Error('Card not in collection');
 
     const deckCopies = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .filter(q => q.eq(q.field('cardId'), cardId))
       .collect();
     if (deckCopies.length >= 3) {
@@ -82,7 +106,7 @@ export const addToDeck = mutation({
       throw new Error('No available copies in collection');
     }
 
-    const id = await ctx.db.insert('deck', { userId, cardId });
+    const id = await ctx.db.insert('deck', { userId, cardId, mod });
     const doc = await ctx.db.get(id);
     if (doc) await deckAggregate.insert(ctx, doc);
   },
@@ -103,14 +127,15 @@ export const removeFromDeck = mutation({
   },
 });
 
-// Ownership is guaranteed by the by_user index filter (only queries current user's rows).
+// Ownership is guaranteed by the by_user_mod index filter (only queries current user's rows).
 export const removeOneByCardId = mutation({
   args: { cardId: v.number() },
   handler: async (ctx, { cardId }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const doc = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .filter(q => q.eq(q.field('cardId'), cardId))
       .first();
 
@@ -203,9 +228,10 @@ export const clearDeck = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     // Delete all deck cards for this user and update aggregate
@@ -229,10 +255,11 @@ export const replaceDeck = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     // Clear existing deck first
     const deckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     // Delete all deck cards for this user and update aggregate
@@ -253,6 +280,7 @@ export const replaceDeck = mutation({
         cardId: card.cardId,
         copyId: card.copyId,
         order: orders[i] ?? 0.5,
+        mod,
       });
       const doc = await ctx.db.get(id);
       if (doc) await deckAggregate.insert(ctx, doc);
@@ -275,12 +303,13 @@ export const batchMigrateDeck = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const results = [];
 
     // First, clear any existing deck data for this user to avoid duplicates
     const existingDeck = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     // Delete existing deck and update aggregate
@@ -297,6 +326,7 @@ export const batchMigrateDeck = mutation({
           cardId: item.cardId,
           copyId: item.copyId,
           order: item.order,
+          mod,
         });
         const doc = await ctx.db.get(id);
         if (doc) await deckAggregate.insert(ctx, doc);
@@ -351,9 +381,10 @@ export const acceptSuggestedDeck = mutation({
   },
   handler: async (ctx, { cardIds }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const existingDeckCards = await ctx.db
       .query('deck')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     await Promise.all([
@@ -367,6 +398,7 @@ export const acceptSuggestedDeck = mutation({
         const id = await ctx.db.insert('deck', {
           userId,
           cardId,
+          mod,
         });
         const doc = await ctx.db.get(id);
         if (doc) await deckAggregate.insert(ctx, doc);
@@ -382,15 +414,16 @@ export const applySuggestedSwap = mutation({
   },
   handler: async (ctx, { addCardId, removeCardId }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
 
     const [deckCards, collectionEntry] = await Promise.all([
       ctx.db
         .query('deck')
-        .withIndex('by_user', q => q.eq('userId', userId))
+        .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
         .collect(),
       ctx.db
         .query('ownedCards')
-        .withIndex('by_user_card', q => q.eq('userId', userId).eq('cardId', addCardId))
+        .withIndex('by_user_mod_card', q => q.eq('userId', userId).eq('mod', mod).eq('cardId', addCardId))
         .first(),
     ]);
     const deckCopiesOfAddedCard = deckCards.filter(card => card.cardId === addCardId).length;
@@ -415,6 +448,7 @@ export const applySuggestedSwap = mutation({
     const id = await ctx.db.insert('deck', {
       userId,
       cardId: addCardId,
+      mod,
     });
     const doc = await ctx.db.get(id);
     if (doc) await deckAggregate.insert(ctx, doc);

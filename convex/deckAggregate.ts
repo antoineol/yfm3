@@ -2,11 +2,17 @@ import { components } from './_generated/api';
 import { type DataModel } from './_generated/dataModel';
 import { TableAggregate } from '@convex-dev/aggregate';
 
-// Create an aggregate for counting deck cards by user
+// Create an aggregate for counting deck cards, scoped by (userId, mod).
+// Key is "userId:mod" to partition counts per user per mod.
 export const deckAggregate = new TableAggregate<{
-  Key: null;
+  Key: string;
   DataModel: DataModel;
   TableName: 'deck';
 }>(components.deckAggregate, {
-  sortKey: _doc => null,
+  sortKey: (doc) => `${doc.userId}:${doc.mod ?? "rp"}`,
 });
+
+/** Build the aggregate key for a given user and mod. */
+export function deckAggregateKey(userId: string, mod: string | undefined): string {
+  return `${userId}:${mod ?? "rp"}`;
+}

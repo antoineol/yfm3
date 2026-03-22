@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import { requireAuth } from './authHelper';
+import { getUserMod } from './modHelper';
 import { getOrderBetween } from './utils';
 
 const MAX_HAND_SIZE = 5;
@@ -9,9 +10,10 @@ export const getHand = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     return ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
   },
 });
@@ -22,16 +24,17 @@ export const addToHand = mutation({
   },
   handler: async (ctx, { cardId }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const currentHand = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     if (currentHand.length >= MAX_HAND_SIZE) {
       throw new Error('Hand is full (max 5 cards)');
     }
 
-    await ctx.db.insert('hand', { userId, cardId });
+    await ctx.db.insert('hand', { userId, cardId, mod });
   },
 });
 
@@ -75,10 +78,11 @@ export const moveHandCard = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     // Find the card to move
     const cardToMove = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .filter(q => q.eq(q.field('copyId'), args.copyId))
       .first();
 
@@ -92,7 +96,7 @@ export const moveHandCard = mutation({
     if (args.beforeCardCopyId) {
       const beforeCard = await ctx.db
         .query('hand')
-        .withIndex('by_user', q => q.eq('userId', userId))
+        .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
         .filter(q => q.eq(q.field('copyId'), args.beforeCardCopyId))
         .first();
       beforeOrder = beforeCard?.order ?? null;
@@ -101,7 +105,7 @@ export const moveHandCard = mutation({
     if (args.afterCardCopyId) {
       const afterCard = await ctx.db
         .query('hand')
-        .withIndex('by_user', q => q.eq('userId', userId))
+        .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
         .filter(q => q.eq(q.field('copyId'), args.afterCardCopyId))
         .first();
       afterOrder = afterCard?.order ?? null;
@@ -121,9 +125,10 @@ export const clearHand = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const handCards = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     // Delete all hand cards for this user
@@ -148,12 +153,13 @@ export const batchMigrateHand = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const results = [];
 
     // First, clear any existing hand data for this user to avoid duplicates
     const existingHand = await ctx.db
       .query('hand')
-      .withIndex('by_user', q => q.eq('userId', userId))
+      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
     for (const item of existingHand) {
@@ -170,6 +176,7 @@ export const batchMigrateHand = mutation({
           cardId: item.cardId,
           copyId: item.copyId,
           order: item.order,
+          mod,
         });
         results.push({ copyId: item.copyId, action: 'created' });
       } catch (error) {

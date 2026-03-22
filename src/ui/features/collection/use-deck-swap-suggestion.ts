@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MODS } from "../../../engine/mods.ts";
 import type {
   DeckSwapSuggestion,
   FindBestDeckSwapSuggestionOptions,
 } from "../../../engine/suggest-deck-swap.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 interface SuggestionWorkerResponse {
   requestId: number;
@@ -29,6 +31,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     fusionDepth,
     useEquipment,
   } = options;
+  const modId = useSelectedMod();
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -57,7 +60,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
 
     return {
       addedCardId,
-      config: { deckSize, fusionDepth, useEquipment },
+      config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
       currentDeckScore,
       deck: stableDeckCardIds,
     };
@@ -69,6 +72,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     fusionDepth,
     useEquipment,
     stableDeckCardIds,
+    modId,
   ]);
 
   useEffect(() => {
@@ -101,8 +105,8 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       }
     };
 
-    worker.postMessage({ requestId, options: request });
-  }, [request]);
+    worker.postMessage({ requestId, options: request, modId });
+  }, [request, modId]);
 
   useEffect(() => {
     return () => {

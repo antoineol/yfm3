@@ -19,6 +19,9 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
 vi.mock("../../../engine/index-browser.ts", () => ({
   optimizeDeckParallel: vi.fn(),
 }));
+vi.mock("../../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: vi.fn(() => "rp"),
+}));
 
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";

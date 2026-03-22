@@ -14,6 +14,9 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
 }));
+vi.mock("../../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: vi.fn(() => "rp"),
+}));
 
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { _resetDeckScoreCache, useDeckScore } from "./use-deck-score.ts";

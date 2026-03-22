@@ -20,12 +20,14 @@
     "bridge": "node bridge/watch.mjs",
     "bridge:build": "bash scripts/build-bridge-zip.sh",
     "bridge:bump": "cd bridge && npm version patch && npm install",
+    "deploy": "convex deploy && convex run migrations:runAll",
     "release:bridge": "TAG=bridge-v$(node -p \"require('./bridge/package.json').version\") && git tag $TAG && git push origin $TAG"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
     "@clerk/clerk-react": "^5.61.3",
     "@convex-dev/aggregate": "0.1.25",
+    "@convex-dev/migrations": "^0.3.1",
     "@formkit/auto-animate": "^0.9.0",
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.2.1",

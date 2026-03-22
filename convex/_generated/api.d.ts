@@ -13,8 +13,11 @@ import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
 import type * as hand from "../hand.js";
 import type * as importExport from "../importExport.js";
+import type * as migrations from "../migrations.js";
+import type * as modHelper from "../modHelper.js";
 import type * as ownedCards from "../ownedCards.js";
 import type * as userPreferences from "../userPreferences.js";
+import type * as userSettings from "../userSettings.js";
 import type * as utils from "../utils.js";
 
 import type {
@@ -29,8 +32,11 @@ declare const fullApi: ApiFromModules<{
   deckAggregate: typeof deckAggregate;
   hand: typeof hand;
   importExport: typeof importExport;
+  migrations: typeof migrations;
+  modHelper: typeof modHelper;
   ownedCards: typeof ownedCards;
   userPreferences: typeof userPreferences;
+  userSettings: typeof userSettings;
   utils: typeof utils;
 }>;
 
@@ -244,6 +250,92 @@ export declare const components: {
           value: any;
         },
         any
+      >;
+    };
+  };
+  migrations: {
+    lib: {
+      cancel: FunctionReference<
+        "mutation",
+        "internal",
+        { name: string },
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          error?: string;
+          isDone: boolean;
+          latestEnd?: number;
+          latestStart: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
+        }
+      >;
+      cancelAll: FunctionReference<
+        "mutation",
+        "internal",
+        { sinceTs?: number },
+        Array<{
+          batchSize?: number;
+          cursor?: string | null;
+          error?: string;
+          isDone: boolean;
+          latestEnd?: number;
+          latestStart: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
+        }>
+      >;
+      clearAll: FunctionReference<
+        "mutation",
+        "internal",
+        { before?: number },
+        null
+      >;
+      getStatus: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; names?: Array<string> },
+        Array<{
+          batchSize?: number;
+          cursor?: string | null;
+          error?: string;
+          isDone: boolean;
+          latestEnd?: number;
+          latestStart: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
+        }>
+      >;
+      migrate: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          dryRun: boolean;
+          fnHandle: string;
+          name: string;
+          next?: Array<{ fnHandle: string; name: string }>;
+          oneBatchOnly?: boolean;
+        },
+        {
+          batchSize?: number;
+          cursor?: string | null;
+          error?: string;
+          isDone: boolean;
+          latestEnd?: number;
+          latestStart: number;
+          name: string;
+          next?: Array<string>;
+          processed: number;
+          state: "inProgress" | "success" | "failed" | "canceled" | "unknown";
+        }
       >;
     };
   };

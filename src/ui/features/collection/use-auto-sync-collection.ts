@@ -2,7 +2,9 @@ import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import { MODS } from "../../../engine/mods.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**
  * Auto-syncs the emulator's collection and deck to Convex when data changes.
@@ -15,11 +17,13 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const lastCollectionKeyRef = useRef("");
   const lastDeckKeyRef = useRef("");
   const hasInitializedRef = useRef(false);
+  const modId = useSelectedMod();
 
   const collectionKey = bridge.collection ? JSON.stringify(bridge.collection) : "";
   const deckKey = bridge.deckDefinition ? bridge.deckDefinition.join(",") : "";
 
   useEffect(() => {
+    if (!MODS[modId].bridgeSupported) return;
     if (bridge.status !== "connected") return;
     if (!bridge.collection || !bridge.deckDefinition) return;
 
@@ -35,7 +39,7 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
       quantity: qty,
     }));
 
-    void syncFromBridge({ ownedCards, deck: bridge.deckDefinition }).then(() => {
+    void syncFromBridge({ ownedCards, deck: bridge.deckDefinition, mod: modId }).then(() => {
       if (!hasInitializedRef.current) {
         hasInitializedRef.current = true;
         return;
@@ -55,5 +59,6 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
     collectionKey,
     deckKey,
     syncFromBridge,
+    modId,
   ]);
 }

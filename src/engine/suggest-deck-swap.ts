@@ -1,6 +1,7 @@
 import type { EngineConfig } from "./config.ts";
 import { setConfig } from "./config.ts";
 import { initializeSuggestionBuffersBrowser } from "./initialize-buffers-browser.ts";
+import { DEFAULT_MOD, type ModId } from "./mods.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { computeInitialScores } from "./scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
@@ -36,6 +37,7 @@ const SUGGESTION_SEED = 42;
  */
 export function findBestDeckSwapSuggestion(
   options: FindBestDeckSwapSuggestionOptions,
+  modId: ModId = DEFAULT_MOD,
 ): DeckSwapSuggestion | null {
   const { addedCardId, config, currentDeckScore, deck } = options;
   if (deck.length !== config.deckSize) {
@@ -43,7 +45,7 @@ export function findBestDeckSwapSuggestion(
   }
 
   setConfig(config);
-  const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED));
+  const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED), modId);
   if (!config.useEquipment) buf.equipCompat.fill(0);
 
   buf.cardCounts.fill(0);

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EngineConfig } from "../../../engine/config.ts";
+import { MODS } from "../../../engine/mods.ts";
 import type { AtkBucket } from "../../../engine/score-explainer.ts";
 import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 type ExplainState =
   | { status: "idle" }
@@ -16,6 +18,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const modId = useSelectedMod();
   const [state, setState] = useState<ExplainState>({ status: "idle" });
   const [expanded, setExpanded] = useState(false);
   const prevDeckRef = useRef(deckCardIds);
@@ -35,7 +38,12 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
       setState({ status: "loading" });
       setExpanded(true);
 
-      const config: EngineConfig = { deckSize, fusionDepth, useEquipment };
+      const config: EngineConfig = {
+        deckSize,
+        fusionDepth,
+        useEquipment,
+        megamorphId: MODS[modId].megamorphId,
+      };
       const worker = new Worker(
         new URL("../../../engine/worker/explainer-worker.ts", import.meta.url),
         { type: "module" },
@@ -60,11 +68,12 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
         collection: ownedCardTotals,
         deck: deckCardIds,
         config,
+        modId,
       });
     } else {
       setExpanded((v) => !v);
     }
-  }, [state.status, ownedCardTotals, deckCardIds, deckSize, fusionDepth, useEquipment]);
+  }, [state.status, ownedCardTotals, deckCardIds, deckSize, fusionDepth, useEquipment, modId]);
 
   return (
     <div className="flex flex-col gap-2">

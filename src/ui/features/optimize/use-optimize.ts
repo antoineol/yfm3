@@ -13,6 +13,7 @@ import {
   liveBestScoreAtom,
   resultAtom,
 } from "../../lib/atoms.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 const LIVE_DECK_UPDATE_INTERVAL_MS = 1500;
 
@@ -29,6 +30,7 @@ export function useOptimize() {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const modId = useSelectedMod();
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastDeckUpdateRef = useRef(0);
 
@@ -59,6 +61,7 @@ export function useOptimize() {
       deckSize,
       fusionDepth,
       useEquipment,
+      modId,
       signal: controller.signal,
       onProgress: (_progress, bestScore, bestDeck) => {
         setLiveBestScore(bestScore);

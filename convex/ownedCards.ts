@@ -1,14 +1,16 @@
 import { v } from "convex/values";
 import { mutation, type MutationCtx, query } from "./_generated/server";
 import { requireAuth } from "./authHelper";
+import { getUserMod } from "./modHelper";
 
 export const getOwnedCardsIndexedByCardId = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
 
     return ownedCards.reduce(
@@ -25,13 +27,14 @@ export const getOwnedCardsWithoutDeck = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     const deckCards = await ctx.db
       .query("deck")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
 
     const deckCounts: Record<number, number> = {};
@@ -58,9 +61,10 @@ export const getOwnedCardIds = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
     const cardIds = ownedCards.map((item) => item.cardId);
     const uniqueCardIds = [...new Set(cardIds)];
@@ -72,9 +76,10 @@ export const getOwnedCardTotals = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .collect();
 
     const ownedCardTotals: Record<number, number> = {};
@@ -112,9 +117,10 @@ export const addOwnedCardEntry = mutation({
   },
   handler: async (ctx, { cardId }) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const doc = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user_card", (q) => q.eq("userId", userId).eq("cardId", cardId))
+      .withIndex("by_user_mod_card", (q) => q.eq("userId", userId).eq("mod", mod).eq("cardId", cardId))
       .first();
 
     if (doc && doc.quantity >= 3) {
@@ -124,10 +130,10 @@ export const addOwnedCardEntry = mutation({
     if (doc) {
       await ctx.db.patch(doc._id, { quantity: doc.quantity + 1 });
     } else {
-      await ctx.db.insert("ownedCards", { userId, cardId, quantity: 1 });
+      await ctx.db.insert("ownedCards", { userId, cardId, quantity: 1, mod });
     }
 
-    await updateLastAddedCard(ctx, userId, cardId);
+    await updateLastAddedCard(ctx, userId, mod, cardId);
   },
 });
 
@@ -137,9 +143,10 @@ export const addCard = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .filter((q) => q.eq(q.field("cardId"), args.cardId))
       .first();
 
@@ -148,7 +155,7 @@ export const addCard = mutation({
         await ctx.db.patch(existing._id, {
           quantity: existing.quantity + 1,
         });
-        await updateLastAddedCard(ctx, userId, args.cardId);
+        await updateLastAddedCard(ctx, userId, mod, args.cardId);
         return { success: true, newQuantity: existing.quantity + 1 };
       }
 
@@ -159,8 +166,9 @@ export const addCard = mutation({
       userId,
       cardId: args.cardId,
       quantity: 1,
+      mod,
     });
-    await updateLastAddedCard(ctx, userId, args.cardId);
+    await updateLastAddedCard(ctx, userId, mod, args.cardId);
 
     return { success: true, newQuantity: 1 };
   },
@@ -172,9 +180,10 @@ export const removeCard = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
+    const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("ownedCards")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .filter((q) => q.eq(q.field("cardId"), args.cardId))
       .first();
 
@@ -184,7 +193,7 @@ export const removeCard = mutation({
 
     const deckCopies = await ctx.db
       .query("deck")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
       .filter((q) => q.eq(q.field("cardId"), args.cardId))
       .collect();
     if (existing.quantity <= deckCopies.length) {
@@ -206,11 +215,12 @@ export const removeCard = mutation({
 async function updateLastAddedCard(
   ctx: MutationCtx,
   userId: string,
+  mod: string,
   cardId: number,
 ) {
   const existing = await ctx.db
     .query("userPreferences")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
     .first();
   const now = Date.now();
 
@@ -225,6 +235,7 @@ async function updateLastAddedCard(
   await ctx.db.insert("userPreferences", {
     userId,
     lastAddedCard: cardId,
+    mod,
     createdAt: now,
     updatedAt: now,
   });

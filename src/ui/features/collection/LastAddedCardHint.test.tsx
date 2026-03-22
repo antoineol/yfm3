@@ -47,6 +47,9 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useUseEquipment: vi.fn(() => true),
 }));
 vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
+vi.mock("../../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: vi.fn(() => "rp"),
+}));
 
 import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";

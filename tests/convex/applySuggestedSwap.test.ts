@@ -1,11 +1,14 @@
 /* biome-ignore-all lint/style/useNamingConvention: Convex internals and document ids use _handler and _id. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRequireAuth, mockAggregateDelete, mockAggregateInsert } = vi.hoisted(() => ({
-  mockRequireAuth: vi.fn(),
-  mockAggregateDelete: vi.fn(),
-  mockAggregateInsert: vi.fn(),
-}));
+const { mockRequireAuth, mockAggregateDelete, mockAggregateInsert, mockGetUserMod } = vi.hoisted(
+  () => ({
+    mockRequireAuth: vi.fn(),
+    mockAggregateDelete: vi.fn(),
+    mockAggregateInsert: vi.fn(),
+    mockGetUserMod: vi.fn(),
+  }),
+);
 
 vi.mock("../../convex/authHelper.ts", () => ({
   requireAuth: mockRequireAuth,
@@ -16,6 +19,11 @@ vi.mock("../../convex/deckAggregate.ts", () => ({
     delete: mockAggregateDelete,
     insert: mockAggregateInsert,
   },
+  deckAggregateKey: (userId: string, mod: string | undefined) => `${userId}:${mod ?? "rp"}`,
+}));
+
+vi.mock("../../convex/modHelper.ts", () => ({
+  getUserMod: mockGetUserMod,
 }));
 
 import { applySuggestedSwap } from "../../convex/deck.ts";
@@ -35,6 +43,7 @@ describe("applySuggestedSwap", () => {
     mockRequireAuth.mockResolvedValue("user-1");
     mockAggregateDelete.mockResolvedValue(undefined);
     mockAggregateInsert.mockResolvedValue(undefined);
+    mockGetUserMod.mockResolvedValue("rp");
   });
 
   it("applies the swap when the removed card is in the deck and an owned copy is available", async () => {
@@ -59,6 +68,7 @@ describe("applySuggestedSwap", () => {
     expect(ctx.db.insert).toHaveBeenCalledWith("deck", {
       userId: "user-1",
       cardId: 5,
+      mod: "rp",
     });
     expect(mockAggregateInsert).toHaveBeenCalledWith(
       ctx,

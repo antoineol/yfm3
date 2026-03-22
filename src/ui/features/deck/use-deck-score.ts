@@ -1,9 +1,11 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
+import { MODS } from "../../../engine/mods.ts";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**
  * Key of the last successfully scored deck.
@@ -23,6 +25,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const modId = useSelectedMod();
 
   useEffect(() => {
     // Stable identity check: sort + join to ignore order changes from re-renders
@@ -65,14 +68,15 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       type: "SCORE",
       collection: ownedCardTotals,
       deck: deckCardIds,
-      config: { deckSize, fusionDepth, useEquipment },
+      config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
+      modId,
     });
 
     return () => {
       cancelled = true;
       worker.terminate();
     };
-  }, [deckCardIds, deckSize, fusionDepth, useEquipment, ownedCardTotals, setScore]);
+  }, [deckCardIds, deckSize, fusionDepth, useEquipment, ownedCardTotals, setScore, modId]);
 
   return score;
 }

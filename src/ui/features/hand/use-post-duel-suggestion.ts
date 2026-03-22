@@ -20,6 +20,7 @@ import {
   postDuelStateAtom,
 } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /** Time budget for post-duel optimization (shorter than manual 15s). */
 const POST_DUEL_TIME_LIMIT = 10_000;
@@ -65,6 +66,7 @@ export function usePostDuelSuggestion(
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const modId = useSelectedMod();
   const prefs = useUserPreferences();
   const savePreferences = useMutation(api.userPreferences.updatePreferences);
 
@@ -218,6 +220,7 @@ export function usePostDuelSuggestion(
       deckSize,
       fusionDepth,
       useEquipment,
+      modId,
       onProgress: (p, bestScore) => {
         setProgress(p);
         setLiveBestScore(bestScore);
@@ -260,6 +263,7 @@ export function usePostDuelSuggestion(
     deckSize,
     fusionDepth,
     useEquipment,
+    modId,
     setState,
     setResult,
     setCurrentDeck,
