@@ -1,5 +1,6 @@
 import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 
@@ -11,23 +12,48 @@ import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
  */
 export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const syncFromBridge = useMutation(api.importExport.syncCollectionFromBridge);
-  const lastKeyRef = useRef("");
+  const lastCollectionKeyRef = useRef("");
+  const lastDeckKeyRef = useRef("");
+  const hasInitializedRef = useRef(false);
 
   const collectionKey = bridge.collection ? JSON.stringify(bridge.collection) : "";
   const deckKey = bridge.deckDefinition ? bridge.deckDefinition.join(",") : "";
-  const combinedKey = `${collectionKey}|${deckKey}`;
 
   useEffect(() => {
     if (bridge.status !== "connected") return;
     if (!bridge.collection || !bridge.deckDefinition) return;
-    if (combinedKey === lastKeyRef.current) return;
-    lastKeyRef.current = combinedKey;
+
+    const collectionChanged = collectionKey !== lastCollectionKeyRef.current;
+    const deckChanged = deckKey !== lastDeckKeyRef.current;
+    if (!collectionChanged && !deckChanged) return;
+
+    lastCollectionKeyRef.current = collectionKey;
+    lastDeckKeyRef.current = deckKey;
 
     const ownedCards = Object.entries(bridge.collection).map(([id, qty]) => ({
       cardId: Number(id),
       quantity: qty,
     }));
 
-    void syncFromBridge({ ownedCards, deck: bridge.deckDefinition });
-  }, [bridge.status, bridge.collection, bridge.deckDefinition, combinedKey, syncFromBridge]);
+    void syncFromBridge({ ownedCards, deck: bridge.deckDefinition }).then(() => {
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true;
+        return;
+      }
+      const label =
+        collectionChanged && deckChanged
+          ? "Collection & deck"
+          : collectionChanged
+            ? "Collection"
+            : "Deck";
+      toast.success(`${label} synced from emulator`);
+    });
+  }, [
+    bridge.status,
+    bridge.collection,
+    bridge.deckDefinition,
+    collectionKey,
+    deckKey,
+    syncFromBridge,
+  ]);
 }
