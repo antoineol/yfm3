@@ -9,7 +9,15 @@ import { GameCard } from "./GameCard.tsx";
 import type { SortDir } from "./sortable-header.tsx";
 import { SortableHeader } from "./sortable-header.tsx";
 
-export function CardDetailBody({ card, header }: { card: CardSpec; header: ReactNode }) {
+export function CardDetailBody({
+  card,
+  header,
+  footer,
+}: {
+  card: CardSpec;
+  header: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
     <div className="flex flex-col sm:flex-row">
       {/* Card rendering (left / top on mobile) */}
@@ -21,6 +29,7 @@ export function CardDetailBody({ card, header }: { card: CardSpec; header: React
       <div className="flex-1 p-4 sm:p-5 flex flex-col gap-4 min-w-0">
         {header}
         <DetailPanel card={card} />
+        {footer}
       </div>
     </div>
   );

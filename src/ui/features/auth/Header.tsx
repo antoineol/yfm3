@@ -101,24 +101,26 @@ function BridgeToggle({
 }) {
   const isOn = bridge.status !== "disconnected";
   const isConnected = bridge.status === "connected";
+  const state = isConnected ? "on" : isOn ? "connecting" : "off";
+
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
       <button
-        aria-label={isOn ? "Disable auto-sync" : "Enable auto-sync"}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+        aria-label={isOn ? "Disable game sync" : "Enable game sync"}
+        className={`bridge-toggle bridge-toggle--${state}`}
         onClick={onToggle}
         type="button"
       >
-        <span
-          className={`size-2 rounded-full ${isConnected ? "bg-green-400" : isOn ? "bg-yellow-400 animate-pulse" : "bg-text-muted/40"}`}
-        />
-        <span className="hidden sm:inline">
-          {isConnected ? "Synced" : isOn ? "Connecting" : "Sync off"}
+        <span className="bridge-toggle-track">
+          <span className="bridge-toggle-thumb" />
+        </span>
+        <span className="bridge-toggle-label">
+          {isConnected ? "Synced" : isOn ? "Syncing" : "Sync"}
         </span>
       </button>
       {hasUpdate && (
         <button
-          className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
+          className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
           onClick={onUpdate}
           type="button"
         >

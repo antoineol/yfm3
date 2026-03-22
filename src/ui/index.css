@@ -936,6 +936,161 @@ input[type="number"] {
   }
 }
 
+/* ── Bridge Sync Toggle ──────────────────────────────────────── *
+ * Prominent sliding toggle for emulator sync — the app's central
+ * feature.  Three visual states: off / connecting / on.
+ * ─────────────────────────────────────────────────────────────── */
+
+.bridge-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-border-subtle);
+  background: var(--color-bg-panel);
+  cursor: pointer;
+  transition:
+    border-color 300ms ease,
+    background 300ms ease,
+    box-shadow 400ms ease;
+}
+
+.bridge-toggle:hover {
+  background: var(--color-bg-surface);
+}
+
+/* ── Track ── */
+.bridge-toggle-track {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  transition:
+    background 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+/* ── Thumb ── */
+.bridge-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transition:
+    left 350ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 300ms ease,
+    box-shadow 300ms ease;
+}
+
+/* ── Label ── */
+.bridge-toggle-label {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: color 300ms ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── OFF state ── */
+.bridge-toggle--off {
+  border-color: var(--color-border-subtle);
+}
+.bridge-toggle--off:hover {
+  border-color: var(--color-border-accent);
+}
+.bridge-toggle--off .bridge-toggle-track {
+  background: var(--color-bg-deep);
+  border: 1px solid var(--color-border-subtle);
+}
+.bridge-toggle--off .bridge-toggle-thumb {
+  left: 3px;
+  background: color-mix(in srgb, var(--color-text-muted), transparent 50%);
+}
+.bridge-toggle--off .bridge-toggle-label {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+.bridge-toggle--off:hover .bridge-toggle-label {
+  opacity: 0.85;
+}
+
+/* ── CONNECTING state ── */
+.bridge-toggle--connecting {
+  border-color: rgba(201, 168, 76, 0.3);
+  animation: bridge-border-pulse 2s ease-in-out infinite;
+}
+.bridge-toggle--connecting .bridge-toggle-track {
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+}
+.bridge-toggle--connecting .bridge-toggle-thumb {
+  left: calc(100% - 23px);
+  background: var(--color-gold);
+  box-shadow: 0 0 8px var(--color-gold-dim);
+  animation: bridge-thumb-pulse 1.5s ease-in-out infinite;
+}
+.bridge-toggle--connecting .bridge-toggle-label {
+  color: var(--color-gold);
+}
+
+/* ── ON (connected) state ── */
+.bridge-toggle--on {
+  border-color: rgba(34, 197, 94, 0.25);
+  box-shadow:
+    0 0 16px rgba(34, 197, 94, 0.06),
+    0 0 4px rgba(34, 197, 94, 0.04);
+}
+.bridge-toggle--on:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow:
+    0 0 20px rgba(34, 197, 94, 0.1),
+    0 0 6px rgba(34, 197, 94, 0.06);
+}
+.bridge-toggle--on .bridge-toggle-track {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  box-shadow: inset 0 0 8px rgba(34, 197, 94, 0.08);
+}
+.bridge-toggle--on .bridge-toggle-thumb {
+  left: calc(100% - 23px);
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+}
+.bridge-toggle--on .bridge-toggle-label {
+  color: #4ade80;
+}
+
+@keyframes bridge-border-pulse {
+  0%,
+  100% {
+    border-color: rgba(201, 168, 76, 0.15);
+    box-shadow: 0 0 8px rgba(201, 168, 76, 0.03);
+  }
+  50% {
+    border-color: rgba(201, 168, 76, 0.4);
+    box-shadow: 0 0 16px rgba(201, 168, 76, 0.1);
+  }
+}
+
+@keyframes bridge-thumb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--color-gold-dim);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 14px var(--color-gold);
+  }
+}
+
 /* Animations */
 @keyframes spin-gold {
   to {

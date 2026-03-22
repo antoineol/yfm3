@@ -110,7 +110,8 @@ describe("CardDetailModal", () => {
     renderModal();
     fireEvent.click(screen.getByText("Open"));
     expect(screen.getAllByText("Baby Dragon").length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(screen.getByLabelText("Close"));
+    // biome-ignore lint/style/noNonNullAssertion: test helper — element is guaranteed present
+    fireEvent.click(screen.getAllByLabelText("Close")[0]!);
     // After closing, the card name in the modal title should be gone
     // (the "Baby Dragon" text from the Open button context won't appear as modal title)
     expect(screen.queryByText("Much more than just a child")).toBeNull();

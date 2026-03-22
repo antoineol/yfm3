@@ -59,6 +59,24 @@ function CardDetailContent({ card }: { card: CardSpec }) {
   return (
     <CardDetailBody
       card={card}
+      footer={
+        <div className="flex justify-end pt-1 lg:hidden">
+          <BaseDialog.Close className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-surface/60 px-3.5 py-2 text-xs font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
+            <svg
+              aria-hidden="true"
+              className="size-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+            Close
+          </BaseDialog.Close>
+        </div>
+      }
       header={
         <div className="flex items-start justify-between gap-2">
           <BaseDialog.Title className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
@@ -89,7 +107,9 @@ function CardDetailContent({ card }: { card: CardSpec }) {
                 <line x1="10" x2="21" y1="14" y2="3" />
               </svg>
             </IconButton>
-            <BaseDialog.Close render={<CloseButton label="Close" />} />
+            <span className="hidden lg:inline">
+              <BaseDialog.Close render={<CloseButton label="Close" />} />
+            </span>
           </div>
         </div>
       }
