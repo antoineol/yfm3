@@ -18,8 +18,11 @@ export function CardDetailModal() {
     <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={isOpen}>
       <BaseDialog.Portal keepMounted>
         <BaseDialog.Backdrop className="fm-modal-backdrop fixed inset-0 z-50" />
-        <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100dvh-2rem)] overflow-y-auto focus:outline-none">
-          {card && <CardDetailContent card={card} />}
+        <BaseDialog.Popup className="fm-modal-popup fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-bg-panel border border-border-accent rounded-xl w-[calc(100vw-2rem)] max-w-3xl max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden focus:outline-none">
+          <div className="flex-1 overflow-y-auto min-h-0">
+            {card && <CardDetailContent card={card} />}
+          </div>
+          {card && <MobileCloseFooter />}
         </BaseDialog.Popup>
       </BaseDialog.Portal>
     </BaseDialog.Root>
@@ -55,28 +58,31 @@ function useBackClose(isOpen: boolean, onClose: () => void) {
   }, [isOpen, onClose]);
 }
 
+function MobileCloseFooter() {
+  return (
+    <div className="flex justify-end border-t border-border-subtle p-3 lg:hidden">
+      <BaseDialog.Close className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-surface/60 px-4 py-2.5 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
+        <svg
+          aria-hidden="true"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+        Close
+      </BaseDialog.Close>
+    </div>
+  );
+}
+
 function CardDetailContent({ card }: { card: CardSpec }) {
   return (
     <CardDetailBody
       card={card}
-      footer={
-        <div className="flex justify-end pt-1 lg:hidden">
-          <BaseDialog.Close className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-surface/60 px-4 py-2.5 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
-            <svg
-              aria-hidden="true"
-              className="size-4"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-            Close
-          </BaseDialog.Close>
-        </div>
-      }
       header={
         <div className="flex items-start justify-between gap-2">
           <BaseDialog.Title className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
