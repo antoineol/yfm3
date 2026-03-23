@@ -159,7 +159,13 @@ function ResultHeader({
               {score == null && "~"}
               {displayScore.toFixed(1)}
             </span>
-            {improvement && <span className="font-mono text-xs text-stat-up">+{improvement}%</span>}
+            {improvement && (
+              <span
+                className={`font-mono text-xs ${improvement.startsWith("-") ? "text-stat-down" : "text-stat-up"}`}
+              >
+                {improvement.startsWith("-") ? `${improvement}%` : `+${improvement}%`}
+              </span>
+            )}
           </div>
         )}
       </div>
