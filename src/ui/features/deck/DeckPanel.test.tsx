@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRemoveOne = vi.fn();
 
@@ -23,6 +23,7 @@ vi.mock("./use-deck-entries.ts", () => ({
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 40),
+  useBridgeAutoSync: vi.fn(() => false),
 }));
 
 vi.mock("./DeckFusionList.tsx", () => ({
@@ -37,7 +38,7 @@ vi.mock("./use-deck-score.ts", () => ({
   useDeckScore: vi.fn(() => null),
 }));
 
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 
 import { DeckPanel } from "./DeckPanel.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
@@ -45,6 +46,7 @@ import { useDeckScore } from "./use-deck-score.ts";
 
 const mockHook = useDeckEntries as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockBridgeAutoSync = useBridgeAutoSync as ReturnType<typeof vi.fn>;
 const mockDeckScore = useDeckScore as ReturnType<typeof vi.fn>;
 
 afterEach(() => {
@@ -152,5 +154,54 @@ describe("DeckPanel", () => {
     });
     render(<DeckPanel />);
     expect(screen.queryByText("1234.5")).toBeNull();
+  });
+
+  describe("auto-sync read-only mode", () => {
+    beforeEach(() => {
+      mockBridgeAutoSync.mockReturnValue(true);
+    });
+
+    it("hides remove button", () => {
+      mockHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+        deckLength: 1,
+        deckCardIds: [1],
+      });
+      render(<DeckPanel />);
+      expect(screen.queryByTitle("Remove from deck")).toBeNull();
+    });
+
+    it("still renders score badge", () => {
+      mockDeckScore.mockReturnValue(1234.5);
+      mockHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 40 }],
+        deckLength: 40,
+        deckCardIds: Array(40).fill(1),
+      });
+      render(<DeckPanel />);
+      expect(screen.getByText("1234.5")).toBeDefined();
+    });
+
+    it("still renders deck size badge", () => {
+      mockDeckSize.mockReturnValue(40);
+      mockHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
+        deckLength: 38,
+        deckCardIds: [1, 1],
+      });
+      render(<DeckPanel />);
+      expect(screen.getByText("38/40")).toBeDefined();
+    });
+
+    it("still renders deck intelligence sections", () => {
+      mockHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+        deckLength: 1,
+        deckCardIds: [1],
+      });
+      const { container } = render(<DeckPanel />);
+      expect(container.querySelector("[data-testid='deck-fusion-list']")).not.toBeNull();
+      expect(container.querySelector("[data-testid='score-explanation']")).not.toBeNull();
+    });
   });
 });

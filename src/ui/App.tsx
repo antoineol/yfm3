@@ -71,23 +71,27 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
           className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
           value="deck"
         >
-          <RequireReferenceData>
-            <DeckSubTabs />
-            <DeckSubPanel value="collection">
-              <CollectionPanel />
-            </DeckSubPanel>
-            <DeckSubPanel value="deck">
-              <DeckPanel />
-            </DeckSubPanel>
-            <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
-              <ResultPanel />
-            </DeckSubPanel>
-          </RequireReferenceData>
+          {bridgeAutoSync && bridge.detail !== "ready" ? (
+            <BridgeSetupGuide bridge={bridge} onDisableSync={handleToggleBridge} />
+          ) : (
+            <RequireReferenceData>
+              <DeckSubTabs />
+              <DeckSubPanel value="collection">
+                <CollectionPanel />
+              </DeckSubPanel>
+              <DeckSubPanel value="deck">
+                <DeckPanel />
+              </DeckSubPanel>
+              <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
+                <ResultPanel />
+              </DeckSubPanel>
+            </RequireReferenceData>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
           {bridgeAutoSync && bridge.detail !== "ready" ? (
-            <BridgeSetupGuide bridge={bridge} />
+            <BridgeSetupGuide bridge={bridge} onDisableSync={handleToggleBridge} />
           ) : (
             <RequireReferenceData>
               <HandFusionCalculator bridge={bridge} />

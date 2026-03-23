@@ -2,12 +2,30 @@ import { useState } from "react";
 import type { BridgeDetail, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { BRIDGE_DOWNLOAD_URL } from "./bridge-constants.ts";
 
-export function BridgeSetupGuide({ bridge }: { bridge: EmulatorBridge }) {
+export function BridgeSetupGuide({
+  bridge,
+  onDisableSync,
+}: {
+  bridge: EmulatorBridge;
+  onDisableSync?: () => void;
+}) {
   return (
     <div className="max-w-lg mx-auto space-y-4">
       <StatusBanner detail={bridge.detail} detailMessage={bridge.detailMessage} />
       <SetupSteps detail={bridge.detail} />
       <Troubleshooting />
+      {onDisableSync && (
+        <div className="flex items-center justify-center gap-2 text-xs text-text-muted pt-1">
+          <span>Not what you wanted?</span>
+          <button
+            className="text-text-secondary hover:text-text-primary transition-colors underline underline-offset-2 cursor-pointer"
+            onClick={onDisableSync}
+            type="button"
+          >
+            Disable auto-sync
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { importExportSchema } from "../config/import-export-schema.ts";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
@@ -27,6 +27,7 @@ export function CollectionPanel() {
   const { cards: allCards } = useCardDb();
   const data = useCollectionViewModel();
   const targetSize = useDeckSize();
+  const readOnly = useBridgeAutoSync();
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
@@ -118,18 +119,25 @@ export function CollectionPanel() {
 
   return (
     <>
-      <PanelHeader stretch title="Collection">
-        <CardAutocomplete
-          cards={autocompleteCards}
-          inputRef={inputRef}
-          onOpenChange={setComboboxOpen}
-          onSelect={(card) => void addCard({ cardId: card.id })}
-          placeholder="Add card..."
-        />
+      <PanelHeader stretch={!readOnly} title="Collection">
+        {!readOnly && (
+          <CardAutocomplete
+            cards={autocompleteCards}
+            inputRef={inputRef}
+            onOpenChange={setComboboxOpen}
+            onSelect={(card) => void addCard({ cardId: card.id })}
+            placeholder="Add card..."
+          />
+        )}
       </PanelHeader>
-      <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />
+      {!readOnly && <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />}
       {data.totalOwnedCards === 0 ? (
-        data.deckLength === 0 ? (
+        readOnly ? (
+          <PanelEmptyState
+            subtitle="Cards will appear here once the emulator is connected"
+            title="Waiting for emulator sync..."
+          />
+        ) : data.deckLength === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-5 text-center">
             <div className="flex gap-1.5 opacity-50">
               <div className="w-8 h-11 border-2 border-gold-dim rounded -rotate-6" />
@@ -155,7 +163,7 @@ export function CollectionPanel() {
         )
       ) : (
         <PanelBody>
-          <CardTable actions={renderActions} entries={data.entries} />
+          <CardTable actions={readOnly ? undefined : renderActions} entries={data.entries} />
         </PanelBody>
       )}
     </>

@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { liveBestScoreAtom, resultAtom } from "../../lib/atoms.ts";
 import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
 import { useOptimize } from "../optimize/use-optimize.ts";
@@ -16,6 +17,7 @@ export function ResultPanel() {
   const setResult = useSetAtom(resultAtom);
   const acceptDeck = useMutation(api.deck.acceptSuggestedDeck);
   const [accepting, setAccepting] = useState(false);
+  const readOnly = useBridgeAutoSync();
 
   function handleAccept() {
     if (!data) return;
@@ -60,9 +62,9 @@ export function ResultPanel() {
       <ResultHeader
         accepting={accepting}
         improvement={improvementPct}
-        onAccept={handleAccept}
+        onAccept={readOnly ? undefined : handleAccept}
         onOptimize={optimize}
-        onReject={handleReject}
+        onReject={readOnly ? undefined : handleReject}
         score={data.result.expectedAtk}
       />
       <SuggestedDeckComparison data={data} />

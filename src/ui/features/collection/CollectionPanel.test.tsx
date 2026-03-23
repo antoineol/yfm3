@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 beforeAll(() => {
   // auto-animate calls el.animate() which happy-dom doesn't support
@@ -62,6 +62,7 @@ vi.mock("./use-collection-view-model.ts", () => ({
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 40),
+  useBridgeAutoSync: vi.fn(() => false),
 }));
 
 vi.mock("./LastAddedCardHint.tsx", () => ({
@@ -69,7 +70,7 @@ vi.mock("./LastAddedCardHint.tsx", () => ({
 }));
 
 import type { ReactNode } from "react";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 
 import { CollectionPanel } from "./CollectionPanel.tsx";
 import {
@@ -79,6 +80,7 @@ import {
 
 const mockUseCollectionViewModel = useCollectionViewModel as ReturnType<typeof vi.fn>;
 const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockBridgeAutoSync = useBridgeAutoSync as ReturnType<typeof vi.fn>;
 const emptyCardDb = createCardDb();
 
 addCard(emptyCardDb, {
@@ -499,5 +501,61 @@ describe("CollectionPanel", () => {
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByText("Your collection is empty")).toBeDefined();
     expect(screen.queryByText("Load sample collection")).toBeNull();
+  });
+
+  describe("auto-sync read-only mode", () => {
+    beforeEach(() => {
+      mockBridgeAutoSync.mockReturnValue(true);
+    });
+
+    it("hides autocomplete search bar", () => {
+      mockUseCollectionViewModel.mockReturnValue(
+        buildCollectionViewModel({
+          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })],
+        }),
+      );
+      render(<CollectionPanel />, { wrapper: Wrapper });
+      expect(screen.queryByPlaceholderText("Add card...")).toBeNull();
+    });
+
+    it("hides action buttons", () => {
+      mockUseCollectionViewModel.mockReturnValue(
+        buildCollectionViewModel({
+          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })],
+        }),
+      );
+      render(<CollectionPanel />, { wrapper: Wrapper });
+      expect(screen.queryByTitle("Add copy")).toBeNull();
+      expect(screen.queryByTitle("Remove copy")).toBeNull();
+      expect(screen.queryByTitle("Add to deck")).toBeNull();
+    });
+
+    it("hides LastAddedCardHint", () => {
+      mockUseCollectionViewModel.mockReturnValue(
+        buildCollectionViewModel({
+          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })],
+        }),
+      );
+      render(<CollectionPanel />, { wrapper: Wrapper });
+      expect(screen.queryByTestId("last-added-hint")).toBeNull();
+    });
+
+    it("shows waiting empty state when collection is empty", () => {
+      mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
+      render(<CollectionPanel />, { wrapper: Wrapper });
+      expect(screen.getByText("Waiting for emulator sync...")).toBeDefined();
+      expect(screen.queryByText("Load sample collection")).toBeNull();
+      expect(screen.queryByText("New here? Try it out instantly")).toBeNull();
+    });
+
+    it("still renders card table with card names", () => {
+      mockUseCollectionViewModel.mockReturnValue(
+        buildCollectionViewModel({
+          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500 })],
+        }),
+      );
+      render(<CollectionPanel />, { wrapper: Wrapper });
+      expect(screen.getByText("Blue-Eyes")).toBeDefined();
+    });
   });
 });

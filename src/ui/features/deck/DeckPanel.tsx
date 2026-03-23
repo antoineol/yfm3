@@ -8,7 +8,7 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 import { DeckFusionList } from "./DeckFusionList.tsx";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
@@ -17,6 +17,7 @@ import { useDeckScore } from "./use-deck-score.ts";
 export function DeckPanel() {
   const data = useDeckEntries();
   const targetSize = useDeckSize();
+  const readOnly = useBridgeAutoSync();
   const removeOne = useMutation(api.deck.removeOneByCardId);
   const score = useDeckScore(data?.deckCardIds ?? []);
 
@@ -70,7 +71,7 @@ export function DeckPanel() {
         <DeckScoreBadge score={score} />
       </PanelHeader>
       <PanelBody>
-        <CardTable entries={entries} leftActions={renderLeftActions} />
+        <CardTable entries={entries} leftActions={readOnly ? undefined : renderLeftActions} />
         <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-border-subtle">
           <DeckFusionList deckCardIds={deckCardIds} />
           <ScoreExplanation deckCardIds={deckCardIds} />

@@ -16,6 +16,10 @@ vi.mock("convex/react", () => ({
   useMutation: () => vi.fn(),
 }));
 
+vi.mock("../../db/use-user-preferences.ts", () => ({
+  useBridgeAutoSync: vi.fn(() => false),
+}));
+
 vi.mock("../deck/DeckFusionList.tsx", () => ({
   DeckFusionList: () => <div data-testid="deck-fusion-list" />,
 }));
@@ -28,6 +32,7 @@ vi.mock("../../lib/card-db-context.tsx", () => ({
   useCardDb: () => ({ cards: [], cardsById: new Map(), cardsByName: new Map() }),
 }));
 
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { liveBestScoreAtom } from "../../lib/atoms.ts";
 
 import { useOptimize } from "../optimize/use-optimize.ts";
@@ -36,6 +41,7 @@ import { useResultEntries } from "./use-result-entries.ts";
 
 const mockResultHook = useResultEntries as ReturnType<typeof vi.fn>;
 const mockOptimizeHook = useOptimize as ReturnType<typeof vi.fn>;
+const mockBridgeAutoSync = useBridgeAutoSync as ReturnType<typeof vi.fn>;
 
 let store: ReturnType<typeof createStore>;
 
@@ -108,5 +114,39 @@ describe("ResultPanel", () => {
     });
     renderPanel();
     expect(screen.getByText("+25.0%")).toBeDefined();
+  });
+
+  describe("auto-sync read-only mode", () => {
+    beforeEach(() => {
+      mockBridgeAutoSync.mockReturnValue(true);
+    });
+
+    it("hides Accept and Reject buttons", () => {
+      mockResultHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+        result: baseResult,
+      });
+      renderPanel();
+      expect(screen.queryByLabelText("Accept deck")).toBeNull();
+      expect(screen.queryByLabelText("Reject")).toBeNull();
+    });
+
+    it("still shows Re-run button", () => {
+      mockResultHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+        result: baseResult,
+      });
+      renderPanel();
+      expect(screen.getByLabelText("Re-run")).toBeDefined();
+    });
+
+    it("still shows score", () => {
+      mockResultHook.mockReturnValue({
+        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+        result: baseResult,
+      });
+      renderPanel();
+      expect(screen.getByText("2500.0")).toBeDefined();
+    });
   });
 });
