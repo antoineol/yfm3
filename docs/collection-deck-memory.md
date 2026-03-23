@@ -53,9 +53,11 @@ Both trunk and deck data **persist in RAM across all screens**. They are always 
 
 | Scene ID | Screen |
 |----------|--------|
-| `0x06C3` | Duel (in-game) |
+| `0x06C3` | Duel (free duel) |
+| `0x05C3` | Duel (campaign) |
 | `0x06C6` | Free Duel duelist selection |
 | `0x06C7` | Deck edit |
+| `0x06C8` | Campaign map |
 | `0x0607` | Transition (menu → deck edit) |
 | `0x0603` | Transition (free duel → duel) |
 | `0x0686` | Transition (duel/deck edit → free duel select) |

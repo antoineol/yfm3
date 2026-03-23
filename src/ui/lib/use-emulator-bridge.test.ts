@@ -181,6 +181,11 @@ describe("interpretRawState", () => {
       expect(result.phase).toBe("battle");
     });
 
+    it("maps phase 0x01 (init) to 'draw' regardless of turn indicator", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0x01, turnIndicator: 1 }));
+      expect(result.phase).toBe("draw");
+    });
+
     it("maps unknown phase on player turn to 'other'", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x0a, turnIndicator: 0 }));
       expect(result.phase).toBe("other");
@@ -272,6 +277,23 @@ describe("interpretRawState", () => {
     it("false when phase is RESULTS", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x0d }));
       expect(result.inDuel).toBe(false);
+    });
+
+    it("true during init phase (0x01, campaign duel setup)", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x01,
+          hand: [
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+      expect(result.handReliable).toBe(false);
     });
 
     it("false when phase is unrecognized", () => {

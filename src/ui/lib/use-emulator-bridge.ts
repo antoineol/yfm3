@@ -50,6 +50,7 @@ type RawBridgeMessage = RawBridgeState | BridgeDisconnected;
 
 // ── Duel phase bytes ─────────────────────────────────────────────────
 
+const PHASE_INIT = 0x01;
 const PHASE_CLEANUP = 0x02;
 const PHASE_DRAW = 0x03;
 const PHASE_HAND_SELECT = 0x04;
@@ -97,6 +98,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   // DUEL_END / RESULTS at end-of-duel, which are excluded here, so
   // isDuelPhase reliably goes false when the duel ends.
   const isDuelPhase =
+    raw.duelPhase === PHASE_INIT ||
     raw.duelPhase === PHASE_CLEANUP ||
     raw.duelPhase === PHASE_DRAW ||
     raw.duelPhase === PHASE_HAND_SELECT ||
@@ -159,6 +161,7 @@ export function computeOwnedCards(trunk: number[], deckDef: number[]): Record<nu
 
 function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
   if (duelPhase === PHASE_DUEL_END || duelPhase === PHASE_RESULTS) return "ended";
+  if (duelPhase === PHASE_INIT) return "draw"; // pre-deal setup, cards not yet dealt
   if (!isPlayerTurn) return "opponent";
   if (duelPhase === PHASE_HAND_SELECT) return "hand";
   if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";

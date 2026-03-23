@@ -64,6 +64,8 @@ let lastLogState = null; // previous state for change-based logging
 let lastSceneId = null;
 let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
+let consecutiveZeroReads = 0;
+const STALE_ZERO_THRESHOLD = 15; // 15 × 200ms = 3 seconds of all-zero reads
 
 // ── WebSocket server ───────────────────────────────────────────────
 const wss = new WebSocketServer({ port: PORT });
@@ -319,6 +321,38 @@ async function poll() {
         pid: mapping.pid,
         ...state,
       });
+
+      // Detect stale shared memory: if everything reads as zero for too
+      // long, DuckStation was likely restarted (new PID). The old mapping
+      // handle stays open but returns zeros.  Close it and reconnect.
+      if (state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0) {
+        consecutiveZeroReads++;
+        if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD) {
+          console.warn(
+            `Shared memory stale (${consecutiveZeroReads} consecutive all-zero reads). Reconnecting...`,
+          );
+          try {
+            closeSharedMemory(mapping);
+          } catch {
+            /* ignore */
+          }
+          mapping = null;
+          consecutiveZeroReads = 0;
+          lastJson = "";
+          broadcast(
+            JSON.stringify({
+              connected: false,
+              status: "no_emulator",
+              version: VERSION,
+              reason: "DuckStation may have restarted. Reconnecting...",
+            }),
+          );
+          setTimeout(poll, POLL_MS);
+          return;
+        }
+      } else {
+        consecutiveZeroReads = 0;
+      }
 
       // Only broadcast on change
       if (json !== lastJson) {
