@@ -3,9 +3,9 @@ duelist_id,duelist_name,card_id,deck,sa_pow,bcd,sa_tec
 1,"Simon Muran",12,0,45,45,0
 1,"Simon Muran",13,0,45,45,0
 1,"Simon Muran",14,0,45,45,0
-1,"Simon Muran",15,0,40,45,0
-1,"Simon Muran",16,0,45,40,15
-1,"Simon Muran",17,0,45,45,15
+1,"Simon Muran",15,0,45,45,0
+1,"Simon Muran",16,0,45,45,15
+1,"Simon Muran",17,0,45,45,0
 1,"Simon Muran",18,0,43,45,0
 1,"Simon Muran",19,0,40,45,0
 1,"Simon Muran",20,0,40,45,0
