@@ -8,7 +8,7 @@ import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
  * Auto-syncs the emulator hand to the local DB when data is reliable.
  *
  * During the draw phase the game writes cards to RAM one at a time.
- * Each 200 ms poll catches an intermediate state (1→2→3→4→5 cards).
+ * Each 50 ms poll catches an intermediate state (1→2→3→4→5 cards).
  * Syncing every intermediate state causes batchMigrateHand to delete-all
  * + re-insert, giving every card a new docId / React key, which makes
  * auto-animate flicker.  Fix: skip sync during "draw" phase entirely

@@ -45,7 +45,7 @@ for (const level of ["log", "info", "warn", "error", "debug"]) {
 }
 
 const PORT = Number(process.env.BRIDGE_PORT || 3333);
-const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 200);
+const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 50);
 
 // ── Collection/deck log file ──────────────────────────────────────
 const COLL_LOG_PATH = join(__dirname, "collection.log");
@@ -65,7 +65,7 @@ let lastSceneId = null;
 let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
 let consecutiveZeroReads = 0;
-const STALE_ZERO_THRESHOLD = 15; // 15 × 200ms = 3 seconds of all-zero reads
+const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
 
 // ── WebSocket server ───────────────────────────────────────────────
 const wss = new WebSocketServer({ port: PORT });
