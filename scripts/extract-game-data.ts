@@ -331,6 +331,37 @@ function findFile(bin: Buffer, rootFiles: IsoFile[], filePath: string): Buffer {
 }
 
 // ---------------------------------------------------------------------------
+// PS-X EXE header parsing
+// ---------------------------------------------------------------------------
+
+/** PS-X EXE header fields needed for data detection. */
+interface PsxExeHeader {
+  /** RAM address where the executable is loaded (typically 0x80010000). */
+  loadAddr: number;
+  /** Size of the code+data payload (everything after the 0x800-byte header). */
+  textSize: number;
+}
+
+/** Size of the PS-X EXE header (precedes the code/data payload). */
+const PSX_EXE_HEADER_SIZE = 0x800;
+
+/** Parse the PS-X EXE header from the start of a PS1 executable file.
+ *  Validates the "PS-X EXE" magic and extracts load address + text size. */
+function parsePsxExeHeader(exe: Buffer): PsxExeHeader {
+  if (exe.length < PSX_EXE_HEADER_SIZE) {
+    throw new Error(`PS-X EXE too small: ${exe.length} bytes (need ≥ ${PSX_EXE_HEADER_SIZE})`);
+  }
+  const magic = exe.subarray(0, 8).toString("ascii");
+  if (magic !== "PS-X EXE") {
+    throw new Error(`Not a PS-X EXE: magic is "${magic}"`);
+  }
+  return {
+    loadAddr: exe.readUInt32LE(0x18),
+    textSize: exe.readUInt32LE(0x1c),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Offset auto-detection
 // ---------------------------------------------------------------------------
 
@@ -384,7 +415,271 @@ function findLevelAttrNear(exe: Buffer, cardStatsAddr: number): number {
   return -1;
 }
 
+// ---------------------------------------------------------------------------
+// Structural text table scanning
+//
+// Card names and descriptions are stored as TBL-encoded strings referenced
+// through uint16 offset tables.  Each offset table is an array of NUM_CARDS
+// uint16LE values; adding an offset to a "text pool base" address gives the
+// start of the corresponding TBL string.
+//
+// The pool base is a shared reference point — the actual text strings start
+// at pool + min(offsets), which may be well past the offset table itself.
+//
+// Layout in all known builds (ascending file offset):
+//
+//   descPool → descOT → [desc text] → namePool → [other data] →
+//   cardStats → levelAttr → [misc] → nameOT → duelNamesOT → [name text]
+//
+// This scanner finds offset tables by their structural signature, then
+// derives the pool base by searching for positions where offsets resolve
+// to valid TBL strings.  It does NOT rely on fixed deltas from cardStats.
+// ---------------------------------------------------------------------------
+
+/** Scan a region of the executable for a uint16 offset table that resolves
+ *  to TBL-encoded strings through some pool base.
+ *
+ *  Structural signature of a text offset table:
+ *  - `numEntries` consecutive uint16LE values
+ *  - Mostly unique (distinct strings)
+ *  - Mostly non-decreasing (sequential text storage)
+ *  - All values bounded < 0xF000
+ *  - A pool base exists such that pool + offset[i] → valid TBL string
+ *
+ *  Returns null if no matching table is found in the search region.  */
+function findTextOffsetTable(
+  exe: Buffer,
+  searchStart: number,
+  searchEnd: number,
+  numEntries: number,
+  tblLimit = 100,
+): { offsetTable: number; textPool: number } | null {
+  const otSize = numEntries * 2;
+
+  // Track the best match across all candidates (highest TBL string hit count).
+  // Off-by-a-few-bytes misalignments can score ~95%, so we keep scanning
+  // and return the best rather than the first above-threshold match.
+  let best: { offsetTable: number; textPool: number; score: number } | null = null;
+
+  for (let ot = searchStart; ot < searchEnd && ot + otSize <= exe.length; ot += 2) {
+    // --- Read all offsets and apply structural filters ---
+    const offsets = new Uint16Array(numEntries);
+    let maxOff = 0;
+    let minOff = 0xffff;
+    for (let i = 0; i < numEntries; i++) {
+      const v = exe.readUInt16LE(ot + i * 2);
+      offsets[i] = v;
+      if (v > maxOff) maxOff = v;
+      if (v < minOff) minOff = v;
+    }
+
+    // All offsets must be bounded
+    if (maxOff > 0xf000) continue;
+    // Need meaningful spread (at least 512 bytes of text)
+    if (maxOff - minOff < 0x200) continue;
+
+    // Mostly unique values (cards have distinct names/descriptions)
+    const unique = new Set(offsets).size;
+    if (unique < numEntries * 0.7) continue;
+
+    // Mostly non-decreasing (sequential text storage)
+    let increasing = 0;
+    for (let i = 0; i < numEntries - 1; i++) {
+      if ((offsets[i + 1] ?? 0) >= (offsets[i] ?? 0)) increasing++;
+    }
+    if (increasing < (numEntries - 1) * 0.8) continue;
+
+    // --- Search for pool base ---
+    // Text strings must not overlap the offset table itself, so:
+    //   pool + minOff >= ot + otSize  →  pool >= ot + otSize - minOff
+    // Pool base is before the offset table:
+    //   pool < ot
+    const poolLo = Math.max(0, ot + otSize - minOff);
+    const poolHi = ot;
+
+    for (let pool = poolLo; pool < poolHi; pool++) {
+      // Quick reject: first entry's string must start with a valid TBL byte
+      const firstAddr = pool + (offsets[0] ?? 0);
+      if (firstAddr >= exe.length) continue;
+      const fb = exe[firstAddr] ?? 0xff;
+      if (fb > 91 && fb !== 0xf8 && fb !== 0xfe) continue;
+      if (!isTblString(exe, firstAddr, tblLimit)) continue;
+
+      // Validate a sample of 20 entries.
+      // Each offset must point to a TBL string START — preceded by a 0xFF
+      // terminator from the previous string.  This distinguishes real string
+      // boundaries from landing mid-string in a densely packed text pool.
+      let valid = 0;
+      const sample = Math.min(20, numEntries);
+      for (let i = 0; i < sample; i++) {
+        const addr = pool + (offsets[i] ?? 0);
+        if (!isTblString(exe, addr, tblLimit)) continue;
+        // String-start check: byte before must be 0xFF (terminator of previous
+        // string), unless this is the minimum offset (first string in pool).
+        if ((offsets[i] ?? 0) !== minOff && addr > 0 && (exe[addr - 1] ?? 0) !== 0xff) continue;
+        valid++;
+      }
+      if (valid < sample * 0.75) continue;
+
+      // Full validation: check ALL entries with string-start validation
+      let allValid = 0;
+      for (let i = 0; i < numEntries; i++) {
+        const addr = pool + (offsets[i] ?? 0);
+        if (!isTblString(exe, addr, tblLimit)) continue;
+        if ((offsets[i] ?? 0) !== minOff && addr > 0 && (exe[addr - 1] ?? 0) !== 0xff) continue;
+        allValid++;
+      }
+      if (allValid < numEntries * 0.95) continue;
+
+      // Tiebreaker: sequential gap consistency.  For correct alignment,
+      // offsets[i+1] - offsets[i] equals the string length at offsets[i] + 1
+      // (for the 0xFF terminator).  Off-by-N misalignments break this at
+      // the boundary where a shifted entry differs from its neighbor.
+      let gapConsistent = 0;
+      for (let i = 0; i < numEntries - 1; i++) {
+        const gap = (offsets[i + 1] ?? 0) - (offsets[i] ?? 0);
+        if (gap <= 0) continue;
+        // Measure actual string length at this offset
+        const strAddr = pool + (offsets[i] ?? 0);
+        let len = 0;
+        for (let j = 0; j < tblLimit && strAddr + j < exe.length; j++) {
+          if ((exe[strAddr + j] ?? 0) === 0xff) {
+            len = j + 1; // include terminator
+            break;
+          }
+        }
+        if (len > 0 && gap === len) gapConsistent++;
+      }
+
+      // Combined score: primary = allValid, tiebreaker = gapConsistent
+      const score = allValid * 100000 + gapConsistent;
+      if (!best || score > best.score) {
+        best = { offsetTable: ot, textPool: pool, score };
+        // Perfect match on both criteria — stop early
+        if (allValid === numEntries && gapConsistent === numEntries - 1) {
+          return best;
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+function detectTextTables(
+  exe: Buffer,
+  cardStats: number,
+  levelAttr: number,
+): {
+  nameOffsetTable: number;
+  textPoolBase: number;
+  descOffsetTable: number;
+  descTextPoolBase: number;
+  duelistNames: number;
+} {
+  const none = {
+    nameOffsetTable: -1,
+    textPoolBase: -1,
+    descOffsetTable: -1,
+    descTextPoolBase: -1,
+    duelistNames: -1,
+  };
+
+  // --- 1. Find name offset table (forward from end of levelAttr) ---
+  // Align to uint16 boundary (offset tables are arrays of uint16LE values).
+  const nameSearchStart = (levelAttr + NUM_CARDS + 1) & ~1;
+  const nameSearchEnd = Math.min(exe.length, cardStats + 0x4000);
+  const nameResult = findTextOffsetTable(exe, nameSearchStart, nameSearchEnd, NUM_CARDS);
+  if (!nameResult) return none;
+
+  // --- 2. Find description offset table (backward from namePool) ---
+  const descSearchStart = Math.max(PSX_EXE_HEADER_SIZE, cardStats - 0x18000) & ~1;
+  const descSearchEnd = Math.max(PSX_EXE_HEADER_SIZE, nameResult.textPool);
+  // Descriptions can be up to ~200 bytes; use a larger TBL scan limit.
+  const descResult = findTextOffsetTable(exe, descSearchStart, descSearchEnd, NUM_CARDS, 200);
+
+  // --- 3. Find duelist name offset table ---
+  // The duelist name table is small (39 entries) and sits in a densely packed
+  // text pool, making pure structural scanning unreliable.  Use the known
+  // delta from nameOT (0x650, stable across all known builds) and validate.
+  const duelNamesDelta = 0x650;
+  const duelNamesCandidate = nameResult.offsetTable + duelNamesDelta;
+  let duelNames = -1;
+  if (duelNamesCandidate + NUM_DUELISTS * 2 <= exe.length) {
+    let valid = 0;
+    for (let i = 0; i < NUM_DUELISTS; i++) {
+      const off = exe.readUInt16LE(duelNamesCandidate + i * 2);
+      if (off > 0xf000) {
+        valid = -1;
+        break;
+      }
+      if (isTblString(exe, nameResult.textPool + off)) valid++;
+    }
+    if (valid >= NUM_DUELISTS * 0.9) duelNames = duelNamesCandidate;
+  }
+
+  return {
+    nameOffsetTable: nameResult.offsetTable,
+    textPoolBase: nameResult.textPool,
+    descOffsetTable: descResult ? descResult.offsetTable : -1,
+    descTextPoolBase: descResult ? descResult.textPool : -1,
+    duelistNames: duelNames,
+  };
+}
+
+/** Known relative offsets of text tables from the card stats table.
+ *  Used as fallback when structural scanning fails (e.g. EU builds where
+ *  text data has been partially zeroed or relocated externally). */
+function detectTextOffsetsByDeltas(
+  exe: Buffer,
+  cardStats: number,
+): {
+  nameOffsetTable: number;
+  textPoolBase: number;
+  descOffsetTable: number;
+  descTextPoolBase: number;
+  duelistNames: number;
+} {
+  const none = {
+    nameOffsetTable: -1,
+    textPoolBase: -1,
+    descOffsetTable: -1,
+    descTextPoolBase: -1,
+    duelistNames: -1,
+  };
+
+  // Relative offsets (constant across all known SLUS builds)
+  const nameOT = cardStats + 0x15be;
+  const namePool = cardStats - 0x4244;
+  const descOT = cardStats - 0x14042;
+  const descPool = cardStats - 0x14244;
+  const duelNames = cardStats + 0x1c0e;
+
+  // Validate: check that name offsets point to TBL strings
+  if (nameOT < 0 || nameOT + NUM_CARDS * 2 > exe.length) return none;
+  if (namePool < 0) return none;
+
+  let validNames = 0;
+  for (let i = 0; i < Math.min(20, NUM_CARDS); i++) {
+    const off = exe.readUInt16LE(nameOT + i * 2);
+    const addr = namePool + off;
+    if (addr >= 0 && addr < exe.length && isTblString(exe, addr)) validNames++;
+  }
+  if (validNames < 10) return none;
+
+  return {
+    nameOffsetTable: nameOT,
+    textPoolBase: namePool,
+    descOffsetTable: descOT >= 0 && descOT + NUM_CARDS * 2 <= exe.length ? descOT : -1,
+    descTextPoolBase: descPool >= 0 ? descPool : -1,
+    duelistNames: duelNames >= 0 && duelNames + NUM_DUELISTS * 2 <= exe.length ? duelNames : -1,
+  };
+}
+
 function detectExeLayout(exe: Buffer): ExeLayout {
+  // --- Validate PS-X EXE header ---
+  parsePsxExeHeader(exe);
+
   // --- card stats + level/attr: find jointly for robustness ---
   let cardStats = -1;
   let levelAttr = -1;
@@ -436,73 +731,23 @@ function detectExeLayout(exe: Buffer): ExeLayout {
   if (cardStats === -1) throw new Error("Could not locate card stats table in executable");
   if (levelAttr === -1) throw new Error("Could not locate level/attribute table in executable");
 
-  // --- text tables: computed from known relative offsets, then validated ---
-  // All known SLUS-based executables share the same data layout relative to card stats.
-  // EU releases (SLES) store text externally, so validation will fail and offsets stay -1.
-  const textOffsets = detectTextOffsets(exe, cardStats);
-  const nameOffsetTable = textOffsets.nameOffsetTable;
-  const textPoolBase = textOffsets.textPoolBase;
-  const descOffsetTable = textOffsets.descOffsetTable;
-  const descTextPoolBase = textOffsets.descTextPoolBase;
-  const duelistNames = textOffsets.duelistNames;
+  // --- text tables: structural scanning, with delta-based fallback ---
+  // Try structural scanning first (version-independent).
+  // Fall back to known deltas from cardStats if scanning fails
+  // (e.g. on EU builds where text is external but deltas might still partially validate).
+  let text = detectTextTables(exe, cardStats, levelAttr);
+  if (text.nameOffsetTable === -1) {
+    text = detectTextOffsetsByDeltas(exe, cardStats);
+  }
 
   return {
     cardStats,
     levelAttr,
-    nameOffsetTable,
-    textPoolBase,
-    descOffsetTable,
-    descTextPoolBase,
-    duelistNames,
-  };
-}
-
-/** Known relative offsets of text tables from the card stats table.
- *  Validated by checking that a sample of entries resolve to TBL strings. */
-function detectTextOffsets(
-  exe: Buffer,
-  cardStats: number,
-): {
-  nameOffsetTable: number;
-  textPoolBase: number;
-  descOffsetTable: number;
-  descTextPoolBase: number;
-  duelistNames: number;
-} {
-  const none = {
-    nameOffsetTable: -1,
-    textPoolBase: -1,
-    descOffsetTable: -1,
-    descTextPoolBase: -1,
-    duelistNames: -1,
-  };
-
-  // Relative offsets (constant across all known SLUS builds)
-  const nameOT = cardStats + 0x15be; // 0x1c6002 - 0x1c4a44
-  const namePool = cardStats - 0x4244; // 0x1c4a44 - 0x1c0800
-  const descOT = cardStats - 0x14042; // 0x1c4a44 - 0x1b0a02
-  const descPool = cardStats - 0x14244; // 0x1c4a44 - 0x1b0800
-  const duelNames = cardStats + 0x1c0e; // 0x1c6652 - 0x1c4a44
-
-  // Validate: check that name offsets point to TBL strings
-  if (nameOT < 0 || nameOT + NUM_CARDS * 2 > exe.length) return none;
-  if (namePool < 0) return none;
-
-  let validNames = 0;
-  for (let i = 0; i < Math.min(20, NUM_CARDS); i++) {
-    const off = exe.readUInt16LE(nameOT + i * 2);
-    const addr = namePool + off;
-    if (addr >= 0 && addr < exe.length && isTblString(exe, addr)) validNames++;
-  }
-  // If fewer than half resolve to TBL strings, text isn't in this executable
-  if (validNames < 10) return none;
-
-  return {
-    nameOffsetTable: nameOT,
-    textPoolBase: namePool,
-    descOffsetTable: descOT >= 0 && descOT + NUM_CARDS * 2 <= exe.length ? descOT : -1,
-    descTextPoolBase: descPool >= 0 ? descPool : -1,
-    duelistNames: duelNames >= 0 && duelNames + NUM_DUELISTS * 2 <= exe.length ? duelNames : -1,
+    nameOffsetTable: text.nameOffsetTable,
+    textPoolBase: text.textPoolBase,
+    descOffsetTable: text.descOffsetTable,
+    descTextPoolBase: text.descTextPoolBase,
+    duelistNames: text.duelistNames,
   };
 }
 
