@@ -36,24 +36,6 @@ const SECTOR_DATA_SIZE = 2048;
 /** ISO 9660 Primary Volume Descriptor is always at sector 16 */
 const PVD_SECTOR = 16;
 
-/** Card stats in SLUS_014.11 (the PS1 executable) */
-const CARD_STATS_OFFSET = 0x1c_4a44;
-
-/** Card level + attribute packed byte table in SLUS_014.11: 722 × uint8
- *  Low nibble = level (1–12), high nibble = attribute (0–7).
- *  Confirmed by fmlib-cpp and fmscrambler. */
-const LEVEL_ATTR_OFFSET = 0x1c_5b33;
-
-/** Card name offset table in SLUS_014.11: 722 × uint16LE offsets into text pool */
-const NAME_OFFSET_TABLE = 0x1c_6002;
-/** Text pool base address in SLUS_014.11 (offsets are added to this) */
-const TEXT_POOL_BASE = 0x1c_0800;
-
-/** Card description offset table in SLUS_014.11: 722 × uint16LE offsets */
-const DESC_OFFSET_TABLE = 0x1b_0a02;
-/** Description text pool base: descriptions start at 0x1B11F4 - 0x9F4 = 0x1B0800 */
-const DESC_TEXT_POOL_BASE = 0x1b_0800;
-
 /** Card name color codes: byte XX in the {F8 0A XX} prefix before card name text. */
 const CARD_COLORS: Record<number, string> = {
   1: "yellow",
@@ -64,26 +46,38 @@ const CARD_COLORS: Record<number, string> = {
   6: "red",
 };
 
-/** Fusion table in WA_MRG.MRG */
-const FUSION_TABLE_OFFSET = 0xb8_7800;
 const FUSION_TABLE_SIZE = 0x1_0000;
-
-/** Equip table in WA_MRG.MRG: variable-length entries until equipId==0 */
-const EQUIP_TABLE_OFFSET = 0xb8_5000;
 const EQUIP_TABLE_SIZE = 0x2800;
-
-/** Starchip cost/password table in WA_MRG.MRG: 722 × 8 bytes (4B cost + 4B password) */
-const STARCHIP_TABLE_OFFSET = 0xfb_9808;
-
-/** Duelist data in WA_MRG.MRG and SLUS */
 const NUM_DUELISTS = 39;
-const DUELIST_TABLE_OFFSET = 0xe9_b000;
 const DUELIST_ENTRY_SIZE = 0x1800;
 const DUELIST_DECK_OFFSET = 0x000;
 const DUELIST_SA_POW_OFFSET = 0x5b4;
 const DUELIST_BCD_OFFSET = 0xb68;
 const DUELIST_SA_TEC_OFFSET = 0x111c;
-const DUELIST_NAMES_OFFSET = 0x1c_6652;
+
+// ---------------------------------------------------------------------------
+// Auto-detected layout — set by detectLayout() before extraction
+// ---------------------------------------------------------------------------
+
+interface ExeLayout {
+  cardStats: number;
+  levelAttr: number;
+  nameOffsetTable: number;
+  textPoolBase: number;
+  descOffsetTable: number;
+  descTextPoolBase: number;
+  duelistNames: number;
+}
+
+interface WaMrgLayout {
+  fusionTable: number;
+  equipTable: number;
+  starchipTable: number;
+  duelistTable: number;
+}
+
+let exeLayout: ExeLayout;
+let waMrgLayout: WaMrgLayout;
 
 /** Guardian star encoding matches the name table at SLUS offset 0x1C9380. */
 const GUARDIAN_STARS: Record<number, string> = {
@@ -100,17 +94,10 @@ const GUARDIAN_STARS: Record<number, string> = {
   10: "Venus",
 };
 
-/** Card attribute encoding. High nibble of the level/attribute byte.
- *  Attribute 0 is used for non-monster cards (Magic, Trap, Equip, Ritual). */
-const CARD_ATTRIBUTES: Record<number, string> = {
-  0: "",
-  1: "Light",
-  2: "Dark",
-  3: "Water",
-  4: "Fire",
-  5: "Earth",
-  6: "Wind",
-};
+/** Card attribute encoding — auto-detected per version.
+ *  RP mod: 0="" 1=Light 2=Dark 3=Water 4=Fire 5=Earth 6=Wind
+ *  Vanilla: 0=Light 1=Dark 2=Earth 3=Water 4=Fire 5=Wind */
+let cardAttributes: Record<number, string>;
 
 /** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator. */
 // prettier-ignore
@@ -344,6 +331,397 @@ function findFile(bin: Buffer, rootFiles: IsoFile[], filePath: string): Buffer {
 }
 
 // ---------------------------------------------------------------------------
+// Offset auto-detection
+// ---------------------------------------------------------------------------
+
+/** Check that a uint32LE encodes a valid card stat entry:
+ *  bits 0-8: atk/10, 9-17: def/10, 18-21: gs2 (0-10), 22-25: gs1 (0-10), 26-30: type (0-23), 31: 0 */
+function isValidCardStat(raw: number): boolean {
+  return (
+    raw >>> 31 === 0 &&
+    ((raw >> 26) & 0x1f) <= 23 &&
+    ((raw >> 22) & 0xf) <= 10 &&
+    ((raw >> 18) & 0xf) <= 10
+  );
+}
+
+/** Check if addr is a valid level/attr table, cross-validated with card stats.
+ *  Non-monster cards (type >= 20) must have level 0. */
+function isValidLevelAttrTable(exe: Buffer, addr: number, cardStatsAddr: number): boolean {
+  if (addr < 0 || addr + NUM_CARDS > exe.length) return false;
+  const first = byte(exe, addr);
+  if ((first & 0xf) === 0 || (first & 0xf) > 12) return false;
+  let nonZeroLevels = 0;
+  let nonMonsterZeroLevel = 0;
+  let nonMonsterCount = 0;
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const b = byte(exe, addr + i);
+    if ((b & 0xf) > 12 || ((b >> 4) & 0xf) > 7) return false;
+    if ((b & 0xf) > 0) nonZeroLevels++;
+    const raw = exe.readUInt32LE(cardStatsAddr + i * 4);
+    const type = (raw >> 26) & 0x1f;
+    if (type >= 20) {
+      nonMonsterCount++;
+      if ((b & 0xf) === 0) nonMonsterZeroLevel++;
+    }
+  }
+  // Must have reasonable monster/non-monster mix AND non-monsters must have level 0
+  // Non-monster cards must have level 0 (hard engine constraint).
+  // Use strict threshold to avoid off-by-a-few-byte false positives.
+  return (
+    nonZeroLevels > 200 &&
+    nonZeroLevels < NUM_CARDS &&
+    nonMonsterZeroLevel >= nonMonsterCount * 0.98
+  );
+}
+
+function findLevelAttrNear(exe: Buffer, cardStatsAddr: number): number {
+  const lo = Math.max(0, cardStatsAddr - 0x10000);
+  const hi = Math.min(exe.length - NUM_CARDS, cardStatsAddr + 0x10000);
+  for (let addr = lo; addr < hi; addr++) {
+    if (isValidLevelAttrTable(exe, addr, cardStatsAddr)) return addr;
+  }
+  return -1;
+}
+
+function detectExeLayout(exe: Buffer): ExeLayout {
+  // --- card stats + level/attr: find jointly for robustness ---
+  let cardStats = -1;
+  let levelAttr = -1;
+  const tableBytes = NUM_CARDS * 4;
+
+  // Card stats live in the data section (latter half) of PS1 executables.
+  // Search forward from the midpoint; require a clean boundary (entry before table is invalid).
+  const searchStart = Math.floor(exe.length / 2) & ~3;
+  for (let addr = searchStart; addr <= exe.length - tableBytes; addr += 4) {
+    // Quick pre-check: first 5 entries must be valid AND have nonzero atk or def
+    // (the first cards in every YFM version are monsters with real stats;
+    //  this rejects zero-padding regions that otherwise pass range checks)
+    let quick = true;
+    for (let i = 0; i < 5; i++) {
+      const raw = exe.readUInt32LE(addr + i * 4);
+      if (!isValidCardStat(raw) || (raw & 0x3ffff) === 0) {
+        quick = false;
+        break;
+      }
+    }
+    if (!quick) continue;
+
+    // Full validation: all 722 entries
+    let allValid = true;
+    let monsterWithStats = 0;
+    let nonMonsterZeroStats = 0;
+    for (let i = 0; i < NUM_CARDS; i++) {
+      const raw = exe.readUInt32LE(addr + i * 4);
+      if (!isValidCardStat(raw)) {
+        allValid = false;
+        break;
+      }
+      const type = (raw >> 26) & 0x1f;
+      const atk = raw & 0x1ff;
+      const def = (raw >> 9) & 0x1ff;
+      if (type < 20 && (atk > 0 || def > 0)) monsterWithStats++;
+      if (type >= 20 && atk === 0 && def === 0) nonMonsterZeroStats++;
+    }
+    if (!allValid || monsterWithStats < 200 || nonMonsterZeroStats < 50) continue;
+
+    // Require a valid level/attr table nearby
+    const la = findLevelAttrNear(exe, addr);
+    if (la === -1) continue;
+
+    cardStats = addr;
+    levelAttr = la;
+    break;
+  }
+  if (cardStats === -1) throw new Error("Could not locate card stats table in executable");
+  if (levelAttr === -1) throw new Error("Could not locate level/attribute table in executable");
+
+  // --- text tables: computed from known relative offsets, then validated ---
+  // All known SLUS-based executables share the same data layout relative to card stats.
+  // EU releases (SLES) store text externally, so validation will fail and offsets stay -1.
+  const textOffsets = detectTextOffsets(exe, cardStats);
+  const nameOffsetTable = textOffsets.nameOffsetTable;
+  const textPoolBase = textOffsets.textPoolBase;
+  const descOffsetTable = textOffsets.descOffsetTable;
+  const descTextPoolBase = textOffsets.descTextPoolBase;
+  const duelistNames = textOffsets.duelistNames;
+
+  return {
+    cardStats,
+    levelAttr,
+    nameOffsetTable,
+    textPoolBase,
+    descOffsetTable,
+    descTextPoolBase,
+    duelistNames,
+  };
+}
+
+/** Known relative offsets of text tables from the card stats table.
+ *  Validated by checking that a sample of entries resolve to TBL strings. */
+function detectTextOffsets(
+  exe: Buffer,
+  cardStats: number,
+): {
+  nameOffsetTable: number;
+  textPoolBase: number;
+  descOffsetTable: number;
+  descTextPoolBase: number;
+  duelistNames: number;
+} {
+  const none = {
+    nameOffsetTable: -1,
+    textPoolBase: -1,
+    descOffsetTable: -1,
+    descTextPoolBase: -1,
+    duelistNames: -1,
+  };
+
+  // Relative offsets (constant across all known SLUS builds)
+  const nameOT = cardStats + 0x15be; // 0x1c6002 - 0x1c4a44
+  const namePool = cardStats - 0x4244; // 0x1c4a44 - 0x1c0800
+  const descOT = cardStats - 0x14042; // 0x1c4a44 - 0x1b0a02
+  const descPool = cardStats - 0x14244; // 0x1c4a44 - 0x1b0800
+  const duelNames = cardStats + 0x1c0e; // 0x1c6652 - 0x1c4a44
+
+  // Validate: check that name offsets point to TBL strings
+  if (nameOT < 0 || nameOT + NUM_CARDS * 2 > exe.length) return none;
+  if (namePool < 0) return none;
+
+  let validNames = 0;
+  for (let i = 0; i < Math.min(20, NUM_CARDS); i++) {
+    const off = exe.readUInt16LE(nameOT + i * 2);
+    const addr = namePool + off;
+    if (addr >= 0 && addr < exe.length && isTblString(exe, addr)) validNames++;
+  }
+  // If fewer than half resolve to TBL strings, text isn't in this executable
+  if (validNames < 10) return none;
+
+  return {
+    nameOffsetTable: nameOT,
+    textPoolBase: namePool,
+    descOffsetTable: descOT >= 0 && descOT + NUM_CARDS * 2 <= exe.length ? descOT : -1,
+    descTextPoolBase: descPool >= 0 ? descPool : -1,
+    duelistNames: duelNames >= 0 && duelNames + NUM_DUELISTS * 2 <= exe.length ? duelNames : -1,
+  };
+}
+
+/** Check if `buf[addr]` starts a valid TBL string (bytes 0x00–0xF8 ending with 0xFF within limit). */
+function isTblString(buf: Buffer, addr: number, limit = 100): boolean {
+  for (let i = 0; i < limit && addr + i < buf.length; i++) {
+    const b = byte(buf, addr + i);
+    if (b === 0xff) return i > 0; // found terminator after at least 1 char
+    if (b === 0xfe) continue; // newline
+    if (b === 0xf8) {
+      i += 2;
+      continue;
+    } // control sequence
+    if (CHAR_TABLE[b] === undefined) return false; // invalid TBL byte
+  }
+  return false;
+}
+
+/** Check a password uint32 is valid: either 0xFFFFFFFE (no password) or all-BCD nibbles (0-9). */
+function isValidPasswordWord(val: number): boolean {
+  if (val === 0xfffffffe || val === 0) return true;
+  for (let i = 0; i < 8; i++) {
+    if (((val >>> (i * 4)) & 0xf) > 9) return false;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// WA_MRG layout detection
+//
+// WA_MRG.MRG is a flat "merge" archive with NO internal file table or
+// directory.  Data blocks sit at hardcoded byte offsets that vary per game
+// version.  Community tools (fmlib-cpp, fmscrambler) use version-specific
+// constants.  We try each known layout and validate structurally.
+//
+// Known WA_MRG structure (US / SLUS_014.11 and RP mod):
+//   0x000000  Card thumbnails   (722 × 0x800 = 0x169000 bytes)
+//   0x169000  Full card artwork  (722 × 0x3800 bytes)
+//   0xB85000  Equip table        (0x2800 bytes)
+//   0xB87800  Fusion table       (0x10000 bytes)
+//   0xE9B000  Duelist table      (39 × 0x1800 bytes)
+//   0xFB9808  Starchip table     (722 × 8 bytes)
+//
+// Sources:
+//   github.com/forbidden-memories-coding/fmlib-cpp  DataReader.cpp
+//   github.com/forbidden-memories-coding/fmscrambler DataScrambler.cs
+// ---------------------------------------------------------------------------
+
+/** Known WA_MRG layouts, tried in order.  Each is validated structurally
+ *  against the actual file before use. */
+const KNOWN_WAMRG_LAYOUTS: WaMrgLayout[] = [
+  // Vanilla US (SLUS_014.11) and Remastered Perfected mod
+  {
+    fusionTable: 0xb8_7800,
+    equipTable: 0xb8_5000,
+    starchipTable: 0xfb_9808,
+    duelistTable: 0xe9_b000,
+  },
+  // Vanilla French (SLES_03947)
+  {
+    fusionTable: 0xde_b000,
+    equipTable: 0xde_8800,
+    starchipTable: 0x127_8808,
+    duelistTable: 0x110_d800,
+  },
+];
+
+/** Check if a valid fusion table header starts at `addr`:
+ *  2 skip bytes + 722 uint16LE offsets, mostly zero, non-decreasing non-zero values. */
+function isValidFusionHeader(waMrg: Buffer, addr: number): boolean {
+  const headerSize = 2 + NUM_CARDS * 2;
+  if (addr + FUSION_TABLE_SIZE > waMrg.length) return false;
+
+  let zeros = 0;
+  let prevNonZero = 0;
+  let firstNonZeroOff = 0;
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const v = waMrg.readUInt16LE(addr + 2 + i * 2);
+    if (v === 0) {
+      zeros++;
+      continue;
+    }
+    if (v < headerSize || v >= FUSION_TABLE_SIZE) return false;
+    if (v < prevNonZero) return false;
+    if (firstNonZeroOff === 0) firstNonZeroOff = v;
+    prevNonZero = v;
+  }
+
+  if (zeros < 100 || zeros >= NUM_CARDS - 10) return false;
+  if (firstNonZeroOff === 0 || firstNonZeroOff > headerSize * 2) return false;
+  if (byte(waMrg, addr + firstNonZeroOff) === 0) return false;
+  return true;
+}
+
+/** Check if a valid starchip table starts at `addr`:
+ *  722 entries of (cost:u32 ≤ 999999, password:u32 in BCD or 0xFFFFFFFE).
+ *  At least 100 cards must have a non-zero cost. */
+function isValidStarchipTable(waMrg: Buffer, addr: number): boolean {
+  const totalSize = NUM_CARDS * 8;
+  if (addr + totalSize > waMrg.length) return false;
+
+  let nonZeroCosts = 0;
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const off = addr + i * 8;
+    const cost = waMrg.readUInt32LE(off);
+    if (cost > 999999) return false;
+    if (cost > 0) nonZeroCosts++;
+    if (!isValidPasswordWord(waMrg.readUInt32LE(off + 4))) return false;
+  }
+  return nonZeroCosts > 100;
+}
+
+/** Check if a valid duelist table starts at `addr`:
+ *  Spot-check a few duelists for sparse uint16 probability arrays. */
+function isValidDuelistBlock(waMrg: Buffer, addr: number): boolean {
+  const totalSize = NUM_DUELISTS * DUELIST_ENTRY_SIZE;
+  if (addr + totalSize > waMrg.length) return false;
+
+  const poolOffsets = [
+    DUELIST_DECK_OFFSET,
+    DUELIST_SA_POW_OFFSET,
+    DUELIST_BCD_OFFSET,
+    DUELIST_SA_TEC_OFFSET,
+  ];
+
+  for (const di of [0, 10, 19, 29, 38]) {
+    const entryBase = addr + di * DUELIST_ENTRY_SIZE;
+    for (const poolOff of poolOffsets) {
+      const poolBase = entryBase + poolOff;
+      let zeros = 0;
+      for (let c = 0; c < NUM_CARDS; c++) {
+        const v = waMrg.readUInt16LE(poolBase + c * 2);
+        if (v === 0) zeros++;
+        if (v > 2048) return false;
+      }
+      if (zeros < 300) return false;
+    }
+    // Deck pool must have some entries
+    let deckNonZero = 0;
+    for (let c = 0; c < NUM_CARDS; c++) {
+      if (waMrg.readUInt16LE(entryBase + DUELIST_DECK_OFFSET + c * 2) > 0) deckNonZero++;
+    }
+    if (deckNonZero < 5) return false;
+  }
+  return true;
+}
+
+function detectWaMrgLayout(waMrg: Buffer): WaMrgLayout {
+  for (const candidate of KNOWN_WAMRG_LAYOUTS) {
+    if (isValidWaMrgLayout(waMrg, candidate)) return candidate;
+  }
+  throw new Error(
+    "Could not match WA_MRG.MRG to any known layout " +
+      `(file size: 0x${waMrg.length.toString(16)})`,
+  );
+}
+
+/** Validate a candidate layout against the actual WA_MRG data.
+ *  Every table must pass structural checks. */
+function isValidWaMrgLayout(waMrg: Buffer, layout: WaMrgLayout): boolean {
+  const { fusionTable, equipTable, starchipTable, duelistTable } = layout;
+  return (
+    isValidFusionHeader(waMrg, fusionTable) &&
+    isValidEquipStart(waMrg, equipTable) &&
+    isValidStarchipTable(waMrg, starchipTable) &&
+    isValidDuelistBlock(waMrg, duelistTable)
+  );
+}
+
+/** Check if an offset looks like the start of a valid equip table.
+ *  First entry should be (equipId: uint16 in 1-722, monsterCount: uint16 in 1-722). */
+function isValidEquipStart(waMrg: Buffer, addr: number): boolean {
+  if (addr + 4 > waMrg.length) return false;
+  const equipId = waMrg.readUInt16LE(addr);
+  const count = waMrg.readUInt16LE(addr + 2);
+  return equipId >= 1 && equipId <= NUM_CARDS && count >= 1 && count <= NUM_CARDS;
+}
+
+function detectLayout(exe: Buffer, waMrg: Buffer): void {
+  exeLayout = detectExeLayout(exe);
+  waMrgLayout = detectWaMrgLayout(waMrg);
+  cardAttributes = detectAttributeMapping(exe, exeLayout);
+}
+
+/** Determine the attribute encoding based on whether card names use color prefixes.
+ *  RP mod uses {F8 0A XX} color prefixes → distinct encoding.
+ *  Vanilla has no color prefixes → standard encoding. */
+function detectAttributeMapping(exe: Buffer, layout: ExeLayout): Record<number, string> {
+  // If text isn't in this executable, use vanilla encoding as default
+  if (layout.nameOffsetTable === -1 || layout.textPoolBase === -1) {
+    return { 0: "Light", 1: "Dark", 2: "Earth", 3: "Water", 4: "Fire", 5: "Wind" };
+  }
+
+  // Check if any card name starts with {F8 0A XX} color prefix — only RP mod uses these
+  let hasColorPrefix = false;
+  for (let i = 0; i < Math.min(100, NUM_CARDS); i++) {
+    const off = exe.readUInt16LE(layout.nameOffsetTable + i * 2);
+    const addr = layout.textPoolBase + off;
+    if (
+      addr >= 0 &&
+      addr + 2 < exe.length &&
+      (exe[addr] ?? 0) === 0xf8 &&
+      (exe[addr + 1] ?? 0) === 0x0a
+    ) {
+      hasColorPrefix = true;
+      break;
+    }
+  }
+
+  if (hasColorPrefix) {
+    // RP mod encoding
+    return { 0: "", 1: "Light", 2: "Dark", 3: "Water", 4: "Fire", 5: "Earth", 6: "Wind" };
+  }
+  // Vanilla encoding
+  return { 0: "Light", 1: "Dark", 2: "Earth", 3: "Water", 4: "Fire", 5: "Wind" };
+}
+
+// ---------------------------------------------------------------------------
 // Text decoding
 // ---------------------------------------------------------------------------
 
@@ -378,12 +756,14 @@ interface CardText {
 }
 
 function extractCardTexts(slus: Buffer): CardText[] {
+  if (exeLayout.nameOffsetTable === -1 || exeLayout.textPoolBase === -1) {
+    return Array.from({ length: NUM_CARDS }, () => ({ name: "", color: "" }));
+  }
   const results: CardText[] = [];
   for (let i = 0; i < NUM_CARDS; i++) {
-    const off = slus.readUInt16LE(NAME_OFFSET_TABLE + i * 2);
-    let addr = TEXT_POOL_BASE + off;
+    const off = slus.readUInt16LE(exeLayout.nameOffsetTable + i * 2);
+    let addr = exeLayout.textPoolBase + off;
     let color = "";
-    // {F8 0A XX} prefix encodes the card's UI color
     if ((slus[addr] ?? 0) === 0xf8) {
       color = CARD_COLORS[slus[addr + 2] ?? 0] ?? "";
       addr += 3;
@@ -394,10 +774,13 @@ function extractCardTexts(slus: Buffer): CardText[] {
 }
 
 function extractCardDescriptions(slus: Buffer): string[] {
+  if (exeLayout.descOffsetTable === -1 || exeLayout.descTextPoolBase === -1) {
+    return Array.from({ length: NUM_CARDS }, () => "");
+  }
   const results: string[] = [];
   for (let i = 0; i < NUM_CARDS; i++) {
-    const off = slus.readUInt16LE(DESC_OFFSET_TABLE + i * 2);
-    const addr = DESC_TEXT_POOL_BASE + off;
+    const off = slus.readUInt16LE(exeLayout.descOffsetTable + i * 2);
+    const addr = exeLayout.descTextPoolBase + off;
     results.push(decodeTblString(slus, addr, 500));
   }
   return results;
@@ -430,9 +813,9 @@ function extractCards(slus: Buffer, waMrg: Buffer): CardStats[] {
   const cards: CardStats[] = [];
 
   for (let i = 0; i < NUM_CARDS; i++) {
-    const raw = slus.readUInt32LE(CARD_STATS_OFFSET + i * 4);
+    const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
     const text = texts[i] ?? { name: "", color: "" };
-    const levelAttr = slus[LEVEL_ATTR_OFFSET + i] ?? 0;
+    const levelAttr = slus[exeLayout.levelAttr + i] ?? 0;
     const sc = starchips[i] ?? { cost: 0, password: "" };
     cards.push({
       id: i + 1,
@@ -444,7 +827,7 @@ function extractCards(slus: Buffer, waMrg: Buffer): CardStats[] {
       type: CARD_TYPES[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
       color: text.color,
       level: levelAttr & 0xf,
-      attribute: CARD_ATTRIBUTES[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
+      attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
       description: descriptions[i] ?? "",
       starchipCost: sc.cost,
       password: sc.password,
@@ -465,7 +848,7 @@ interface Fusion {
 }
 
 function extractFusions(waMrg: Buffer): Fusion[] {
-  const data = waMrg.subarray(FUSION_TABLE_OFFSET, FUSION_TABLE_OFFSET + FUSION_TABLE_SIZE);
+  const data = waMrg.subarray(waMrgLayout.fusionTable, waMrgLayout.fusionTable + FUSION_TABLE_SIZE);
   const fusions: Fusion[] = [];
   // The game normalizes every fusion pair so the lower card ID is material1
   // (ROM 0x19a60).  Entries where material1 > material2 are unreachable and
@@ -491,6 +874,7 @@ function extractFusions(waMrg: Buffer): Fusion[] {
     let read = 0;
 
     while (read < count) {
+      if (pos + 4 >= data.length) break; // bounds safety
       const ctrl = byte(data, pos);
       const b1 = byte(data, pos + 1);
       const b2 = byte(data, pos + 2);
@@ -542,7 +926,7 @@ interface Starchip {
 function extractStarchips(waMrg: Buffer): Starchip[] {
   const results: Starchip[] = [];
   for (let i = 0; i < NUM_CARDS; i++) {
-    const off = STARCHIP_TABLE_OFFSET + i * 8;
+    const off = waMrgLayout.starchipTable + i * 8;
     const cost = waMrg.readUInt32LE(off);
     // Password is 4 bytes read big-endian as hex string
     const passBytes = waMrg.subarray(off + 4, off + 8);
@@ -565,7 +949,7 @@ interface EquipEntry {
 }
 
 function extractEquips(waMrg: Buffer): EquipEntry[] {
-  const data = waMrg.subarray(EQUIP_TABLE_OFFSET, EQUIP_TABLE_OFFSET + EQUIP_TABLE_SIZE);
+  const data = waMrg.subarray(waMrgLayout.equipTable, waMrgLayout.equipTable + EQUIP_TABLE_SIZE);
   const equips: EquipEntry[] = [];
   let pos = 0;
 
@@ -602,10 +986,13 @@ interface DuelistData {
 }
 
 function extractDuelistNames(slus: Buffer): string[] {
+  if (exeLayout.duelistNames === -1 || exeLayout.textPoolBase === -1) {
+    return Array.from({ length: NUM_DUELISTS }, (_, i) => `Duelist ${i + 1}`);
+  }
   const names: string[] = [];
   for (let i = 0; i < NUM_DUELISTS; i++) {
-    const off = slus.readUInt16LE(DUELIST_NAMES_OFFSET + i * 2);
-    const addr = TEXT_POOL_BASE + off;
+    const off = slus.readUInt16LE(exeLayout.duelistNames + i * 2);
+    const addr = exeLayout.textPoolBase + off;
     names.push(decodeTblString(slus, addr, 100));
   }
   return names;
@@ -624,7 +1011,7 @@ function extractDuelists(slus: Buffer, waMrg: Buffer): DuelistData[] {
   const duelists: DuelistData[] = [];
 
   for (let i = 0; i < NUM_DUELISTS; i++) {
-    const base = DUELIST_TABLE_OFFSET + DUELIST_ENTRY_SIZE * i;
+    const base = waMrgLayout.duelistTable + DUELIST_ENTRY_SIZE * i;
     duelists.push({
       id: i + 1,
       name: names[i] ?? `Duelist ${i + 1}`,
@@ -794,15 +1181,19 @@ export function loadDiscData(binPath: string): { slus: Buffer; waMrg: Buffer } {
   const rootData = readSectors(bin, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE));
   const rootFiles = parseDirectory(rootData, rootSize);
 
-  const slusEntry = rootFiles.find((f) => f.name.startsWith("SLUS_"));
-  if (!slusEntry) {
-    throw new Error("No SLUS_* executable found in disc image");
+  // PS1 executables use region prefixes: SLUS (US), SLES (EU), SLPS (JP), etc.
+  const exeEntry = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
+  if (!exeEntry) {
+    throw new Error(
+      `No PS1 executable found in disc image (files: ${rootFiles.map((f) => f.name).join(", ")})`,
+    );
   }
 
-  return { slus: readIsoFile(bin, slusEntry), waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG") };
+  return { slus: readIsoFile(bin, exeEntry), waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG") };
 }
 
 export function extractAllCsvs(slus: Buffer, waMrg: Buffer): Record<string, string> {
+  detectLayout(slus, waMrg);
   const cards = extractCards(slus, waMrg);
   const fusions = extractFusions(waMrg);
   const equips = extractEquips(waMrg);
@@ -856,10 +1247,10 @@ async function main() {
 
   console.log(`  Root files: ${rootFiles.map((f) => f.name).join(", ")}`);
 
-  // Extract SLUS executable
-  const slusEntry = rootFiles.find((f) => f.name.startsWith("SLUS_"));
+  // Extract PS1 executable (SLUS for US, SLES for EU, SLPS for JP, etc.)
+  const slusEntry = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
   if (!slusEntry) {
-    console.error("Error: no SLUS_* executable found in disc image");
+    console.error("Error: no PS1 executable found in disc image");
     process.exit(1);
   }
   console.log(`  Executable: ${slusEntry.name} (${(slusEntry.size / 1024).toFixed(0)} KB)`);
@@ -869,7 +1260,8 @@ async function main() {
   const waMrg = findFile(bin, rootFiles, "DATA/WA_MRG.MRG");
   console.log(`  WA_MRG.MRG: ${(waMrg.length / 1024 / 1024).toFixed(1)} MB`);
 
-  // Extract data
+  // Detect data offsets and extract
+  detectLayout(slus, waMrg);
   const cards = extractCards(slus, waMrg);
   const fusions = extractFusions(waMrg);
   const equips = extractEquips(waMrg);

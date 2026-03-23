@@ -24,7 +24,9 @@ Extract all 25,146 fusions without out-of-bounds errors.
 2. **Identify which 15 fusions are missing.** Compare the 25,131 extracted rows against the 25,146 reference rows. The 15 missing fusions likely involve specific cards whose fusion data sits at the very end of the table.
 3. **Check if the reference has the right count.** The reference was built from community JSON data. It's possible the reference has 15 extra fusions that don't exist in the binary (community data errors). Or the binary has them but the bounds check skips them.
 4. **Understand the fusion table layout more precisely.** The per-card offset header has 722 uint16 entries. For the 15 missing fusions, check which cards they belong to (material1_id) and whether those cards' offset entries point near the end of the table.
-5. **If this is a file-table issue:** Once plan 01 (WA_MRG file table) is implemented, the file table will provide the exact size of the fusion table file. Use that size instead of the hardcoded 64KB.
+5. **No file-table size available (plan 01 outcome):** WA_MRG has no internal file table, so the fusion table size cannot be derived from metadata.  However, with `KNOWN_WAMRG_LAYOUTS` we know that equip and fusion are contiguous (equip ends exactly where fusion begins), so the fusion table's *upper* bound is wherever the next known data block starts.  Check whether the 15 missing entries sit just past the 64 KB boundary.
+6. **Cross-check with community tools.** Compare the 15 missing fusions against community fusion databases (YGO FM Database, fmlib reference data) to confirm whether they exist in the binary or are reference-data errors.
+7. **Update downstream plans.** If the fusion table size changes, update plan 08 (module split) and 09 (unit tests) accordingly.
 
 ## Implementation
 
@@ -32,7 +34,7 @@ Option A (if fusion table is exactly 64KB):
 - The bounds check `pos + 4 >= data.length` uses `>=` which rejects the very last valid 5-byte entry at positions 65531-65535. Change to `pos + 4 > data.length` (strictly greater) to allow reading up to the last byte.
 
 Option B (if fusion table extends beyond 64KB):
-- Increase `FUSION_TABLE_SIZE` or, better, derive the size from the WA_MRG file table (plan 01).
+- Increase `FUSION_TABLE_SIZE`.  Use the gap between the fusion offset and the next known table offset in `KNOWN_WAMRG_LAYOUTS` as an upper bound.
 
 Option C (if the 15 are reference errors):
 - Document the discrepancy and adjust the reference data.

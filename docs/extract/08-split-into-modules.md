@@ -14,7 +14,7 @@ Split into focused modules under `scripts/extract/`, each testable independently
 scripts/extract/
 ├── iso9660.ts           — Disc image reading & ISO filesystem parsing
 ├── detect-exe.ts        — PS1 executable layout detection (card stats, level/attr, text tables)
-├── detect-wamrg.ts      — WA_MRG table detection (fusion, equip, starchip, duelist)
+├── detect-wamrg.ts      — WA_MRG layout detection (KNOWN_WAMRG_LAYOUTS + structural validators)
 ├── text-decoding.ts     — TBL character table & string decoding
 ├── extract-cards.ts     — Card stats, names, descriptions, starchip/password extraction
 ├── extract-fusions.ts   — Fusion table parsing
@@ -41,7 +41,7 @@ scripts/extract/
 2. `iso9660.ts` — Move disc reading, sector parsing, ISO directory parsing
 3. `text-decoding.ts` — Move CHAR_TABLE, decodeTblString, isTblString
 4. `detect-exe.ts` — Move isValidCardStat, isValidLevelAttrTable, detectExeLayout, detectTextOffsets, detectAttributeMapping
-5. `detect-wamrg.ts` — Move all findXxxTable functions and detectWaMrgLayout
+5. `detect-wamrg.ts` — Move KNOWN_WAMRG_LAYOUTS, detectWaMrgLayout, isValidWaMrgLayout, and structural validators (isValidFusionHeader, isValidStarchipTable, isValidDuelistBlock, isValidEquipStart)
 6. `extract-cards.ts` — Move extractCardTexts, extractCardDescriptions, extractCards, extractStarchips
 7. `extract-fusions.ts` — Move extractFusions
 8. `extract-equips.ts` — Move extractEquips

@@ -26,6 +26,8 @@ Auto-detect the card count from the binary data so the script works with mods th
    - Fusion header: `2 + count * 2` bytes
    - Starchip table: `count * 8` bytes
    - Duelist pools: `count * 2` bytes each
+5. **Cross-check with community tools.** Verify the detected count against fmlib-cpp, fmscrambler, and community card databases. All known versions use 722, but confirm the detection method would generalize.
+6. **Update downstream plans.** If the detection approach changes table-size assumptions, update plans 08 (module split) and 09 (unit tests).
 
 ## Implementation
 

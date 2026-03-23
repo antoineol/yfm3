@@ -13,9 +13,11 @@ Add unit tests for the core extraction functions so that individual components c
 ### Detection functions (with small synthetic buffers)
 - `isValidCardStat(raw)` — boundary values, all-zero, max values
 - `isValidLevelAttrTable(exe, addr, cardStatsAddr)` — valid table, off-by-one, random data
-- `findFusionTable(waMrg)` — synthetic fusion header, 0xFF-filled regions (rejected), zero regions (rejected)
-- `findStarchipTable(waMrg)` — BCD validation, zero-padding rejection, correct candidate selection
-- `findDuelistTable(waMrg)` — sparse arrays with non-zero deck entries, all-zero rejection
+- `isValidFusionHeader(waMrg, addr)` — synthetic fusion header, 0xFF-filled regions (rejected), zero regions (rejected)
+- `isValidStarchipTable(waMrg, addr)` — BCD validation, zero-padding rejection, non-zero cost threshold
+- `isValidDuelistBlock(waMrg, addr)` — sparse arrays with non-zero deck entries, all-zero rejection
+- `isValidWaMrgLayout(waMrg, layout)` — full layout validation against synthetic WA_MRG buffer
+- `detectWaMrgLayout(waMrg)` — matches correct known layout, throws on unrecognised file
 - `detectAttributeMapping` — with/without color prefixes
 
 ### Extraction functions (with known binary data)

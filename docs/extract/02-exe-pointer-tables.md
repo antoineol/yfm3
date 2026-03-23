@@ -29,6 +29,8 @@ Find the pointer tables in the PS1 executable that the game uses to locate card 
    - These pointers are in the game's code or data sections
 3. **Identify the card data pointer block.** Multiple pointers (card stats, level/attr, name table, desc table, text pools) are likely stored near each other in a structured way — a "card data descriptor" block.
 4. **Cross-reference with disassembly tools.** Use community resources (MIPS disassembly of the game, fmlib-cpp source) to confirm which addresses are the pointer tables.
+5. **Cross-check with community tools.** Compare findings against fmlib-cpp, fmscrambler, TCRF wiki, and any other community documentation. If they diverge, investigate before implementing.
+6. **Update downstream plans.** If findings change assumptions in later steps (03–10), update those plans before moving on.
 
 ## Implementation
 

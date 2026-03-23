@@ -23,6 +23,8 @@ Support text extraction from the external text file used by EU/JP versions, so t
    - Identical to the English TBL but with unused slots filled with French characters
 4. **Cross-reference known card names.** Use the community reference data (tests/data/vanilla/cards.csv has English names). Check if the French text, once decoded, matches the structure (same card count, similar string lengths). Note: the reference has English names; French names will differ but numerical data should help identify cards.
 5. **Check the SLUS (US) version.** If the US vanilla version ALSO has SU.MRG alongside embedded text, that would help understand the format (English text in SU.MRG vs English text in SLUS — should match).
+6. **Cross-check with community tools.** Compare findings against fmlib-cpp, fmscrambler, TCRF wiki, and any other community documentation on SU.MRG. If they diverge, investigate before implementing.
+7. **Update downstream plans.** If findings change assumptions in later steps (07 TBL charset, 08 module split), update those plans before moving on.
 
 ## Implementation
 

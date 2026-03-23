@@ -26,6 +26,8 @@ Extract the attribute name table from the executable, eliminating the need for h
 2. **Verify table location.** Decode the strings at the candidate address. They should match known attribute names.
 3. **Check across versions.** Does the vanilla French exe have the same table at the same relative position? (It might — the strings would be French: "Lumière", "Ténèbres", etc., or could be English since the game might not localize attribute names.)
 4. **Find pointer to the table.** The game code must reference this table. Search for a pointer (RAM address = load_addr + offset) in the executable.
+5. **Cross-check with community tools.** Compare attribute name table findings against fmlib-cpp, fmscrambler, and TCRF wiki. Verify the mapping matches what community tools produce.
+6. **Update downstream plans.** If findings affect plan 09 (unit tests) or 08 (module split), update those plans.
 
 ## Implementation
 

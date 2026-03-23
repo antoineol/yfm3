@@ -1,43 +1,53 @@
-# Plan: Parse WA_MRG.MRG File Table
+# Plan: Parse WA_MRG.MRG File Table — DONE
 
 ## Problem
 
 The extraction script locates tables (fusions, equips, starchips, duelists) inside WA_MRG.MRG by scanning the entire file with heuristics: checking byte patterns, threshold counts, sector-aligned stepping. This is slow, fragile, and produces false positives that require elaborate tiebreakers.
 
-The PS1 game itself doesn't scan — it loads data by file index from a directory. WA_MRG.MRG is a "merge" archive with a file table at the start (or a known location) that maps file indices to (offset, size) pairs. The game code references entries like "file 42 = fusion table" using hardcoded indices.
-
 ## Goal
 
-Replace all WA_MRG heuristic scanning (`findFusionTable`, `findStarchipTable`, `findEquipTable`, `findDuelistTable`) with a single `parseWaMrgDirectory()` that reads the archive's file table, then looks up known file indices.
+Replace all WA_MRG heuristic scanning (`findFusionTable`, `findStarchipTable`, `findEquipTable`, `findDuelistTable`) with a reliable, non-heuristic approach.
 
-## Research Phase
+## Research Findings
 
-1. **Reverse-engineer the WA_MRG header format.** Read the first 0x1000 bytes of WA_MRG from both the RP and vanilla French bins. Look for:
-   - An array of uint32 offsets at the start (common PS1 archive pattern)
-   - Entry count in the first 2-4 bytes, followed by (offset, size) pairs
-   - Or a fixed-size directory with sentinel-terminated entries
-2. **Cross-reference with community resources.** Search for "WA_MRG format", "YGO FM MRG archive", "fmlib", "fmscrambler" documentation. The code comments already mention fmlib-cpp and fmscrambler as sources.
-3. **Identify file indices.** Once the directory is parsed, compare known table offsets (confirmed by current detection) against directory entries to determine which file index corresponds to which table:
-   - Fusion table
-   - Equip table
-   - Starchip/password table
-   - Duelist table
-   - Card thumbnail images (offset 0x000000)
-   - Full card artwork (offset ~0x169000)
+### WA_MRG has no internal file table
 
-## Implementation
+WA_MRG.MRG is a flat "merge" archive — a byte-level concatenation of game assets with **no directory, header, or file table**. The first bytes are card thumbnail pixel data (not metadata).
 
-1. Write `parseWaMrgDirectory(waMrg: Buffer): WaMrgEntry[]` that returns `{index, offset, size}` for each file.
-2. Write `resolveWaMrgLayout(entries: WaMrgEntry[]): WaMrgLayout` that maps known file indices to the layout struct.
-3. Remove `findFusionTable`, `findStarchipTable`, `findEquipTable`, `findDuelistTable`, and all their heuristic helpers.
-4. Keep the current heuristic functions as a fallback path (gated behind a flag or try/catch) until the file-table approach is validated on multiple versions.
+Evidence:
+1. **Hex dump**: first 0x200 bytes of WA_MRG are 8bpp pixel values for card #1's thumbnail, not any index structure.
+2. **Community tools**: Both fmlib-cpp (`DataReader.cpp`) and fmscrambler (`DataScrambler.cs`) use hardcoded byte offsets — `0xB87800` for fusions, `0xB85000` for equips, `0xFB9808` for starchips, `0xE9B000` for duelists — with no parsing of a directory.
+3. **Exe sector table**: The executable contains a 1536-entry uint16LE sector table at file offset 0x1034, but it maps background/3D-model file indices to sectors within WA_MRG, **not** the data tables we need. Entry sizes (2-4 sectors each) don't match data table sizes, and the indices are inconsistent across versions.
+4. **TCRF / community docs**: The "MRG" name stands for "merged" — a Perl script (`over.pl`) concatenated assets during build. LBAs are hardcoded at compile time.
+
+### Known offsets per version
+
+| Table | US / RP (SLUS_014.11) | French (SLES_03947) |
+|---|---|---|
+| Card thumbnails | 0x000000 | 0x000000 |
+| Full artwork | 0x169000 | 0x169000 |
+| Equip table | 0xB85000 | 0xDE8800 |
+| Fusion table | 0xB87800 | 0xDEB000 |
+| Duelist table | 0xE9B000 | 0x110D800 |
+| Starchip table | 0xFB9808 | 0x1278808 |
+
+Sources: fmlib-cpp, fmscrambler, heuristic scanning cross-validation.
+
+## Implementation (adapted)
+
+Since no file table exists, the approach was adapted:
+
+1. **`KNOWN_WAMRG_LAYOUTS`** — an array of `WaMrgLayout` objects with known byte offsets for each supported version (US/RP and French).
+2. **`detectWaMrgLayout(waMrg)`** — iterates over `KNOWN_WAMRG_LAYOUTS` and returns the first one that passes structural validation.
+3. **Structural validators** — `isValidFusionHeader`, `isValidStarchipTable`, `isValidDuelistBlock`, `isValidEquipStart` check that each table's bytes conform to the expected format, ensuring we don't silently use wrong offsets on an unknown version.
+4. **Removed** `findFusionTable`, `findStarchipTable`, `findEquipTable`, `findDuelistTable` and all heuristic scanning helpers. Archived to `scripts/archive/wamrg-heuristic-scanning.ts` for future offset discovery.
 
 ## Validation
 
-- `bun verify:rp` must pass 4/4.
-- `bun verify:vanilla` must produce the same results as before (equips ✓, fusions ~25131, etc.).
-- The detected offsets from the file table must match the offsets previously found by heuristic scanning.
+- `bun verify:rp` passes 4/4. ✓
+- `bun verify:vanilla` produces the same results as before (equips ✓, fusions 25131, same text/name differences). ✓
 
 ## Files
 
-- `scripts/extract-game-data.ts` (or new module `scripts/extract/wamrg-archive.ts`)
+- `scripts/extract-game-data.ts` — known-layout detection + validators
+- `scripts/archive/wamrg-heuristic-scanning.ts` — archived scanning functions

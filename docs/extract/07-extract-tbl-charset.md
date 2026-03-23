@@ -20,6 +20,8 @@ Extract the character mapping from the binary so text decoding works for any lan
 3. **Check if the TBL maps to Unicode.** The Konami TBL format is well-documented in the ROM hacking community. Tools like "common TBL editor" or "common character table" might have the YGO FM TBL already.
 4. **Identify the table by searching for known byte sequences.** In the US version, byte 0 = " ", byte 1 = "e", byte 2 = "t". These map to the English frequency order. The French version should have a different frequency order (e.g., "e" is still most common but "s" and "a" are more common than "t").
 5. **Consider runtime extraction.** Use an emulator to dump the character table from RAM after the game loads. This gives the definitive mapping.
+6. **Cross-check with community tools.** Compare findings against fmlib-cpp's `Dict` mapping, fmscrambler's `CharacterTable.txt`, and ROM-hacking community TBL files for YGO FM.
+7. **Update downstream plans.** If the charset extraction approach changes, update plan 03 (SU.MRG text) and 09 (unit tests).
 
 ## Implementation
 
