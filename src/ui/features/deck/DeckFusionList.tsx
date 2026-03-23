@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DeckFusion } from "../../../engine/deck-fusion-finder.ts";
-import { findDeckFusions } from "../../../engine/deck-fusion-finder.ts";
+
+import type { CardId } from "../../../engine/data/card-model.ts";
+import { type DeckFusion, findDeckFusions } from "../../../engine/deck-fusion-finder.ts";
+import { CardName } from "../../components/CardName.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import { useFusionDepth } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -117,10 +119,24 @@ function FusionRow({
 
   return (
     <div className="flex items-baseline gap-2 text-sm py-0.5 px-1">
-      <span className="font-display text-gold-bright truncate">{fusion.resultName}</span>
+      <CardName
+        cardId={fusion.resultCardId as CardId}
+        className="font-display text-gold-bright truncate"
+        name={fusion.resultName}
+      />
       <span className="font-mono font-bold text-stat-atk tabular-nums">{fusion.resultAtk}</span>
-      <span className="text-text-muted text-xs">
-        {"\u2190"} {path.map((id) => getName(id)).join(" + ")}
+      <span className="text-text-muted text-xs flex items-baseline gap-1">
+        {"\u2190"}{" "}
+        {path.map((id, i) => (
+          <span className="contents" key={id}>
+            {i > 0 && " + "}
+            <CardName
+              cardId={id as CardId}
+              className="text-text-muted hover:text-gold"
+              name={getName(id)}
+            />
+          </span>
+        ))}
       </span>
     </div>
   );
