@@ -29,32 +29,23 @@ export function CardDetailModal() {
   );
 }
 
-const BACK_CLOSE_KEY = "cardDetailModal";
-
-/** Clean up orphaned history entry left by a page refresh while the modal was open. */
-if (typeof window !== "undefined" && (history.state as Record<string, unknown>)?.[BACK_CLOSE_KEY]) {
-  history.back();
-}
-
-/** Push a history entry while `isOpen` is true so the hardware back button calls `onClose`. */
+/** Intercept the hardware back button while `isOpen` and call `onClose` instead of navigating. */
 function useBackClose(isOpen: boolean, onClose: () => void) {
   useEffect(() => {
     if (!isOpen) return;
 
-    history.pushState({ [BACK_CLOSE_KEY]: true }, "");
-    let closedByBack = false;
+    const url = location.href;
 
     const onPopState = () => {
-      closedByBack = true;
+      // Remove immediately so a rapid second tap navigates normally.
+      window.removeEventListener("popstate", onPopState);
+      // Undo the back navigation — stay on the current page.
+      history.pushState(null, "", url);
       onClose();
     };
 
     window.addEventListener("popstate", onPopState);
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      // Closed via UI (backdrop / close button / Escape) — remove the history entry we pushed.
-      if (!closedByBack) history.back();
-    };
+    return () => window.removeEventListener("popstate", onPopState);
   }, [isOpen, onClose]);
 }
 
