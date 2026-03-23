@@ -19,16 +19,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// sharp lives in scripts/package.json to avoid bloating the Vercel deployment.
-// Run `cd scripts && bun install` before using this script.
-// Type stub in scripts/sharp.d.ts keeps tsc happy without installing the package.
-// biome-ignore lint/suspicious/noExplicitAny: dynamic import avoids build-time dependency
-const sharp: any = await import("sharp")
-  .then((m) => m.default)
-  .catch(() => {
-    console.error("sharp is required: run `cd scripts && bun install`");
-    process.exit(1);
-  });
+// biome-ignore lint/suspicious/noExplicitAny: loaded lazily to avoid bloating non-image callers
+let sharp: any;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -785,6 +777,47 @@ function duelistsToCsv(duelists: DuelistData[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// Reusable extraction API (used by verify-game-data.ts)
+// ---------------------------------------------------------------------------
+
+export function loadDiscData(binPath: string): { slus: Buffer; waMrg: Buffer } {
+  const bin = fs.readFileSync(binPath);
+
+  const pvd = readSector(bin, PVD_SECTOR);
+  if (pvd.subarray(1, 6).toString("ascii") !== "CD001") {
+    throw new Error("Not a valid ISO 9660 disc image");
+  }
+
+  const rootRecord = pvd.subarray(156, 190);
+  const rootExtent = rootRecord.readUInt32LE(2);
+  const rootSize = rootRecord.readUInt32LE(10);
+  const rootData = readSectors(bin, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE));
+  const rootFiles = parseDirectory(rootData, rootSize);
+
+  const slusEntry = rootFiles.find((f) => f.name.startsWith("SLUS_"));
+  if (!slusEntry) {
+    throw new Error("No SLUS_* executable found in disc image");
+  }
+
+  return { slus: readIsoFile(bin, slusEntry), waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG") };
+}
+
+export function extractAllCsvs(slus: Buffer, waMrg: Buffer): Record<string, string> {
+  const cards = extractCards(slus, waMrg);
+  const fusions = extractFusions(waMrg);
+  const equips = extractEquips(waMrg);
+  const duelists = extractDuelists(slus, waMrg);
+  const cardAtk = new Map(cards.map((c) => [c.id, c.atk]));
+
+  return {
+    "cards.csv": cardsToCsv(cards),
+    "fusions.csv": fusionsToCsv(fusions, cardAtk),
+    "equips.csv": equipsToCsv(equips),
+    "duelists.csv": duelistsToCsv(duelists),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -864,6 +897,15 @@ async function main() {
   fs.writeFileSync(duelistsPath, duelistsToCsv(duelists));
   console.log(`Wrote ${duelists.length} duelists to ${duelistsPath}`);
 
+  // sharp lives in scripts/package.json to avoid bloating the Vercel deployment.
+  // Run `cd scripts && bun install` before using this script.
+  sharp = await import("sharp")
+    .then((m) => m.default)
+    .catch(() => {
+      console.error("sharp is required for image extraction: run `cd scripts && bun install`");
+      process.exit(1);
+    });
+
   // Extract full card artwork (102×96)
   const artDir = "./public/images/artwork";
   fs.mkdirSync(artDir, { recursive: true });
@@ -877,4 +919,6 @@ async function main() {
   console.log(`Wrote ${NUM_CARDS} card artwork images to ${artDir}/`);
 }
 
-void main();
+if (process.argv[1]?.endsWith("extract-game-data.ts")) {
+  void main();
+}

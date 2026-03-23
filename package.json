@@ -17,6 +17,7 @@
     "lint:fix": "biome check --write .",
     "typecheck": "tsc -b",
     "gen:ref": "bun run scripts/generate-fixtures.ts",
+    "verify:rp": "bun run scripts/verify-game-data.ts 'gamedata/rp-bin/Yu-Gi-Oh! FM REMASTERED PERFECTED  .bin' tests/data/rp",
     "bridge": "node bridge/watch.mjs",
     "bridge:build": "bash scripts/build-bridge-zip.sh",
     "bridge:bump": "cd bridge && npm version patch && npm install",
