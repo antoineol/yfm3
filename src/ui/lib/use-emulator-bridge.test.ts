@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeOwnedCards, interpretRawState } from "./use-emulator-bridge.ts";
+import {
+  computeOwnedCards,
+  ENDED_STALE_MS,
+  type EndedTracker,
+  INITIAL_ENDED_TRACKER,
+  interpretRawState,
+  resolveEndedPhase,
+} from "./use-emulator-bridge.ts";
 
 function makeRaw(overrides: Record<string, unknown> = {}) {
   return {
@@ -321,5 +328,109 @@ describe("computeOwnedCards", () => {
     const deck = [0, 0, 5];
     const result = computeOwnedCards(trunk, deck);
     expect(result).toEqual({ 5: 1 });
+  });
+});
+
+describe("resolveEndedPhase", () => {
+  const T = 1_000_000;
+
+  function initial(): EndedTracker {
+    return { ...INITIAL_ENDED_TRACKER };
+  }
+
+  it("passes through in-duel phases and resets tracker", () => {
+    const { effectivePhase, tracker } = resolveEndedPhase(
+      { inDuel: true, phase: "hand" },
+      42,
+      { sceneId: 10, sceneLeft: true, at: T, wasInDuel: false },
+      T + 1000,
+    );
+    expect(effectivePhase).toBe("hand");
+    expect(tracker).toEqual({ sceneId: null, sceneLeft: false, at: null, wasInDuel: true });
+  });
+
+  it("passes through non-ended out-of-duel phases, preserving tracker", () => {
+    const prev: EndedTracker = { sceneId: 10, sceneLeft: false, at: T, wasInDuel: false };
+    const { effectivePhase, tracker } = resolveEndedPhase(
+      { inDuel: false, phase: "other" },
+      42,
+      prev,
+      T + 1000,
+    );
+    expect(effectivePhase).toBe("other");
+    expect(tracker.sceneId).toBe(10);
+    expect(tracker.wasInDuel).toBe(false);
+  });
+
+  it("marks genuine 'ended' on duel-exit transition", () => {
+    const { effectivePhase, tracker } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      { ...initial(), wasInDuel: true },
+      T,
+    );
+    expect(effectivePhase).toBe("ended");
+    expect(tracker).toEqual({ sceneId: 42, sceneLeft: false, at: T, wasInDuel: false });
+  });
+
+  it("keeps 'ended' while still on the same scene within time limit", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
+      T + 5000,
+    );
+    expect(effectivePhase).toBe("ended");
+  });
+
+  it("overrides to 'other' when sceneId changes", () => {
+    const { effectivePhase, tracker } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      99,
+      { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
+      T + 5000,
+    );
+    expect(effectivePhase).toBe("other");
+    expect(tracker.sceneLeft).toBe(true);
+  });
+
+  it("stays 'other' once scene was left, even if sceneId returns to original", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      { sceneId: 42, sceneLeft: true, at: T, wasInDuel: false },
+      T + 5000,
+    );
+    expect(effectivePhase).toBe("other");
+  });
+
+  it("overrides to 'other' when no duel was observed this session", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      initial(),
+      T,
+    );
+    expect(effectivePhase).toBe("other");
+  });
+
+  it("overrides to 'other' after time expires even on same scene", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
+      T + ENDED_STALE_MS + 1,
+    );
+    expect(effectivePhase).toBe("other");
+  });
+
+  it("keeps 'ended' just before time expires", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      42,
+      { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
+      T + ENDED_STALE_MS - 1,
+    );
+    expect(effectivePhase).toBe("ended");
   });
 });

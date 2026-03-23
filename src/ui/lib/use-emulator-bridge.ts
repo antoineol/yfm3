@@ -168,6 +168,95 @@ function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
   return "other";
 }
 
+// ── Stale "ended" phase resolution (pure, testable) ─────────────────
+
+/** Tracks state needed to detect stale "ended" phases between messages. */
+export type EndedTracker = {
+  sceneId: number | null;
+  sceneLeft: boolean;
+  at: number | null;
+  wasInDuel: boolean;
+};
+
+export const ENDED_STALE_MS = 15_000;
+
+export const INITIAL_ENDED_TRACKER: EndedTracker = {
+  sceneId: null,
+  sceneLeft: false,
+  at: null,
+  wasInDuel: false,
+};
+
+/**
+ * Determine whether the "ended" phase from RAM is genuine (user is on
+ * results screen) or stale (user navigated away). Returns the effective
+ * phase and an updated tracker.
+ *
+ * Stale signals (any one triggers override to "other"):
+ * 1. No duel was ever observed ending this session (sceneId null).
+ * 2. sceneId changed since the duel ended (user navigated away).
+ * 3. sceneId returned to the ended value after leaving (scene-left flag).
+ * 4. More than ENDED_STALE_MS elapsed since the duel ended.
+ */
+export function resolveEndedPhase(
+  interpreted: { inDuel: boolean; phase: DuelPhase },
+  msgSceneId: number,
+  prev: EndedTracker,
+  now: number,
+): { effectivePhase: DuelPhase; tracker: EndedTracker } {
+  // In duel — clear tracker
+  if (interpreted.inDuel) {
+    return {
+      effectivePhase: interpreted.phase,
+      tracker: { sceneId: null, sceneLeft: false, at: null, wasInDuel: true },
+    };
+  }
+
+  // Not "ended" — pass through, just update wasInDuel
+  if (interpreted.phase !== "ended") {
+    return {
+      effectivePhase: interpreted.phase,
+      tracker: { ...prev, wasInDuel: false },
+    };
+  }
+
+  // phase === "ended" && !inDuel
+
+  // Just transitioned out of duel → genuine, record scene + timestamp
+  if (prev.wasInDuel) {
+    return {
+      effectivePhase: "ended",
+      tracker: { sceneId: msgSceneId, sceneLeft: false, at: now, wasInDuel: false },
+    };
+  }
+
+  // Already was not in duel — check staleness
+  if (
+    prev.sceneId === null || // never observed a duel end this session
+    prev.sceneLeft || // user already navigated away once
+    (prev.at !== null && now - prev.at > ENDED_STALE_MS) // time expired
+  ) {
+    return {
+      effectivePhase: "other",
+      tracker: { ...prev, wasInDuel: false },
+    };
+  }
+
+  // Scene changed from where duel ended → mark as left, stale
+  if (prev.sceneId !== msgSceneId) {
+    return {
+      effectivePhase: "other",
+      tracker: { ...prev, sceneLeft: true, wasInDuel: false },
+    };
+  }
+
+  // Still on results screen (sceneId matches, not left, not timed out)
+  return {
+    effectivePhase: "ended",
+    tracker: { ...prev, wasInDuel: false },
+  };
+}
+
 // ── Public hook types ────────────────────────────────────────────────
 
 export type BridgeStatus = "disconnected" | "connecting" | "connected";
@@ -223,12 +312,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
-  // Track duel-end transitions to detect stale "ended" phase.
-  // When inDuel goes true→false with phase "ended", we record the sceneId.
-  // If sceneId later changes (user left results screen), we override phase
-  // to "other" so the UI stops showing "Duel complete".
-  const wasInDuelRef = useRef(false);
-  const endedSceneIdRef = useRef<number | null>(null);
+  const endedTrackerRef = useRef<EndedTracker>(INITIAL_ENDED_TRACKER);
 
   const connect = useCallback(() => {
     if (!enabledRef.current) return;
@@ -258,23 +342,13 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setVersion(msg.version ?? null);
           const state = interpretRawState(msg);
 
-          // Resolve stale "ended" phase via sceneId tracking.
-          let effectivePhase = state.phase;
-          if (state.inDuel) {
-            endedSceneIdRef.current = null;
-          } else if (state.phase === "ended") {
-            if (wasInDuelRef.current) {
-              // Just transitioned out of duel → record scene
-              endedSceneIdRef.current = msg.sceneId;
-            } else if (
-              endedSceneIdRef.current === null ||
-              endedSceneIdRef.current !== msg.sceneId
-            ) {
-              // Never saw a duel this session, or scene changed → stale
-              effectivePhase = "other";
-            }
-          }
-          wasInDuelRef.current = state.inDuel;
+          const { effectivePhase, tracker } = resolveEndedPhase(
+            state,
+            msg.sceneId,
+            endedTrackerRef.current,
+            Date.now(),
+          );
+          endedTrackerRef.current = tracker;
 
           setHand(state.hand);
           setField(state.field);
