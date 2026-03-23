@@ -60,7 +60,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
 
   return (
     <FusionTableProvider>
-      <Tabs.Root className="h-dvh flex flex-col" onValueChange={setTab} value={tab}>
+      <Tabs.Root className="h-dvh flex flex-col overflow-hidden" onValueChange={setTab} value={tab}>
         <Header
           bridge={bridge}
           bridgeAutoSync={bridgeAutoSync}

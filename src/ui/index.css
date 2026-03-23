@@ -1031,11 +1031,17 @@ input[type="number"] {
 .bridge-status {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px 4px 8px;
+  gap: 0;
+  padding: 5px;
   border-radius: 999px;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
+}
+@media (min-width: 1024px) {
+  .bridge-status {
+    gap: 6px;
+    padding: 4px 10px 4px 8px;
+  }
 }
 
 .bridge-status-dot {

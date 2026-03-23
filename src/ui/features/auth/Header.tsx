@@ -38,8 +38,8 @@ export function Header({
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
-      <div className="flex items-center gap-2">
-        <h1 className="font-display text-base lg:text-lg font-bold text-gold">YFM Copilot</h1>
+      <div className="flex items-center gap-2 min-w-0">
+        <h1 className="hidden lg:block font-display text-lg font-bold text-gold">YFM Copilot</h1>
         <ModSelector />
       </div>
 
@@ -143,7 +143,7 @@ function BridgeToggle({
       {bridgeAutoSync && (
         <span className={`bridge-status ${statusClass}`} title={statusTitle}>
           <span className="bridge-status-dot" />
-          <span className="bridge-status-label">{statusLabel}</span>
+          <span className="bridge-status-label hidden lg:inline">{statusLabel}</span>
         </span>
       )}
 
@@ -179,7 +179,7 @@ function ModSelector() {
 
   return (
     <select
-      className="bg-bg-panel border border-border-subtle rounded px-1.5 py-0.5 text-xs font-display text-text-secondary hover:text-text-primary cursor-pointer focus:outline-none focus:border-border-accent"
+      className="min-w-0 bg-bg-panel border border-border-subtle rounded px-1.5 py-0.5 text-xs font-display text-text-secondary hover:text-text-primary cursor-pointer focus:outline-none focus:border-border-accent truncate"
       onChange={(e) => void setSelectedMod({ selectedMod: e.target.value as ModId })}
       value={selectedMod}
     >
