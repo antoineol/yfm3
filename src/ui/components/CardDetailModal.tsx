@@ -1,5 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
@@ -29,24 +29,42 @@ export function CardDetailModal() {
   );
 }
 
-/** Intercept the hardware back button while `isOpen` and call `onClose` instead of navigating. */
+/**
+ * Intercept the hardware back button while `isOpen` and call `onClose`
+ * instead of navigating.
+ *
+ * Pushes a sentinel history entry when the modal opens so that pressing
+ * back only pops the sentinel — real history entries are never consumed.
+ * When the modal is closed by other means (X button, backdrop), the
+ * sentinel is removed programmatically.
+ */
 function useBackClose(isOpen: boolean, onClose: () => void) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const url = location.href;
+    // Push a sentinel so "back" pops it instead of a real entry.
+    history.pushState({ modalSentinel: true }, "");
+
+    let closedByBack = false;
 
     const onPopState = () => {
-      // Remove immediately so a rapid second tap navigates normally.
-      window.removeEventListener("popstate", onPopState);
-      // Undo the back navigation — stay on the current page.
-      history.pushState(null, "", url);
-      onClose();
+      closedByBack = true;
+      onCloseRef.current();
     };
 
     window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [isOpen, onClose]);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      // Modal closed by UI (not back button) — remove the sentinel.
+      if (!closedByBack) {
+        history.back();
+      }
+    };
+  }, [isOpen]);
 }
 
 function MobileCloseFooter() {
