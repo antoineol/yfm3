@@ -1,5 +1,7 @@
 # Plan: Split extract-game-data.ts into Modules
 
+## Status: DONE
+
 ## Problem
 
 `scripts/extract-game-data.ts` is ~1350 lines in a single file, mixing disc I/O, ISO 9660 parsing, offset detection, data extraction, image processing, CSV serialization, and CLI. This makes it hard to test individual components, reason about dependencies, and work on one area without touching others.

@@ -1,0 +1,251 @@
+// ---------------------------------------------------------------------------
+// TBL character tables & string decoding
+// ---------------------------------------------------------------------------
+
+/** PAL/EU character encoding (TBL), frequency-ordered for multi-language text.
+ *  Used in WA_MRG.MRG on PAL discs (SLES) where text was relocated from the exe.
+ *  92 entries: basic Latin shared across all 5 languages, plus accented characters
+ *  (é è ê â î ô û ï œ Œ É à ä ö ü ß í ó ú ñ ° º ª) and punctuation.
+ *  Derived by matching known card names (EN/FR/DE/IT/ES) against raw bytes.
+ *  One known per-language conflict: 0x3f = œ (FR/DE/IT) / á (ES). Default: œ. */
+// prettier-ignore
+export const PAL_CHAR_TABLE: string[] = (() => {
+  const t: string[] = [];
+  const m: [number, string][] = [
+    [0x00, " "],
+    [0x01, "e"],
+    [0x02, "a"],
+    [0x03, "i"],
+    [0x04, "n"],
+    [0x05, "r"],
+    [0x06, "o"],
+    [0x07, "t"],
+    [0x08, "s"],
+    [0x09, "l"],
+    [0x0a, "u"],
+    [0x0b, "d"],
+    [0x0c, "c"],
+    [0x0d, "."],
+    [0x0e, "m"],
+    [0x0f, "h"],
+    [0x10, "g"],
+    [0x11, "p"],
+    [0x12, "f"],
+    [0x13, "b"],
+    [0x14, "v"],
+    [0x16, "A"],
+    [0x17, "M"],
+    [0x18, "S"],
+    [0x19, "E"],
+    [0x1a, "w"],
+    [0x1b, "y"],
+    [0x1c, ","],
+    [0x1d, "q"],
+    [0x1e, "D"],
+    [0x1f, "k"],
+    [0x20, "z"],
+    [0x21, "I"],
+    [0x22, "T"],
+    [0x23, "O"],
+    [0x24, "é"],
+    [0x25, "C"],
+    [0x26, "R"],
+    [0x27, "P"],
+    [0x28, "N"],
+    [0x29, "H"],
+    [0x2a, "'"],
+    [0x2b, "G"],
+    [0x2c, "L"],
+    [0x2d, "j"],
+    [0x2e, "U"],
+    [0x2f, "α"],
+    [0x30, "K"],
+    [0x33, "F"],
+    [0x34, "B"],
+    [0x35, "W"],
+    [0x37, "-"],
+    [0x38, "Y"],
+    [0x39, "V"],
+    [0x3a, "'"],
+    [0x3b, "x"],
+    [0x3c, "J"],
+    [0x3d, "ä"],
+    [0x3e, "à"],
+    [0x3f, "œ"],
+    [0x40, "è"],
+    [0x41, "ü"],
+    [0x42, "í"],
+    [0x43, "ó"],
+    [0x44, "ö"],
+    [0x45, "Z"],
+    [0x46, "Q"],
+    [0x49, "0"],
+    [0x4b, "-"],
+    [0x4c, "ê"],
+    [0x4d, "ñ"],
+    [0x4e, "2"],
+    [0x4f, "ß"],
+    [0x50, "1"],
+    [0x51, "É"],
+    [0x52, "ú"],
+    [0x54, "3"],
+    [0x56, "î"],
+    [0x59, "ô"],
+    [0x5d, "â"],
+    [0x5e, ")"],
+    [0x5f, "#"],
+    [0x60, "("],
+    [0x65, "/"],
+    [0x66, "°"],
+    [0x67, "&"],
+    [0x69, "Œ"],
+    [0x6c, "7"],
+    [0x71, "º"],
+    [0x72, "ï"],
+    [0x77, "û"],
+    [0x7c, "ª"],
+    [0x8a, "a"],
+  ];
+  for (const [i, ch] of m) t[i] = ch;
+  return t;
+})();
+
+/** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator.
+ *  Community-reconstructed from font glyph ordering — matches fmlib-cpp Dict
+ *  and FMLibrary CharacterTable.txt. Includes duplicate glyph slots (0x51, 0x54, 0x55). */
+// prettier-ignore
+export const CHAR_TABLE: string[] = (() => {
+  const t: string[] = [];
+  const m: [number, string][] = [
+    [0, " "],
+    [1, "e"],
+    [2, "t"],
+    [3, "a"],
+    [4, "o"],
+    [5, "i"],
+    [6, "n"],
+    [7, "s"],
+    [8, "r"],
+    [9, "h"],
+    [10, "l"],
+    [11, "."],
+    [12, "d"],
+    [13, "u"],
+    [14, "m"],
+    [15, "c"],
+    [16, "g"],
+    [17, "y"],
+    [18, "w"],
+    [19, "f"],
+    [20, "p"],
+    [21, "b"],
+    [22, "k"],
+    [23, "!"],
+    [24, "A"],
+    [25, "v"],
+    [26, "I"],
+    [27, "'"],
+    [28, "T"],
+    [29, "S"],
+    [30, "M"],
+    [31, ","],
+    [32, "D"],
+    [33, "O"],
+    [34, "W"],
+    [35, "H"],
+    [36, "Y"],
+    [37, "E"],
+    [38, "R"],
+    [39, "<"],
+    [40, ">"],
+    [41, "G"],
+    [42, "L"],
+    [43, "C"],
+    [44, "N"],
+    [45, "B"],
+    [46, "?"],
+    [47, "P"],
+    [48, "-"],
+    [49, "F"],
+    [50, "z"],
+    [51, "K"],
+    [52, "j"],
+    [53, "U"],
+    [54, "x"],
+    [55, "q"],
+    [56, "0"],
+    [57, "V"],
+    [58, "2"],
+    [59, "J"],
+    [60, "#"],
+    [61, "1"],
+    [62, "Q"],
+    [63, "Z"],
+    [64, '"'],
+    [65, "3"],
+    [66, "5"],
+    [67, "&"],
+    [68, "/"],
+    [69, "7"],
+    [70, "X"],
+    [72, ":"],
+    [74, "4"],
+    [75, ")"],
+    [76, "("],
+    [78, "6"],
+    [79, "$"],
+    [80, "*"],
+    [81, ">"],
+    [84, "<"],
+    [85, "a"],
+    [86, "+"],
+    [87, "8"],
+    [89, "9"],
+    [91, "%"],
+  ];
+  for (const [i, ch] of m) t[i] = ch;
+  return t;
+})();
+
+/** Check if `buf[addr]` starts a valid TBL string (bytes 0x00–0xF8 ending with 0xFF within limit). */
+export function isTblString(buf: Buffer, addr: number, limit = 100): boolean {
+  for (let i = 0; i < limit && addr + i < buf.length; i++) {
+    const b = buf[addr + i];
+    if (b === undefined) return false;
+    if (b === 0xff) return i > 0; // found terminator after at least 1 char
+    if (b === 0xfe) continue; // newline
+    if (b === 0xf8) {
+      i += 2;
+      continue;
+    } // control sequence
+    if (CHAR_TABLE[b] === undefined) return false; // invalid TBL byte
+  }
+  return false;
+}
+
+/** Decode a TBL-encoded string from `buf` at `start` until 0xFF or `maxLen`.
+ *  0xFE = newline, 0xF8 starts a multi-byte control sequence (skipped).
+ *  `charTable` selects the encoding: CHAR_TABLE for NTSC-U, PAL_CHAR_TABLE for EU. */
+export function decodeTblString(
+  buf: Buffer,
+  start: number,
+  maxLen: number,
+  charTable: string[] = CHAR_TABLE,
+): string {
+  let result = "";
+  for (let i = start; i < start + maxLen && i < buf.length; i++) {
+    const b = buf[i] ?? 0;
+    if (b === 0xff) break;
+    if (b === 0xfe) {
+      result += "\n";
+      continue;
+    }
+    // F8 XX YY is a control/color prefix — skip 3 bytes total
+    if (b === 0xf8) {
+      i += 2;
+      continue;
+    }
+    result += charTable[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
+  }
+  return result;
+}
