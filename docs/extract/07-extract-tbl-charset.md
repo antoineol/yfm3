@@ -12,16 +12,15 @@ Extract the character mapping from the binary so text decoding works for any lan
 
 ## Research Phase
 
-1. **Find the font/glyph data.** The PS1 renders text using a bitmap font. The character table maps byte values to glyph indices or directly to pixel data. Look for:
-   - A glyph atlas image in WA_MRG (bitmap with character tiles)
-   - A byte-to-glyph mapping table in the executable
-   - Community documentation of the YGO FM font format
-2. **Compare US and French executables.** The shared code sections (identified as ~85% identical 0x90000-0x190000) should include the font rendering code. The character table itself is in a version-specific section.
-3. **Check if the TBL maps to Unicode.** The Konami TBL format is well-documented in the ROM hacking community. Tools like "common TBL editor" or "common character table" might have the YGO FM TBL already.
-4. **Identify the table by searching for known byte sequences.** In the US version, byte 0 = " ", byte 1 = "e", byte 2 = "t". These map to the English frequency order. The French version should have a different frequency order (e.g., "e" is still most common but "s" and "a" are more common than "t").
-5. **Consider runtime extraction.** Use an emulator to dump the character table from RAM after the game loads. This gives the definitive mapping.
-6. **Cross-check with community tools.** Compare findings against fmlib-cpp's `Dict` mapping, fmscrambler's `CharacterTable.txt`, and ROM-hacking community TBL files for YGO FM.
-7. **Update downstream plans.** If the charset extraction approach changes, update plan 03 (SU.MRG text) and 09 (unit tests).
+1. **Start from community findings.** This is the most important step — the TBL character table is well-documented in the ROM hacking community. Check:
+   - fmlib-cpp's `Dict` mapping — likely has the complete byte-to-character table
+   - fmscrambler's `CharacterTable.txt` — may contain a ready-to-use TBL file
+   - ROM-hacking community TBL files for YGO FM (e.g., from romhacking.net, TCRF wiki)
+   - The Konami TBL format documentation
+   Gather: the complete byte-to-character mapping, per-version differences (US/FR/JP), and whether the table is stored in the binary or is a community reconstruction.
+2. **Check if the table is in the binary.** Community tools may document whether the mapping is embedded in the executable or font atlas, or if it's purely a community-maintained reconstruction. If it's in the binary, get the offset and format.
+3. **Compare US and French versions.** Community tools likely already document per-language differences. If not, compare the US and French executables using the community-identified table location.
+4. **Update downstream plans.** If the charset extraction approach changes, update plan 03 (SU.MRG text) and 09 (unit tests).
 
 ## Implementation
 

@@ -20,13 +20,12 @@ Extract all 25,146 fusions without out-of-bounds errors.
 
 ## Research Phase
 
-1. **Check the actual fusion table size.** The constant `FUSION_TABLE_SIZE = 0x10000` (64KB) was chosen for the RP mod. The vanilla fusion table might be larger, or the data might extend slightly past 64KB. Read bytes at offset 64KB+ from the fusion table start in vanilla WA_MRG to see if there's valid fusion data there.
+1. **Start from community findings.** Check fmlib-cpp, fmscrambler, and TCRF wiki for how they handle the fusion table size and bounds. These tools have already solved the extraction — look at their fusion table size constants, parsing logic, and any documented edge cases around the table boundary.
 2. **Identify which 15 fusions are missing.** Compare the 25,131 extracted rows against the 25,146 reference rows. The 15 missing fusions likely involve specific cards whose fusion data sits at the very end of the table.
 3. **Check if the reference has the right count.** The reference was built from community JSON data. It's possible the reference has 15 extra fusions that don't exist in the binary (community data errors). Or the binary has them but the bounds check skips them.
-4. **Understand the fusion table layout more precisely.** The per-card offset header has 722 uint16 entries. For the 15 missing fusions, check which cards they belong to (material1_id) and whether those cards' offset entries point near the end of the table.
+4. **Verify against the binary.** Using community-documented table sizes and parsing approach, check the actual fusion data at the boundary. Confirm the community approach matches what we see in the binary.
 5. **No file-table size available (plan 01 outcome):** WA_MRG has no internal file table, so the fusion table size cannot be derived from metadata.  However, with `KNOWN_WAMRG_LAYOUTS` we know that equip and fusion are contiguous (equip ends exactly where fusion begins), so the fusion table's *upper* bound is wherever the next known data block starts.  Check whether the 15 missing entries sit just past the 64 KB boundary.
-6. **Cross-check with community tools.** Compare the 15 missing fusions against community fusion databases (YGO FM Database, fmlib reference data) to confirm whether they exist in the binary or are reference-data errors.
-7. **Update downstream plans.** If the fusion table size changes, update plan 08 (module split) and 09 (unit tests) accordingly.
+6. **Update downstream plans.** If the fusion table size changes, update plan 08 (module split) and 09 (unit tests) accordingly.
 
 ## Implementation
 

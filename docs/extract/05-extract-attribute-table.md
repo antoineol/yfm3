@@ -17,17 +17,11 @@ Extract the attribute name table from the executable, eliminating the need for h
 
 ## Research Phase
 
-1. **Find the attribute name table.** In the RP executable (SLUS_014.11):
-   - Type names are at 0x1C92CE (24 consecutive 0xFF-terminated TBL strings)
-   - Guardian star names are at 0x1C9380 (11 consecutive 0xFF-terminated TBL strings)
-   - The attribute name table should be nearby — look for 6-7 consecutive 0xFF-terminated TBL strings between these addresses
-   - Expected strings (RP): `"" "Light" "Dark" "Water" "Fire" "Earth" "Wind"` in TBL encoding
-   - Expected strings (vanilla): `"Light" "Dark" "Earth" "Water" "Fire" "Wind"` in TBL encoding
-2. **Verify table location.** Decode the strings at the candidate address. They should match known attribute names.
-3. **Check across versions.** Does the vanilla French exe have the same table at the same relative position? (It might — the strings would be French: "Lumière", "Ténèbres", etc., or could be English since the game might not localize attribute names.)
-4. **Find pointer to the table.** The game code must reference this table. Search for a pointer (RAM address = load_addr + offset) in the executable.
-5. **Cross-check with community tools.** Compare attribute name table findings against fmlib-cpp, fmscrambler, and TCRF wiki. Verify the mapping matches what community tools produce.
-6. **Update downstream plans.** If findings affect plan 09 (unit tests) or 08 (module split), update those plans.
+1. **Start from community findings.** Check fmlib-cpp, fmscrambler, TCRF wiki, and other community tools for how they handle attribute names. They likely already document the attribute name table's offset, structure, and encoding. Gather: table address(es), entry format, and per-version differences.
+2. **Verify against the binary.** Using the community-documented offset, read bytes at that location in the RP and vanilla executables. Decode as 0xFF-terminated TBL strings and confirm they match expected attribute names.
+3. **Check across versions.** Does the vanilla French exe have the same table at the same relative position? Community tools may already document version differences.
+4. **Find pointer to the table.** If community tools document a pointer, verify it. Otherwise search for a RAM-address pointer in the executable.
+5. **Update downstream plans.** If findings affect plan 09 (unit tests) or 08 (module split), update those plans.
 
 ## Implementation
 

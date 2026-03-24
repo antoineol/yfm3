@@ -17,12 +17,11 @@ Read the type name table and guardian star name table directly from the executab
 
 ## Research Phase
 
-1. **Verify the table locations.** Read bytes at 0x1C92CE and 0x1C9380 in the RP executable. Decode as consecutive 0xFF-terminated TBL strings. Verify they match the hardcoded mappings.
-2. **Count entries.** The type table has 24 entries (types 0-23). The guardian star table has 11 entries (0-10). Verify by counting 0xFF terminators.
-3. **Check vanilla.** Are these tables at the same relative position from card stats? If not, find them using the pointer table approach (plan 02).
-4. **Check French version.** The SLES executable might have French type names ("Dragon" = "Dragon", "Spellcaster" = "Magicien", etc.) or keep English names. If text is external (SU.MRG), these tables might be empty/absent.
-5. **Cross-check with community tools.** Compare extracted type/GS names against fmlib-cpp and community card databases. Verify the table structure matches what other tools assume.
-6. **Update downstream plans.** If findings affect plan 09 (unit tests), update it.
+1. **Start from community findings.** Check fmlib-cpp, fmscrambler, and TCRF wiki for how they handle type names and guardian star names. They likely document: table offsets, entry count, encoding format (0xFF-terminated TBL strings), and any version-specific differences. Gather the known offsets and expected values.
+2. **Verify against the binary.** Using community-documented offsets, read the tables in the RP executable. Decode as consecutive 0xFF-terminated TBL strings. Confirm they match the hardcoded `CARD_TYPES` and `GUARDIAN_STARS` mappings.
+3. **Count entries.** The type table has 24 entries (types 0-23). The guardian star table has 11 entries (0-10). Verify by counting 0xFF terminators.
+4. **Check vanilla and French versions.** Community tools may already document whether these tables are at the same relative position across versions. If not, check the vanilla and SLES executables using the pointer table approach (plan 02).
+5. **Update downstream plans.** If findings affect plan 09 (unit tests), update it.
 
 ## Implementation
 
