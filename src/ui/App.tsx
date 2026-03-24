@@ -58,6 +58,8 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
     updatePreferences({ bridgeAutoSync: !bridgeAutoSync });
   }, [bridgeAutoSync, updatePreferences]);
 
+  const showBridgeSetup = bridgeAutoSync && bridge.detail !== "ready";
+
   return (
     <FusionTableProvider>
       <Tabs.Root className="h-dvh flex flex-col overflow-hidden" onValueChange={setTab} value={tab}>
@@ -68,10 +70,10 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
         />
 
         <Tabs.Panel
-          className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr] gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto"
+          className={`flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto ${showBridgeSetup ? "flex" : "lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr]"}`}
           value="deck"
         >
-          {bridgeAutoSync && bridge.detail !== "ready" ? (
+          {showBridgeSetup ? (
             <BridgeSetupGuide bridge={bridge} onDisableSync={handleToggleBridge} />
           ) : (
             <RequireReferenceData>
@@ -90,7 +92,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
         </Tabs.Panel>
 
         <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
-          {bridgeAutoSync && bridge.detail !== "ready" ? (
+          {showBridgeSetup ? (
             <BridgeSetupGuide bridge={bridge} onDisableSync={handleToggleBridge} />
           ) : (
             <RequireReferenceData>
