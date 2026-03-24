@@ -66,6 +66,8 @@ let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
 let consecutiveZeroReads = 0;
 const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
+let hadNonZeroData = false; // true once we've seen real game data
+let reopenedAfterStale = false; // prevents repeated reopen attempts
 
 // ── WebSocket server ───────────────────────────────────────────────
 const wss = new WebSocketServer({ port: PORT });
@@ -82,16 +84,24 @@ wss.on("connection", (ws) => {
   if (mapping) {
     try {
       const state = readGameState(mapping.view);
-      const json = JSON.stringify({
-        connected: true,
-        status: "ready",
-        version: VERSION,
-        pid: mapping.pid,
-        ...state,
-      });
+      const isAllZero = state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0;
+      const json = isAllZero
+        ? JSON.stringify({
+            connected: true,
+            status: "waiting_for_game",
+            version: VERSION,
+            pid: mapping.pid,
+          })
+        : JSON.stringify({
+            connected: true,
+            status: "ready",
+            version: VERSION,
+            pid: mapping.pid,
+            ...state,
+          });
       ws.send(json);
       if (json !== lastJson) {
-        logStateChange(state);
+        if (!isAllZero) logStateChange(state);
         lastJson = json;
       }
     } catch {
@@ -108,13 +118,13 @@ wss.on("connection", (ws) => {
     ws.send(lastJson);
   }
 
-  // Handle "scan" command from client to trigger re-scan
+  // Handle "scan" command from client to force reconnect
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data.toString());
       if (msg.type === "scan") {
-        console.log("Received scan request from client");
-        void tryConnect();
+        console.log("Received scan/reconnect request from client");
+        void forceReconnect();
       }
     } catch {
       // ignore invalid messages
@@ -155,7 +165,8 @@ async function tryConnect() {
     const m = openSharedMemory(pid);
     if (m) {
       mapping = m;
-      broadcast(JSON.stringify({ connected: true, status: "ready", version: VERSION, pid }));
+      // Don't broadcast "ready" yet — the poll loop will read the actual
+      // game state and broadcast either "ready" or "waiting_for_game".
       return true;
     }
   }
@@ -169,6 +180,23 @@ async function tryConnect() {
     }),
   );
   return false;
+}
+
+/** Force-close current mapping and reconnect (used by manual reconnect button). */
+async function forceReconnect() {
+  if (mapping) {
+    try {
+      closeSharedMemory(mapping);
+    } catch {
+      /* ignore */
+    }
+    mapping = null;
+  }
+  lastJson = "";
+  consecutiveZeroReads = 0;
+  hadNonZeroData = false;
+  reopenedAfterStale = false;
+  await tryConnect();
 }
 
 // ── Diagnostic logging ────────────────────────────────────────────
@@ -314,55 +342,87 @@ async function poll() {
   if (mapping) {
     try {
       const state = readGameState(mapping.view);
-      const json = JSON.stringify({
-        connected: true,
-        status: "ready",
-        version: VERSION,
-        pid: mapping.pid,
-        ...state,
-      });
+      const isAllZero = state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0;
 
-      // Detect stale shared memory: if everything reads as zero for too
-      // long, DuckStation was likely restarted (new PID). The old mapping
-      // handle stays open but returns zeros.  Close it and reconnect.
-      if (state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0) {
+      if (isAllZero) {
+        // ── Game not loaded or shared memory stale ─────────────────
         consecutiveZeroReads++;
-        if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD) {
-          console.warn(
-            `Shared memory stale (${consecutiveZeroReads} consecutive all-zero reads). Reconnecting...`,
-          );
+
+        if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && hadNonZeroData && !reopenedAfterStale) {
+          // Had real data before → might be save-state load or emulator restart.
+          // Check if the PID is still alive to decide.
+          const pids = await findDuckStationPids();
+
+          if (!pids.includes(mapping.pid)) {
+            // PID dead → DuckStation was restarted. Close and reconnect.
+            console.warn("DuckStation PID gone. Reconnecting...");
+            try {
+              closeSharedMemory(mapping);
+            } catch {
+              /* ignore */
+            }
+            mapping = null;
+            consecutiveZeroReads = 0;
+            hadNonZeroData = false;
+            reopenedAfterStale = false;
+            lastJson = "";
+            // Will call tryConnect() next cycle
+            setTimeout(poll, POLL_MS);
+            return;
+          }
+
+          // PID alive → try reopening shared memory once (save-state case:
+          // DuckStation may have recreated the memory region).
+          console.log("Reopening shared memory (possible save-state load)...");
+          const oldPid = mapping.pid;
           try {
             closeSharedMemory(mapping);
           } catch {
             /* ignore */
           }
-          mapping = null;
+          const m = openSharedMemory(oldPid);
+          mapping = m; // may be null if reopen failed
           consecutiveZeroReads = 0;
-          lastJson = "";
-          broadcast(
-            JSON.stringify({
-              connected: false,
-              status: "no_emulator",
-              version: VERSION,
-              reason: "DuckStation may have restarted. Reconnecting...",
-            }),
-          );
-          setTimeout(poll, POLL_MS);
-          return;
+          reopenedAfterStale = true; // don't reopen again until we see real data
+        }
+
+        // Broadcast "waiting_for_game" — no game data, just status.
+        if (mapping) {
+          const json = JSON.stringify({
+            connected: true,
+            status: "waiting_for_game",
+            version: VERSION,
+            pid: mapping.pid,
+          });
+          if (json !== lastJson) {
+            console.log("Game not detected in shared memory. Waiting...");
+            lastJson = json;
+            broadcast(json);
+          }
         }
       } else {
+        // ── Real game data ─────────────────────────────────────────
         consecutiveZeroReads = 0;
-      }
+        hadNonZeroData = true;
+        reopenedAfterStale = false;
 
-      // Only broadcast on change
-      if (json !== lastJson) {
-        logStateChange(state);
-        lastJson = json;
-        broadcast(json);
-      }
+        const json = JSON.stringify({
+          connected: true,
+          status: "ready",
+          version: VERSION,
+          pid: mapping.pid,
+          ...state,
+        });
 
-      // Collection & deck tracking (separate from broadcast)
-      logCollectionDeckState(mapping.view, state.sceneId);
+        if (json !== lastJson) {
+          logStateChange(state);
+          lastJson = json;
+          broadcast(json);
+        }
+
+        // Collection & deck tracking (separate from broadcast)
+        logCollectionDeckState(mapping.view, state.sceneId);
+      }
     } catch (err) {
       console.error("Error reading game state:", err.message);
       // DuckStation may have closed — clean up and retry next poll
@@ -373,6 +433,8 @@ async function poll() {
       }
       mapping = null;
       lastJson = "";
+      hadNonZeroData = false;
+      reopenedAfterStale = false;
       broadcast(
         JSON.stringify({
           connected: false,

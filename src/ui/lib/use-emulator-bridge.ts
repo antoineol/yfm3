@@ -39,6 +39,13 @@ type RawBridgeState = {
   deckDefinition: number[];
 };
 
+type BridgeWaitingForGame = {
+  connected: true;
+  status: "waiting_for_game";
+  version?: string;
+  pid: number;
+};
+
 type BridgeDisconnected = {
   connected: false;
   status?: "no_emulator" | "no_shared_memory" | "error";
@@ -46,7 +53,7 @@ type BridgeDisconnected = {
   reason?: string;
 };
 
-type RawBridgeMessage = RawBridgeState | BridgeDisconnected;
+type RawBridgeMessage = RawBridgeState | BridgeWaitingForGame | BridgeDisconnected;
 
 // ── Duel phase bytes ─────────────────────────────────────────────────
 
@@ -269,6 +276,7 @@ export type BridgeDetail =
   | "bridge_not_found"
   | "emulator_not_found"
   | "no_shared_memory"
+  | "waiting_for_game"
   | "ready"
   | "error";
 
@@ -338,7 +346,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     ws.onmessage = (event) => {
       try {
         const msg: RawBridgeMessage = JSON.parse(event.data as string);
-        if (msg.connected) {
+        if (msg.connected && msg.status === "ready") {
+          // Full game state available
           setStatus("connected");
           setDetail("ready");
           setDetailMessage(null);
@@ -362,7 +371,22 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(state.stats);
           setCollection(computeOwnedCards(msg.trunk, msg.deckDefinition));
           setDeckDefinition(msg.deckDefinition);
-        } else {
+        } else if (msg.connected && msg.status === "waiting_for_game") {
+          // Bridge connected to DuckStation but game not loaded yet
+          setStatus("connected");
+          setDetail("waiting_for_game");
+          setDetailMessage(null);
+          setVersion(msg.version ?? null);
+          setHand([]);
+          setField([]);
+          setHandReliable(false);
+          setPhase("other");
+          setInDuel(false);
+          setLp(null);
+          setStats(null);
+          setCollection(null);
+          setDeckDefinition(null);
+        } else if (!msg.connected) {
           setStatus("connected");
           setDetail(
             msg.status === "no_emulator"

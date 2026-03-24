@@ -129,7 +129,9 @@ function BridgeToggle({
         ? "No emulator"
         : bridge.detail === "no_shared_memory"
           ? "Setup needed"
-          : "Error"
+          : bridge.detail === "waiting_for_game"
+            ? "No game"
+            : "Error"
       : "Connecting";
 
   const statusTitle = isReady

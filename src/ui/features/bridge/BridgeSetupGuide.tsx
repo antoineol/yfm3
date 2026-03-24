@@ -9,11 +9,19 @@ export function BridgeSetupGuide({
   bridge: EmulatorBridge;
   onDisableSync?: () => void;
 }) {
+  const isWaiting = bridge.detail === "waiting_for_game";
+
   return (
     <div className="max-w-lg mx-auto space-y-4">
       <StatusBanner detail={bridge.detail} detailMessage={bridge.detailMessage} />
-      <SetupSteps detail={bridge.detail} />
-      <Troubleshooting />
+      {isWaiting ? (
+        <WaitingForGamePanel onReconnect={bridge.scan} />
+      ) : (
+        <>
+          <SetupSteps detail={bridge.detail} />
+          <Troubleshooting />
+        </>
+      )}
       {onDisableSync && (
         <div className="flex items-center justify-center gap-2 text-xs text-text-muted pt-1">
           <span>Not what you wanted?</span>
@@ -26,6 +34,27 @@ export function BridgeSetupGuide({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function WaitingForGamePanel({ onReconnect }: { onReconnect: () => void }) {
+  return (
+    <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-3 text-center">
+      <p className="text-sm text-text-secondary">
+        DuckStation is connected but no game is running.
+      </p>
+      <p className="text-xs text-text-muted">
+        Launch or load <strong className="text-text-secondary">Yu-Gi-Oh! Forbidden Memories</strong>{" "}
+        in DuckStation to start syncing.
+      </p>
+      <button
+        className="text-xs text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2 cursor-pointer"
+        onClick={onReconnect}
+        type="button"
+      >
+        Reconnect
+      </button>
     </div>
   );
 }
@@ -75,6 +104,12 @@ const STATUS_CONFIG: Record<
     bg: "bg-yellow-950/20",
     text: "text-yellow-400/90",
   },
+  waiting_for_game: {
+    label: "Start or load a game in DuckStation",
+    dot: "bg-yellow-400 animate-pulse",
+    bg: "bg-yellow-950/20",
+    text: "text-yellow-400/90",
+  },
   ready: {
     label: "Connected",
     dot: "bg-green-400",
@@ -102,6 +137,7 @@ function stepStatesForDetail(detail: BridgeDetail): [StepState, StepState, StepS
   // active together. Steps 3-4 are gated by detectable bridge states.
   switch (detail) {
     case "ready":
+    case "waiting_for_game":
       return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE];
     case "no_shared_memory":
       return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE];
