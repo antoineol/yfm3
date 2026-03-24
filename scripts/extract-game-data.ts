@@ -74,6 +74,8 @@ interface WaMrgLayout {
   equipTable: number;
   starchipTable: number;
   duelistTable: number;
+  /** Artwork block size per card.  US/RP = 0x3800, PAL = 0x4000. */
+  artworkBlockSize: number;
 }
 
 let exeLayout: ExeLayout;
@@ -905,6 +907,9 @@ function isValidPasswordWord(val: number): boolean {
 //   0xE9B000  Duelist table      (39 × 0x1800 bytes)
 //   0xFB9808  Starchip table     (722 × 8 bytes)
 //
+// PAL uses 0x4000-byte artwork blocks (0x800 larger — extra card name image
+// data for multi-language support), shifting all subsequent offsets.
+//
 // Sources:
 //   github.com/forbidden-memories-coding/fmlib-cpp  DataReader.cpp
 //   github.com/forbidden-memories-coding/fmscrambler DataScrambler.cs
@@ -919,13 +924,15 @@ const KNOWN_WAMRG_LAYOUTS: WaMrgLayout[] = [
     equipTable: 0xb8_5000,
     starchipTable: 0xfb_9808,
     duelistTable: 0xe9_b000,
+    artworkBlockSize: 0x3800,
   },
-  // Vanilla French (SLES_03947)
+  // Vanilla PAL (SLES_039.47–51, all EU languages)
   {
     fusionTable: 0xde_b000,
     equipTable: 0xde_8800,
     starchipTable: 0x127_8808,
     duelistTable: 0x110_d800,
+    artworkBlockSize: 0x4000,
   },
 ];
 
@@ -1604,21 +1611,22 @@ function rgb555toRGBA(val: number, transparent: boolean): [number, number, numbe
 // ---------------------------------------------------------------------------
 
 /** Full card artwork in WA_MRG.MRG: 722 cards starting at offset 0x169000.
- *  Each card block is 0x3800 (14336) bytes:
+ *  Each card block is 0x3800 (US/RP) or 0x4000 (PAL) bytes:
  *    +0x0000: 102×96 8bpp pixel data (9792 bytes)
  *    +0x2640: 256-color RGB555 CLUT (512 bytes)
  *    +0x2840: card name image (4bpp, not extracted)
  *    +0x2AE0: 256-color thumbnail (not used, we have the 64-color ones)
+ *  PAL blocks are 0x800 bytes larger (extra card name image data for
+ *  multi-language support).
  *  Source: TCRF documentation. */
 const FULL_IMG_START = 0x16_9000;
-const FULL_IMG_BLOCK = 0x3800;
 const FULL_IMG_WIDTH = 102;
 const FULL_IMG_HEIGHT = 96;
 const FULL_IMG_PIXELS = FULL_IMG_WIDTH * FULL_IMG_HEIGHT;
 const FULL_IMG_CLUT_OFFSET = 0x2640;
 
-function extractFullCardImage(waMrg: Buffer, cardIndex: number): Buffer {
-  const blockStart = FULL_IMG_START + cardIndex * FULL_IMG_BLOCK;
+function extractFullCardImage(waMrg: Buffer, blockSize: number, cardIndex: number): Buffer {
+  const blockStart = FULL_IMG_START + cardIndex * blockSize;
   const rgba = Buffer.alloc(FULL_IMG_PIXELS * 4);
 
   for (let p = 0; p < FULL_IMG_PIXELS; p++) {
@@ -1838,8 +1846,9 @@ async function main() {
   const artDir = path.join("./public/images/artwork", modName);
   fs.mkdirSync(artDir, { recursive: true });
   const artPromises: Promise<void>[] = [];
+  const artBlockSize = waMrgLayout.artworkBlockSize;
   for (let i = 0; i < NUM_CARDS; i++) {
-    const rgba = extractFullCardImage(waMrg, i);
+    const rgba = extractFullCardImage(waMrg, artBlockSize, i);
     const filePath = path.join(artDir, `${String(i + 1).padStart(3, "0")}.webp`);
     artPromises.push(writeWebp(rgba, FULL_IMG_WIDTH, FULL_IMG_HEIGHT, filePath));
   }

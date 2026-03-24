@@ -11,7 +11,7 @@ Card stats at 0x1C4A44 and level/attr at 0x1C5B33 in ALL versions. PAL exes have
 
 ## WA_MRG: Flat Archive, No File Table
 
-Data at hardcoded offsets. PAL inserts ~1.2 MB of text between artwork (0x169000) and equip/fusion tables, shifting all subsequent offsets. Two known layouts validated structurally at runtime.
+Data at hardcoded offsets. Thumbnails at 0x000000 (722 × 0x800), artwork at 0x169000. US/RP uses 0x3800-byte artwork blocks; PAL uses 0x4000-byte blocks (extra 0x800 per card for multi-language card name images). PAL text lives at ~0xCC0000–0xDE0000, between artwork and equip/fusion tables, shifting all subsequent offsets. Two known layouts validated structurally at runtime.
 
 ## PAL Text in WA_MRG (~0xCC0000–0xDE0000)
 

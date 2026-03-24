@@ -1,6 +1,6 @@
 # Plan: Fix Artwork Extraction for PAL Discs
 
-## Status: TODO
+## Status: DONE
 
 ## Problem
 
