@@ -1,5 +1,7 @@
 # Plan: Extract Type Names and Guardian Star Names from Binary
 
+**Status: DONE**
+
 ## Problem
 
 The `CARD_TYPES` and `GUARDIAN_STARS` mappings are hardcoded in the script:
@@ -37,4 +39,8 @@ Read the type name table and guardian star name table directly from the executab
 
 ## Files
 
-- `scripts/extract-game-data.ts` — `CARD_TYPES`, `GUARDIAN_STARS` constants and their extraction
+- `scripts/extract/types.ts` — `ExeLayout` gained `typeNamesTable` and `gsNamesTable`
+- `scripts/extract/detect-exe.ts` — offset detection via `cardStats + 0x488A` / `+ 0x493C` with TBL validation
+- `scripts/extract/extract-cards.ts` — `extractTypeNames()` / `extractGsNames()` with English fallback
+- `scripts/extract/extract-cards.test.ts` — tests for exe extraction and fallback paths
+- `scripts/extract/detect-exe.test.ts` — updated `ExeLayout` fixtures

@@ -39,6 +39,8 @@ describe("detectAttributeMapping", () => {
     descOffsetTable: -1,
     descTextPoolBase: -1,
     duelistNames: -1,
+    typeNamesTable: -1,
+    gsNamesTable: -1,
   };
 
   it("returns default mapping when nameOffsetTable is -1", () => {

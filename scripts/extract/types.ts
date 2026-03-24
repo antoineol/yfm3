@@ -23,6 +23,8 @@ export interface ExeLayout {
   descOffsetTable: number;
   descTextPoolBase: number;
   duelistNames: number;
+  typeNamesTable: number;
+  gsNamesTable: number;
 }
 
 export interface WaMrgLayout {

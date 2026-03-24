@@ -4,6 +4,7 @@
 
 import { detectTextOffsetsByDeltas, detectTextTables } from "./detect-exe-text.ts";
 import { byte } from "./iso9660.ts";
+import { isTblString } from "./text-decoding.ts";
 import type { ExeLayout, PsxExeHeader } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
 
@@ -58,6 +59,11 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
     text = detectTextOffsetsByDeltas(exe, cardStats);
   }
 
+  const TypeNamesDelta = 0x488a;
+  const GsNamesDelta = 0x493c;
+  const typeCandidate = cardStats + TypeNamesDelta;
+  const gsCandidate = cardStats + GsNamesDelta;
+
   return {
     cardStats,
     levelAttr,
@@ -66,6 +72,8 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
     descOffsetTable: text.descOffsetTable,
     descTextPoolBase: text.descTextPoolBase,
     duelistNames: text.duelistNames,
+    typeNamesTable: isValidTblStringRun(exe, typeCandidate, 5) ? typeCandidate : -1,
+    gsNamesTable: isValidTblStringRun(exe, gsCandidate, 5) ? gsCandidate : -1,
   };
 }
 
@@ -166,4 +174,19 @@ function findLevelAttrNear(exe: Buffer, cardStatsAddr: number): number {
     if (isValidLevelAttrTable(exe, addr, cardStatsAddr)) return addr;
   }
   return -1;
+}
+
+/** Check that `offset` starts a run of consecutive 0xFF-terminated TBL strings.
+ *  At least 80% of the first `sampleCount` entries must be valid. */
+function isValidTblStringRun(exe: Buffer, offset: number, sampleCount: number): boolean {
+  if (offset < 0 || offset >= exe.length) return false;
+  let valid = 0;
+  let pos = offset;
+  for (let i = 0; i < sampleCount && pos < exe.length; i++) {
+    if (isTblString(exe, pos, 50)) valid++;
+    const end = exe.indexOf(0xff, pos);
+    if (end === -1 || end - pos > 50) break;
+    pos = end + 1;
+  }
+  return valid >= Math.ceil(sampleCount * 0.8);
 }

@@ -2,7 +2,7 @@
 // Card stats, names, descriptions, starchip/password extraction
 // ---------------------------------------------------------------------------
 
-import { decodeTblString, extractWaMrgStrings } from "./text-decoding.ts";
+import { CHAR_TABLE, decodeTblString, extractWaMrgStrings } from "./text-decoding.ts";
 import type {
   CardStats,
   CardText,
@@ -23,8 +23,11 @@ const CARD_COLORS: Record<number, string> = {
   6: "red",
 };
 
-/** Guardian star encoding matches the name table at SLUS offset 0x1C9380. */
-const GUARDIAN_STARS: Record<number, string> = {
+const NUM_TYPE_NAMES = 24;
+const NUM_GS_NAMES = 11;
+
+/** Fallback guardian star names (English) for when exe extraction is unavailable. */
+const DEFAULT_GUARDIAN_STARS: Record<number, string> = {
   0: "None",
   1: "Mars",
   2: "Jupiter",
@@ -38,12 +41,8 @@ const GUARDIAN_STARS: Record<number, string> = {
   10: "Venus",
 };
 
-/**
- * Card type mapping extracted from the type name table at SLUS offset 0x1C92CE.
- * 24 consecutive 0xFF-terminated TBL strings. Types 4 (Beast-Warrior) and 13
- * (Sea Serpent) exist in the table but have zero cards in the game.
- */
-const CARD_TYPES: Record<number, string> = {
+/** Fallback card type names (English) for when exe extraction is unavailable. */
+const DEFAULT_CARD_TYPES: Record<number, string> = {
   0: "Dragon",
   1: "Spellcaster",
   2: "Zombie",
@@ -81,6 +80,18 @@ export function extractCards(
   cardAttributes: Record<number, string>,
   waMrgTextBlocks: WaMrgTextBlock[],
 ): CardStats[] {
+  const cardTypes = extractNameTable(
+    slus,
+    exeLayout.typeNamesTable,
+    NUM_TYPE_NAMES,
+    DEFAULT_CARD_TYPES,
+  );
+  const gsNames = extractNameTable(
+    slus,
+    exeLayout.gsNamesTable,
+    NUM_GS_NAMES,
+    DEFAULT_GUARDIAN_STARS,
+  );
   const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks);
   const descriptions = extractCardDescriptions(slus, waMrg, exeLayout, waMrgTextBlocks);
   const starchips = extractStarchips(waMrg, waMrgLayout);
@@ -96,9 +107,9 @@ export function extractCards(
       name: text.name,
       atk: (raw & 0x1ff) * 10,
       def: ((raw >> 9) & 0x1ff) * 10,
-      gs1: GUARDIAN_STARS[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
-      gs2: GUARDIAN_STARS[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
-      type: CARD_TYPES[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
+      gs1: gsNames[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
+      gs2: gsNames[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
+      type: cardTypes[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
       color: text.color,
       level: levelAttr & 0xf,
       attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
@@ -109,6 +120,23 @@ export function extractCards(
   }
 
   return cards;
+}
+
+function extractNameTable(
+  exe: Buffer,
+  offset: number,
+  count: number,
+  defaults: Record<number, string>,
+): Record<number, string> {
+  if (offset !== -1) {
+    const names = extractWaMrgStrings(exe, offset, count, CHAR_TABLE);
+    if (names.length === count && names[0] !== "") {
+      const result: Record<number, string> = {};
+      for (let i = 0; i < names.length; i++) result[i] = names[i] as string;
+      return result;
+    }
+  }
+  return defaults;
 }
 
 export function extractCardTexts(

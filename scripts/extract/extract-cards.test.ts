@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CHAR_TABLE } from "./char-tables.ts";
 import { extractCards } from "./extract-cards.ts";
 import type { ExeLayout, WaMrgLayout } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
@@ -13,6 +14,8 @@ const exeLayout: ExeLayout = {
   descOffsetTable: -1,
   descTextPoolBase: -1,
   duelistNames: -1,
+  typeNamesTable: -1,
+  gsNamesTable: -1,
 };
 
 const STARCHIP_OFFSET = 0x0;
@@ -205,5 +208,169 @@ describe("extractCards — level and attribute", () => {
 
     const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
     expect(cards[0]?.attribute).toBe("7");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Type/GS name extraction from exe binary
+// ---------------------------------------------------------------------------
+
+/** Build a reverse lookup: character → TBL byte index. */
+const charToByte = new Map<string, number>();
+for (let i = 0; i < CHAR_TABLE.length; i++) {
+  const ch = CHAR_TABLE[i];
+  if (ch !== undefined && !charToByte.has(ch)) charToByte.set(ch, i);
+}
+
+/** Encode strings as consecutive 0xFF-terminated TBL byte sequences. */
+function encodeTblStrings(strings: string[]): Buffer {
+  const bytes: number[] = [];
+  for (const str of strings) {
+    for (const ch of str) {
+      const b = charToByte.get(ch);
+      if (b !== undefined) bytes.push(b);
+    }
+    bytes.push(0xff);
+  }
+  return Buffer.from(bytes);
+}
+
+/** Build a slus buffer with card stats, level attrs, and optional TBL string data. */
+function makeSlusWithTables(
+  cardStats: number[],
+  levelAttrs: number[],
+  extraBlocks: { offset: number; data: Buffer }[] = [],
+): Buffer {
+  const statsSize = NUM_CARDS * 4;
+  const laSize = NUM_CARDS;
+  let totalSize = statsSize + laSize;
+  for (const block of extraBlocks) {
+    totalSize = Math.max(totalSize, block.offset + block.data.length);
+  }
+  const buf = Buffer.alloc(totalSize);
+  for (let i = 0; i < NUM_CARDS; i++) {
+    buf.writeUInt32LE(cardStats[i] ?? 0, i * 4);
+    buf[statsSize + i] = levelAttrs[i] ?? 0;
+  }
+  for (const block of extraBlocks) {
+    block.data.copy(buf, block.offset);
+  }
+  return buf;
+}
+
+describe("extractCards — type name extraction from exe", () => {
+  const typeNames = [
+    "Dragon",
+    "Spellcaster",
+    "Zombie",
+    "Warrior",
+    "Beast-Warrior",
+    "Beast",
+    "Winged Beast",
+    "Fiend",
+    "Fairy",
+    "Insect",
+    "Dinosaur",
+    "Reptile",
+    "Fish",
+    "Sea Serpent",
+    "Machine",
+    "Thunder",
+    "Aqua",
+    "Pyro",
+    "Rock",
+    "Plant",
+    "Magic",
+    "Trap",
+    "Ritual",
+    "Equip",
+  ];
+
+  it("reads type names from exe when typeNamesTable is set", () => {
+    const tblData = encodeTblStrings(typeNames);
+    const typeOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const stat = encodeCardStat(100, 50, 0, 0, 3); // type=3 (Warrior)
+    const slus = makeSlusWithTables([stat], [0], [{ offset: typeOffset, data: tblData }]);
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, typeNamesTable: typeOffset };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.type).toBe("Warrior");
+  });
+
+  it("reads custom type names from modded exe", () => {
+    const modded = [...typeNames];
+    modded[0] = "Wyrm"; // mod renamed Dragon → Wyrm
+    const tblData = encodeTblStrings(modded);
+    const typeOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const stat = encodeCardStat(100, 50, 0, 0, 0); // type=0 (would be Dragon)
+    const slus = makeSlusWithTables([stat], [0], [{ offset: typeOffset, data: tblData }]);
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, typeNamesTable: typeOffset };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.type).toBe("Wyrm");
+  });
+
+  it("falls back to defaults when typeNamesTable is -1", () => {
+    const stat = encodeCardStat(0, 0, 0, 0, 0); // type=0 (Dragon)
+    const slus = makeSlus([stat], [0]);
+    const waMrg = makeWaMrg([]);
+
+    const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.type).toBe("Dragon");
+  });
+});
+
+describe("extractCards — GS name extraction from exe", () => {
+  const gsNames = [
+    "None",
+    "Mars",
+    "Jupiter",
+    "Saturn",
+    "Uranus",
+    "Pluto",
+    "Neptune",
+    "Mercury",
+    "Sun",
+    "Moon",
+    "Venus",
+  ];
+
+  it("reads GS names from exe when gsNamesTable is set", () => {
+    const tblData = encodeTblStrings(gsNames);
+    const gsOffset = NUM_CARDS * 4 + NUM_CARDS + 200;
+    const stat = encodeCardStat(100, 50, 9, 8, 0); // gs1=Sun(8), gs2=Moon(9)
+    const slus = makeSlusWithTables([stat], [0], [{ offset: gsOffset, data: tblData }]);
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, gsNamesTable: gsOffset };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.gs1).toBe("Sun");
+    expect(cards[0]?.gs2).toBe("Moon");
+  });
+
+  it("reads custom GS names from modded exe", () => {
+    const modded = [...gsNames];
+    modded[8] = "Sol"; // mod renamed Sun → Sol
+    const tblData = encodeTblStrings(modded);
+    const gsOffset = NUM_CARDS * 4 + NUM_CARDS + 200;
+    const stat = encodeCardStat(100, 50, 0, 8, 0); // gs1=Sun(8)
+    const slus = makeSlusWithTables([stat], [0], [{ offset: gsOffset, data: tblData }]);
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, gsNamesTable: gsOffset };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.gs1).toBe("Sol");
+  });
+
+  it("falls back to defaults when gsNamesTable is -1", () => {
+    const stat = encodeCardStat(0, 0, 9, 8, 0); // gs1=Sun(8), gs2=Moon(9)
+    const slus = makeSlus([stat], [0]);
+    const waMrg = makeWaMrg([]);
+
+    const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
+    expect(cards[0]?.gs1).toBe("Sun");
+    expect(cards[0]?.gs2).toBe("Moon");
   });
 });
