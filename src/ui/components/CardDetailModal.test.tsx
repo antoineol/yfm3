@@ -26,6 +26,10 @@ vi.mock("../db/use-owned-card-totals.ts", () => ({
   useOwnedCardTotals: () => mockOwnedTotals(),
 }));
 
+vi.mock("../lib/use-selected-mod.ts", () => ({
+  useSelectedMod: () => "rp",
+}));
+
 afterEach(cleanup);
 
 const testCard: CardSpec = {

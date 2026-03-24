@@ -1,6 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useOpenCard } from "../lib/card-detail-context.tsx";
-import { formatCardId } from "../lib/format.ts";
+import { artworkSrc } from "../lib/format.ts";
+import { useSelectedMod } from "../lib/use-selected-mod.ts";
 
 const attributeOrb: Record<string, string> = {
   Light: "#e8c840",
@@ -48,7 +49,8 @@ export function MiniGameCard({
   defOverride?: number;
 }) {
   const openCard = useOpenCard();
-  const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
+  const modId = useSelectedMod();
+  const artSrc = artworkSrc(modId, card.id);
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCardId, formatRate } from "./format.ts";
+import { artworkSrc, formatCardId, formatRate } from "./format.ts";
 
 describe("formatCardId", () => {
   it("pads single digit", () => {
@@ -13,6 +13,15 @@ describe("formatCardId", () => {
   });
   it("handles zero", () => {
     expect(formatCardId(0)).toBe("000");
+  });
+});
+
+describe("artworkSrc", () => {
+  it("includes mod in path", () => {
+    expect(artworkSrc("rp", 42)).toBe("/images/artwork/rp/042.webp");
+  });
+  it("uses vanilla mod path", () => {
+    expect(artworkSrc("vanilla", 1)).toBe("/images/artwork/vanilla/001.webp");
   });
 });
 

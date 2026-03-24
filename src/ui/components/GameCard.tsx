@@ -1,5 +1,6 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
-import { formatCardId } from "../lib/format.ts";
+import { artworkSrc } from "../lib/format.ts";
+import { useSelectedMod } from "../lib/use-selected-mod.ts";
 
 /** Attribute orb colors — the small sphere next to the card name. */
 const attributeOrb: Record<string, string> = {
@@ -78,7 +79,8 @@ function getCardTypeLabel(cardType: string): string {
 }
 
 export function GameCard({ card }: { card: CardSpec }) {
-  const artSrc = `/images/artwork/${formatCardId(card.id)}.webp`;
+  const modId = useSelectedMod();
+  const artSrc = artworkSrc(modId, card.id);
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;

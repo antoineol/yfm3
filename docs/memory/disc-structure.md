@@ -20,14 +20,14 @@ Data at hardcoded offsets. PAL inserts ~1.2 MB of text between artwork (0x169000
 
 **Description header marker** (structural anchor): `31 F8 03 8C F8 1B 80`. Appears exactly once per language. After it: skip 1 header + 1 blank → next 722 strings = card descriptions.
 
-**Name block** (800+ consecutive short strings after descriptions): indices 0–721 = card names, 723–746 = type names, 747–756 = guardian stars, 758–796 = duelist names.
+**Name block** (800+ consecutive short strings after descriptions): indices 0–721 = card names, 723–746 = type names, 747–756 = guardian stars, 758–796 = duelist names. FR block has 1 garbage entry at index 0 (pointer data); ES has 2. Real card names start at offset 1 (FR) or 2 (ES).
 
 ## TBL Encoding
 
 Single-byte, frequency-ordered. `0xFF` = terminator, `0xFE` = newline, `0xF8 XX YY` = control code.
 
 - **NTSC-U**: `space e t a o i n s r h l . d u m c g y w f ...` (~85 entries, stored at exe 0x1A18F4)
-- **PAL**: `space e a i n r o t s l u d c . m h g p f b ...` (64 mapped from English; accented chars at unmapped positions remain unknown)
+- **PAL**: 92 mapped entries — basic Latin shared across all 5 languages, plus accented characters (é è ê â î ô û ï œ Œ É à ä ö ü ß í ó ú ñ ° º ª). One known per-language conflict: 0x3f = œ (FR) / á (ES).
 
 ## SU.MRG
 

@@ -8,7 +8,12 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: [
+      "tests/**/*.test.ts",
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "scripts/**/*.test.ts",
+    ],
     exclude: ["**/*.integration.test.ts"],
   },
 });

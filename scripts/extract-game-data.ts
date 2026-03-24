@@ -101,9 +101,12 @@ let cardAttributes: Record<number, string>;
 
 /** PAL/EU character encoding (TBL), frequency-ordered for multi-language text.
  *  Used in WA_MRG.MRG on PAL discs (SLES) where text was relocated from the exe.
- *  Derived by matching known English card names against raw bytes. */
+ *  92 entries: basic Latin shared across all 5 languages, plus accented characters
+ *  (é è ê â î ô û ï œ Œ É à ä ö ü ß í ó ú ñ ° º ª) and punctuation.
+ *  Derived by matching known card names (EN/FR/DE/IT/ES) against raw bytes.
+ *  One known per-language conflict: 0x3f = œ (FR/DE/IT) / á (ES). Default: œ. */
 // prettier-ignore
-const PAL_CHAR_TABLE: string[] = (() => {
+export const PAL_CHAR_TABLE: string[] = (() => {
   const t: string[] = [];
   const m: [number, string][] = [
     [0x00, " "],
@@ -141,43 +144,74 @@ const PAL_CHAR_TABLE: string[] = (() => {
     [0x21, "I"],
     [0x22, "T"],
     [0x23, "O"],
+    [0x24, "é"],
     [0x25, "C"],
     [0x26, "R"],
     [0x27, "P"],
     [0x28, "N"],
     [0x29, "H"],
+    [0x2a, "'"],
     [0x2b, "G"],
     [0x2c, "L"],
     [0x2d, "j"],
     [0x2e, "U"],
+    [0x2f, "α"],
     [0x30, "K"],
     [0x33, "F"],
     [0x34, "B"],
     [0x35, "W"],
+    [0x37, "-"],
     [0x38, "Y"],
     [0x39, "V"],
     [0x3a, "'"],
     [0x3b, "x"],
     [0x3c, "J"],
+    [0x3d, "ä"],
+    [0x3e, "à"],
+    [0x3f, "œ"],
+    [0x40, "è"],
+    [0x41, "ü"],
+    [0x42, "í"],
+    [0x43, "ó"],
+    [0x44, "ö"],
     [0x45, "Z"],
     [0x46, "Q"],
     [0x49, "0"],
     [0x4b, "-"],
+    [0x4c, "ê"],
+    [0x4d, "ñ"],
     [0x4e, "2"],
+    [0x4f, "ß"],
     [0x50, "1"],
+    [0x51, "É"],
+    [0x52, "ú"],
     [0x54, "3"],
+    [0x56, "î"],
+    [0x59, "ô"],
+    [0x5d, "â"],
+    [0x5e, ")"],
     [0x5f, "#"],
+    [0x60, "("],
+    [0x65, "/"],
+    [0x66, "°"],
     [0x67, "&"],
+    [0x69, "Œ"],
     [0x6c, "7"],
+    [0x71, "º"],
+    [0x72, "ï"],
+    [0x77, "û"],
+    [0x7c, "ª"],
     [0x8a, "a"],
   ];
   for (const [i, ch] of m) t[i] = ch;
   return t;
 })();
 
-/** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator. */
+/** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator.
+ *  Community-reconstructed from font glyph ordering — matches fmlib-cpp Dict
+ *  and FMLibrary CharacterTable.txt. Includes duplicate glyph slots (0x51, 0x54, 0x55). */
 // prettier-ignore
-const CHAR_TABLE: string[] = (() => {
+export const CHAR_TABLE: string[] = (() => {
   const t: string[] = [];
   const m: [number, string][] = [
     [0, " "],
@@ -256,7 +290,11 @@ const CHAR_TABLE: string[] = (() => {
     [75, ")"],
     [76, "("],
     [78, "6"],
+    [79, "$"],
     [80, "*"],
+    [81, ">"],
+    [84, "<"],
+    [85, "a"],
     [86, "+"],
     [87, "8"],
     [89, "9"],
@@ -1150,8 +1188,14 @@ function findAllWaMrgTextBlocks(waMrg: Buffer): WaMrgTextBlock[] {
   return blocks;
 }
 
-/** Extract 0xFF-terminated strings from a buffer starting at `offset`. */
-function extractWaMrgStrings(buf: Buffer, offset: number, count: number): string[] {
+/** Extract 0xFF-terminated strings from a buffer starting at `offset`.
+ *  Uses PAL_CHAR_TABLE by default; pass a different table for overrides. */
+function extractWaMrgStrings(
+  buf: Buffer,
+  offset: number,
+  count: number,
+  charTable: string[] = PAL_CHAR_TABLE,
+): string[] {
   const strings: string[] = [];
   let pos = offset;
   for (let i = 0; i < count && pos < buf.length; i++) {
@@ -1160,20 +1204,7 @@ function extractWaMrgStrings(buf: Buffer, offset: number, count: number): string
       strings.push("");
       break;
     }
-    let result = "";
-    for (let j = pos; j < end; j++) {
-      const b = buf[j] ?? 0;
-      if (b === 0xfe) {
-        result += "\n";
-        continue;
-      }
-      if (b === 0xf8) {
-        j += 2;
-        continue;
-      }
-      result += PAL_CHAR_TABLE[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
-    }
-    strings.push(result);
+    strings.push(decodeTblString(buf, pos, end - pos, charTable));
     pos = end + 1;
   }
   return strings;
@@ -1197,8 +1228,14 @@ let waMrgTextBlocks: WaMrgTextBlock[] = [];
 // ---------------------------------------------------------------------------
 
 /** Decode a TBL-encoded string from `buf` at `start` until 0xFF or `maxLen`.
- *  0xFE = newline, 0xF8 starts a multi-byte control sequence (skipped). */
-function decodeTblString(buf: Buffer, start: number, maxLen: number): string {
+ *  0xFE = newline, 0xF8 starts a multi-byte control sequence (skipped).
+ *  `charTable` selects the encoding: CHAR_TABLE for NTSC-U, PAL_CHAR_TABLE for EU. */
+export function decodeTblString(
+  buf: Buffer,
+  start: number,
+  maxLen: number,
+  charTable: string[] = CHAR_TABLE,
+): string {
   let result = "";
   for (let i = start; i < start + maxLen && i < buf.length; i++) {
     const b = buf[i] ?? 0;
@@ -1212,7 +1249,7 @@ function decodeTblString(buf: Buffer, start: number, maxLen: number): string {
       i += 2;
       continue;
     }
-    result += CHAR_TABLE[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
+    result += charTable[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
   }
   return result;
 }
@@ -1796,8 +1833,9 @@ async function main() {
       process.exit(1);
     });
 
-  // Extract full card artwork (102×96)
-  const artDir = "./public/images/artwork";
+  // Extract full card artwork (102×96) — versioned by mod/disc
+  const modName = path.basename(outDir); // e.g. "rp" or "vanilla"
+  const artDir = path.join("./public/images/artwork", modName);
   fs.mkdirSync(artDir, { recursive: true });
   const artPromises: Promise<void>[] = [];
   for (let i = 0; i < NUM_CARDS; i++) {

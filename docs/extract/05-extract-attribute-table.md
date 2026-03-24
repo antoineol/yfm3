@@ -1,4 +1,4 @@
-# Plan: Extract Attribute Mapping from Binary Instead of Heuristics
+# Plan: Extract Attribute Mapping from Binary Instead of Heuristics — DONE (no table exists)
 
 ## Problem
 
@@ -9,34 +9,47 @@ The attribute encoding (which nibble value maps to which attribute name) differs
 
 Currently detected by checking if any card name starts with a `{F8 0A}` color prefix (RP-specific). This heuristic is fragile — a mod could use different color conventions.
 
-The PS1 executable stores an **attribute name table** (like the type name table at SLUS offset 0x1C92CE and the guardian star name table at 0x1C9380). This table defines the mapping and can be read directly.
+The original hypothesis was that the PS1 executable stores an **attribute name table** (like the type name table at SLUS offset 0x1C92CE and the guardian star name table at 0x1C9380).
 
-## Goal
+## Research Findings
 
-Extract the attribute name table from the executable, eliminating the need for heuristic-based detection.
+### No attribute name table exists
 
-## Research Phase
+1. **Exhaustive binary search.** Searched the entire RP and vanilla executables for TBL-encoded attribute names ("Light", "Dark", "Earth", "Water", "Fire", "Wind") as standalone 0xFF-terminated consecutive strings. No attribute name table found. Individual word matches are only inside card names/descriptions.
 
-1. **Start from community findings.** Check fmlib-cpp, fmscrambler, TCRF wiki, and other community tools for how they handle attribute names. They likely already document the attribute name table's offset, structure, and encoding. Gather: table address(es), entry format, and per-version differences.
-2. **Verify against the binary.** Using the community-documented offset, read bytes at that location in the RP and vanilla executables. Decode as 0xFF-terminated TBL strings and confirm they match expected attribute names.
-3. **Check across versions.** Does the vanilla French exe have the same table at the same relative position? Community tools may already document version differences.
-4. **Find pointer to the table.** If community tools document a pointer, verify it. Otherwise search for a RAM-address pointer in the executable.
-5. **Update downstream plans.** If findings affect plan 09 (unit tests) or 08 (module split), update those plans.
+2. **Complete data layout mapped.** The region between levelAttr and nameOT is fully accounted for (sort tables, type names at 0x1C92CE, GS names at 0x1C9380, duelist/UI text). No unaccounted gap exists.
 
-## Implementation
+3. **Community tools confirm.** fmlib-cpp, fmscrambler, and FMLibrary/duke1102 all treat the attribute as a raw nibble value from the levelAttr byte. None read an attribute name table from the binary.
 
-1. Locate the attribute name table relative to the type/guardian-star tables (which are at known relative offsets from card stats).
-2. Decode all entries using `decodeTblString`.
-3. Build the `cardAttributes` mapping from the decoded strings.
-4. Remove `detectAttributeMapping()` and its color-prefix heuristic.
-5. Handle the "no text in executable" case (EU/JP): fall back to the standard vanilla mapping or skip attributes.
+4. **Game uses icons, not text.** Type names and guardian star names are stored as text because the game renders them as UI text. Attributes are displayed as graphical sprite icons, so the game never needs attribute name strings.
+
+### Nibble data cannot distinguish versions
+
+Both RP and vanilla use nibble values 0–5 for monsters (non-monster cards use 6–7 in both). The distributions differ but the value ranges are identical. No binary signal in the nibble data alone can determine which mapping applies.
+
+- **RP monsters:** 0:95, 1:206, 2:148, 3:75, 4:45, 5:53
+- **Vanilla monsters:** 0:56, 1:176, 2:221, 3:97, 4:20, 5:51
+
+In RP, nibble 0 means "no attribute" (95 monsters including Copycat, Time Wizard, fairies, machines). In vanilla, nibble 0 means "Light" (56 monsters including BEWD). Both have monsters with nibble 0 and nonzero ATK/DEF, so this cannot serve as a discriminator.
+
+### Color-prefix heuristic is the best available approach
+
+The `{F8 0A XX}` color prefix in card names is a fundamental RP feature (it adds color-coded card names to the UI), not just a cosmetic choice. It is the strongest binary signal distinguishing RP from vanilla. PAL/EU discs (no text in exe) correctly default to vanilla encoding.
+
+## Outcome
+
+The original implementation plan (extract a name table) is impossible. Instead:
+
+1. Improved `detectAttributeMapping()` comments to document why no table exists and why the color-prefix heuristic is used.
+2. Updated the top-level `cardAttributes` doc comment with the same explanation.
+3. Kept the existing detection logic unchanged (it works correctly for all known versions).
 
 ## Validation
 
-- `bun verify:rp` must pass 4/4.
-- `bun verify:vanilla` attributes must match the reference (Light, Dark, Earth, etc.).
-- The extracted table must produce the correct mapping for both vanilla and RP without any heuristic.
+- `bun verify:rp` passes 4/4. ✓
+- `bun verify:vanilla` passes 4/4. ✓
+- `bun typecheck`, `bun lint`, `bun run test` all pass. ✓
 
 ## Files
 
-- `scripts/extract-game-data.ts` — `detectAttributeMapping()` and related constants
+- `scripts/extract-game-data.ts` — `detectAttributeMapping()` and `cardAttributes` comments updated

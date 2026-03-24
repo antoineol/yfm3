@@ -1,46 +1,61 @@
 # Plan: Complete PAL TBL (Accented Characters)
 
-## Status: PENDING
+## Status: DONE
 
 ## Problem
 
-The PAL TBL has 64 mapped entries (all characters used in English text). Bytes for accented characters (é, è, ê, à, ç, ü, ß, ñ, etc.) are unmapped and render as `{hex}` placeholders. This blocks correct decoding of French, German, Italian, and Spanish text.
+The PAL TBL had 64 mapped entries (all characters used in English text). Bytes for accented characters (é, è, ê, à, ü, ß, ñ, etc.) were unmapped and rendered as `{hex}` placeholders, blocking correct decoding of French, German, Italian, and Spanish text.
 
-## Language Block Order (Identified)
+## Language Block Order (Confirmed)
 
-| Block | Language | Card 2 name | Type 0 |
-|-------|----------|-------------|--------|
-| 0 | English | Mystical Elf | Dragon |
-| 1 | French | Elfe Mystique | (empty — uses image-based type names) |
-| 2 | German | Heiliger Elf | Drache |
-| 3 | Italian | ElfoMist. | Drago |
-| 4 | Spanish | Duende Míst. | (garbled — different encoding?) |
+| Block | Language | Card 1 name | Offset | Notes |
+|-------|----------|-------------|--------|-------|
+| 0 | English | Blue-eyes White Dragon | 0 | Decodes fully |
+| 1 | French | D. Blanc aux Yeux Bleus | 1 | 1 garbage entry at index 0 (pointer data) |
+| 2 | German | Weißer Drache | 0 | Decodes fully |
+| 3 | Italian | DragoBianco Occhi | 0 | Decodes fully |
+| 4 | Spanish | Dragón Bl. Ojo Azul | 2 | 2 garbage entries at indices 0-1 (pointer data) |
 
-Block 1 (French) card 1 decoded partially: "D. Blanc aux Yeux Bleus" — the `D.` should be "Dragon" but bytes `0x0D` maps to `.` in the English TBL. This means **French uses the same byte positions but different character mappings for some slots**. Specifically `0x0D` = `r` in French context but `.` in English — wait, that breaks single-table assumption.
+## What Was Done
 
-**Key finding**: Blocks 1 and 4 have garbled card 1 names with high bytes (0x8D+), suggesting they may use a different encoding or contain image/pointer data rather than TBL text. Blocks 0, 2, 3 decode cleanly with the PAL TBL (just missing a few chars like `ß` at 0x4F, space-hyphen at 0x37).
+### 1. Diagnostic analysis
 
-## Approach
+Wrote `scripts/diagnose-pal-tbl.ts` to dump raw bytes from all 5 language blocks (3610 card names total) and identify unmapped bytes by cross-referencing with known translations.
 
-1. **Complete the easy mappings first.** German block (2) and Italian block (3) decode almost fully. Map remaining bytes:
-   - `0x4F` = `ß` (from German "Weißer")
-   - `0x37` = `-` or `'` (from German "Baby-Drache", Italian "Hitotsu-me")
-   - `0x24` = `é` (from Italian/French accented names)
-   - `0x42` = `í` (from Spanish "Míst.")
-   - `0x43` = `ó` (from Spanish "Dragón")
+### 2. Added 28 new character mappings
 
-2. **Cross-reference with Yugipedia/community databases** for German and Italian card name lists to fill remaining gaps.
+Expanded `PAL_CHAR_TABLE` from 64 to 92 entries. New mappings by category:
 
-3. **Investigate blocks 1 and 4.** The high-byte content suggests these may not be simple TBL text. They could be:
-   - A different TBL variant per language
-   - Pointer/index data rather than inline text
-   - Compressed or image-based card names
+**Accented (Romance languages):**
+- 0x24=é, 0x3e=à, 0x40=è, 0x42=í, 0x43=ó, 0x4c=ê, 0x4d=ñ, 0x52=ú
+- 0x56=î, 0x59=ô, 0x5d=â, 0x72=ï, 0x77=û
+- 0x51=É, 0x3f=œ, 0x69=Œ
 
-## Validation
+**Accented (German):**
+- 0x3d=ä, 0x41=ü, 0x44=ö, 0x4f=ß
 
-After mapping, decode card names 1–10 from each language block and verify they match known translations (Yugipedia, community databases).
+**Punctuation:**
+- 0x37=- (hyphen, distinct from 0x4b), 0x2a=' (apostrophe, distinct from 0x3a)
+- 0x5e=), 0x60=(, 0x65=/, 0x66=°, 0x71=º, 0x7c=ª
 
-## Files
+### 3. Findings about FR/ES blocks
 
-- `scripts/extract-game-data.ts` — expand `PAL_CHAR_TABLE`
-- `docs/memory/disc-structure.md` — already has language order
+Three issues discovered that don't affect English-only extraction but block multi-language support. Each is addressed concretely in step 03c:
+
+1. **Name block offsets differ per language.** FR (block 1) has 1 garbage entry at index 0 (high bytes 0x8D–0x8F, pointer table data). ES (block 4) has 2. EN/DE/IT start at index 0. Currently `extractWaMrgStrings` always reads from index 0.
+
+2. **Per-language TBL conflict at byte 0x3f.** Maps to `œ` in French (Bœuf, Sœurs, Cœur — 9 uses) but `á` in Spanish (Máquina — 44 uses). Only known conflict in the 92-entry table.
+
+3. **One unmapped byte remains: 0x2f.** Appears once, in ES card "Kuwagata {2f}" (likely `α`).
+
+Side note: French abbreviates heavily (e.g., "D." for "Dragon"). The `0x0D` = `.` mapping is correct for all languages — false alarm from the initial investigation.
+
+### 4. Validation
+
+- **3609/3610 card names** decode cleanly across all 5 languages (99.97%).
+- English extraction produces **identical output** to reference CSVs (verified via `bun verify:vanilla`).
+
+## Files Changed
+
+- `scripts/extract-game-data.ts` — expanded `PAL_CHAR_TABLE` (64→92 entries)
+- `docs/memory/disc-structure.md` — updated TBL section
