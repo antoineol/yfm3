@@ -25,14 +25,16 @@
 
 import { byte } from "./iso9660.ts";
 import type { WaMrgLayout } from "./types.ts";
-import { NUM_CARDS, NUM_DUELISTS } from "./types.ts";
-
-const FUSION_TABLE_SIZE = 0x1_0000;
-const DUELIST_ENTRY_SIZE = 0x1800;
-const DUELIST_DECK_OFFSET = 0x000;
-const DUELIST_SA_POW_OFFSET = 0x5b4;
-const DUELIST_BCD_OFFSET = 0xb68;
-const DUELIST_SA_TEC_OFFSET = 0x111c;
+import {
+  DUELIST_BCD_OFFSET,
+  DUELIST_DECK_OFFSET,
+  DUELIST_ENTRY_SIZE,
+  DUELIST_SA_POW_OFFSET,
+  DUELIST_SA_TEC_OFFSET,
+  FUSION_TABLE_SIZE,
+  NUM_CARDS,
+  NUM_DUELISTS,
+} from "./types.ts";
 
 /** Known WA_MRG layouts, tried in order.  Each is validated structurally
  *  against the actual file before use. */
@@ -55,13 +57,26 @@ const KNOWN_WAMRG_LAYOUTS: WaMrgLayout[] = [
   },
 ];
 
-/** Check a password uint32 is valid: either 0xFFFFFFFE (no password) or all-BCD nibbles (0-9). */
-function isValidPasswordWord(val: number): boolean {
-  if (val === 0xfffffffe || val === 0) return true;
-  for (let i = 0; i < 8; i++) {
-    if (((val >>> (i * 4)) & 0xf) > 9) return false;
+export function detectWaMrgLayout(waMrg: Buffer): WaMrgLayout {
+  for (const candidate of KNOWN_WAMRG_LAYOUTS) {
+    if (isValidWaMrgLayout(waMrg, candidate)) return candidate;
   }
-  return true;
+  throw new Error(
+    "Could not match WA_MRG.MRG to any known layout " +
+      `(file size: 0x${waMrg.length.toString(16)})`,
+  );
+}
+
+/** Validate a candidate layout against the actual WA_MRG data.
+ *  Every table must pass structural checks. */
+function isValidWaMrgLayout(waMrg: Buffer, layout: WaMrgLayout): boolean {
+  const { fusionTable, equipTable, starchipTable, duelistTable } = layout;
+  return (
+    isValidFusionHeader(waMrg, fusionTable) &&
+    isValidEquipStart(waMrg, equipTable) &&
+    isValidStarchipTable(waMrg, starchipTable) &&
+    isValidDuelistBlock(waMrg, duelistTable)
+  );
 }
 
 /** Check if a valid fusion table header starts at `addr`:
@@ -110,6 +125,15 @@ function isValidStarchipTable(waMrg: Buffer, addr: number): boolean {
   return nonZeroCosts > 100;
 }
 
+/** Check a password uint32 is valid: either 0xFFFFFFFE (no password) or all-BCD nibbles (0-9). */
+function isValidPasswordWord(val: number): boolean {
+  if (val === 0xfffffffe || val === 0) return true;
+  for (let i = 0; i < 8; i++) {
+    if (((val >>> (i * 4)) & 0xf) > 9) return false;
+  }
+  return true;
+}
+
 /** Check if a valid duelist table starts at `addr`:
  *  Spot-check a few duelists for sparse uint16 probability arrays. */
 function isValidDuelistBlock(waMrg: Buffer, addr: number): boolean {
@@ -151,26 +175,4 @@ function isValidEquipStart(waMrg: Buffer, addr: number): boolean {
   const equipId = waMrg.readUInt16LE(addr);
   const count = waMrg.readUInt16LE(addr + 2);
   return equipId >= 1 && equipId <= NUM_CARDS && count >= 1 && count <= NUM_CARDS;
-}
-
-/** Validate a candidate layout against the actual WA_MRG data.
- *  Every table must pass structural checks. */
-function isValidWaMrgLayout(waMrg: Buffer, layout: WaMrgLayout): boolean {
-  const { fusionTable, equipTable, starchipTable, duelistTable } = layout;
-  return (
-    isValidFusionHeader(waMrg, fusionTable) &&
-    isValidEquipStart(waMrg, equipTable) &&
-    isValidStarchipTable(waMrg, starchipTable) &&
-    isValidDuelistBlock(waMrg, duelistTable)
-  );
-}
-
-export function detectWaMrgLayout(waMrg: Buffer): WaMrgLayout {
-  for (const candidate of KNOWN_WAMRG_LAYOUTS) {
-    if (isValidWaMrgLayout(waMrg, candidate)) return candidate;
-  }
-  throw new Error(
-    "Could not match WA_MRG.MRG to any known layout " +
-      `(file size: 0x${waMrg.length.toString(16)})`,
-  );
 }

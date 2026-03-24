@@ -4,9 +4,7 @@
 
 import { byte } from "./iso9660.ts";
 import type { Fusion, WaMrgLayout } from "./types.ts";
-import { NUM_CARDS } from "./types.ts";
-
-const FUSION_TABLE_SIZE = 0x1_0000;
+import { FUSION_TABLE_SIZE, NUM_CARDS } from "./types.ts";
 
 export function extractFusions(waMrg: Buffer, waMrgLayout: WaMrgLayout): Fusion[] {
   const data = waMrg.subarray(waMrgLayout.fusionTable, waMrgLayout.fusionTable + FUSION_TABLE_SIZE);

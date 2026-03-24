@@ -76,7 +76,6 @@ export function readIsoFile(bin: Buffer, file: IsoFile): Buffer {
 export function findFile(bin: Buffer, rootFiles: IsoFile[], filePath: string): Buffer {
   const parts = filePath.split("/");
   let files = rootFiles;
-  const currentBin = bin;
 
   for (let i = 0; i < parts.length; i++) {
     const target = parts[i] ?? "";
@@ -87,11 +86,7 @@ export function findFile(bin: Buffer, rootFiles: IsoFile[], filePath: string): B
 
     if (i < parts.length - 1) {
       // Directory — read and parse it
-      const dirData = readSectors(
-        currentBin,
-        entry.sector,
-        Math.ceil(entry.size / SECTOR_DATA_SIZE),
-      );
+      const dirData = readSectors(bin, entry.sector, Math.ceil(entry.size / SECTOR_DATA_SIZE));
       files = parseDirectory(dirData, entry.size);
     } else {
       return readIsoFile(bin, entry);

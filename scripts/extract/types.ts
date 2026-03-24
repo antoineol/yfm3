@@ -5,6 +5,16 @@
 export const NUM_CARDS = 722;
 export const NUM_DUELISTS = 39;
 
+// Fusion table
+export const FUSION_TABLE_SIZE = 0x1_0000;
+
+// Duelist entry layout within WA_MRG
+export const DUELIST_ENTRY_SIZE = 0x1800;
+export const DUELIST_DECK_OFFSET = 0x000;
+export const DUELIST_SA_POW_OFFSET = 0x5b4;
+export const DUELIST_BCD_OFFSET = 0xb68;
+export const DUELIST_SA_TEC_OFFSET = 0x111c;
+
 export interface ExeLayout {
   cardStats: number;
   levelAttr: number;

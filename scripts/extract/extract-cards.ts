@@ -2,7 +2,7 @@
 // Card stats, names, descriptions, starchip/password extraction
 // ---------------------------------------------------------------------------
 
-import { decodeTblString, PAL_CHAR_TABLE } from "./text-decoding.ts";
+import { decodeTblString, extractWaMrgStrings } from "./text-decoding.ts";
 import type {
   CardStats,
   CardText,
@@ -70,30 +70,45 @@ const CARD_TYPES: Record<number, string> = {
   23: "Equip",
 };
 
-/** WA_MRG text block layout constants. */
-const WAMRG_NAME_CARD_COUNT = 722;
+/** WA_MRG text block layout: skip 2 header strings before card descriptions. */
 const WAMRG_DESC_CARD_START = 2;
 
-/** Extract 0xFF-terminated strings from a buffer starting at `offset`.
- *  Uses PAL_CHAR_TABLE by default. */
-function extractWaMrgStrings(
-  buf: Buffer,
-  offset: number,
-  count: number,
-  charTable: string[] = PAL_CHAR_TABLE,
-): string[] {
-  const strings: string[] = [];
-  let pos = offset;
-  for (let i = 0; i < count && pos < buf.length; i++) {
-    const end = buf.indexOf(0xff, pos);
-    if (end === -1 || end - pos > 500) {
-      strings.push("");
-      break;
-    }
-    strings.push(decodeTblString(buf, pos, end - pos, charTable));
-    pos = end + 1;
+export function extractCards(
+  slus: Buffer,
+  waMrg: Buffer,
+  exeLayout: ExeLayout,
+  waMrgLayout: WaMrgLayout,
+  cardAttributes: Record<number, string>,
+  waMrgTextBlocks: WaMrgTextBlock[],
+): CardStats[] {
+  const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks);
+  const descriptions = extractCardDescriptions(slus, waMrg, exeLayout, waMrgTextBlocks);
+  const starchips = extractStarchips(waMrg, waMrgLayout);
+  const cards: CardStats[] = [];
+
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
+    const text = texts[i] ?? { name: "", color: "" };
+    const levelAttr = slus[exeLayout.levelAttr + i] ?? 0;
+    const sc = starchips[i] ?? { cost: 0, password: "" };
+    cards.push({
+      id: i + 1,
+      name: text.name,
+      atk: (raw & 0x1ff) * 10,
+      def: ((raw >> 9) & 0x1ff) * 10,
+      gs1: GUARDIAN_STARS[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
+      gs2: GUARDIAN_STARS[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
+      type: CARD_TYPES[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
+      color: text.color,
+      level: levelAttr & 0xf,
+      attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
+      description: descriptions[i] ?? "",
+      starchipCost: sc.cost,
+      password: sc.password,
+    });
   }
-  return strings;
+
+  return cards;
 }
 
 export function extractCardTexts(
@@ -119,7 +134,7 @@ export function extractCardTexts(
   // PAL fallback: read card names from WA_MRG text block
   const textBlock = waMrgTextBlocks[0];
   if (textBlock) {
-    const names = extractWaMrgStrings(waMrg, textBlock.nameBlockStart, WAMRG_NAME_CARD_COUNT);
+    const names = extractWaMrgStrings(waMrg, textBlock.nameBlockStart, NUM_CARDS);
     return names.map((name) => ({ name, color: "" }));
   }
   return Array.from({ length: NUM_CARDS }, () => ({ name: "", color: "" }));
@@ -166,42 +181,4 @@ function extractStarchips(waMrg: Buffer, waMrgLayout: WaMrgLayout): Starchip[] {
     results.push({ cost, password });
   }
   return results;
-}
-
-export function extractCards(
-  slus: Buffer,
-  waMrg: Buffer,
-  exeLayout: ExeLayout,
-  waMrgLayout: WaMrgLayout,
-  cardAttributes: Record<number, string>,
-  waMrgTextBlocks: WaMrgTextBlock[],
-): CardStats[] {
-  const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks);
-  const descriptions = extractCardDescriptions(slus, waMrg, exeLayout, waMrgTextBlocks);
-  const starchips = extractStarchips(waMrg, waMrgLayout);
-  const cards: CardStats[] = [];
-
-  for (let i = 0; i < NUM_CARDS; i++) {
-    const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
-    const text = texts[i] ?? { name: "", color: "" };
-    const levelAttr = slus[exeLayout.levelAttr + i] ?? 0;
-    const sc = starchips[i] ?? { cost: 0, password: "" };
-    cards.push({
-      id: i + 1,
-      name: text.name,
-      atk: (raw & 0x1ff) * 10,
-      def: ((raw >> 9) & 0x1ff) * 10,
-      gs1: GUARDIAN_STARS[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
-      gs2: GUARDIAN_STARS[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
-      type: CARD_TYPES[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
-      color: text.color,
-      level: levelAttr & 0xf,
-      attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
-      description: descriptions[i] ?? "",
-      starchipCost: sc.cost,
-      password: sc.password,
-    });
-  }
-
-  return cards;
 }
