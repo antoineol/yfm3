@@ -99,6 +99,82 @@ const GUARDIAN_STARS: Record<number, string> = {
  *  Vanilla: 0=Light 1=Dark 2=Earth 3=Water 4=Fire 5=Wind */
 let cardAttributes: Record<number, string>;
 
+/** PAL/EU character encoding (TBL), frequency-ordered for multi-language text.
+ *  Used in WA_MRG.MRG on PAL discs (SLES) where text was relocated from the exe.
+ *  Derived by matching known English card names against raw bytes. */
+// prettier-ignore
+const PAL_CHAR_TABLE: string[] = (() => {
+  const t: string[] = [];
+  const m: [number, string][] = [
+    [0x00, " "],
+    [0x01, "e"],
+    [0x02, "a"],
+    [0x03, "i"],
+    [0x04, "n"],
+    [0x05, "r"],
+    [0x06, "o"],
+    [0x07, "t"],
+    [0x08, "s"],
+    [0x09, "l"],
+    [0x0a, "u"],
+    [0x0b, "d"],
+    [0x0c, "c"],
+    [0x0d, "."],
+    [0x0e, "m"],
+    [0x0f, "h"],
+    [0x10, "g"],
+    [0x11, "p"],
+    [0x12, "f"],
+    [0x13, "b"],
+    [0x14, "v"],
+    [0x16, "A"],
+    [0x17, "M"],
+    [0x18, "S"],
+    [0x19, "E"],
+    [0x1a, "w"],
+    [0x1b, "y"],
+    [0x1c, ","],
+    [0x1d, "q"],
+    [0x1e, "D"],
+    [0x1f, "k"],
+    [0x20, "z"],
+    [0x21, "I"],
+    [0x22, "T"],
+    [0x23, "O"],
+    [0x25, "C"],
+    [0x26, "R"],
+    [0x27, "P"],
+    [0x28, "N"],
+    [0x29, "H"],
+    [0x2b, "G"],
+    [0x2c, "L"],
+    [0x2d, "j"],
+    [0x2e, "U"],
+    [0x30, "K"],
+    [0x33, "F"],
+    [0x34, "B"],
+    [0x35, "W"],
+    [0x38, "Y"],
+    [0x39, "V"],
+    [0x3a, "'"],
+    [0x3b, "x"],
+    [0x3c, "J"],
+    [0x45, "Z"],
+    [0x46, "Q"],
+    [0x49, "0"],
+    [0x4b, "-"],
+    [0x4e, "2"],
+    [0x50, "1"],
+    [0x54, "3"],
+    [0x5f, "#"],
+    [0x67, "&"],
+    [0x6c, "7"],
+    [0x8a, "a"],
+  ];
+  for (const [i, ch] of m) t[i] = ch;
+  return t;
+})();
+
 /** Konami custom character encoding (TBL), frequency-ordered. 0xFF = terminator. */
 // prettier-ignore
 const CHAR_TABLE: string[] = (() => {
@@ -931,6 +1007,12 @@ function detectLayout(exe: Buffer, waMrg: Buffer): void {
   exeLayout = detectExeLayout(exe);
   waMrgLayout = detectWaMrgLayout(waMrg);
   cardAttributes = detectAttributeMapping(exe, exeLayout);
+  // PAL discs have text zeroed in the exe; check WA_MRG for embedded text
+  if (exeLayout.nameOffsetTable === -1) {
+    waMrgTextBlocks = findAllWaMrgTextBlocks(waMrg);
+  } else {
+    waMrgTextBlocks = [];
+  }
 }
 
 /** Determine the attribute encoding based on whether card names use color prefixes.
@@ -967,6 +1049,150 @@ function detectAttributeMapping(exe: Buffer, layout: ExeLayout): Record<number, 
 }
 
 // ---------------------------------------------------------------------------
+// WA_MRG text block extraction (PAL/EU versions)
+//
+// PAL discs (SLES) store text in WA_MRG.MRG instead of the executable.
+// The text region contains 5 language sections (EN, FR, DE, IT, ES), each with:
+//   - Block A (~542 strings): UI/menu text
+//   - Block B (~841 strings): UI text + card descriptions
+//   - Block C (~812 strings): card names + type/GS/duelist names
+//
+// Card descriptions within Block B are located after a binary header marker:
+//   31 F8 03 8C F8 1B 80
+// This marker appears exactly 5 times (once per language).  The first
+// occurrence is the English section.
+//
+// All text uses a PAL-specific TBL encoding (PAL_CHAR_TABLE) shared across
+// all 5 languages, with 0xFF as string terminator and 0xFE as newline.
+// ---------------------------------------------------------------------------
+
+/** Text data extracted from a WA_MRG text block (one language). */
+interface WaMrgTextBlock {
+  /** Offset where the card description header marker begins. */
+  descBlockStart: number;
+  /** Offset where the first card name string begins. */
+  nameBlockStart: number;
+}
+
+/** Binary signature at the start of every card description section.
+ *  Appears exactly once per language in PAL WA_MRG.  */
+const DESC_HEADER_MARKER = Buffer.from([0x31, 0xf8, 0x03, 0x8c, 0xf8, 0x1b, 0x80]);
+
+/** Find ALL PAL text blocks in WA_MRG (one per language).
+ *  Returns an array of up to 5 blocks sorted by offset, or an empty array
+ *  if the file doesn't contain embedded text (US/RP versions). */
+function findAllWaMrgTextBlocks(waMrg: Buffer): WaMrgTextBlock[] {
+  const blocks: WaMrgTextBlock[] = [];
+
+  // Step 1: Find all occurrences of the description header marker
+  const descStarts: number[] = [];
+  for (let i = 0; i < waMrg.length - DESC_HEADER_MARKER.length; i++) {
+    if (waMrg.subarray(i, i + DESC_HEADER_MARKER.length).equals(DESC_HEADER_MARKER)) {
+      // Verify: should be followed by more bytes then 0xFF within 200 bytes
+      const end = waMrg.indexOf(0xff, i);
+      if (end !== -1 && end - i < 200) {
+        descStarts.push(i);
+      }
+    }
+  }
+
+  if (descStarts.length === 0) return [];
+
+  // Step 2: For each description marker, find the corresponding name block
+  for (const descStart of descStarts) {
+    // Walk past the descriptions (~724 strings from marker) to find the name block
+    // The name block is the next large run of 800+ short strings
+    let pos = descStart;
+    let strCount = 0;
+    // Skip through description strings
+    while (pos < waMrg.length && strCount < 800) {
+      const end = waMrg.indexOf(0xff, pos);
+      if (end === -1 || end - pos > 500) break;
+      strCount++;
+      pos = end + 1;
+    }
+
+    // Now scan forward for the name block (next large run of 800+ strings)
+    // There may be a type description block (~27 strings) and a small gap between
+    let nameStart = -1;
+    let scanPos = pos;
+    while (scanPos < waMrg.length && scanPos < descStart + 0x30000) {
+      // Count a run of consecutive short strings
+      const runStart = scanPos;
+      let runLen = 0;
+      let p = scanPos;
+      while (p < waMrg.length && runLen < 900) {
+        const end = waMrg.indexOf(0xff, p);
+        if (end === -1 || end - p > 500) break;
+        runLen++;
+        p = end + 1;
+      }
+      if (runLen >= 800) {
+        nameStart = runStart;
+        break;
+      }
+      // Skip past this small block and look for the next one
+      scanPos = p;
+      // Skip any non-string data (find next byte < 0x92 or 0xFE/0xF8)
+      while (scanPos < waMrg.length) {
+        const end = waMrg.indexOf(0xff, scanPos);
+        if (end === -1) break;
+        if (end - scanPos < 500) break;
+        scanPos = end + 1;
+      }
+    }
+
+    if (nameStart !== -1) {
+      blocks.push({ descBlockStart: descStart, nameBlockStart: nameStart });
+    }
+  }
+
+  return blocks;
+}
+
+/** Extract 0xFF-terminated strings from a buffer starting at `offset`. */
+function extractWaMrgStrings(buf: Buffer, offset: number, count: number): string[] {
+  const strings: string[] = [];
+  let pos = offset;
+  for (let i = 0; i < count && pos < buf.length; i++) {
+    const end = buf.indexOf(0xff, pos);
+    if (end === -1 || end - pos > 500) {
+      strings.push("");
+      break;
+    }
+    let result = "";
+    for (let j = pos; j < end; j++) {
+      const b = buf[j] ?? 0;
+      if (b === 0xfe) {
+        result += "\n";
+        continue;
+      }
+      if (b === 0xf8) {
+        j += 2;
+        continue;
+      }
+      result += PAL_CHAR_TABLE[b] ?? `{${b.toString(16).padStart(2, "0")}}`;
+    }
+    strings.push(result);
+    pos = end + 1;
+  }
+  return strings;
+}
+
+/** WA_MRG text block layout constants.
+ *  In the 808-string name block: 722 card names, 1 separator, 24 types,
+ *  10 guardian stars, 1 label, then 39 duelist names. */
+const WAMRG_NAME_CARD_COUNT = 722;
+const WAMRG_NAME_DUELIST_START = 758; // 722 + 1 + 24 + 10 + 1
+
+/** In the description block: 1 metadata header, 1 blank, then 722 descriptions. */
+const WAMRG_DESC_CARD_START = 2;
+
+/** Cached WA_MRG text blocks (set during detectLayout if found).
+ *  Index 0 is the English section (always first on disc). */
+let waMrgTextBlocks: WaMrgTextBlock[] = [];
+
+// ---------------------------------------------------------------------------
 // Text decoding
 // ---------------------------------------------------------------------------
 
@@ -1000,35 +1226,52 @@ interface CardText {
   color: string;
 }
 
-function extractCardTexts(slus: Buffer): CardText[] {
-  if (exeLayout.nameOffsetTable === -1 || exeLayout.textPoolBase === -1) {
-    return Array.from({ length: NUM_CARDS }, () => ({ name: "", color: "" }));
-  }
-  const results: CardText[] = [];
-  for (let i = 0; i < NUM_CARDS; i++) {
-    const off = slus.readUInt16LE(exeLayout.nameOffsetTable + i * 2);
-    let addr = exeLayout.textPoolBase + off;
-    let color = "";
-    if ((slus[addr] ?? 0) === 0xf8) {
-      color = CARD_COLORS[slus[addr + 2] ?? 0] ?? "";
-      addr += 3;
+function extractCardTexts(slus: Buffer, waMrg: Buffer): CardText[] {
+  if (exeLayout.nameOffsetTable !== -1 && exeLayout.textPoolBase !== -1) {
+    const results: CardText[] = [];
+    for (let i = 0; i < NUM_CARDS; i++) {
+      const off = slus.readUInt16LE(exeLayout.nameOffsetTable + i * 2);
+      let addr = exeLayout.textPoolBase + off;
+      let color = "";
+      if ((slus[addr] ?? 0) === 0xf8) {
+        color = CARD_COLORS[slus[addr + 2] ?? 0] ?? "";
+        addr += 3;
+      }
+      results.push({ name: decodeTblString(slus, addr, 100), color });
     }
-    results.push({ name: decodeTblString(slus, addr, 100), color });
+    return results;
   }
-  return results;
+  // PAL fallback: read card names from WA_MRG text block
+  const textBlock = waMrgTextBlocks[0];
+  if (textBlock) {
+    const names = extractWaMrgStrings(waMrg, textBlock.nameBlockStart, WAMRG_NAME_CARD_COUNT);
+    return names.map((name) => ({ name, color: "" }));
+  }
+  return Array.from({ length: NUM_CARDS }, () => ({ name: "", color: "" }));
 }
 
-function extractCardDescriptions(slus: Buffer): string[] {
-  if (exeLayout.descOffsetTable === -1 || exeLayout.descTextPoolBase === -1) {
-    return Array.from({ length: NUM_CARDS }, () => "");
+function extractCardDescriptions(slus: Buffer, waMrg: Buffer): string[] {
+  if (exeLayout.descOffsetTable !== -1 && exeLayout.descTextPoolBase !== -1) {
+    const results: string[] = [];
+    for (let i = 0; i < NUM_CARDS; i++) {
+      const off = slus.readUInt16LE(exeLayout.descOffsetTable + i * 2);
+      const addr = exeLayout.descTextPoolBase + off;
+      results.push(decodeTblString(slus, addr, 500));
+    }
+    return results;
   }
-  const results: string[] = [];
-  for (let i = 0; i < NUM_CARDS; i++) {
-    const off = slus.readUInt16LE(exeLayout.descOffsetTable + i * 2);
-    const addr = exeLayout.descTextPoolBase + off;
-    results.push(decodeTblString(slus, addr, 500));
+  // PAL fallback: read card descriptions from WA_MRG text block
+  const textBlock = waMrgTextBlocks[0];
+  if (textBlock) {
+    const allDescs = extractWaMrgStrings(
+      waMrg,
+      textBlock.descBlockStart,
+      WAMRG_DESC_CARD_START + NUM_CARDS,
+    );
+    // Skip header + blank, take 722 descriptions
+    return allDescs.slice(WAMRG_DESC_CARD_START, WAMRG_DESC_CARD_START + NUM_CARDS);
   }
-  return results;
+  return Array.from({ length: NUM_CARDS }, () => "");
 }
 
 // ---------------------------------------------------------------------------
@@ -1052,8 +1295,8 @@ interface CardStats {
 }
 
 function extractCards(slus: Buffer, waMrg: Buffer): CardStats[] {
-  const texts = extractCardTexts(slus);
-  const descriptions = extractCardDescriptions(slus);
+  const texts = extractCardTexts(slus, waMrg);
+  const descriptions = extractCardDescriptions(slus, waMrg);
   const starchips = extractStarchips(waMrg);
   const cards: CardStats[] = [];
 
@@ -1230,17 +1473,27 @@ interface DuelistData {
   saTec: number[];
 }
 
-function extractDuelistNames(slus: Buffer): string[] {
-  if (exeLayout.duelistNames === -1 || exeLayout.textPoolBase === -1) {
-    return Array.from({ length: NUM_DUELISTS }, (_, i) => `Duelist ${i + 1}`);
+function extractDuelistNames(slus: Buffer, waMrg: Buffer): string[] {
+  if (exeLayout.duelistNames !== -1 && exeLayout.textPoolBase !== -1) {
+    const names: string[] = [];
+    for (let i = 0; i < NUM_DUELISTS; i++) {
+      const off = slus.readUInt16LE(exeLayout.duelistNames + i * 2);
+      const addr = exeLayout.textPoolBase + off;
+      names.push(decodeTblString(slus, addr, 100));
+    }
+    return names;
   }
-  const names: string[] = [];
-  for (let i = 0; i < NUM_DUELISTS; i++) {
-    const off = slus.readUInt16LE(exeLayout.duelistNames + i * 2);
-    const addr = exeLayout.textPoolBase + off;
-    names.push(decodeTblString(slus, addr, 100));
+  // PAL fallback: read duelist names from WA_MRG text block
+  const textBlock = waMrgTextBlocks[0];
+  if (textBlock) {
+    const allNames = extractWaMrgStrings(
+      waMrg,
+      textBlock.nameBlockStart,
+      WAMRG_NAME_DUELIST_START + NUM_DUELISTS,
+    );
+    return allNames.slice(WAMRG_NAME_DUELIST_START, WAMRG_NAME_DUELIST_START + NUM_DUELISTS);
   }
-  return names;
+  return Array.from({ length: NUM_DUELISTS }, (_, i) => `Duelist ${i + 1}`);
 }
 
 function readU16Array(buf: Buffer, offset: number, count: number): number[] {
@@ -1252,7 +1505,7 @@ function readU16Array(buf: Buffer, offset: number, count: number): number[] {
 }
 
 function extractDuelists(slus: Buffer, waMrg: Buffer): DuelistData[] {
-  const names = extractDuelistNames(slus);
+  const names = extractDuelistNames(slus, waMrg);
   const duelists: DuelistData[] = [];
 
   for (let i = 0; i < NUM_DUELISTS; i++) {

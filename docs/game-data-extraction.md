@@ -121,9 +121,21 @@ The script reads two files from the disc image via ISO 9660 filesystem parsing:
 | `0xE9B000` | Duelist data | 39 x 6144B blocks (deck + 3 drop tables, each 722 x uint16LE) |
 | `0xFB9808` | Starchip costs/passwords | 722 x 8B (4B LE cost + 4B BE password) |
 
+## PAL/EU Text (WA_MRG)
+
+PAL discs (SLES_039.47–51: English, French, German, Italian, Spanish) store text in WA_MRG.MRG instead of the executable. The SLES exe has text regions zeroed; card stats and level/attribute tables remain at the same offsets.
+
+The WA_MRG text region (~0xCC0000–0xDE0000) contains 5 language sections, each with:
+- ~30 UI strings, 722+ card descriptions, ~27 type descriptions, 808 name strings (722 card names + 24 types + 10 guardian stars + 39 duelist names + misc)
+
+All PAL languages use a shared frequency-ordered TBL (`PAL_CHAR_TABLE` in the script) that differs from the NTSC-U table. The script auto-detects this by searching for "Blue-eyes White Dragon" in PAL encoding and falls back to WA_MRG text when exe text offsets are -1.
+
 ## Text Encoding
 
-The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered: `0x00`=space, `0x01`=e, `0x02`=t, etc. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color.
+The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color.
+
+**NTSC-U TBL** (used in SLUS executable): `0x00`=space, `0x01`=e, `0x02`=t, `0x03`=a, ...
+**PAL TBL** (used in WA_MRG text blocks): `0x00`=space, `0x01`=e, `0x02`=a, `0x03`=i, `0x04`=n, `0x05`=r, ...
 
 ## Community Tools
 
