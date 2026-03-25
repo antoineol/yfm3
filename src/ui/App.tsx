@@ -9,6 +9,7 @@ import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
 import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
 import { SignIn } from "./features/auth/SignIn.tsx";
+import { ModMismatchBanner } from "./features/bridge/ModMismatchBanner.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
 import { useAutoSyncCollection } from "./features/collection/use-auto-sync-collection.ts";
 import { DataPanel } from "./features/data/DataPanel.tsx";
@@ -61,6 +62,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
           value={tab}
         >
           <Header />
+          <ModMismatchBanner />
           <DeckTabPanel />
 
           <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">

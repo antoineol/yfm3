@@ -23,6 +23,7 @@ import {
   readCollection,
   readDeckDefinition,
   readGameState,
+  readModFingerprint,
   readRawHex,
   readShuffledDeck,
 } from "./memory.mjs";
@@ -99,6 +100,7 @@ wss.on("connection", (ws) => {
             status: "ready",
             version: VERSION,
             pid: mapping.pid,
+            modFingerprint: readModFingerprint(mapping.view),
             ...state,
           });
       ws.send(json);
@@ -477,6 +479,7 @@ async function poll() {
           status: "ready",
           version: VERSION,
           pid: mapping.pid,
+          modFingerprint: readModFingerprint(mapping.view),
           ...state,
         });
 

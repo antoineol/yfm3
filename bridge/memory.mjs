@@ -175,3 +175,15 @@ export function readRawHex(view, offset, length) {
   const bytes = readU8Array(view, offset, length);
   return bytes.map((b) => b.toString(16).padStart(2, "0")).join(" ");
 }
+
+/**
+ * Read a mod fingerprint from the card stats table in RAM.
+ * The first 16 bytes (4 card stat entries) uniquely identify each mod.
+ */
+const CARD_STATS_OFFSET = 0x1d4244;
+const FINGERPRINT_BYTES = 16;
+
+export function readModFingerprint(view) {
+  const bytes = readU8Array(view, CARD_STATS_OFFSET, FINGERPRINT_BYTES);
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}

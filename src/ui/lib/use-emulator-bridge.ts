@@ -26,6 +26,7 @@ type RawBridgeState = {
   status?: "ready";
   version?: string;
   pid: number;
+  modFingerprint?: string;
   sceneId: number;
   duelPhase: number;
   turnIndicator: number;
@@ -297,6 +298,8 @@ export type EmulatorBridge = {
   stats: DuelStats | null;
   collection: Record<number, number> | null;
   deckDefinition: number[] | null;
+  /** Hex fingerprint of card stats in RAM — identifies which mod is running. */
+  modFingerprint: string | null;
   scan: () => void;
   restartEmulator: () => void;
 };
@@ -323,6 +326,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [stats, setStats] = useState<DuelStats | null>(null);
   const [collection, setCollection] = useState<Record<number, number> | null>(null);
   const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
+  const [modFingerprint, setModFingerprint] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
@@ -377,6 +381,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(state.stats);
           setCollection(computeOwnedCards(msg.trunk, msg.deckDefinition));
           setDeckDefinition(msg.deckDefinition);
+          setModFingerprint(msg.modFingerprint ?? null);
         } else if (msg.connected && msg.status === "waiting_for_game") {
           // Bridge connected to DuckStation but game not loaded yet
           setStatus("connected");
@@ -393,6 +398,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(null);
           setCollection(null);
           setDeckDefinition(null);
+          setModFingerprint(null);
         } else if (!msg.connected) {
           setStatus("connected");
           setDetail(
@@ -414,6 +420,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(null);
           setCollection(null);
           setDeckDefinition(null);
+          setModFingerprint(null);
         }
       } catch {
         // Ignore malformed messages
@@ -502,6 +509,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     stats,
     collection,
     deckDefinition,
+    modFingerprint,
     scan,
     restartEmulator,
   };
