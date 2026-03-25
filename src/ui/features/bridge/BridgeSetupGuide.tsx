@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { BRIDGE_DOWNLOAD_URL } from "./bridge-constants.ts";
 import {
@@ -18,13 +17,12 @@ import {
 
 export function BridgeSetupGuide() {
   const bridge = useBridge();
-  const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
   const isWaiting = bridge.detail === "waiting_for_game";
 
-  const handleDisableSync = useCallback(() => {
-    updatePreferences({ bridgeAutoSync: !bridgeAutoSync });
-  }, [bridgeAutoSync, updatePreferences]);
+  const handleSwitchMode = useCallback(() => {
+    updatePreferences({ bridgeAutoSync: null });
+  }, [updatePreferences]);
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
@@ -37,7 +35,7 @@ export function BridgeSetupGuide() {
           <Troubleshooting />
         </>
       )}
-      <SwitchModeLink label="Disable auto-sync" onClick={handleDisableSync} />
+      <SwitchModeLink onClick={handleSwitchMode} />
     </div>
   );
 }
@@ -70,7 +68,7 @@ function SetupSteps() {
         title="Extract the zip and double-click start-bridge.bat"
       />
 
-      <Step number={3} state={states[2]} title="Open DuckStation" />
+      <Step number={3} state={states[2]} title="Open DuckStation and load the game" />
 
       <Step number={4} state={states[3]} title="Enable shared memory export in DuckStation">
         <DuckStationInstructions />

@@ -28,7 +28,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
 
 const mockBridge = vi.fn<() => EmulatorBridge>(() => defaultBridge());
 
-vi.mock("../bridge/bridge-constants.ts", () => ({
+vi.mock("./bridge-constants.ts", () => ({
   BRIDGE_DOWNLOAD_URL: "https://example.com/bridge.zip",
   DUCKSTATION_URL: "https://example.com/duckstation",
   BRIDGE_MIN_VERSION: "1.0.0",
@@ -42,33 +42,40 @@ vi.mock("../../db/use-update-preferences.ts", () => ({
   useUpdatePreferences: vi.fn(() => mockUpdatePreferences),
 }));
 
-import { OnboardingSetup } from "./OnboardingSetup.tsx";
+import { BridgeSetupGuide } from "./BridgeSetupGuide.tsx";
 
 afterEach(cleanup);
 
-describe("OnboardingSetup", () => {
+describe("BridgeSetupGuide", () => {
   it("renders 4 bridge-specific setup steps", () => {
-    render(<OnboardingSetup />);
+    render(<BridgeSetupGuide />);
     expect(screen.getByText("Download the bridge")).toBeDefined();
     expect(screen.getByText("Extract the zip and double-click start-bridge.bat")).toBeDefined();
     expect(screen.getByText("Open DuckStation and load the game")).toBeDefined();
     expect(screen.getByText("Enable shared memory export in DuckStation")).toBeDefined();
   });
 
+  it("shows requirements disclaimer", () => {
+    render(<BridgeSetupGuide />);
+    expect(screen.getByText(/Requires/)).toBeDefined();
+    expect(screen.getByText("Windows")).toBeDefined();
+    expect(screen.getByText("DuckStation")).toBeDefined();
+  });
+
   it("shows switch mode link", () => {
-    render(<OnboardingSetup />);
+    render(<BridgeSetupGuide />);
     expect(screen.getByText("Switch mode")).toBeDefined();
   });
 
   it("calls updatePreferences with bridgeAutoSync null when switch mode is clicked", () => {
-    render(<OnboardingSetup />);
+    render(<BridgeSetupGuide />);
     fireEvent.click(screen.getByText("Switch mode"));
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ bridgeAutoSync: null });
   });
 
   it("shows waiting-for-game panel when bridge detail is waiting_for_game", () => {
     mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "waiting_for_game" }));
-    render(<OnboardingSetup />);
+    render(<BridgeSetupGuide />);
     expect(screen.getByText(/no game is running/)).toBeDefined();
   });
 });
