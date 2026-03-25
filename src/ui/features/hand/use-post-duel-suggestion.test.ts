@@ -47,6 +47,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     status: "connected",
     detail: "ready",
     detailMessage: null,
+    settingsPatched: false,
     version: null,
     hand: [],
     field: [],
@@ -58,6 +59,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     collection: null,
     deckDefinition: null,
     scan: vi.fn(),
+    restartEmulator: vi.fn(),
     ...overrides,
   };
 }

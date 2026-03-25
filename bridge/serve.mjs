@@ -11,6 +11,7 @@
  * Connects to ws://localhost:3333
  */
 
+import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +26,7 @@ import {
   readRawHex,
   readShuffledDeck,
 } from "./memory.mjs";
+import { ensureSharedMemoryEnabled } from "./settings.mjs";
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -125,6 +127,9 @@ wss.on("connection", (ws) => {
       if (msg.type === "scan") {
         console.log("Received scan/reconnect request from client");
         void forceReconnect();
+      } else if (msg.type === "restart_duckstation") {
+        console.log("Received restart DuckStation request from client");
+        void restartDuckStation();
       }
     } catch {
       // ignore invalid messages
@@ -176,7 +181,10 @@ async function tryConnect() {
       connected: false,
       status: "no_shared_memory",
       version: VERSION,
-      reason: `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Enable Settings > Advanced > Export Shared Memory in DuckStation.`,
+      settingsPatched: settingsPatchResult.enabled,
+      reason: settingsPatchResult.enabled
+        ? "Shared memory export is enabled in DuckStation settings but not active — restart DuckStation to apply."
+        : `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Enable Settings > Advanced > Export Shared Memory in DuckStation.`,
     }),
   );
   return false;
@@ -197,6 +205,64 @@ async function forceReconnect() {
   hadNonZeroData = false;
   reopenedAfterStale = false;
   await tryConnect();
+}
+
+/** Restart DuckStation: kill gracefully, wait for exit, relaunch. */
+async function restartDuckStation() {
+  const pids = await findDuckStationPids();
+  if (pids.length === 0) return;
+  const pid = mapping?.pid ?? pids[0];
+
+  // Get executable path before killing
+  let exePath;
+  try {
+    const out = execSync(`wmic process where "ProcessId=${pid}" get ExecutablePath /format:value`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+      timeout: 5000,
+    }).trim();
+    const eq = out.indexOf("=");
+    if (eq >= 0) exePath = out.substring(eq + 1).trim();
+  } catch {
+    /* ignore */
+  }
+  if (!exePath) {
+    console.error("restartDuckStation: could not determine executable path");
+    return;
+  }
+
+  console.log(`Restarting DuckStation (PID ${pid}): ${exePath}`);
+
+  // Close shared memory mapping
+  if (mapping) {
+    try {
+      closeSharedMemory(mapping);
+    } catch {
+      /* ignore */
+    }
+    mapping = null;
+    lastJson = "";
+    hadNonZeroData = false;
+    reopenedAfterStale = false;
+    consecutiveZeroReads = 0;
+  }
+
+  // Graceful kill (sends WM_CLOSE), then wait up to 10s
+  try {
+    execSync(`taskkill /PID ${pid}`, { stdio: ["pipe", "pipe", "ignore"], timeout: 5000 });
+  } catch {
+    /* taskkill may return non-zero even on success */
+  }
+  for (let i = 0; i < 40; i++) {
+    if (!(await findDuckStationPids()).includes(pid)) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  try {
+    spawn(exePath, [], { detached: true, stdio: "ignore" }).unref();
+  } catch (err) {
+    console.error(`restartDuckStation: failed to launch: ${err.message}`);
+  }
 }
 
 // ── Diagnostic logging ────────────────────────────────────────────
@@ -447,6 +513,16 @@ async function poll() {
   }
 
   setTimeout(poll, POLL_MS);
+}
+
+// ── DuckStation settings auto-patch ─────────────────────────────────
+const settingsPatchResult = ensureSharedMemoryEnabled();
+if (settingsPatchResult.patched) {
+  console.log(
+    "Enabled shared memory export in DuckStation settings. Restart DuckStation for the change to take effect.",
+  );
+} else if (settingsPatchResult.error) {
+  console.warn(`Could not check DuckStation settings: ${settingsPatchResult.error}`);
 }
 
 // ── Start ──────────────────────────────────────────────────────────

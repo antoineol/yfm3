@@ -208,6 +208,8 @@ This matches the current webapp behavior exactly (only syncs during HAND_SELECT 
 7. **Auth token loading** — read `.bridge-auth` file on startup.
 8. **Pairing flow** — on first run without token, start ephemeral HTTP server on localhost, open browser to webapp's `/bridge-pair` page, receive token via redirect callback.
 
+9. **DuckStation settings auto-patch notification** — the bridge already auto-enables `ExportSharedMemory` in DuckStation's `settings.ini` on startup (see `bridge/settings.mjs`). When patched, it currently notifies the user via WebSocket status (`settingsPatched` flag). This notification needs to move to a Convex POST so it can be displayed on any device.
+
 ### Still no business logic in bridge
 
 The bridge does NOT know about fusion rules, deck optimization, card names, or post-duel suggestions. It:

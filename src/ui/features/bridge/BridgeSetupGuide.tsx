@@ -12,13 +12,11 @@ import {
   SwitchModeLink,
   stepStatesForDetail,
   Troubleshooting,
-  WaitingForGamePanel,
 } from "./setup-steps.tsx";
 
 export function BridgeSetupGuide() {
   const bridge = useBridge();
   const updatePreferences = useUpdatePreferences();
-  const isWaiting = bridge.detail === "waiting_for_game";
 
   const handleSwitchMode = useCallback(() => {
     updatePreferences({ bridgeAutoSync: null });
@@ -26,15 +24,13 @@ export function BridgeSetupGuide() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      <StatusBanner detail={bridge.detail} detailMessage={bridge.detailMessage} />
-      {isWaiting ? (
-        <WaitingForGamePanel onReconnect={bridge.scan} />
-      ) : (
-        <>
-          <SetupSteps />
-          <Troubleshooting />
-        </>
-      )}
+      <StatusBanner
+        detail={bridge.detail}
+        detailMessage={bridge.detailMessage}
+        settingsPatched={bridge.settingsPatched}
+      />
+      <SetupSteps />
+      <Troubleshooting />
       <SwitchModeLink onClick={handleSwitchMode} />
     </div>
   );
@@ -46,6 +42,7 @@ function SetupSteps() {
   const states = stepStatesForDetail(bridge.detail);
 
   const step1 = downloaded && states[0] === STEP_ACTIVE ? STEP_DONE : states[0];
+  const step4 = bridge.settingsPatched ? STEP_DONE : states[3];
 
   return (
     <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
@@ -68,11 +65,46 @@ function SetupSteps() {
         title="Extract the zip and double-click start-bridge.bat"
       />
 
-      <Step number={3} state={states[2]} title="Open DuckStation and load the game" />
+      <Step number={3} state={states[2]} title="Open DuckStation" />
 
-      <Step number={4} state={states[3]} title="Enable shared memory export in DuckStation">
-        <DuckStationInstructions />
+      <Step
+        number={4}
+        state={step4}
+        title={
+          bridge.settingsPatched
+            ? "Shared memory export enabled — restart DuckStation to apply"
+            : "Enable shared memory export in DuckStation"
+        }
+      >
+        {bridge.settingsPatched ? <RestartDuckStationButton /> : <DuckStationInstructions />}
       </Step>
+
+      <Step number={5} state={states[4]} title="Load the game in DuckStation" />
     </div>
+  );
+}
+
+function RestartDuckStationButton() {
+  const bridge = useBridge();
+  const [sent, setSent] = useState(false);
+
+  const handleRestart = useCallback(() => {
+    if (!window.confirm("Restart DuckStation now?\n\nAny unsaved progress will be lost.")) return;
+    bridge.restartEmulator();
+    setSent(true);
+  }, [bridge]);
+
+  if (sent) {
+    return <p className="mt-1 text-xs text-text-muted">Restarting DuckStation...</p>;
+  }
+
+  return (
+    <button
+      className="mt-1 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors cursor-pointer"
+      onClick={handleRestart}
+      type="button"
+    >
+      Restart DuckStation
+    </button>
   );
 }

@@ -11,6 +11,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     status: "disconnected",
     detail: "bridge_not_found",
     detailMessage: null,
+    settingsPatched: false,
     version: null,
     hand: [],
     field: [],
@@ -22,6 +23,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     collection: null,
     deckDefinition: null,
     scan: vi.fn(),
+    restartEmulator: vi.fn(),
     ...overrides,
   };
 }
@@ -47,12 +49,13 @@ import { BridgeSetupGuide } from "./BridgeSetupGuide.tsx";
 afterEach(cleanup);
 
 describe("BridgeSetupGuide", () => {
-  it("renders 4 bridge-specific setup steps", () => {
+  it("renders 5 setup steps", () => {
     render(<BridgeSetupGuide />);
     expect(screen.getByText("Download the bridge")).toBeDefined();
     expect(screen.getByText("Extract the zip and double-click start-bridge.bat")).toBeDefined();
-    expect(screen.getByText("Open DuckStation and load the game")).toBeDefined();
+    expect(screen.getByText("Open DuckStation")).toBeDefined();
     expect(screen.getByText("Enable shared memory export in DuckStation")).toBeDefined();
+    expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
   });
 
   it("shows requirements disclaimer", () => {
@@ -73,9 +76,10 @@ describe("BridgeSetupGuide", () => {
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ bridgeAutoSync: null });
   });
 
-  it("shows waiting-for-game panel when bridge detail is waiting_for_game", () => {
+  it("shows step 5 as active when waiting_for_game", () => {
     mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "waiting_for_game" }));
     render(<BridgeSetupGuide />);
-    expect(screen.getByText(/no game is running/)).toBeDefined();
+    expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
+    expect(screen.getByText(/Start or load a game/)).toBeDefined();
   });
 });

@@ -10,19 +10,20 @@ export type StepState = typeof STEP_DONE | typeof STEP_ACTIVE | typeof STEP_PEND
 
 export function stepStatesForDetail(
   detail: BridgeDetail,
-): [StepState, StepState, StepState, StepState] {
+): [StepState, StepState, StepState, StepState, StepState] {
   switch (detail) {
     case "ready":
+      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE];
     case "waiting_for_game":
-      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE];
+      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE];
     case "no_shared_memory":
-      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE];
+      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
     case "emulator_not_found":
-      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
+      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
     case "bridge_not_found":
-      return [STEP_ACTIVE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
+      return [STEP_ACTIVE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING, STEP_PENDING];
     case "error":
-      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
+      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
   }
 }
 
@@ -92,16 +93,22 @@ export function OptionalDownloadStep({
 export function StatusBanner({
   detail,
   detailMessage,
+  settingsPatched,
 }: {
   detail: BridgeDetail;
   detailMessage: string | null;
+  settingsPatched?: boolean;
 }) {
   const config = STATUS_CONFIG[detail];
+  const label =
+    detail === "no_shared_memory" && settingsPatched
+      ? "Shared memory export enabled — restart DuckStation to apply"
+      : config.label;
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 rounded-lg ${config.bg}`}>
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${config.bg}`}>
       <span className={`mt-0.5 inline-block size-2.5 rounded-full shrink-0 ${config.dot}`} />
       <div className="min-w-0">
-        <p className={`text-sm font-medium ${config.text}`}>{config.label}</p>
+        <p className={`text-sm font-medium ${config.text}`}>{label}</p>
         {detailMessage && detail === "error" && (
           <p className="mt-1 text-xs text-text-muted break-all font-mono">{detailMessage}</p>
         )}
@@ -151,29 +158,6 @@ const STATUS_CONFIG: Record<
     text: "text-red-400",
   },
 };
-
-// ── Panels ───────────────────────────────────────────────────────
-
-export function WaitingForGamePanel({ onReconnect }: { onReconnect: () => void }) {
-  return (
-    <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-3 text-center">
-      <p className="text-sm text-text-secondary">
-        DuckStation is connected but no game is running.
-      </p>
-      <p className="text-xs text-text-muted">
-        Launch or load <strong className="text-text-secondary">Yu-Gi-Oh! Forbidden Memories</strong>{" "}
-        in DuckStation to start syncing.
-      </p>
-      <button
-        className="text-xs text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2 cursor-pointer"
-        onClick={onReconnect}
-        type="button"
-      >
-        Reconnect
-      </button>
-    </div>
-  );
-}
 
 export function DuckStationInstructions() {
   const [open, setOpen] = useState(false);

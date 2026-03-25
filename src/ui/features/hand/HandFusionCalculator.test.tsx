@@ -35,6 +35,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     status: "disconnected",
     detail: "bridge_not_found",
     detailMessage: null,
+    settingsPatched: false,
     version: null,
     hand: [],
     field: [],
@@ -46,6 +47,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     collection: null,
     deckDefinition: null,
     scan: vi.fn(),
+    restartEmulator: vi.fn(),
     ...overrides,
   };
 }

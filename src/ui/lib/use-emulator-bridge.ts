@@ -51,6 +51,7 @@ type BridgeDisconnected = {
   status?: "no_emulator" | "no_shared_memory" | "error";
   version?: string;
   reason?: string;
+  settingsPatched?: boolean;
 };
 
 type RawBridgeMessage = RawBridgeState | BridgeWaitingForGame | BridgeDisconnected;
@@ -284,6 +285,8 @@ export type EmulatorBridge = {
   status: BridgeStatus;
   detail: BridgeDetail;
   detailMessage: string | null;
+  /** Bridge auto-patched DuckStation settings — user must restart DuckStation. */
+  settingsPatched: boolean;
   version: string | null;
   hand: number[];
   field: FieldCard[];
@@ -295,6 +298,7 @@ export type EmulatorBridge = {
   collection: Record<number, number> | null;
   deckDefinition: number[] | null;
   scan: () => void;
+  restartEmulator: () => void;
 };
 
 const BRIDGE_URL = "ws://localhost:3333";
@@ -308,6 +312,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [status, setStatus] = useState<BridgeStatus>("disconnected");
   const [detail, setDetail] = useState<BridgeDetail>("bridge_not_found");
   const [detailMessage, setDetailMessage] = useState<string | null>(null);
+  const [settingsPatched, setSettingsPatched] = useState(false);
   const [version, setVersion] = useState<string | null>(null);
   const [hand, setHand] = useState<number[]>([]);
   const [field, setField] = useState<FieldCard[]>([]);
@@ -351,6 +356,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStatus("connected");
           setDetail("ready");
           setDetailMessage(null);
+          setSettingsPatched(false);
           setVersion(msg.version ?? null);
           const state = interpretRawState(msg);
 
@@ -376,6 +382,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStatus("connected");
           setDetail("waiting_for_game");
           setDetailMessage(null);
+          setSettingsPatched(false);
           setVersion(msg.version ?? null);
           setHand([]);
           setField([]);
@@ -396,6 +403,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
                 : "error",
           );
           setDetailMessage(msg.reason ?? null);
+          setSettingsPatched(msg.settingsPatched === true);
           setVersion(msg.version ?? null);
           setHand([]);
           setField([]);
@@ -417,6 +425,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStatus("disconnected");
       setDetail("bridge_not_found");
       setDetailMessage(null);
+      setSettingsPatched(false);
       setVersion(null);
       setHand([]);
       setField([]);
@@ -445,6 +454,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStatus("disconnected");
       setDetail("bridge_not_found");
       setDetailMessage(null);
+      setSettingsPatched(false);
       setVersion(null);
       setHand([]);
       setField([]);
@@ -471,10 +481,17 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     }
   }, []);
 
+  const restartEmulator = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "restart_duckstation" }));
+    }
+  }, []);
+
   return {
     status,
     detail,
     detailMessage,
+    settingsPatched,
     version,
     hand,
     field,
@@ -486,5 +503,6 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     collection,
     deckDefinition,
     scan,
+    restartEmulator,
   };
 }

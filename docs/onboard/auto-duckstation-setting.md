@@ -1,30 +1,32 @@
-## Auto-enable DuckStation shared memory export
+## Auto-enable DuckStation shared memory export — IMPLEMENTED
 
-DuckStation's "Export Shared Memory" option (Settings > Advanced) must be enabled for the bridge to read PS1 RAM. Currently the user has to enable it manually.
+DuckStation's "Export Shared Memory" option (Settings > Advanced) must be enabled for the bridge to read PS1 RAM. The bridge now auto-patches this setting on startup.
 
 ### How it works
 
-DuckStation stores settings in `%APPDATA%\DuckStation\settings.ini` (Windows). The setting is:
+DuckStation stores settings in `Documents\DuckStation\settings.ini` (new versions, resolved via `FOLDERID_Documents`) or `%LOCALAPPDATA%\DuckStation\settings.ini` (older versions). The setting is:
 
 ```ini
 [Hacks]
 ExportSharedMemory = true
 ```
 
-### Approach: check-and-patch on bridge startup
+### Implementation
 
-On startup, before attempting to open shared memory, the bridge:
+- **`bridge/settings.mjs`** — `patchSettingsIni()` (pure INI patching), `findSettingsPath()` (resolves Documents path via PowerShell), `ensureSharedMemoryEnabled()` (file I/O wrapper)
+- **`bridge/serve.mjs`** — calls `ensureSharedMemoryEnabled()` on startup, sends `settingsPatched` flag in WebSocket `no_shared_memory` status
+- **`src/ui/lib/use-emulator-bridge.ts`** — parses `settingsPatched` from WebSocket, exposes on `EmulatorBridge`
+- **`src/ui/features/bridge/BridgeSetupGuide.tsx`** — step 4 shows "restart DuckStation" when auto-patched
+- **`tests/bridge/settings.test.ts`** — tests for `patchSettingsIni`
 
-1. Locates `%APPDATA%\DuckStation\settings.ini`
-2. Parses the INI file
-3. If `ExportSharedMemory` is missing or `false` under `[Hacks]`, sets it to `true` and writes the file back
-4. If patched, notifies the user via WebSocket status (or Convex, post-migration): "Enabled shared memory export in DuckStation settings — please restart DuckStation for the change to take effect."
-5. If already enabled, does nothing
+### Edge cases handled
 
-DuckStation must be restarted after the setting is changed for it to take effect.
+- settings.ini doesn't exist (DuckStation not installed or portable mode) — skipped with warning
+- `[Hacks]` section doesn't exist yet — appended
+- File is read-only — error logged, manual instructions shown
+- CRLF vs LF line endings — preserved
+- Documents folder redirected (e.g. OneDrive) — resolved via `[Environment]::GetFolderPath('MyDocuments')`
 
-### Implementation notes
+### Migration note
 
-- On implementation, update `docs/mobile/plan.md`: add the "need to restart DuckStation" notification to the list of things that need to be moved to Convex (so that it can be displayed on any device and the bridge can drop WebSocket entirely).
-- Handle edge cases: settings.ini doesn't exist (DuckStation not installed or portable mode), `[Hacks]` section doesn't exist yet (append it), file is read-only.
-- The bridge already runs on Windows with filesystem access, so no extra permissions needed.
+The `settingsPatched` notification is currently WebSocket-based. When the bridge migrates to Convex HTTP POST (see `docs/mobile/plan.md`), this notification needs to move to a Convex POST so it can be displayed on any device.
