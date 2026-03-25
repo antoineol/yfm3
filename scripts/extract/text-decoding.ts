@@ -50,6 +50,18 @@ export function decodeTblString(
   return result;
 }
 
+/** Skip `count` 0xFF-terminated entries in a buffer starting at `offset`.
+ *  Returns the byte offset just past the last skipped terminator. */
+export function skipWaMrgEntries(buf: Buffer, offset: number, count: number): number {
+  let pos = offset;
+  for (let i = 0; i < count; i++) {
+    const end = buf.indexOf(0xff, pos);
+    if (end === -1) break;
+    pos = end + 1;
+  }
+  return pos;
+}
+
 /** Extract 0xFF-terminated strings from a buffer starting at `offset`.
  *  Uses PAL_CHAR_TABLE by default. */
 export function extractWaMrgStrings(

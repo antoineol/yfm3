@@ -18,14 +18,22 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import {
   closeSharedMemory,
+  DEFAULT_PROFILE,
+  filterChangedAddresses,
   findDuckStationPids,
+  isGameLoaded,
   openSharedMemory,
+  peekU8,
+  peekU16,
   readCollection,
   readDeckDefinition,
+  readGameSerial,
   readGameState,
   readModFingerprint,
   readRawHex,
   readShuffledDeck,
+  recordByteAddresses,
+  validateProfile,
 } from "./memory.mjs";
 import { ensureSharedMemoryEnabled } from "./settings.mjs";
 
@@ -72,6 +80,146 @@ const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
 
+// ── Offset profile resolution ─────────────────────────────────────
+// undefined = not yet attempted, object = resolved, null = unknown version
+let resolvedProfile;
+
+/**
+ * Resolve the offset profile for the current game binary.
+ *
+ * Strategy:
+ * 1. Read disc serial from RAM (e.g. "SLUS_014.11", "SLES_039.48")
+ * 2. NTSC-U serials (SLUS) → use DEFAULT_PROFILE
+ * 3. Unknown serials → validate DEFAULT_PROFILE via LP sanity check
+ * 4. If validation fails → null profile (graceful degradation)
+ */
+function resolveOffsetProfile(view) {
+  if (resolvedProfile !== undefined) return resolvedProfile;
+
+  const serial = readGameSerial(view);
+
+  // NTSC-U disc (SLUS) — known to use default offsets
+  if (serial && serial.startsWith("SLUS")) {
+    resolvedProfile = DEFAULT_PROFILE;
+    console.log(`Game serial: ${serial} → offset profile: ${DEFAULT_PROFILE.label}`);
+    return resolvedProfile;
+  }
+
+  // Other disc (PAL, NTSC-J, modded) — try default offsets with LP validation
+  if (validateProfile(view, DEFAULT_PROFILE)) {
+    resolvedProfile = DEFAULT_PROFILE;
+    console.log(
+      `Game serial: ${serial ?? "unknown"} → offset profile: ${DEFAULT_PROFILE.label} (LP validated)`,
+    );
+    return resolvedProfile;
+  }
+
+  // Default offsets read garbage — unsupported binary
+  resolvedProfile = null;
+  console.warn(
+    `Game serial: ${serial ?? "unknown"} — no offset profile available. ` +
+      "Duel phase, LP, terrain, and fusions will be unavailable.",
+  );
+  return null;
+}
+
+/** Reset profile resolution (e.g. after DuckStation restart or game change). */
+function resetProfile() {
+  resolvedProfile = undefined;
+  hadHandCardsLastPoll = false;
+  tryScanOnDuelStart._candidates = null;
+}
+
+// ── Duel-start scanning for unknown versions ─────────────────────
+let hadHandCardsLastPoll = false;
+
+/**
+ * When the profile is null (unknown version) and a duel starts,
+ * scan RAM for LP/phase patterns to discover the correct offsets.
+ * The scan is triggered at duel start (hand cards appear after being
+ * absent) because LP is guaranteed to be at its starting value.
+ */
+function tryScanOnDuelStart(view, state) {
+  if (resolvedProfile !== null) return;
+
+  // Count active hand cards (status !== 0, valid card ID)
+  const activeCards = state.hand.filter(
+    (s) => s.cardId > 0 && s.cardId < 723 && s.status !== 0,
+  ).length;
+  const handFull = activeCards === 5;
+
+  // Phase 1: record candidate addresses when hand first reaches 5 cards
+  // (HAND_SELECT phase = 0x04).
+  if (handFull && !hadHandCardsLastPoll && !tryScanOnDuelStart._candidates) {
+    console.log("Duel detected (5 cards) — recording phase=0x04 candidate addresses...");
+    const addrs = recordByteAddresses(view, 0x04);
+    tryScanOnDuelStart._candidates = addrs;
+    console.log(`  Recorded ${addrs.length} addresses with value 0x04`);
+  }
+  hadHandCardsLastPoll = handFull;
+
+  // Phase 2: on every poll, check which candidates changed to 0x05 (FIELD)
+  if (!tryScanOnDuelStart._candidates) return;
+  const changed = filterChangedAddresses(view, tryScanOnDuelStart._candidates, 0x05);
+  if (changed.length === 0) return; // phase hasn't changed yet, keep polling
+
+  console.log(`Phase changed: ${changed.length} addresses went 0x04→0x05`);
+
+  // Find the one that also has turn=0x00 at the expected relative offset
+  const turnDist = 0x09b23a - 0x09b1d5; // 0x65
+  const confirmed = changed.filter((off) => peekU8(view, off - turnDist) === 0x00);
+  console.log(`  With turn=0 at offset-0x65: ${confirmed.length} addresses`);
+  for (const off of confirmed) {
+    console.log(`    0x${off.toString(16)}`);
+  }
+
+  tryScanOnDuelStart._candidates = null; // done scanning
+
+  if (confirmed.length !== 1) {
+    console.warn("Could not uniquely identify phase byte. Will retry next duel.");
+    return;
+  }
+
+  // Found it! Build the full profile.
+  const phaseAddr = confirmed[0];
+  console.log(`Phase byte confirmed at 0x${phaseAddr.toString(16)}`);
+
+  // Find LP via scan
+  let lpP1 = null;
+  const lpStride = 0x20;
+  for (let off = 0x080000; off <= 0x120000 - lpStride; off += 2) {
+    const v1 = peekU16(view, off);
+    const v2 = peekU16(view, off + lpStride);
+    if (v1 === v2 && v1 > 0 && v1 <= 9999) {
+      lpP1 = off;
+      break;
+    }
+  }
+
+  const profile = {
+    label: "PAL-discovered",
+    duelPhase: phaseAddr,
+    turnIndicator: phaseAddr - turnDist,
+    sceneId: phaseAddr + (0x09b26c - 0x09b23a),
+    terrain: phaseAddr + (0x09b364 - 0x09b23a),
+    duelistId: phaseAddr + (0x09b361 - 0x09b23a),
+    lpP1: lpP1 ?? 0,
+    lpP2: lpP1 ? lpP1 + 0x20 : 0,
+    fusionCounter: lpP1 ? lpP1 - (0x0ea004 - 0x0e9ff8) : 0,
+  };
+
+  resolvedProfile = profile;
+  console.log("Offset profile discovered!");
+  console.log(`  duelPhase: 0x${profile.duelPhase.toString(16)}`);
+  console.log(`  turnIndicator: 0x${profile.turnIndicator.toString(16)}`);
+  console.log(`  sceneId: 0x${profile.sceneId.toString(16)}`);
+  console.log(`  lpP1: 0x${profile.lpP1.toString(16)}`);
+  console.log(`  lpP2: 0x${profile.lpP2.toString(16)}`);
+  console.log(`  fusionCounter: 0x${profile.fusionCounter.toString(16)}`);
+  console.log(`  terrain: 0x${profile.terrain.toString(16)}`);
+  console.log(`  duelistId: 0x${profile.duelistId.toString(16)}`);
+}
+
 // ── WebSocket server ───────────────────────────────────────────────
 const wss = new WebSocketServer({ port: PORT });
 
@@ -86,27 +234,32 @@ wss.on("connection", (ws) => {
   // Handles: bridge restart, app reconnect, app started late.
   if (mapping) {
     try {
-      const state = readGameState(mapping.view);
-      const isAllZero = state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0;
-      const json = isAllZero
-        ? JSON.stringify({
+      if (!isGameLoaded(mapping.view)) {
+        ws.send(
+          JSON.stringify({
             connected: true,
             status: "waiting_for_game",
             version: VERSION,
             pid: mapping.pid,
-          })
-        : JSON.stringify({
-            connected: true,
-            status: "ready",
-            version: VERSION,
-            pid: mapping.pid,
-            modFingerprint: readModFingerprint(mapping.view),
-            ...state,
-          });
-      ws.send(json);
-      if (json !== lastJson) {
-        if (!isAllZero) logStateChange(state);
-        lastJson = json;
+          }),
+        );
+      } else {
+        const profile = resolveOffsetProfile(mapping.view);
+        const state = readGameState(mapping.view, profile);
+        const json = JSON.stringify({
+          connected: true,
+          status: "ready",
+          version: VERSION,
+          pid: mapping.pid,
+          modFingerprint: readModFingerprint(mapping.view),
+          gameSerial: readGameSerial(mapping.view),
+          ...state,
+        });
+        ws.send(json);
+        if (json !== lastJson) {
+          logStateChange(state);
+          lastJson = json;
+        }
       }
     } catch {
       ws.send(
@@ -206,6 +359,7 @@ async function forceReconnect() {
   consecutiveZeroReads = 0;
   hadNonZeroData = false;
   reopenedAfterStale = false;
+  resetProfile();
   await tryConnect();
 }
 
@@ -247,6 +401,7 @@ async function restartDuckStation() {
     hadNonZeroData = false;
     reopenedAfterStale = false;
     consecutiveZeroReads = 0;
+    resetProfile();
   }
 
   // Graceful kill (sends WM_CLOSE), then wait up to 10s
@@ -285,10 +440,10 @@ function logStateChange(state) {
 
   const parts = [];
 
-  if (!prev || prev.duelPhase !== state.duelPhase) {
+  if (state.duelPhase != null && (!prev || prev.duelPhase !== state.duelPhase)) {
     parts.push(`phase=0x${state.duelPhase.toString(16).padStart(2, "0")}`);
   }
-  if (!prev || prev.turnIndicator !== state.turnIndicator) {
+  if (state.turnIndicator != null && (!prev || prev.turnIndicator !== state.turnIndicator)) {
     parts.push(`turn=${state.turnIndicator === 0 ? "player" : "opponent"}`);
   }
 
@@ -304,10 +459,13 @@ function logStateChange(state) {
     parts.push(`field=[${currField}]`);
   }
 
-  if (!prev || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1]) {
+  if (
+    state.lp != null &&
+    (!prev || !prev.lp || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1])
+  ) {
     parts.push(`lp=${state.lp[0]}/${state.lp[1]}`);
   }
-  if (!prev || prev.fusions !== state.fusions) {
+  if (state.fusions != null && (!prev || prev.fusions !== state.fusions)) {
     parts.push(`fusions=${state.fusions}`);
   }
 
@@ -331,8 +489,8 @@ function collectionSummary(coll) {
 }
 
 function logCollectionDeckState(view, sceneId) {
-  // Scene ID change
-  if (sceneId !== lastSceneId) {
+  // Scene ID change (only when available)
+  if (sceneId != null && sceneId !== lastSceneId) {
     const prev = lastSceneId;
     lastSceneId = sceneId;
     collLog(
@@ -409,10 +567,9 @@ async function poll() {
 
   if (mapping) {
     try {
-      const state = readGameState(mapping.view);
-      const isAllZero = state.sceneId === 0 && state.lp[0] === 0 && state.lp[1] === 0;
+      const gameLoaded = isGameLoaded(mapping.view);
 
-      if (isAllZero) {
+      if (!gameLoaded) {
         // ── Game not loaded or shared memory stale ─────────────────
         consecutiveZeroReads++;
 
@@ -434,6 +591,7 @@ async function poll() {
             hadNonZeroData = false;
             reopenedAfterStale = false;
             lastJson = "";
+            resetProfile();
             // Will call tryConnect() next cycle
             setTimeout(poll, POLL_MS);
             return;
@@ -452,6 +610,7 @@ async function poll() {
           mapping = m; // may be null if reopen failed
           consecutiveZeroReads = 0;
           reopenedAfterStale = true; // don't reopen again until we see real data
+          resetProfile();
         }
 
         // Broadcast "waiting_for_game" — no game data, just status.
@@ -474,12 +633,25 @@ async function poll() {
         hadNonZeroData = true;
         reopenedAfterStale = false;
 
+        let profile = resolveOffsetProfile(mapping.view);
+        let state = readGameState(mapping.view, profile);
+
+        // On unknown versions, try to discover offsets at duel start
+        if (profile === null) {
+          tryScanOnDuelStart(mapping.view, state);
+          if (resolvedProfile !== null) {
+            profile = resolvedProfile;
+            state = readGameState(mapping.view, profile);
+          }
+        }
+
         const json = JSON.stringify({
           connected: true,
           status: "ready",
           version: VERSION,
           pid: mapping.pid,
           modFingerprint: readModFingerprint(mapping.view),
+          gameSerial: readGameSerial(mapping.view),
           ...state,
         });
 
@@ -504,6 +676,7 @@ async function poll() {
       lastJson = "";
       hadNonZeroData = false;
       reopenedAfterStale = false;
+      resetProfile();
       broadcast(
         JSON.stringify({
           connected: false,

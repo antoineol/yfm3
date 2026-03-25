@@ -27,15 +27,19 @@ type RawBridgeState = {
   version?: string;
   pid: number;
   modFingerprint?: string;
-  sceneId: number;
-  duelPhase: number;
-  turnIndicator: number;
+  gameSerial?: string;
+  // Version-dependent fields — null when the game binary is unrecognized
+  // (e.g. PAL version without a known offset profile).
+  sceneId: number | null;
+  duelPhase: number | null;
+  turnIndicator: number | null;
+  lp: [number, number] | null;
+  fusions: number | null;
+  terrain: number | null;
+  duelistId: number | null;
+  // Universal fields — always available.
   hand: RawCardSlot[];
   field: RawCardSlot[];
-  lp: [number, number];
-  fusions: number;
-  terrain: number;
-  duelistId: number;
   trunk: number[];
   deckDefinition: number[];
 };
@@ -82,51 +86,74 @@ type InterpretedState = {
   handReliable: boolean;
   phase: DuelPhase;
   inDuel: boolean;
-  lp: [number, number];
-  stats: DuelStats;
+  lp: [number, number] | null;
+  stats: DuelStats | null;
 };
 
 /**
  * Interpret raw bridge state into game-meaningful values.
  * Pure function — all game logic lives here, not in the bridge.
+ *
+ * When the bridge has a resolved offset profile (NTSC-U, RP), duelPhase
+ * and related fields are numbers → exact phase detection.
+ *
+ * When the profile is unknown (PAL, etc.), those fields are null →
+ * duel state is inferred from hand/field card presence.
  */
 export function interpretRawState(raw: RawBridgeState): InterpretedState {
   const hand = filterCardSlots(raw.hand);
   const field = filterFieldSlots(raw.field);
+  const stats: DuelStats | null =
+    raw.fusions != null
+      ? { fusions: raw.fusions, terrain: raw.terrain ?? 0, duelistId: raw.duelistId ?? 0 }
+      : null;
 
-  const isPlayerTurn = raw.turnIndicator === 0;
-  const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
-  const handReliable =
-    isPlayerTurn &&
-    (raw.duelPhase === PHASE_CLEANUP ||
+  // ── Exact detection: duel phase byte is available ──────────────────
+  if (raw.duelPhase != null) {
+    const isPlayerTurn = raw.turnIndicator === 0;
+    const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
+    const handReliable =
+      isPlayerTurn &&
+      (raw.duelPhase === PHASE_CLEANUP ||
+        raw.duelPhase === PHASE_DRAW ||
+        raw.duelPhase === PHASE_HAND_SELECT);
+
+    // A recognized duel phase means we are in a duel, even if cards have not
+    // been dealt yet (e.g. first DRAW).  The game always progresses through
+    // DUEL_END / RESULTS at end-of-duel, which are excluded here, so
+    // isDuelPhase reliably goes false when the duel ends.
+    const inDuel =
+      raw.duelPhase === PHASE_INIT ||
+      raw.duelPhase === PHASE_CLEANUP ||
       raw.duelPhase === PHASE_DRAW ||
-      raw.duelPhase === PHASE_HAND_SELECT);
+      raw.duelPhase === PHASE_HAND_SELECT ||
+      raw.duelPhase === PHASE_FIELD ||
+      raw.duelPhase === PHASE_FUSION ||
+      raw.duelPhase === PHASE_FUSION_RESOLVE ||
+      raw.duelPhase === PHASE_BATTLE ||
+      raw.duelPhase === PHASE_POST_BATTLE;
 
-  // A recognized duel phase means we are in a duel, even if cards have not
-  // been dealt yet (e.g. first DRAW).  The game always progresses through
-  // DUEL_END / RESULTS at end-of-duel, which are excluded here, so
-  // isDuelPhase reliably goes false when the duel ends.
-  const isDuelPhase =
-    raw.duelPhase === PHASE_INIT ||
-    raw.duelPhase === PHASE_CLEANUP ||
-    raw.duelPhase === PHASE_DRAW ||
-    raw.duelPhase === PHASE_HAND_SELECT ||
-    raw.duelPhase === PHASE_FIELD ||
-    raw.duelPhase === PHASE_FUSION ||
-    raw.duelPhase === PHASE_FUSION_RESOLVE ||
-    raw.duelPhase === PHASE_BATTLE ||
-    raw.duelPhase === PHASE_POST_BATTLE;
-  const inDuel = isDuelPhase;
+    return { hand, field, handReliable, phase, inDuel, lp: raw.lp, stats };
+  }
 
-  return {
-    hand,
-    field,
-    handReliable,
-    phase,
-    inDuel,
-    lp: raw.lp,
-    stats: { fusions: raw.fusions, terrain: raw.terrain, duelistId: raw.duelistId },
-  };
+  // ── Fallback: no duel phase — infer from hand/field presence ───────
+  // Used when the game binary is unrecognized (e.g. PAL).
+  // Hand/field RAM addresses are universal across all versions.
+  if (hand.length > 0 || field.length > 0) {
+    const fallbackPhase: DuelPhase =
+      hand.length >= 5 ? "hand" : field.length > 0 ? "field" : "draw";
+    return {
+      hand,
+      field,
+      handReliable: hand.length >= 5,
+      phase: fallbackPhase,
+      inDuel: true,
+      lp: raw.lp,
+      stats,
+    };
+  }
+
+  return { hand, field, handReliable: false, phase: "other", inDuel: false, lp: raw.lp, stats };
 }
 
 function isActiveSlot(s: RawCardSlot): boolean {
@@ -366,7 +393,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
           const { effectivePhase, tracker } = resolveEndedPhase(
             state,
-            msg.sceneId,
+            msg.sceneId ?? 0,
             endedTrackerRef.current,
             Date.now(),
           );

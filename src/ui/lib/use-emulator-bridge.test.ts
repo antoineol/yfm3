@@ -296,9 +296,174 @@ describe("interpretRawState", () => {
       expect(result.handReliable).toBe(false);
     });
 
-    it("false when phase is unrecognized", () => {
-      const result = interpretRawState(makeRaw({ duelPhase: 0xff }));
+    it("false when phase is unrecognized and hand is empty", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0xff,
+          hand: [
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
       expect(result.inDuel).toBe(false);
+    });
+  });
+
+  describe("fallback: null duelPhase (unknown game version)", () => {
+    const emptyHand = [
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+    ];
+
+    it("infers inDuel=true when hand has cards", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+    });
+
+    it("infers phase='hand' and handReliable=true with 5 active cards", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: [
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+            { cardId: 300, atk: 900, def: 700, status: 0x80 },
+            { cardId: 400, atk: 800, def: 600, status: 0x80 },
+            { cardId: 500, atk: 1100, def: 900, status: 0x80 },
+          ],
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+      expect(result.phase).toBe("hand");
+      expect(result.handReliable).toBe(true);
+    });
+
+    it("infers phase='draw' with < 5 cards and empty field (initial deal)", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: [
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+      expect(result.phase).toBe("draw");
+      expect(result.handReliable).toBe(false);
+    });
+
+    it("infers phase='field' with < 5 cards and cards on field (post-play)", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: [
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+            { cardId: 300, atk: 900, def: 700, status: 0x80 },
+            { cardId: 400, atk: 800, def: 600, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          field: [
+            { cardId: 50, atk: 1800, def: 1400, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+      expect(result.phase).toBe("field");
+      expect(result.handReliable).toBe(false);
+    });
+
+    it("infers inDuel from field cards even when hand is empty", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: emptyHand,
+          field: [
+            { cardId: 50, atk: 1800, def: 1400, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.inDuel).toBe(true);
+      expect(result.phase).toBe("field");
+    });
+
+    it("not in duel when hand and field are empty", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: emptyHand,
+        }),
+      );
+      expect(result.inDuel).toBe(false);
+      expect(result.phase).toBe("other");
+    });
+
+    it("returns null stats when version-dependent fields are null", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+        }),
+      );
+      expect(result.lp).toBeNull();
+      expect(result.stats).toBeNull();
     });
   });
 

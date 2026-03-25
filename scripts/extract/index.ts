@@ -29,7 +29,12 @@ export type { CardStats, DuelistData, EquipEntry, Fusion, WaMrgLayout } from "./
 // Disc loading
 // ---------------------------------------------------------------------------
 
-export function loadDiscData(binPath: string): { slus: Buffer; waMrg: Buffer } {
+export function loadDiscData(binPath: string): {
+  slus: Buffer;
+  waMrg: Buffer;
+  /** Disc serial extracted from the PS1 executable filename (e.g. "SLES_039.48"). */
+  serial: string;
+} {
   const bin = fs.readFileSync(binPath);
 
   const pvd = readSector(bin, PVD_SECTOR);
@@ -50,23 +55,70 @@ export function loadDiscData(binPath: string): { slus: Buffer; waMrg: Buffer } {
     );
   }
 
-  return { slus: readIsoFile(bin, exeEntry), waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG") };
+  // Strip ISO 9660 version suffix (";1") to get the bare serial
+  const serial = exeEntry.name.replace(/;.*$/, "");
+
+  return {
+    slus: readIsoFile(bin, exeEntry),
+    waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG"),
+    serial,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Disc serial → PAL language block index
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps known PAL disc serials to the WA_MRG text block index (0=EN, 1=FR, 2=DE, 3=IT, 4=ES).
+ * NTSC-U serials are absent — they use EXE-embedded text, not WA_MRG blocks.
+ */
+const SERIAL_LANG_IDX: Record<string, number> = {
+  SLES_039_47: 0, // PAL English
+  SLES_039_48: 1, // PAL French
+  SLES_039_49: 2, // PAL German
+  SLES_039_50: 3, // PAL Italian
+  SLES_039_51: 4, // PAL Spanish
+};
+
+/** Resolve a disc serial to a PAL language block index, or undefined for NTSC-U / unknown. */
+export function langIdxForSerial(serial: string): number | undefined {
+  // Normalize: "SLES_039.48" → "SLES_039_48"
+  const key = serial.replace(".", "_");
+  return SERIAL_LANG_IDX[key];
 }
 
 // ---------------------------------------------------------------------------
 // Full CSV extraction
 // ---------------------------------------------------------------------------
 
-export function extractAllCsvs(slus: Buffer, waMrg: Buffer): Record<string, string> {
+/**
+ * Extract all CSVs from disc data.
+ * @param langIdx - PAL language block index (0–4). When undefined, uses block 0
+ *   for PAL discs. Ignored for NTSC-U (text comes from the EXE, not WA_MRG).
+ */
+export function extractAllCsvs(
+  slus: Buffer,
+  waMrg: Buffer,
+  langIdx?: number,
+): Record<string, string> {
   const exeLayout = detectExeLayout(slus);
   const waMrgLayout = detectWaMrgLayout(waMrg);
-  const cardAttributes = detectAttributeMapping(slus, exeLayout);
+  const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);
   const waMrgTextBlocks = exeLayout.nameOffsetTable === -1 ? findAllWaMrgTextBlocks(waMrg) : [];
 
-  const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, cardAttributes, waMrgTextBlocks);
+  const cards = extractCards(
+    slus,
+    waMrg,
+    exeLayout,
+    waMrgLayout,
+    cardAttributes,
+    waMrgTextBlocks,
+    langIdx,
+  );
   const fusions = extractFusions(waMrg, waMrgLayout);
   const equips = extractEquips(waMrg, waMrgLayout);
-  const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks);
+  const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
   const cardAtk = new Map(cards.map((c) => [c.id, c.atk]));
 
   return {

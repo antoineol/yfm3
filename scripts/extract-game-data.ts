@@ -15,11 +15,12 @@ import {
   detectArtworkBlockSize,
   extractAllArtwork,
   extractAllCsvs,
+  langIdxForSerial,
   loadDiscData,
 } from "./extract/index.ts";
 
 // Re-export public API for verify-game-data.ts and tests
-export { extractAllCsvs, loadDiscData } from "./extract/index.ts";
+export { extractAllCsvs, langIdxForSerial, loadDiscData } from "./extract/index.ts";
 export { CHAR_TABLE, decodeTblString, PAL_CHAR_TABLE } from "./extract/text-decoding.ts";
 
 async function main() {
@@ -38,11 +39,19 @@ async function main() {
   const outDir = args[1] ?? "./public/data";
 
   console.log(`Reading disc image: ${binPath}`);
-  const { slus, waMrg } = loadDiscData(binPath);
+  const { slus, waMrg, serial } = loadDiscData(binPath);
+  console.log(`  Serial: ${serial}`);
   console.log(`  WA_MRG.MRG: ${(waMrg.length / 1024 / 1024).toFixed(1)} MB`);
 
-  // Extract all CSVs
-  const csvs = extractAllCsvs(slus, waMrg);
+  // Detect disc language for PAL discs
+  const langIdx = langIdxForSerial(serial);
+  const langLabels = ["EN", "FR", "DE", "IT", "ES"];
+  if (langIdx !== undefined) {
+    console.log(`  PAL language: ${langLabels[langIdx]} (block ${langIdx})`);
+  }
+
+  // Extract all CSVs (using the detected language for PAL discs)
+  const csvs = extractAllCsvs(slus, waMrg, langIdx);
 
   // Write CSV output
   fs.mkdirSync(outDir, { recursive: true });

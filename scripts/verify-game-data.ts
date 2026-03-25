@@ -15,7 +15,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { extractAllCsvs, loadDiscData } from "./extract-game-data.ts";
+import { extractAllCsvs, langIdxForSerial, loadDiscData } from "./extract-game-data.ts";
 
 // ---------------------------------------------------------------------------
 // CSV comparison
@@ -103,10 +103,12 @@ function main() {
   const refDir = args[1] ?? "";
 
   console.log(`Extracting data from: ${binPath}`);
-  const { slus, waMrg } = loadDiscData(binPath);
+  const { slus, waMrg, serial } = loadDiscData(binPath);
+  console.log(`  Serial: ${serial}`);
 
+  const langIdx = langIdxForSerial(serial);
   console.log("Generating CSVs...");
-  const csvs = extractAllCsvs(slus, waMrg);
+  const csvs = extractAllCsvs(slus, waMrg, langIdx);
 
   console.log(`Comparing with reference: ${refDir}\n`);
 
