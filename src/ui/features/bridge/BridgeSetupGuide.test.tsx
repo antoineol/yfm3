@@ -77,10 +77,10 @@ describe("BridgeSetupGuide", () => {
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ bridgeAutoSync: null });
   });
 
-  it("shows step 5 as active when waiting_for_game", () => {
+  it("shows step 5 as active when waiting_for_game without redundant status banner", () => {
     mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "waiting_for_game" }));
     render(<BridgeSetupGuide />);
     expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
-    expect(screen.getByText(/Start or load a game/)).toBeDefined();
+    expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 });

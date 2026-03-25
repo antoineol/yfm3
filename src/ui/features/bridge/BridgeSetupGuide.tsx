@@ -24,11 +24,13 @@ export function BridgeSetupGuide() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      <StatusBanner
-        detail={bridge.detail}
-        detailMessage={bridge.detailMessage}
-        settingsPatched={bridge.settingsPatched}
-      />
+      {bridge.detail !== "waiting_for_game" && (
+        <StatusBanner
+          detail={bridge.detail}
+          detailMessage={bridge.detailMessage}
+          settingsPatched={bridge.settingsPatched}
+        />
+      )}
       <SetupSteps />
       <Troubleshooting />
       <SwitchModeLink onClick={handleSwitchMode} />

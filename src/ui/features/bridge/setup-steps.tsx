@@ -50,7 +50,7 @@ export function Step({
           isDone
             ? "bg-green-400/20 text-green-400"
             : isActive
-              ? "bg-gold/20 text-gold"
+              ? "bg-gold/20 text-gold animate-pulse"
               : "bg-surface-secondary text-text-muted"
         }`}
       >
