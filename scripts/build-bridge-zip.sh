@@ -34,8 +34,10 @@ mkdir -p "$RT"
 
 cp "$BRIDGE/start-bridge.bat" "$STAGE/"
 cp "$NODE_EXE" "$RT/node.exe"
+cp "$BRIDGE/update.ps1" "$RT/"
 cp "$BRIDGE/serve.mjs" "$RT/"
 cp "$BRIDGE/memory.mjs" "$RT/"
+cp "$BRIDGE/settings.mjs" "$RT/"
 cp "$BRIDGE/package.json" "$RT/"
 
 # ── Copy trimmed node_modules ─────────────────────────────────────

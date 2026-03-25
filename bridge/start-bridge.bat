@@ -16,6 +16,10 @@ echo  ^|  5. Turn on "Sync" in the top-right corner   ^|
 echo  ^|                                              ^|
 echo  +----------------------------------------------+
 echo.
+:: ── Auto-update check ──────────────────────────────────────────
+echo  Checking for updates...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\update.ps1" "%~dp0"
+echo.
 echo  Starting bridge...
 echo.
 
