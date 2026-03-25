@@ -19,6 +19,7 @@
     "gen:ref": "bun run scripts/generate-fixtures.ts",
     "verify:rp": "bun run scripts/verify-game-data.ts 'gamedata/rp-bin/Yu-Gi-Oh! FM REMASTERED PERFECTED.bin' tests/data/rp",
     "verify:vanilla": "bun run scripts/verify-game-data.ts 'gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin' tests/data/vanilla",
+    "extract:rp": "bun run scripts/extract-game-data.ts 'gamedata/rp-bin/Yu-Gi-Oh! FM REMASTERED PERFECTED.bin' public/data/rp",
     "extract:vanilla": "bun run scripts/extract-game-data.ts 'gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin' public/data/vanilla",
     "build:vanilla-ref": "bun run scripts/build-vanilla-reference.ts",
     "bridge": "node bridge/watch.mjs",
