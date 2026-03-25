@@ -89,3 +89,4 @@ Return best deck + exact expected ATK
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
+| **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |

@@ -10,7 +10,7 @@ const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data/rp");
 describe("loadGameDataFromStrings", () => {
   it("produces identical buffers and cards as loadGameData", () => {
     const buf1 = createBuffers();
-    const cards1 = loadGameData(buf1);
+    const cards1 = loadGameData(buf1, "rp");
 
     const cardsCsv = fs.readFileSync(path.join(DATA_DIR, "cards.csv"), "utf-8");
     const fusionsCsv = fs.readFileSync(path.join(DATA_DIR, "fusions.csv"), "utf-8");
@@ -28,7 +28,7 @@ describe("loadGameDataFromStrings", () => {
 
   it("loads all 722 cards and populates cardAtk", () => {
     const buf = createBuffers();
-    const cards = loadGameData(buf);
+    const cards = loadGameData(buf, "rp");
 
     expect(cards.length).toBe(722);
     // Card 1: Baby Dragon, ATK=1200 (from binary CSV)
@@ -39,7 +39,7 @@ describe("loadGameDataFromStrings", () => {
 
   it("parses card names from CSV", () => {
     const buf = createBuffers();
-    const cards = loadGameData(buf);
+    const cards = loadGameData(buf, "rp");
 
     const card1 = cards.find((c) => c.id === 1);
     expect(card1?.name).toBe("Baby Dragon");
@@ -50,7 +50,7 @@ describe("loadGameDataFromStrings", () => {
 
   it("parses card names containing commas", () => {
     const buf = createBuffers();
-    const cards = loadGameData(buf);
+    const cards = loadGameData(buf, "rp");
 
     const card192 = cards.find((c) => c.id === 192);
     expect(card192).toBeDefined();
@@ -63,7 +63,7 @@ describe("loadGameDataFromStrings", () => {
 
   it("populates fusion table with known binary fusions", () => {
     const buf = createBuffers();
-    loadGameData(buf);
+    loadGameData(buf, "rp");
 
     // Binary: material1=1, material2=156, result=186 (symmetric)
     expect(buf.fusionTable[1 * MAX_CARD_ID + 156]).toBe(186);

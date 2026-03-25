@@ -12,7 +12,6 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
-import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { importExportSchema } from "../config/import-export-schema.ts";
@@ -29,7 +28,6 @@ export function CollectionPanel() {
   const data = useCollectionViewModel();
   const targetSize = useDeckSize();
   const readOnly = useBridgeAutoSync();
-  const updatePreferences = useUpdatePreferences();
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
@@ -146,29 +144,12 @@ export function CollectionPanel() {
               <div className="w-8 h-11 border-2 border-gold rounded" />
               <div className="w-8 h-11 border-2 border-gold-dim rounded rotate-6" />
             </div>
-            <p className="text-text-primary font-medium">New here? Try it out instantly</p>
+            <p className="text-text-primary font-medium">Start building your collection</p>
             <div className="flex flex-col gap-3 w-full max-w-64">
-              <Button onClick={() => updatePreferences({ bridgeAutoSync: true })}>
-                Enable auto-sync
-              </Button>
-              <p className="text-xs text-text-muted">
-                Sync your collection from the emulator automatically.
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-gold-dim/30" />
-                <span className="text-xs text-text-muted">or</span>
-                <div className="h-px flex-1 bg-gold-dim/30" />
-              </div>
-              <Button
-                disabled={loadingSample}
-                onClick={() => void loadSampleData()}
-                variant="outline"
-              >
+              <Button disabled={loadingSample} onClick={() => void loadSampleData()}>
                 {loadingSample ? "Loading..." : "Load sample collection"}
               </Button>
-              <p className="text-xs text-text-muted">
-                Or search above to build your own collection manually.
-              </p>
+              <p className="text-xs text-text-muted">Or search above to add cards manually.</p>
             </div>
           </div>
         ) : (

@@ -65,9 +65,8 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useBridgeAutoSync: vi.fn(() => false),
 }));
 
-const mockUpdatePreferences = vi.fn();
 vi.mock("../../db/use-update-preferences.ts", () => ({
-  useUpdatePreferences: () => mockUpdatePreferences,
+  useUpdatePreferences: () => vi.fn(),
 }));
 
 vi.mock("./LastAddedCardHint.tsx", () => ({
@@ -183,16 +182,8 @@ describe("CollectionPanel", () => {
   it("renders onboarding state when collection and deck are both empty", () => {
     mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
     render(<CollectionPanel />, { wrapper: Wrapper });
-    expect(screen.getByText("New here? Try it out instantly")).toBeDefined();
-    expect(screen.getByText("Enable auto-sync")).toBeDefined();
+    expect(screen.getByText("Start building your collection")).toBeDefined();
     expect(screen.getByText("Load sample collection")).toBeDefined();
-  });
-
-  it("enables auto-sync when clicking the enable auto-sync button", () => {
-    mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
-    render(<CollectionPanel />, { wrapper: Wrapper });
-    fireEvent.click(screen.getByText("Enable auto-sync"));
-    expect(mockUpdatePreferences).toHaveBeenCalledWith({ bridgeAutoSync: true });
   });
 
   it("renders card table when collection has cards", () => {

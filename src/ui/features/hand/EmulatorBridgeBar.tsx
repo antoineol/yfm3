@@ -1,4 +1,5 @@
-import type { DuelPhase, EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
+import type { DuelPhase } from "../../lib/use-emulator-bridge.ts";
 
 const TERRAIN_NAMES: Record<number, string> = {
   0: "Normal",
@@ -10,7 +11,9 @@ const TERRAIN_NAMES: Record<number, string> = {
   6: "Dark",
 };
 
-export function EmulatorBridgeBar({ bridge }: { bridge: EmulatorBridge }) {
+export function EmulatorBridgeBar() {
+  const bridge = useBridge();
+
   if (!bridge.inDuel) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-secondary text-xs">

@@ -2,7 +2,6 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMemo } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
-import type { CardDb } from "../../../engine/data/game-db.ts";
 import {
   type FusionChainResult,
   type FusionStep,
@@ -11,6 +10,7 @@ import {
 import { Button } from "../../components/Button.tsx";
 import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
+import { useFusionDepth } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { artworkSrc, formatCardId } from "../../lib/format.ts";
@@ -20,20 +20,18 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 export function FusionResultsList({
   handCards,
-  fusionDepth,
   fieldCards,
   onPlayFusion,
 }: {
   handCards: HandCard[];
-  fusionDepth: number;
   fieldCards?: FieldCard[];
   onPlayFusion?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
 }) {
-  const { fusionTable } = useFusionTable();
+  const { fusionTable, equipCompat } = useFusionTable();
   const cardDb = useCardDb();
+  const fusionDepth = useFusionDepth();
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
-  const { equipCompat } = useFusionTable();
   const results = useMemo(
     () =>
       handCardIds.length >= 1
@@ -56,7 +54,6 @@ export function FusionResultsList({
     <div className="flex flex-col gap-1.5" ref={animateRef}>
       {results.map((r) => (
         <FusionResultRow
-          cardDb={cardDb}
           handCards={handCards}
           key={`${r.fieldMaterialCardIds.length > 0 ? "f" : ""}${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
           onPlay={onPlayFusion ?? undefined}
@@ -69,15 +66,14 @@ export function FusionResultsList({
 
 function FusionResultRow({
   result,
-  cardDb,
   handCards,
   onPlay,
 }: {
   result: FusionChainResult;
-  cardDb: CardDb;
   handCards: HandCard[];
   onPlay?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
 }) {
+  const cardDb = useCardDb();
   const materialDocIds = useMemo(
     () => (onPlay ? resolveMaterialDocs(result.materialCardIds, handCards) : []),
     [result.materialCardIds, handCards, onPlay],
@@ -124,7 +120,6 @@ function FusionResultRow({
 
         {/* Chain steps — numbered material list */}
         <FusionChainSteps
-          cardDb={cardDb}
           equipCardIds={result.equipCardIds}
           fieldMaterialCardIds={result.fieldMaterialCardIds}
           steps={result.steps}
@@ -283,15 +278,14 @@ export function extractMaterialLines(
 
 function FusionChainSteps({
   steps,
-  cardDb,
   equipCardIds,
   fieldMaterialCardIds,
 }: {
   steps: FusionStep[];
-  cardDb: CardDb;
   equipCardIds: number[];
   fieldMaterialCardIds: number[];
 }) {
+  const cardDb = useCardDb();
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
   const lines = extractMaterialLines(steps, fieldMaterialCardIds);
   const stepCount = lines.length;

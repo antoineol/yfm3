@@ -2,7 +2,6 @@ import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
-import { MODS } from "../../../engine/mods.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -23,7 +22,6 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const deckKey = bridge.deckDefinition ? bridge.deckDefinition.join(",") : "";
 
   useEffect(() => {
-    if (!MODS[modId].bridgeSupported) return;
     if (bridge.status !== "connected") return;
     if (!bridge.collection || !bridge.deckDefinition) return;
 

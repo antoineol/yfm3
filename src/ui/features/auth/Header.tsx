@@ -1,11 +1,13 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
 import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";
@@ -14,27 +16,22 @@ import { ConfigPanel } from "../config/ConfigPanel.tsx";
 const tabClass =
   "relative py-2.5 font-display text-sm font-bold uppercase tracking-widest text-text-secondary transition-colors duration-200 hover:text-text-primary cursor-pointer data-active:text-gold-bright no-underline";
 
-export function Header({
-  bridge,
-  bridgeAutoSync,
-  onToggleBridge,
-}: {
-  bridge: EmulatorBridge;
-  bridgeAutoSync: boolean;
-  onToggleBridge: () => void;
-}) {
+export function Header() {
+  const bridge = useBridge();
+  const updatePreferences = useUpdatePreferences();
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
-  const selectedMod = useSelectedMod();
-  const showBridge = MODS[selectedMod].bridgeSupported;
-
   const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
 
   // Auto-dismiss the update modal once the bridge reports a current version
   useEffect(() => {
     if (!hasUpdate) setUpdateOpen(false);
   }, [hasUpdate]);
+
+  const handleSetupGuide = useCallback(() => {
+    updatePreferences({ bridgeAutoSync: null });
+  }, [updatePreferences]);
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
@@ -72,16 +69,12 @@ export function Header({
       </Tabs.List>
 
       <div className="flex items-center gap-3 justify-end">
-        {showBridge && (
-          <BridgeToggle
-            bridge={bridge}
-            bridgeAutoSync={bridgeAutoSync}
-            hasUpdate={hasUpdate}
-            onToggle={onToggleBridge}
-            onUpdate={() => setUpdateOpen(true)}
-          />
-        )}
-        <HeaderMenu onSettings={() => setConfigOpen(true)} onSignOut={() => void signOut()} />
+        <BridgeToggle hasUpdate={hasUpdate} onUpdate={() => setUpdateOpen(true)} />
+        <HeaderMenu
+          onSettings={() => setConfigOpen(true)}
+          onSetupGuide={handleSetupGuide}
+          onSignOut={() => void signOut()}
+        />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
         <ConfigPanel onClose={() => setConfigOpen(false)} />
@@ -100,19 +93,15 @@ export function Header({
 const menuItemClass =
   "w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer";
 
-function BridgeToggle({
-  bridge,
-  bridgeAutoSync,
-  hasUpdate,
-  onToggle,
-  onUpdate,
-}: {
-  bridge: EmulatorBridge;
-  bridgeAutoSync: boolean;
-  hasUpdate: boolean;
-  onToggle: () => void;
-  onUpdate: () => void;
-}) {
+function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: () => void }) {
+  const bridge = useBridge();
+  const bridgeAutoSync = useBridgeAutoSync();
+  const updatePreferences = useUpdatePreferences();
+
+  const handleToggle = useCallback(() => {
+    updatePreferences({ bridgeAutoSync: !bridgeAutoSync });
+  }, [bridgeAutoSync, updatePreferences]);
+
   const isReady = bridge.status === "connected" && bridge.detail === "ready";
   const hasIssue = bridge.status === "connected" && bridge.detail !== "ready";
 
@@ -152,7 +141,7 @@ function BridgeToggle({
       <button
         aria-label={bridgeAutoSync ? "Disable game sync" : "Enable game sync"}
         className={`bridge-switch ${bridgeAutoSync ? "bridge-switch--on" : ""}`}
-        onClick={onToggle}
+        onClick={handleToggle}
         type="button"
       >
         <span className="bridge-switch-track">
@@ -194,7 +183,15 @@ function ModSelector() {
   );
 }
 
-function HeaderMenu({ onSettings, onSignOut }: { onSettings: () => void; onSignOut: () => void }) {
+function HeaderMenu({
+  onSetupGuide,
+  onSettings,
+  onSignOut,
+}: {
+  onSetupGuide: () => void;
+  onSettings: () => void;
+  onSignOut: () => void;
+}) {
   return (
     <Menu.Root>
       <Menu.Trigger render={<IconButton label="Menu" />}>
@@ -207,6 +204,9 @@ function HeaderMenu({ onSettings, onSignOut }: { onSettings: () => void; onSignO
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4}>
           <Menu.Popup className="z-50 bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-35">
+            <Menu.Item className={menuItemClass} onClick={onSetupGuide}>
+              Setup guide
+            </Menu.Item>
             <Menu.Item className={menuItemClass} onClick={onSettings}>
               Settings
             </Menu.Item>

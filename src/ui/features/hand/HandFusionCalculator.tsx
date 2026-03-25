@@ -7,12 +7,9 @@ import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useHand, useHandMutations } from "../../db/use-hand.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import {
-  type HandSourceMode,
-  useFusionDepth,
-  useHandSourceMode,
-} from "../../db/use-user-preferences.ts";
-import type { DuelStats, EmulatorBridge, FieldCard } from "../../lib/use-emulator-bridge.ts";
+import { type HandSourceMode, useHandSourceMode } from "../../db/use-user-preferences.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
+import type { DuelStats, FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
@@ -32,13 +29,13 @@ type FocusedZone = "hand" | "field";
 /** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
 const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
 
-export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
+export function HandFusionCalculator() {
+  const bridge = useBridge();
   const hand = useHand();
   const deck = useDeck();
-  const fusionDepth = useFusionDepth();
   const sourceMode = useHandSourceMode();
   const updatePreferences = useUpdatePreferences();
-  const { addToHand, removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
+  const { removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingFocusRef = useRef(false);
 
@@ -133,7 +130,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
       {/* ── Bridge status bar (only when connected) ── */}
-      {bridge.status === "connected" && <EmulatorBridgeBar bridge={bridge} />}
+      {bridge.status === "connected" && <EmulatorBridgeBar />}
 
       {/* ── Post-duel suggestion (shown even while inDuel is stale) ── */}
       {hasPostDuelContent && <PostDuelSuggestion suggestion={postDuel} />}
@@ -155,13 +152,7 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
             options={SOURCE_OPTIONS}
             value={sourceMode}
           />
-          <HandCardSelector
-            deckCardIds={deckCardIds}
-            handSize={hand.length}
-            inputRef={inputRef}
-            onSelect={(card) => void addToHand({ cardId: card.id })}
-            sourceMode={sourceMode}
-          />
+          <HandCardSelector inputRef={inputRef} />
         </div>
       )}
 
@@ -259,7 +250,6 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
           </div>
           <FusionResultsList
             fieldCards={isSynced ? bridge.field : manualField}
-            fusionDepth={fusionDepth}
             handCards={hand}
             onPlayFusion={isSynced ? undefined : handlePlayFusion}
           />
@@ -273,23 +263,29 @@ export function HandFusionCalculator({ bridge }: { bridge: EmulatorBridge }) {
 
 function WaitingForDuel() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-      {/* Five face-down card silhouettes */}
+    <div className="flex flex-col items-center justify-center py-16 gap-5 text-center">
+      {/* Five face-down card silhouettes with staggered pulse */}
       <div className="flex gap-2">
-        {["a", "b", "c", "d", "e"].map((slot) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <div
-            className="w-10 h-14 sm:w-12 sm:h-16 rounded border border-border-subtle/40 bg-bg-surface/60"
-            key={slot}
+            className="w-10 h-14 sm:w-12 sm:h-16 rounded border border-gold-dim/30 bg-bg-surface/60 animate-pulse"
+            key={i}
             style={{
               backgroundImage:
                 "linear-gradient(135deg, var(--color-border-subtle) 25%, transparent 25%, transparent 50%, var(--color-border-subtle) 50%, var(--color-border-subtle) 75%, transparent 75%)",
               backgroundSize: "8px 8px",
-              opacity: 0.25,
+              opacity: 0.35,
+              animationDelay: `${String(i * 150)}ms`,
             }}
           />
         ))}
       </div>
-      <p className="text-text-muted text-sm">Start a duel to see your hand and fusions</p>
+      <div className="space-y-1.5">
+        <p className="text-text-secondary text-sm font-medium">Start a duel to see your hand</p>
+        <p className="text-text-muted/60 text-xs">
+          Your best fusion plays will appear here automatically
+        </p>
+      </div>
     </div>
   );
 }

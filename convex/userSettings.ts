@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { requireAuth } from "./authHelper";
 import { handSourceModeValidator } from "./userModSettings";
 
-const DEFAULT_MOD = "rp";
+const DEFAULT_MOD = "vanilla";
 
 export const getSelectedMod = query({
   args: {},
@@ -47,7 +47,8 @@ export const setSelectedMod = mutation({
 
 export const updateUserSettings = mutation({
   args: {
-    bridgeAutoSync: v.optional(v.boolean()),
+    // null means "unset" (reset to undefined / never-chosen state)
+    bridgeAutoSync: v.optional(v.union(v.boolean(), v.null())),
     handSourceMode: v.optional(handSourceModeValidator),
   },
   handler: async (ctx, args) => {
@@ -56,6 +57,14 @@ export const updateUserSettings = mutation({
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
+
+    // null means "unset the field" — rebuild the doc without it
+    if (args.bridgeAutoSync === null && existing) {
+      const { _id, _creationTime, bridgeAutoSync: _, ...rest } = existing;
+      if (args.handSourceMode !== undefined) rest.handSourceMode = args.handSourceMode;
+      await ctx.db.replace(_id, rest);
+      return;
+    }
 
     const patch: Record<string, unknown> = {};
     if (args.bridgeAutoSync !== undefined) patch.bridgeAutoSync = args.bridgeAutoSync;
