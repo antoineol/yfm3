@@ -148,48 +148,67 @@ function tryScanOnDuelStart(view, state) {
   ).length;
   const handFull = activeCards === 5;
 
-  // Phase 1: record candidate addresses when hand first reaches 5 cards
-  // (HAND_SELECT phase = 0x04).
+  // Phase 1: record candidate addresses when hand first reaches 5 cards.
   if (handFull && !hadHandCardsLastPoll && !tryScanOnDuelStart._candidates) {
-    console.log("Duel detected (5 cards) — recording phase=0x04 candidate addresses...");
-    const addrs = recordByteAddresses(view, 0x04);
-    tryScanOnDuelStart._candidates = addrs;
-    console.log(`  Recorded ${addrs.length} addresses with value 0x04`);
+    console.log("Duel detected (5 cards) — starting survival scan...");
+    tryScanOnDuelStart._candidates = recordByteAddresses(view, 0x04);
+    tryScanOnDuelStart._pollCount = 0;
+    console.log(`  Recorded ${tryScanOnDuelStart._candidates.length} initial candidates`);
   }
   hadHandCardsLastPoll = handFull;
 
-  // Phase 2: on every poll, check which candidates changed to 0x05 (FIELD)
+  // Phase 2: survival filter — on every poll:
+  // 1. Discard candidates whose value left valid range (0x01–0x0D)
+  // 2. Track whether each candidate has changed (constants are not variables)
   if (!tryScanOnDuelStart._candidates) return;
-  const changed = filterChangedAddresses(view, tryScanOnDuelStart._candidates, 0x05);
-  if (changed.length === 0) return; // phase hasn't changed yet, keep polling
+  if (!tryScanOnDuelStart._changed) tryScanOnDuelStart._changed = new Set();
 
-  console.log(`Phase changed: ${changed.length} addresses went 0x04→0x05`);
+  tryScanOnDuelStart._pollCount++;
+  tryScanOnDuelStart._candidates = tryScanOnDuelStart._candidates.filter((off) => {
+    const v = peekU8(view, off);
+    if (v < 0x01 || v > 0x0d) return false; // out of valid range → discard
+    if (v !== 0x04) tryScanOnDuelStart._changed.add(off); // value changed from initial
+    return true;
+  });
 
-  // Find the one that also has turn=0x00 at the expected relative offset
-  const turnDist = 0x09b23a - 0x09b1d5; // 0x65
-  const confirmed = changed.filter((off) => peekU8(view, off - turnDist) === 0x00);
-  console.log(`  With turn=0 at offset-0x65: ${confirmed.length} addresses`);
-  for (const off of confirmed) {
-    console.log(`    0x${off.toString(16)}`);
+  // Log progress every 50 polls (~2.5s)
+  if (tryScanOnDuelStart._pollCount % 50 === 0) {
+    console.log(`  Scan poll ${tryScanOnDuelStart._pollCount}: ${tryScanOnDuelStart._candidates.length} candidates surviving`);
   }
 
-  tryScanOnDuelStart._candidates = null; // done scanning
+  // Wait 200 polls (~10s) for reliable filtering
+  if (tryScanOnDuelStart._pollCount < 200) return;
 
-  if (confirmed.length !== 1) {
-    console.warn("Could not uniquely identify phase byte. Will retry next duel.");
+  // Only keep candidates that actually changed value (discard constants)
+  const changedSet = tryScanOnDuelStart._changed;
+  const allInRange = tryScanOnDuelStart._candidates.length;
+  const survivors = tryScanOnDuelStart._candidates.filter((off) => changedSet.has(off));
+  tryScanOnDuelStart._candidates = null;
+  tryScanOnDuelStart._changed = null;
+  console.log(`Phase scan complete: ${survivors.length} variable survivors (${allInRange} stayed in range, ${tryScanOnDuelStart._pollCount} polls)`);
+  for (const off of survivors) {
+    console.log(`  0x${off.toString(16)} = 0x${peekU8(view, off).toString(16).padStart(2, "0")}`);
+  }
+
+  if (survivors.length === 0 || survivors.length > 10) {
+    console.warn(`Scan inconclusive (${survivors.length} survivors). Will retry next duel.`);
     return;
   }
 
-  // Found it! Build the full profile.
-  const phaseAddr = confirmed[0];
-  console.log(`Phase byte confirmed at 0x${phaseAddr.toString(16)}`);
+  // Pick the best: check for turn indicator correlation
+  const turnDist = 0x09b23a - 0x09b1d5; // 0x65
+  const withTurn = survivors.filter((off) => {
+    const turn = peekU8(view, off - turnDist);
+    return turn === 0x00 || turn === 0x01;
+  });
+  const phaseAddr = withTurn.length > 0 ? withTurn[0] : survivors[0];
+  console.log(`Phase byte: 0x${phaseAddr.toString(16)}`);
 
-  // Find LP via scan
+  // Find LP: two equal uint16 ≤ 9999 spaced 0x20 apart
   let lpP1 = null;
-  const lpStride = 0x20;
-  for (let off = 0x080000; off <= 0x120000 - lpStride; off += 2) {
+  for (let off = 0x080000; off <= 0x120000 - 0x20; off += 2) {
     const v1 = peekU16(view, off);
-    const v2 = peekU16(view, off + lpStride);
+    const v2 = peekU16(view, off + 0x20);
     if (v1 === v2 && v1 > 0 && v1 <= 9999) {
       lpP1 = off;
       break;
