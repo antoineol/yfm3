@@ -1,8 +1,10 @@
 import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
+import { modIdForFingerprint } from "../../../engine/mods.ts";
 import type { HandCard } from "../../db/use-hand.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**
  * Auto-syncs the emulator hand to the local DB when data is reliable.
@@ -28,6 +30,9 @@ export function useAutoSyncHand(bridge: EmulatorBridge, currentHand: HandCard[])
   const batchMigrateHand = useMutation(api.hand.batchMigrateHand);
   const clearHand = useMutation(api.hand.clearHand);
   const prevInDuelRef = useRef(false);
+  const modId = useSelectedMod();
+  const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
+  const modMismatch = detectedMod !== null && detectedMod !== modId;
 
   const syncHand = useCallback(() => {
     if (bridge.hand.length === 0) return;
@@ -44,10 +49,11 @@ export function useAutoSyncHand(bridge: EmulatorBridge, currentHand: HandCard[])
   useEffect(() => {
     const wasInDuel = prevInDuelRef.current;
     prevInDuelRef.current = bridge.inDuel;
+    if (modMismatch) return;
     if (bridge.inDuel && !wasInDuel) {
       void clearHand();
     }
-  }, [bridge.inDuel, clearHand]);
+  }, [bridge.inDuel, clearHand, modMismatch]);
 
   const bridgeHandKey = bridge.hand.join(",");
   const currentHandKey = currentHand.map((c) => c.cardId).join(",");
@@ -56,8 +62,23 @@ export function useAutoSyncHand(bridge: EmulatorBridge, currentHand: HandCard[])
   const isDuringDraw = bridge.phase === "draw";
 
   useEffect(() => {
-    if (bridge.inDuel && bridge.handReliable && handsDiffer && !isHandDecrease && !isDuringDraw) {
+    if (
+      !modMismatch &&
+      bridge.inDuel &&
+      bridge.handReliable &&
+      handsDiffer &&
+      !isHandDecrease &&
+      !isDuringDraw
+    ) {
       syncHand();
     }
-  }, [bridge.inDuel, bridge.handReliable, handsDiffer, isHandDecrease, isDuringDraw, syncHand]);
+  }, [
+    modMismatch,
+    bridge.inDuel,
+    bridge.handReliable,
+    handsDiffer,
+    isHandDecrease,
+    isDuringDraw,
+    syncHand,
+  ]);
 }

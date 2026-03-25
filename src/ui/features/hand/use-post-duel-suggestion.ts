@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api.js";
 import type { Collection } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
+import { modIdForFingerprint } from "../../../engine/mods.ts";
 import {
   useDeckSize,
   useFusionDepth,
@@ -70,6 +71,9 @@ export function usePostDuelSuggestion(
   const prefs = useUserModSettings();
   const savePreferences = useMutation(api.userModSettings.updateModSettings);
 
+  const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
+  const modMismatch = detectedMod !== null && detectedMod !== modId;
+
   const wasInDuelRef = useRef(false);
   const preDuelCollectionRef = useRef<Record<number, number> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -129,6 +133,7 @@ export function usePostDuelSuggestion(
     }
 
     // Transition: entering a duel (inDuel goes false→true)
+    if (modMismatch) return;
     if (isInDuel && !wasInDuel) {
       console.log(`[PostDuel] Duel started — phase: ${bridge.phase}`);
       // Abort any running optimization from a previous duel
@@ -149,6 +154,7 @@ export function usePostDuelSuggestion(
     bridge.inDuel,
     bridge.phase,
     bridge.collection,
+    modMismatch,
     setState,
     setResult,
     setCurrentDeck,

@@ -2,6 +2,7 @@ import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import { modIdForFingerprint } from "../../../engine/mods.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -21,9 +22,13 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const collectionKey = bridge.collection ? JSON.stringify(bridge.collection) : "";
   const deckKey = bridge.deckDefinition ? bridge.deckDefinition.join(",") : "";
 
+  const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
+  const modMismatch = detectedMod !== null && detectedMod !== modId;
+
   useEffect(() => {
     if (bridge.status !== "connected") return;
     if (!bridge.collection || !bridge.deckDefinition) return;
+    if (modMismatch) return;
 
     const collectionChanged = collectionKey !== lastCollectionKeyRef.current;
     const deckChanged = deckKey !== lastDeckKeyRef.current;
@@ -58,5 +63,6 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
     deckKey,
     syncFromBridge,
     modId,
+    modMismatch,
   ]);
 }
