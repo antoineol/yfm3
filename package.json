@@ -25,7 +25,7 @@
     "bridge": "node bridge/watch.mjs",
     "bridge:build": "bash scripts/build-bridge-zip.sh",
     "bridge:bump": "cd bridge && npm version patch && npm install",
-    "deploy": "convex deploy && convex run migrations:runAll",
+    "deploy": "convex deploy --cmd 'bun run build' --cmd-url-env-var-name VITE_CONVEX_URL && convex run migrations:runAll",
     "release:bridge": "TAG=bridge-v$(node -p \"require('./bridge/package.json').version\") && git tag $TAG && git push origin $TAG"
   },
   "dependencies": {
