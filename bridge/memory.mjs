@@ -284,16 +284,16 @@ export async function findDuckStationPids() {
   }
 }
 
-export function openSharedMemory(pid) {
+export function openSharedMemory(pid, { quiet = false } = {}) {
   const name = `duckstation_${pid}`;
   const handle = OpenFileMappingW(FILE_MAP_READ, 0, name);
   if (!handle) {
-    console.error(`OpenFileMappingW("${name}") failed, error=${GetLastError()}`);
+    if (!quiet) console.error(`OpenFileMappingW("${name}") failed, error=${GetLastError()}`);
     return null;
   }
   const view = MapViewOfFile(handle, FILE_MAP_READ, 0, 0, PS1_RAM_SIZE);
   if (!view) {
-    console.error(`MapViewOfFile failed, error=${GetLastError()}`);
+    if (!quiet) console.error(`MapViewOfFile failed, error=${GetLastError()}`);
     CloseHandle(handle);
     return null;
   }

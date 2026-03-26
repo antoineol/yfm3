@@ -78,6 +78,7 @@ let consecutiveZeroReads = 0;
 const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
+let lastConnectStatus = ""; // deduplicates tryConnect console logs
 
 // ── Offset profile resolution ─────────────────────────────────────
 // undefined = not yet attempted, object = resolved, null = unknown version
@@ -332,6 +333,10 @@ async function tryConnect() {
 
   const pids = await findDuckStationPids();
   if (pids.length === 0) {
+    if (lastConnectStatus !== "no_emulator") {
+      lastConnectStatus = "no_emulator";
+      console.log("DuckStation not found. Waiting...");
+    }
     broadcast(
       JSON.stringify({
         connected: false,
@@ -344,15 +349,22 @@ async function tryConnect() {
   }
 
   for (const pid of pids) {
-    const m = openSharedMemory(pid);
+    const m = openSharedMemory(pid, { quiet: true });
     if (m) {
       mapping = m;
+      lastConnectStatus = "";
       // Don't broadcast "ready" yet — the poll loop will read the actual
       // game state and broadcast either "ready" or "waiting_for_game".
       return true;
     }
   }
 
+  if (lastConnectStatus !== "no_shared_memory") {
+    lastConnectStatus = "no_shared_memory";
+    console.log(
+      `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Waiting...`,
+    );
+  }
   broadcast(
     JSON.stringify({
       connected: false,
@@ -381,6 +393,7 @@ async function forceReconnect() {
   consecutiveZeroReads = 0;
   hadNonZeroData = false;
   reopenedAfterStale = false;
+  lastConnectStatus = "";
   resetProfile();
   await tryConnect();
 }
