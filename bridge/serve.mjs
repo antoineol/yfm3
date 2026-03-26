@@ -19,7 +19,6 @@ import { WebSocketServer } from "ws";
 import {
   closeSharedMemory,
   DEFAULT_PROFILE,
-  filterChangedAddresses,
   findDuckStationPids,
   isGameLoaded,
   openSharedMemory,
@@ -173,7 +172,9 @@ function tryScanOnDuelStart(view, state) {
 
   // Log progress every 50 polls (~2.5s)
   if (tryScanOnDuelStart._pollCount % 50 === 0) {
-    console.log(`  Scan poll ${tryScanOnDuelStart._pollCount}: ${tryScanOnDuelStart._candidates.length} candidates surviving`);
+    console.log(
+      `  Scan poll ${tryScanOnDuelStart._pollCount}: ${tryScanOnDuelStart._candidates.length} candidates surviving`,
+    );
   }
 
   // Wait 200 polls (~10s) for reliable filtering
@@ -185,7 +186,9 @@ function tryScanOnDuelStart(view, state) {
   const survivors = tryScanOnDuelStart._candidates.filter((off) => changedSet.has(off));
   tryScanOnDuelStart._candidates = null;
   tryScanOnDuelStart._changed = null;
-  console.log(`Phase scan complete: ${survivors.length} variable survivors (${allInRange} stayed in range, ${tryScanOnDuelStart._pollCount} polls)`);
+  console.log(
+    `Phase scan complete: ${survivors.length} variable survivors (${allInRange} stayed in range, ${tryScanOnDuelStart._pollCount} polls)`,
+  );
   for (const off of survivors) {
     console.log(`  0x${off.toString(16)} = 0x${peekU8(view, off).toString(16).padStart(2, "0")}`);
   }

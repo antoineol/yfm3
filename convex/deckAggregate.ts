@@ -9,10 +9,10 @@ export const deckAggregate = new TableAggregate<{
   DataModel: DataModel;
   TableName: 'deck';
 }>(components.deckAggregate, {
-  sortKey: (doc) => `${doc.userId}:${doc.mod}`,
+  sortKey: (doc) => `${doc.userId}:${doc.mod ?? "rp"}`,
 });
 
 /** Build the aggregate key for a given user and mod. */
-export function deckAggregateKey(userId: string, mod: string): string {
-  return `${userId}:${mod}`;
+export function deckAggregateKey(userId: string, mod: string | undefined): string {
+  return `${userId}:${mod ?? "rp"}`;
 }
