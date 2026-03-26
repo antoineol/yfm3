@@ -33,8 +33,6 @@ if %errorlevel% neq 0 (
     echo  - Make sure DuckStation is running
     echo  - Enable "Export Shared Memory" in
     echo    DuckStation ^> Settings ^> Advanced
-    echo  - Check if another bridge is already
-    echo    running (port 3333)
     echo  - Try running as Administrator
     echo.
 )

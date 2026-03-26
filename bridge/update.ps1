@@ -4,6 +4,10 @@
 
 param([string]$BridgeDir)
 
+# Sanitize: %~dp0 adds a trailing backslash which, when quoted, becomes \"
+# and PowerShell interprets it as an escaped quote embedded in the string.
+$BridgeDir = $BridgeDir.TrimEnd('"').TrimEnd('\')
+
 $ErrorActionPreference = 'Stop'
 $tempDir = $null
 
