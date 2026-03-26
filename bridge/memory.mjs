@@ -58,6 +58,30 @@ export const DEFAULT_PROFILE = {
 };
 
 /**
+ * PAL profile: SLES-039.47 / SLES-039.48 (EU multi-language, including French).
+ *
+ * The PAL binary has a different compiled layout — both the absolute addresses
+ * AND the relative distances between variables differ from NTSC-U.
+ * Phase/turn are in one segment (delta +0x132A from NTSC-U), LP in another
+ * (delta +0x1286).
+ *
+ * Scene ID, terrain, duelist ID, and fusion counter are not yet mapped for PAL.
+ * They are set to 0 so readGameState returns null for those fields.
+ * See docs/investigation-duel-memory.md for the plan to find them.
+ */
+export const PAL_PROFILE = {
+  label: "PAL",
+  duelPhase: 0x09c564,
+  turnIndicator: 0x09c504,
+  sceneId: 0, // TODO: not yet discovered
+  terrain: 0, // TODO: not yet discovered
+  duelistId: 0, // TODO: not yet discovered
+  lpP1: 0x0eb28a,
+  lpP2: 0x0eb2aa,
+  fusionCounter: 0, // TODO: not yet discovered
+};
+
+/**
  * Validate that a profile's LP addresses point to reasonable values.
  * YGO FM LP is 0–9999 in all known versions (8000 vanilla, 9900 RP).
  * Values above that indicate the addresses are wrong for this binary.
@@ -77,26 +101,6 @@ export function validateProfile(view, profile) {
 const ALL_ZERO_FP = "0".repeat(FINGERPRINT_BYTES * 2);
 export function isGameLoaded(view) {
   return readModFingerprint(view) !== ALL_ZERO_FP;
-}
-
-/**
- * Record all addresses in a RAM range that currently hold a given byte value.
- * Used for two-snapshot diff: record during HAND_SELECT (0x04), then check
- * which addresses changed to FIELD (0x05) after the user plays a card.
- */
-export function recordByteAddresses(view, value, rangeStart = 0x090000, rangeEnd = 0x0b0000) {
-  const addrs = [];
-  for (let off = rangeStart; off < rangeEnd; off++) {
-    if (readU8(view, off) === value) addrs.push(off);
-  }
-  return addrs;
-}
-
-/**
- * From a list of candidate addresses, find which ones now hold a new value.
- */
-export function filterChangedAddresses(view, candidates, newValue) {
-  return candidates.filter((off) => readU8(view, off) === newValue);
 }
 
 /**
@@ -170,7 +174,7 @@ export function scanForOffsets(view, startingLP) {
 
   // Log all candidates and dump diagnostic data for manual investigation
   console.log(
-    `scanForOffsets: ${candidates.length} LP candidates but none had valid phase: ${candidates.map((c) => "0x" + c.toString(16)).join(", ")}`,
+    `scanForOffsets: ${candidates.length} LP candidates but none had valid phase: ${candidates.map((c) => `0x${c.toString(16)}`).join(", ")}`,
   );
 
   // LP and phase segments have different deltas in PAL.
@@ -203,7 +207,6 @@ export function scanForOffsets(view, startingLP) {
     }
     if (phaseCandidates.length === 1) {
       const pc = phaseCandidates[0];
-      const phaseDelta = pc.offset - DEFAULT_PROFILE.duelPhase;
       const lpP1 = candidates[0];
       return {
         label: "PAL-discovered",
@@ -222,6 +225,95 @@ export function scanForOffsets(view, startingLP) {
   }
 
   return null;
+}
+
+// ── Relative offsets between duel-state variables ─────────────────
+// These distances are preserved across NTSC-U and PAL because the
+// variables live in the same struct/data segment.  Only the segment's
+// base address changes between binaries.
+const turnDist = DEFAULT_PROFILE.duelPhase - DEFAULT_PROFILE.turnIndicator; // 0x65
+const sceneDist = DEFAULT_PROFILE.sceneId - DEFAULT_PROFILE.duelPhase; // 0x32
+const terrainDist = DEFAULT_PROFILE.terrain - DEFAULT_PROFILE.duelPhase; // 0x12A
+const duelistDist = DEFAULT_PROFILE.duelistId - DEFAULT_PROFILE.duelPhase; // 0x127
+const lpStride = 0x20; // distance between LP_P1 and LP_P2
+
+/**
+ * Scan for the duel-phase byte using multi-criteria structural matching.
+ *
+ * The duel-state variables (phase, turn indicator, scene ID, terrain,
+ * duelist ID) live at fixed relative offsets from each other across all
+ * known game binaries. We sweep the likely address range and check all
+ * constraints simultaneously.  False-positive rate is ~0.4 per 256 KB,
+ * so this typically returns 0–2 candidates.
+ *
+ * @returns Array of { offset, phase, turn, terrain, duelist, scene }.
+ */
+export function scanForPhaseStructurally(view) {
+  const scanStart = 0x080000;
+  const scanEnd = 0x0c0000;
+  const candidates = [];
+
+  for (let off = scanStart + turnDist; off < scanEnd - terrainDist; off++) {
+    const phase = readU8(view, off);
+    if (phase < 0x01 || phase > 0x0d) continue;
+
+    const turn = readU8(view, off - turnDist);
+    if (turn > 1) continue; // 0 = player, 1 = opponent
+
+    const terrain = readU8(view, off + terrainDist);
+    if (terrain > 6) continue; // 7 terrain types (0–6)
+
+    const duelist = readU8(view, off + duelistDist);
+    if (duelist > 50) continue; // ~40 duelists in the game
+
+    const scene = readU16(view, off + sceneDist);
+    if (scene === 0 || scene === 0xffff) continue;
+
+    candidates.push({ offset: off, phase, turn, terrain, duelist, scene });
+  }
+
+  return candidates;
+}
+
+/**
+ * Scan for LP pairs: two uint16 LE values at lpStride (0x20) apart,
+ * both in 1–9999. Optionally filter to a specific value.
+ *
+ * Returns array of { offset, lp1, lp2 }.
+ */
+export function scanForLpPairs(
+  view,
+  { exactValue = null, rangeStart = 0x080000, rangeEnd = 0x120000 } = {},
+) {
+  const candidates = [];
+
+  for (let off = rangeStart; off <= rangeEnd - lpStride; off += 2) {
+    const v1 = readU16(view, off);
+    const v2 = readU16(view, off + lpStride);
+    if (v1 < 1 || v1 > 9999 || v2 < 1 || v2 > 9999) continue;
+    if (exactValue !== null && (v1 !== exactValue || v2 !== exactValue)) continue;
+    candidates.push({ offset: off, lp1: v1, lp2: v2 });
+  }
+
+  return candidates;
+}
+
+/**
+ * Build a complete offset profile from a discovered phase address and LP address.
+ * Uses the known relative distances from NTSC-U.
+ */
+export function buildProfileFromDiscovery(phaseAddr, lpP1Addr) {
+  return {
+    label: `discovered (phase=0x${phaseAddr.toString(16)}, lp=0x${(lpP1Addr || 0).toString(16)})`,
+    duelPhase: phaseAddr,
+    turnIndicator: phaseAddr - turnDist,
+    sceneId: phaseAddr + sceneDist,
+    terrain: phaseAddr + terrainDist,
+    duelistId: phaseAddr + duelistDist,
+    lpP1: lpP1Addr || 0,
+    lpP2: lpP1Addr ? lpP1Addr + lpStride : 0,
+    fusionCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter) : 0,
+  };
 }
 
 // ── Load Windows kernel32 ──────────────────────────────────────────
@@ -320,16 +412,20 @@ export function readGameState(view, profile) {
   const field = [];
   for (let i = 0; i < FIELD_SLOTS; i++) field.push(readCardSlot(view, FIELD_BASE, i));
 
+  // Helper: read from profile offset, returning null if offset is 0 (unmapped)
+  const u8 = (off) => (profile && off ? readU8(view, off) : null);
+  const u16 = (off) => (profile && off ? readU16(view, off) : null);
+
   return {
-    sceneId: profile ? readU16(view, profile.sceneId) : null,
-    duelPhase: profile ? readU8(view, profile.duelPhase) : null,
-    turnIndicator: profile ? readU8(view, profile.turnIndicator) : null,
+    sceneId: u16(profile?.sceneId),
+    duelPhase: u8(profile?.duelPhase),
+    turnIndicator: u8(profile?.turnIndicator),
     hand,
     field,
-    lp: profile ? [readU16(view, profile.lpP1), readU16(view, profile.lpP2)] : null,
-    fusions: profile ? readU8(view, profile.fusionCounter) : null,
-    terrain: profile ? readU8(view, profile.terrain) : null,
-    duelistId: profile ? readU8(view, profile.duelistId) : null,
+    lp: profile?.lpP1 ? [readU16(view, profile.lpP1), readU16(view, profile.lpP2)] : null,
+    fusions: u8(profile?.fusionCounter),
+    terrain: u8(profile?.terrain),
+    duelistId: u8(profile?.duelistId),
     trunk: readCollection(view),
     deckDefinition: readDeckDefinition(view),
   };

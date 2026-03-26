@@ -51,19 +51,19 @@ describe("interpretRawState", () => {
       expect(result.hand).toHaveLength(3);
     });
 
-    it("includes cards with other status flags (0x90 = present + sticky marker)", () => {
+    it("excludes hand cards with transitioning flag (0x10 = being played to field)", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
             { cardId: 100, atk: 1200, def: 800, status: 0x80 },
-            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + 0x10 flag (sticky after selection)
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + transitioning
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
-      expect(result.hand).toEqual([100, 200]);
+      expect(result.hand).toEqual([100]);
     });
 
     it("excludes cards with status 0x00 (truly empty)", () => {
@@ -228,21 +228,23 @@ describe("interpretRawState", () => {
       expect(result.handReliable).toBe(false);
     });
 
-    it("reliable during hand select with previously-selected cards (0x90 sticky flag)", () => {
+    it("reliable during hand select even when a card is transitioning (0x90)", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x04, // HAND_SELECT
           turnIndicator: 0,
           hand: [
             { cardId: 100, atk: 1200, def: 800, status: 0x80 },
-            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + 0x10 sticky flag
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // transitioning → excluded from hand
             { cardId: 300, atk: 900, def: 700, status: 0x80 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
-      expect(result.hand).toEqual([100, 200, 300]);
+      // Transitioning card excluded from hand array
+      expect(result.hand).toEqual([100, 300]);
+      // handReliable still true because it depends on phase, not hand count
       expect(result.handReliable).toBe(true);
     });
   });
@@ -433,6 +435,40 @@ describe("interpretRawState", () => {
       );
       expect(result.inDuel).toBe(true);
       expect(result.phase).toBe("field");
+    });
+
+    it("infers phase='field' when a hand card is transitioning to field (0x90)", () => {
+      // This is the exact scenario from the bug: card 567 has status 0x90 in hand
+      // (transitioning) and 0x94 in field. Without the 0x10 filter, hand would
+      // have 5 cards and phase would stay "hand" instead of switching to "field".
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: null,
+          turnIndicator: null,
+          lp: null,
+          fusions: null,
+          terrain: null,
+          duelistId: null,
+          hand: [
+            { cardId: 567, atk: 1200, def: 900, status: 0x90 }, // transitioning → excluded
+            { cardId: 102, atk: 900, def: 400, status: 0x80 },
+            { cardId: 569, atk: 900, def: 800, status: 0x80 },
+            { cardId: 130, atk: 600, def: 400, status: 0x80 },
+            { cardId: 397, atk: 300, def: 350, status: 0x80 },
+          ],
+          field: [
+            { cardId: 567, atk: 1200, def: 900, status: 0x94 }, // on field
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+      expect(result.hand).toEqual([102, 569, 130, 397]); // 567 excluded
+      expect(result.field).toEqual([{ cardId: 567, atk: 1200, def: 900 }]);
+      expect(result.phase).toBe("field"); // was incorrectly "hand" before the fix
+      expect(result.inDuel).toBe(true);
     });
 
     it("not in duel when hand and field are empty", () => {

@@ -156,6 +156,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   return { hand, field, handReliable: false, phase: "other", inDuel: false, lp: raw.lp, stats };
 }
 
+/** A card occupies a slot if it has a valid ID and non-zero status. */
 function isActiveSlot(s: RawCardSlot): boolean {
   // Any non-zero status means the card is in an active state.
   // During battle the game temporarily clears the STATUS_PRESENT (0x80)
@@ -164,10 +165,21 @@ function isActiveSlot(s: RawCardSlot): boolean {
   return s.cardId > 0 && s.cardId < 723 && s.status !== 0;
 }
 
+/**
+ * A hand card is active AND not transitioning to the field.
+ * Bit 0x10 is set when a card is being played from hand to field —
+ * the card briefly exists in both zones during the animation.
+ * Excluding it prevents double-counting (hand=5 + field=1) which
+ * breaks fallback phase detection.
+ */
+function isHandSlotActive(s: RawCardSlot): boolean {
+  return isActiveSlot(s) && (s.status & 0x10) === 0;
+}
+
 function filterCardSlots(slots: RawCardSlot[]): number[] {
   const result: number[] = [];
   for (const s of slots) {
-    if (isActiveSlot(s)) result.push(s.cardId);
+    if (isHandSlotActive(s)) result.push(s.cardId);
   }
   return result;
 }

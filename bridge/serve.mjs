@@ -22,8 +22,7 @@ import {
   findDuckStationPids,
   isGameLoaded,
   openSharedMemory,
-  peekU8,
-  peekU16,
+  PAL_PROFILE,
   readCollection,
   readDeckDefinition,
   readGameSerial,
@@ -31,7 +30,6 @@ import {
   readModFingerprint,
   readRawHex,
   readShuffledDeck,
-  recordByteAddresses,
   validateProfile,
 } from "./memory.mjs";
 import { ensureSharedMemoryEnabled } from "./settings.mjs";
@@ -83,9 +81,12 @@ let lastConnectStatus = ""; // deduplicates tryConnect console logs
 // ── Offset profile resolution ─────────────────────────────────────
 // undefined = not yet attempted, object = resolved, null = unknown version
 let resolvedProfile;
+let lastSerial = null;
 
 /**
  * Resolve the offset profile for the current game binary.
+ * Re-resolves automatically if the game serial changes (e.g. user
+ * switched from PAL vanilla to NTSC-U RP in the same DuckStation session).
  *
  * Strategy:
  * 1. Read disc serial from RAM (e.g. "SLUS_014.11", "SLES_039.48")
@@ -94,9 +95,16 @@ let resolvedProfile;
  * 4. If validation fails → null profile (graceful degradation)
  */
 function resolveOffsetProfile(view) {
-  if (resolvedProfile !== undefined) return resolvedProfile;
-
   const serial = readGameSerial(view);
+
+  // Re-resolve if the game serial changed (user loaded a different disc/mod)
+  if (serial !== lastSerial && lastSerial !== null) {
+    console.log(`Game serial changed: ${lastSerial} → ${serial} — re-resolving profile`);
+    resolvedProfile = undefined;
+  }
+  lastSerial = serial;
+
+  if (resolvedProfile !== undefined) return resolvedProfile;
 
   // NTSC-U disc (SLUS) — known to use default offsets
   if (serial?.startsWith("SLUS")) {
@@ -105,7 +113,21 @@ function resolveOffsetProfile(view) {
     return resolvedProfile;
   }
 
-  // Other disc (PAL, NTSC-J, modded) — try default offsets with LP validation
+  // PAL disc (SLES/SCES) — use PAL profile, validate with LP
+  if (serial?.startsWith("SLES") || serial?.startsWith("SCES")) {
+    if (validateProfile(view, PAL_PROFILE)) {
+      resolvedProfile = PAL_PROFILE;
+      console.log(`Game serial: ${serial} → offset profile: ${PAL_PROFILE.label} (LP validated)`);
+      return resolvedProfile;
+    }
+    // LP not valid yet (game might still be loading) — use PAL profile anyway
+    // since we've verified the addresses empirically
+    resolvedProfile = PAL_PROFILE;
+    console.log(`Game serial: ${serial} → offset profile: ${PAL_PROFILE.label}`);
+    return resolvedProfile;
+  }
+
+  // Other disc — try default offsets with LP validation
   if (validateProfile(view, DEFAULT_PROFILE)) {
     resolvedProfile = DEFAULT_PROFILE;
     console.log(
@@ -126,121 +148,7 @@ function resolveOffsetProfile(view) {
 /** Reset profile resolution (e.g. after DuckStation restart or game change). */
 function resetProfile() {
   resolvedProfile = undefined;
-  hadHandCardsLastPoll = false;
-  tryScanOnDuelStart._candidates = null;
-}
-
-// ── Duel-start scanning for unknown versions ─────────────────────
-let hadHandCardsLastPoll = false;
-
-/**
- * When the profile is null (unknown version) and a duel starts,
- * scan RAM for LP/phase patterns to discover the correct offsets.
- * The scan is triggered at duel start (hand cards appear after being
- * absent) because LP is guaranteed to be at its starting value.
- */
-function tryScanOnDuelStart(view, state) {
-  if (resolvedProfile !== null) return;
-
-  // Count active hand cards (status !== 0, valid card ID)
-  const activeCards = state.hand.filter(
-    (s) => s.cardId > 0 && s.cardId < 723 && s.status !== 0,
-  ).length;
-  const handFull = activeCards === 5;
-
-  // Phase 1: record candidate addresses when hand first reaches 5 cards.
-  if (handFull && !hadHandCardsLastPoll && !tryScanOnDuelStart._candidates) {
-    console.log("Duel detected (5 cards) — starting survival scan...");
-    tryScanOnDuelStart._candidates = recordByteAddresses(view, 0x04);
-    tryScanOnDuelStart._pollCount = 0;
-    console.log(`  Recorded ${tryScanOnDuelStart._candidates.length} initial candidates`);
-  }
-  hadHandCardsLastPoll = handFull;
-
-  // Phase 2: survival filter — on every poll:
-  // 1. Discard candidates whose value left valid range (0x01–0x0D)
-  // 2. Track whether each candidate has changed (constants are not variables)
-  if (!tryScanOnDuelStart._candidates) return;
-  if (!tryScanOnDuelStart._changed) tryScanOnDuelStart._changed = new Set();
-
-  tryScanOnDuelStart._pollCount++;
-  tryScanOnDuelStart._candidates = tryScanOnDuelStart._candidates.filter((off) => {
-    const v = peekU8(view, off);
-    if (v < 0x01 || v > 0x0d) return false; // out of valid range → discard
-    if (v !== 0x04) tryScanOnDuelStart._changed.add(off); // value changed from initial
-    return true;
-  });
-
-  // Log progress every 50 polls (~2.5s)
-  if (tryScanOnDuelStart._pollCount % 50 === 0) {
-    console.log(
-      `  Scan poll ${tryScanOnDuelStart._pollCount}: ${tryScanOnDuelStart._candidates.length} candidates surviving`,
-    );
-  }
-
-  // Wait 200 polls (~10s) for reliable filtering
-  if (tryScanOnDuelStart._pollCount < 200) return;
-
-  // Only keep candidates that actually changed value (discard constants)
-  const changedSet = tryScanOnDuelStart._changed;
-  const allInRange = tryScanOnDuelStart._candidates.length;
-  const survivors = tryScanOnDuelStart._candidates.filter((off) => changedSet.has(off));
-  tryScanOnDuelStart._candidates = null;
-  tryScanOnDuelStart._changed = null;
-  console.log(
-    `Phase scan complete: ${survivors.length} variable survivors (${allInRange} stayed in range, ${tryScanOnDuelStart._pollCount} polls)`,
-  );
-  for (const off of survivors) {
-    console.log(`  0x${off.toString(16)} = 0x${peekU8(view, off).toString(16).padStart(2, "0")}`);
-  }
-
-  if (survivors.length === 0 || survivors.length > 10) {
-    console.warn(`Scan inconclusive (${survivors.length} survivors). Will retry next duel.`);
-    return;
-  }
-
-  // Pick the best: check for turn indicator correlation
-  const turnDist = 0x09b23a - 0x09b1d5; // 0x65
-  const withTurn = survivors.filter((off) => {
-    const turn = peekU8(view, off - turnDist);
-    return turn === 0x00 || turn === 0x01;
-  });
-  const phaseAddr = withTurn.length > 0 ? withTurn[0] : survivors[0];
-  console.log(`Phase byte: 0x${phaseAddr.toString(16)}`);
-
-  // Find LP: two equal uint16 ≤ 9999 spaced 0x20 apart
-  let lpP1 = null;
-  for (let off = 0x080000; off <= 0x120000 - 0x20; off += 2) {
-    const v1 = peekU16(view, off);
-    const v2 = peekU16(view, off + 0x20);
-    if (v1 === v2 && v1 > 0 && v1 <= 9999) {
-      lpP1 = off;
-      break;
-    }
-  }
-
-  const profile = {
-    label: "PAL-discovered",
-    duelPhase: phaseAddr,
-    turnIndicator: phaseAddr - turnDist,
-    sceneId: phaseAddr + (0x09b26c - 0x09b23a),
-    terrain: phaseAddr + (0x09b364 - 0x09b23a),
-    duelistId: phaseAddr + (0x09b361 - 0x09b23a),
-    lpP1: lpP1 ?? 0,
-    lpP2: lpP1 ? lpP1 + 0x20 : 0,
-    fusionCounter: lpP1 ? lpP1 - (0x0ea004 - 0x0e9ff8) : 0,
-  };
-
-  resolvedProfile = profile;
-  console.log("Offset profile discovered!");
-  console.log(`  duelPhase: 0x${profile.duelPhase.toString(16)}`);
-  console.log(`  turnIndicator: 0x${profile.turnIndicator.toString(16)}`);
-  console.log(`  sceneId: 0x${profile.sceneId.toString(16)}`);
-  console.log(`  lpP1: 0x${profile.lpP1.toString(16)}`);
-  console.log(`  lpP2: 0x${profile.lpP2.toString(16)}`);
-  console.log(`  fusionCounter: 0x${profile.fusionCounter.toString(16)}`);
-  console.log(`  terrain: 0x${profile.terrain.toString(16)}`);
-  console.log(`  duelistId: 0x${profile.duelistId.toString(16)}`);
+  lastSerial = null;
 }
 
 // ── Port guard: detect if another bridge (or other process) holds the port ──
@@ -798,17 +706,8 @@ async function poll() {
         hadNonZeroData = true;
         reopenedAfterStale = false;
 
-        let profile = resolveOffsetProfile(mapping.view);
-        let state = readGameState(mapping.view, profile);
-
-        // On unknown versions, try to discover offsets at duel start
-        if (profile === null) {
-          tryScanOnDuelStart(mapping.view, state);
-          if (resolvedProfile !== null) {
-            profile = resolvedProfile;
-            state = readGameState(mapping.view, profile);
-          }
-        }
+        const profile = resolveOffsetProfile(mapping.view);
+        const state = readGameState(mapping.view, profile);
 
         const json = JSON.stringify({
           connected: true,
