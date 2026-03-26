@@ -8,7 +8,7 @@ export default defineSchema({
     userId: v.string(), // Stable auth identity from Clerk via Convex
     cardId: v.number(), // CardId from the game
     quantity: v.number(), // Number of copies owned (bridge sync may exceed 3)
-    mod: v.optional(v.string()), // Game mod identifier (e.g. "rp", "vanilla")
+    mod: v.string(), // Game mod identifier (e.g. "rp", "vanilla")
   })
     .index('by_user', ['userId'])
     .index('by_user_card', ['userId', 'cardId'])
@@ -21,7 +21,7 @@ export default defineSchema({
     cardId: v.number(),
     copyId: v.optional(v.string()),
     order: v.optional(v.number()), // Fractional order (0-1) for efficient reordering
-    mod: v.optional(v.string()),
+    mod: v.string(),
   })
     .index('by_user', ['userId'])
     .index('by_user_order', ['userId', 'order'])
@@ -34,7 +34,7 @@ export default defineSchema({
     cardId: v.number(),
     copyId: v.optional(v.string()),
     order: v.optional(v.number()), // Fractional order (0-1) for efficient reordering
-    mod: v.optional(v.string()),
+    mod: v.string(),
   })
     .index('by_user', ['userId'])
     .index('by_user_mod', ['userId', 'mod']),
@@ -47,7 +47,7 @@ export default defineSchema({
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     useEquipment: v.optional(v.boolean()), // Consider equip boosts (+500/+1000) in deck optimization
     postDuelSuggestion: v.optional(postDuelSuggestionValidator), // Persisted post-duel optimization result
-    mod: v.optional(v.string()),
+    mod: v.string(),
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
   })
