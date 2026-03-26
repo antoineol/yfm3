@@ -49,13 +49,13 @@ jobs:
         if: steps.version.outputs.new == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: yfm-bridge-win-x64
-          path: dist/yfm-bridge-win-x64.zip
+          name: yfm-bridge-win-x64-v${{ steps.version.outputs.version }}
+          path: dist/yfm-bridge-win-x64-v${{ steps.version.outputs.version }}.zip
 
       - name: Create Release
         if: steps.version.outputs.new == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          files: dist/yfm-bridge-win-x64.zip
+          files: dist/yfm-bridge-win-x64-v${{ steps.version.outputs.version }}.zip
           generate_release_notes: true
