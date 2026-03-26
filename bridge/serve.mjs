@@ -251,26 +251,53 @@ async function checkPortAvailable(port) {
   if (result === "free") return; // port available, carry on
 
   if (result === "bridge") {
-    console.error("");
-    console.error("  ╔══════════════════════════════════════════════╗");
-    console.error("  ║  Another YFM bridge is already running!     ║");
-    console.error("  ╚══════════════════════════════════════════════╝");
-    console.error("");
-    console.error(`  Port ${port} is in use by another bridge instance.`);
-    console.error("  Close the other bridge window first, then try again.");
-    console.error("");
-  } else {
-    // port occupied by a non-bridge process
-    console.error("");
-    console.error("  ╔══════════════════════════════════════════════╗");
-    console.error(`  ║  Port ${port} is already in use!              ║`);
-    console.error("  ╚══════════════════════════════════════════════╝");
-    console.error("");
-    console.error(`  Another program is using port ${port}.`);
-    console.error("  Close it or set BRIDGE_PORT to a different port.");
-    console.error("");
+    console.log("Another bridge is running — sending shutdown request…");
+    try {
+      await shutdownExistingBridge(port);
+    } catch {
+      console.error("Previous bridge did not shut down. Kill it manually and try again.");
+      process.exit(1);
+    }
+    return;
   }
+
+  // port occupied by a non-bridge process
+  console.error("");
+  console.error("  ╔══════════════════════════════════════════════╗");
+  console.error(`  ║  Port ${port} is already in use!              ║`);
+  console.error("  ╚══════════════════════════════════════════════╝");
+  console.error("");
+  console.error(`  Another program is using port ${port}.`);
+  console.error("  Close it or set BRIDGE_PORT to a different port.");
+  console.error("");
   process.exit(1);
+}
+
+/** Ask an existing bridge to shut down and wait until the port is free. */
+function shutdownExistingBridge(port) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    const timeout = setTimeout(() => {
+      ws.terminate();
+      reject(new Error("Timed out waiting for previous bridge to shut down"));
+    }, 5000);
+
+    ws.on("open", () => {
+      ws.send(JSON.stringify({ type: "shutdown" }));
+    });
+
+    ws.on("close", () => {
+      clearTimeout(timeout);
+      // Give the OS a moment to release the port
+      setTimeout(resolve, 500);
+    });
+
+    ws.on("error", () => {
+      clearTimeout(timeout);
+      // Connection refused means it already closed — port is free
+      resolve();
+    });
+  });
 }
 
 /**
@@ -386,6 +413,11 @@ wss.on("connection", (ws) => {
       if (msg.type === "scan") {
         console.log("Received scan/reconnect request from client");
         void forceReconnect();
+      } else if (msg.type === "shutdown") {
+        console.log("Received shutdown request from newer bridge — exiting");
+        if (mapping) closeSharedMemory(mapping);
+        wss.close(() => process.exit(0));
+        return;
       } else if (msg.type === "restart_duckstation") {
         console.log("Received restart DuckStation request from client");
         void restartDuckStation().then((ok) => {

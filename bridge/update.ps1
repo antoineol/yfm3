@@ -21,21 +21,23 @@ try {
     $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
     $localVer = $pkg.version
 
-    # Query GitHub releases API (5 most recent, filter for bridge-v* tags)
+    # Query GitHub releases API (filter for bridge-v* tags)
     $headers = @{ 'User-Agent' = 'yfm-bridge-updater' }
     $releases = Invoke-RestMethod `
-        -Uri 'https://api.github.com/repos/antoineol/yfm3/releases?per_page=5' `
+        -Uri 'https://api.github.com/repos/antoineol/yfm3/releases?per_page=10' `
         -Headers $headers `
         -TimeoutSec 5
 
-    # Find first non-draft, non-prerelease bridge release
+    # Find the highest-version non-draft, non-prerelease bridge release
     $bridgeRelease = $null
     $remoteVer = $null
     foreach ($r in $releases) {
         if ($r.tag_name -match '^bridge-v(\d+\.\d+\.\d+)$' -and -not $r.draft -and -not $r.prerelease) {
-            $bridgeRelease = $r
-            $remoteVer = $Matches[1]
-            break
+            $candidateVer = $Matches[1]
+            if (-not $remoteVer -or [System.Version]$candidateVer -gt [System.Version]$remoteVer) {
+                $bridgeRelease = $r
+                $remoteVer = $candidateVer
+            }
         }
     }
 
