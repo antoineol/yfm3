@@ -15,7 +15,7 @@ import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import {
   closeSharedMemory,
   DEFAULT_PROFILE,
@@ -241,6 +241,87 @@ function tryScanOnDuelStart(view, state) {
   console.log(`  fusionCounter: 0x${profile.fusionCounter.toString(16)}`);
   console.log(`  terrain: 0x${profile.terrain.toString(16)}`);
   console.log(`  duelistId: 0x${profile.duelistId.toString(16)}`);
+}
+
+// ── Port guard: detect if another bridge (or other process) holds the port ──
+await checkPortAvailable(PORT);
+
+async function checkPortAvailable(port) {
+  const result = await probePort(port);
+  if (result === "free") return; // port available, carry on
+
+  if (result === "bridge") {
+    console.error("");
+    console.error("  ╔══════════════════════════════════════════════╗");
+    console.error("  ║  Another YFM bridge is already running!     ║");
+    console.error("  ╚══════════════════════════════════════════════╝");
+    console.error("");
+    console.error(`  Port ${port} is in use by another bridge instance.`);
+    console.error("  Close the other bridge window first, then try again.");
+    console.error("");
+  } else {
+    // port occupied by a non-bridge process
+    console.error("");
+    console.error("  ╔══════════════════════════════════════════════╗");
+    console.error(`  ║  Port ${port} is already in use!              ║`);
+    console.error("  ╚══════════════════════════════════════════════╝");
+    console.error("");
+    console.error(`  Another program is using port ${port}.`);
+    console.error("  Close it or set BRIDGE_PORT to a different port.");
+    console.error("");
+  }
+  process.exit(1);
+}
+
+/**
+ * Probe the target port to determine its state.
+ * Returns "free" | "bridge" | "other".
+ *
+ * - Tries a WebSocket connection to localhost:port.
+ * - If the connection fails (ECONNREFUSED) → "free".
+ * - If it connects and receives JSON with a `version` field → "bridge".
+ * - If it connects via WebSocket but no bridge message → "bridge"
+ *   (a WebSocket handshake on the bridge port is strong enough evidence).
+ * - If the TCP connect succeeds but the WebSocket upgrade is rejected
+ *   (non-WS server) → "other".
+ */
+function probePort(port) {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`ws://localhost:${port}`);
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      ws.terminate();
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => {
+      // Connected via WebSocket but got no message — still likely a bridge
+      // that hasn't connected to DuckStation yet.
+      done("bridge");
+    }, 1500);
+
+    ws.on("message", (data) => {
+      clearTimeout(timer);
+      try {
+        const msg = JSON.parse(data.toString());
+        done(msg.version ? "bridge" : "other");
+      } catch {
+        done("other");
+      }
+    });
+
+    ws.on("error", (err) => {
+      clearTimeout(timer);
+      // WebSocket upgrade rejected (HTTP server, etc.) → port taken by other
+      if (err?.message?.includes("Unexpected server response")) {
+        done("other");
+      } else {
+        done("free"); // ECONNREFUSED → port is available
+      }
+    });
+  });
 }
 
 // ── WebSocket server ───────────────────────────────────────────────

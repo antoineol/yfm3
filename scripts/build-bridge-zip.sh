@@ -33,9 +33,14 @@ rm -rf "$STAGE"
 RT="$STAGE/runtime"
 mkdir -p "$RT"
 
+# Windows scripts need CRLF line endings — CMD misparses LF-only .bat files
 cp "$BRIDGE/start-bridge.bat" "$STAGE/"
+sed -i 's/\r*$/\r/' "$STAGE/start-bridge.bat"
+
 cp "$NODE_EXE" "$RT/node.exe"
+
 cp "$BRIDGE/update.ps1" "$RT/"
+sed -i 's/\r*$/\r/' "$RT/update.ps1"
 cp "$BRIDGE/serve.mjs" "$RT/"
 cp "$BRIDGE/memory.mjs" "$RT/"
 cp "$BRIDGE/settings.mjs" "$RT/"
