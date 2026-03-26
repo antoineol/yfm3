@@ -454,6 +454,10 @@ async function tryConnect() {
 
   if (lastConnectStatus !== "no_shared_memory") {
     lastConnectStatus = "no_shared_memory";
+    // Patch now so the UI knows a restart will fix it. The running
+    // DuckStation won't see it (it overwrites on exit), but the
+    // no_emulator handler re-patches after the kill.
+    patchSettingsIfNeeded();
     console.log(
       `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Waiting...`,
     );
