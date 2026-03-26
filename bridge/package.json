@@ -1,7 +1,7 @@
 {
   "name": "yfm3-bridge",
   "private": true,
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "description": "Reads DuckStation shared memory and serves hand card data over WebSocket",
   "scripts": {

@@ -10,6 +10,8 @@ const mockSetHash = vi.fn();
 vi.mock("../bridge/bridge-constants.ts", () => ({
   BRIDGE_DOWNLOAD_URL: "https://example.com/bridge.zip",
   DUCKSTATION_URL: "https://example.com/duckstation",
+  BIOS_US_URL: "https://example.com/bios-us",
+  BIOS_EU_URL: "https://example.com/bios-eu",
   BRIDGE_MIN_VERSION: "1.0.0",
 }));
 
@@ -66,6 +68,12 @@ describe("OnboardingModeChooser", () => {
   it("always shows DuckStation download link", () => {
     render(<OnboardingModeChooser />);
     expect(screen.getByText("Download DuckStation")).toBeDefined();
+  });
+
+  it("always shows BIOS download links for US and EU", () => {
+    render(<OnboardingModeChooser />);
+    expect(screen.getByText("PS1 BIOS (US)")).toBeDefined();
+    expect(screen.getByText("PS1 BIOS (EU)")).toBeDefined();
   });
 
   it("auto-sync is always enabled regardless of mod", () => {

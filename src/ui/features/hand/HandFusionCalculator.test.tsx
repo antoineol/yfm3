@@ -47,6 +47,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     collection: null,
     deckDefinition: null,
     modFingerprint: null,
+    restartFailed: false,
     scan: vi.fn(),
     restartEmulator: vi.fn(),
     ...overrides,

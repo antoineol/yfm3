@@ -23,6 +23,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     collection: null,
     deckDefinition: null,
     modFingerprint: null,
+    restartFailed: false,
     scan: vi.fn(),
     restartEmulator: vi.fn(),
     ...overrides,
@@ -82,5 +83,34 @@ describe("BridgeSetupGuide", () => {
     render(<BridgeSetupGuide />);
     expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
+  });
+
+  it("shows restart button when settingsPatched and resets on restartFailed", () => {
+    const bridge = defaultBridge({
+      status: "connected",
+      detail: "no_shared_memory",
+      settingsPatched: true,
+    });
+    mockBridge.mockReturnValue(bridge);
+    const { rerender } = render(<BridgeSetupGuide />);
+
+    // Confirm and click restart
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByText("Restart DuckStation"));
+    expect(bridge.restartEmulator).toHaveBeenCalled();
+    expect(screen.getByText("Restarting DuckStation...")).toBeDefined();
+
+    // Simulate bridge reporting failure
+    mockBridge.mockReturnValue(defaultBridge({
+      status: "connected",
+      detail: "no_shared_memory",
+      settingsPatched: true,
+      restartFailed: true,
+    }));
+    rerender(<BridgeSetupGuide />);
+
+    // Button should reappear with error message
+    expect(screen.getByText("Restart DuckStation")).toBeDefined();
+    expect(screen.getByText(/Restart failed/)).toBeDefined();
   });
 });

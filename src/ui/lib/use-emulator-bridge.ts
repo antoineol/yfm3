@@ -327,6 +327,8 @@ export type EmulatorBridge = {
   deckDefinition: number[] | null;
   /** Hex fingerprint of card stats in RAM — identifies which mod is running. */
   modFingerprint: string | null;
+  /** True when the last restart request failed on the bridge side. */
+  restartFailed: boolean;
   scan: () => void;
   restartEmulator: () => void;
 };
@@ -354,6 +356,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [collection, setCollection] = useState<Record<number, number> | null>(null);
   const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
   const [modFingerprint, setModFingerprint] = useState<string | null>(null);
+  const [restartFailed, setRestartFailed] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
@@ -381,19 +384,25 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
     ws.onmessage = (event) => {
       try {
-        const msg: RawBridgeMessage = JSON.parse(event.data as string);
-        if (msg.connected && msg.status === "ready") {
+        const msg = JSON.parse(event.data as string);
+        // Handle restart failure notification from the bridge
+        if (msg.type === "restart_result" && msg.success === false) {
+          setRestartFailed(true);
+          return;
+        }
+        const stateMsg: RawBridgeMessage = msg;
+        if (stateMsg.connected && stateMsg.status === "ready") {
           // Full game state available
           setStatus("connected");
           setDetail("ready");
           setDetailMessage(null);
           setSettingsPatched(false);
-          setVersion(msg.version ?? null);
-          const state = interpretRawState(msg);
+          setVersion(stateMsg.version ?? null);
+          const state = interpretRawState(stateMsg);
 
           const { effectivePhase, tracker } = resolveEndedPhase(
             state,
-            msg.sceneId ?? 0,
+            stateMsg.sceneId ?? 0,
             endedTrackerRef.current,
             Date.now(),
           );
@@ -406,16 +415,16 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setInDuel(state.inDuel);
           setLp(state.lp);
           setStats(state.stats);
-          setCollection(computeOwnedCards(msg.trunk, msg.deckDefinition));
-          setDeckDefinition(msg.deckDefinition);
-          setModFingerprint(msg.modFingerprint ?? null);
-        } else if (msg.connected && msg.status === "waiting_for_game") {
+          setCollection(computeOwnedCards(stateMsg.trunk, stateMsg.deckDefinition));
+          setDeckDefinition(stateMsg.deckDefinition);
+          setModFingerprint(stateMsg.modFingerprint ?? null);
+        } else if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
           // Bridge connected to DuckStation but game not loaded yet
           setStatus("connected");
           setDetail("waiting_for_game");
           setDetailMessage(null);
           setSettingsPatched(false);
-          setVersion(msg.version ?? null);
+          setVersion(stateMsg.version ?? null);
           setHand([]);
           setField([]);
           setHandReliable(false);
@@ -426,18 +435,18 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setCollection(null);
           setDeckDefinition(null);
           setModFingerprint(null);
-        } else if (!msg.connected) {
+        } else if (!stateMsg.connected) {
           setStatus("connected");
           setDetail(
-            msg.status === "no_emulator"
+            stateMsg.status === "no_emulator"
               ? "emulator_not_found"
-              : msg.status === "no_shared_memory"
+              : stateMsg.status === "no_shared_memory"
                 ? "no_shared_memory"
                 : "error",
           );
-          setDetailMessage(msg.reason ?? null);
-          setSettingsPatched(msg.settingsPatched === true);
-          setVersion(msg.version ?? null);
+          setDetailMessage(stateMsg.reason ?? null);
+          setSettingsPatched(stateMsg.settingsPatched === true);
+          setVersion(stateMsg.version ?? null);
           setHand([]);
           setField([]);
           setHandReliable(false);
@@ -517,6 +526,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
   const restartEmulator = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setRestartFailed(false);
       wsRef.current.send(JSON.stringify({ type: "restart_duckstation" }));
     }
   }, []);
@@ -537,6 +547,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     collection,
     deckDefinition,
     modFingerprint,
+    restartFailed,
     scan,
     restartEmulator,
   };

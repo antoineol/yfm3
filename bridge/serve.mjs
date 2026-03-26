@@ -99,7 +99,7 @@ function resolveOffsetProfile(view) {
   const serial = readGameSerial(view);
 
   // NTSC-U disc (SLUS) — known to use default offsets
-  if (serial && serial.startsWith("SLUS")) {
+  if (serial?.startsWith("SLUS")) {
     resolvedProfile = DEFAULT_PROFILE;
     console.log(`Game serial: ${serial} → offset profile: ${DEFAULT_PROFILE.label}`);
     return resolvedProfile;
@@ -388,7 +388,15 @@ wss.on("connection", (ws) => {
         void forceReconnect();
       } else if (msg.type === "restart_duckstation") {
         console.log("Received restart DuckStation request from client");
-        void restartDuckStation();
+        void restartDuckStation().then((ok) => {
+          if (!ok) {
+            try {
+              ws.send(JSON.stringify({ type: "restart_result", success: false }));
+            } catch {
+              /* client may have disconnected */
+            }
+          }
+        });
       }
     } catch {
       // ignore invalid messages
@@ -479,13 +487,14 @@ async function forceReconnect() {
   await tryConnect();
 }
 
-/** Restart DuckStation: kill gracefully, wait for exit, relaunch. */
+/** Restart DuckStation: kill gracefully, wait for exit, relaunch.
+ *  Returns true on success, false on failure. */
 async function restartDuckStation() {
   const pids = await findDuckStationPids();
-  if (pids.length === 0) return;
+  if (pids.length === 0) return false;
   const pid = mapping?.pid ?? pids[0];
 
-  // Get executable path before killing
+  // Get executable path before killing — try wmic first, then PowerShell fallback
   let exePath;
   try {
     const out = execSync(`wmic process where "ProcessId=${pid}" get ExecutablePath /format:value`, {
@@ -496,11 +505,22 @@ async function restartDuckStation() {
     const eq = out.indexOf("=");
     if (eq >= 0) exePath = out.substring(eq + 1).trim();
   } catch {
-    /* ignore */
+    /* ignore — wmic may be unavailable on newer Windows */
+  }
+  if (!exePath) {
+    try {
+      exePath = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+        timeout: 5000,
+      }).trim();
+    } catch {
+      /* ignore */
+    }
   }
   if (!exePath) {
     console.error("restartDuckStation: could not determine executable path");
-    return;
+    return false;
   }
 
   console.log(`Restarting DuckStation (PID ${pid}): ${exePath}`);
@@ -533,8 +553,10 @@ async function restartDuckStation() {
 
   try {
     spawn(exePath, [], { detached: true, stdio: "ignore" }).unref();
+    return true;
   } catch (err) {
     console.error(`restartDuckStation: failed to launch: ${err.message}`);
+    return false;
   }
 }
 

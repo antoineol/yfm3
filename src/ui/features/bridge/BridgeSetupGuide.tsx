@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { BRIDGE_DOWNLOAD_URL } from "./bridge-constants.ts";
@@ -90,6 +90,11 @@ function RestartDuckStationButton() {
   const bridge = useBridge();
   const [sent, setSent] = useState(false);
 
+  // Reset when the bridge reports that restart failed
+  useEffect(() => {
+    if (bridge.restartFailed) setSent(false);
+  }, [bridge.restartFailed]);
+
   const handleRestart = useCallback(() => {
     if (!window.confirm("Restart DuckStation now?\n\nAny unsaved progress will be lost.")) return;
     bridge.restartEmulator();
@@ -101,12 +106,19 @@ function RestartDuckStationButton() {
   }
 
   return (
-    <button
-      className="mt-1 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors cursor-pointer"
-      onClick={handleRestart}
-      type="button"
-    >
-      Restart DuckStation
-    </button>
+    <div>
+      <button
+        className="mt-1 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors cursor-pointer"
+        onClick={handleRestart}
+        type="button"
+      >
+        Restart DuckStation
+      </button>
+      {bridge.restartFailed && (
+        <p className="mt-1 text-xs text-red-400">
+          Restart failed. Try restarting DuckStation manually.
+        </p>
+      )}
+    </div>
   );
 }

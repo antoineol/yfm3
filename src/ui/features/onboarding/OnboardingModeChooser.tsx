@@ -3,7 +3,7 @@ import { MODS, type ModId } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
-import { DUCKSTATION_URL } from "../bridge/bridge-constants.ts";
+import { BIOS_EU_URL, BIOS_US_URL, DUCKSTATION_URL } from "../bridge/bridge-constants.ts";
 import { DownloadLink } from "../bridge/setup-steps.tsx";
 
 export function OnboardingModeChooser() {
@@ -40,6 +40,8 @@ export function OnboardingModeChooser() {
           {MODS[selectedMod].gameDownloadLabel}
         </DownloadLink>
         <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
+        <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
+        <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
       </div>
 
       <div className="w-full border-t border-border-subtle" />
