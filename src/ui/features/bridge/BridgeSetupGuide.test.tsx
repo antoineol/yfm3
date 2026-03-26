@@ -101,12 +101,14 @@ describe("BridgeSetupGuide", () => {
     expect(screen.getByText("Restarting DuckStation...")).toBeDefined();
 
     // Simulate bridge reporting failure
-    mockBridge.mockReturnValue(defaultBridge({
-      status: "connected",
-      detail: "no_shared_memory",
-      settingsPatched: true,
-      restartFailed: true,
-    }));
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        detail: "no_shared_memory",
+        settingsPatched: true,
+        restartFailed: true,
+      }),
+    );
     rerender(<BridgeSetupGuide />);
 
     // Button should reappear with error message

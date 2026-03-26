@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a portable Windows zip for the emulator bridge.
-# Runs on Linux / WSL2 / CI. Produces dist/yfm-bridge-win-x64-v{VERSION}.zip.
+# Runs on Linux / WSL2 / CI. Produces dist/yfm-bridge-win-x64.zip.
 set -euo pipefail
 
 NODE_VERSION="22.17.0"
@@ -9,8 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 BRIDGE="$ROOT/bridge"
 STAGE="$ROOT/dist/bridge-stage"
-BRIDGE_VERSION=$(node -p "require('$BRIDGE/package.json').version")
-OUTPUT="$ROOT/dist/yfm-bridge-win-x64-v${BRIDGE_VERSION}.zip"
+OUTPUT="$ROOT/dist/yfm-bridge-win-x64.zip"
 CACHE="$ROOT/.cache"
 NODE_EXE="$CACHE/node-v${NODE_VERSION}-win-x64.exe"
 

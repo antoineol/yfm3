@@ -424,6 +424,10 @@ async function tryConnect() {
   if (pids.length === 0) {
     if (lastConnectStatus !== "no_emulator") {
       lastConnectStatus = "no_emulator";
+      // DuckStation is not running — patch settings now so the next launch
+      // picks up the change. (Patching while DuckStation is running is
+      // pointless because it overwrites the INI on exit.)
+      patchSettingsIfNeeded();
       console.log("DuckStation not found. Waiting...");
     }
     broadcast(
@@ -459,8 +463,8 @@ async function tryConnect() {
       connected: false,
       status: "no_shared_memory",
       version: VERSION,
-      settingsPatched: settingsPatchResult.enabled,
-      reason: settingsPatchResult.enabled
+      settingsPatched: lastPatchResult.enabled,
+      reason: lastPatchResult.enabled
         ? "Shared memory export is enabled in DuckStation settings but not active — restart DuckStation to apply."
         : `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Enable Settings > Advanced > Export Shared Memory in DuckStation.`,
     }),
@@ -494,29 +498,16 @@ async function restartDuckStation() {
   if (pids.length === 0) return false;
   const pid = mapping?.pid ?? pids[0];
 
-  // Get executable path before killing — try wmic first, then PowerShell fallback
+  // Get executable path before killing
   let exePath;
   try {
-    const out = execSync(`wmic process where "ProcessId=${pid}" get ExecutablePath /format:value`, {
+    exePath = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],
       timeout: 5000,
     }).trim();
-    const eq = out.indexOf("=");
-    if (eq >= 0) exePath = out.substring(eq + 1).trim();
   } catch {
-    /* ignore — wmic may be unavailable on newer Windows */
-  }
-  if (!exePath) {
-    try {
-      exePath = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "ignore"],
-        timeout: 5000,
-      }).trim();
-    } catch {
-      /* ignore */
-    }
+    /* ignore */
   }
   if (!exePath) {
     console.error("restartDuckStation: could not determine executable path");
@@ -830,13 +821,20 @@ async function poll() {
 }
 
 // ── DuckStation settings auto-patch ─────────────────────────────────
-const settingsPatchResult = ensureSharedMemoryEnabled();
-if (settingsPatchResult.patched) {
-  console.log(
-    "Enabled shared memory export in DuckStation settings. Restart DuckStation for the change to take effect.",
-  );
-} else if (settingsPatchResult.error) {
-  console.warn(`Could not check DuckStation settings: ${settingsPatchResult.error}`);
+let lastPatchResult = { patched: false, enabled: false };
+
+/** Patch the DuckStation INI to enable shared memory export.
+ *  Only useful when DuckStation is NOT running (it overwrites on exit). */
+function patchSettingsIfNeeded() {
+  const result = ensureSharedMemoryEnabled();
+  lastPatchResult = result;
+  if (result.patched) {
+    console.log(
+      "Enabled shared memory export in DuckStation settings. Restart DuckStation for the change to take effect.",
+    );
+  } else if (result.error) {
+    console.warn(`Could not check DuckStation settings: ${result.error}`);
+  }
 }
 
 // ── Start ──────────────────────────────────────────────────────────

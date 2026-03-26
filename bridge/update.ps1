@@ -53,7 +53,7 @@ try {
     Write-Host "  Updating v$localVer -> v$remoteVer..."
 
     # Find zip asset
-    $asset = $bridgeRelease.assets | Where-Object { $_.name -like 'yfm-bridge-win-x64-v*.zip' }
+    $asset = $bridgeRelease.assets | Where-Object { $_.name -eq 'yfm-bridge-win-x64.zip' }
     if (-not $asset) {
         Write-Host '  No zip asset found in release, skipping.'
         exit 0
