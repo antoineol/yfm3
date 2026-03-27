@@ -267,8 +267,8 @@ All implemented in `bridge/game-data.ts` (new module):
 
 - ✅ **Step 1: gameDataHash** — `readCardStats(view)` in `memory.ts`, `computeGameDataHash(cardStats)` in `game-data.ts` (SHA-256 hex)
 - ✅ **Step 2: .bin path resolution** — `findDuckStationDataDir()` in `settings.ts`, `parseGamelistCache(buf, serial)` parses DuckStation's binary gamelist cache, `resolveBinPath(cuePath)` parses .cue → .bin, disambiguates via card stats hash when multiple candidates share a serial
-- ✅ **Step 3: .bin extraction** — imports `scripts/extract/` modules directly (TypeScript, shared codebase): `loadDiscData()`, `detectWaMrgLayout()`, `extractFusions()`, `extractEquips()`
-- ✅ **Step 5: Disk cache** — single-entry JSON cache at `bridge/game-data-cache.json`, keyed by gameDataHash. Cache check on every call; write on successful extraction.
+- ✅ **Step 3: .bin extraction** — imports `scripts/extract/` modules directly (TypeScript, shared codebase): `loadDiscData()`, `detectExeLayout()`, `detectWaMrgLayout()`, `extractCards()`, `extractFusions()`, `extractEquips()`. Card extraction uses `langIdxForSerial()` to select the correct PAL language block.
+- ✅ **Step 5: Disk cache** — single-entry JSON cache at `bridge/game-data-cache.json`, keyed by gameDataHash. Cache check on every call; write on successful extraction. Includes full card data.
 
 Main entry point: `acquireGameData(cardStats, serial, cacheDir)` — orchestrates hash → cache check → .bin resolution → extraction → cache write.
 
@@ -285,16 +285,18 @@ Wired `acquireGameData()` into the bridge poll loop in `serve.ts`:
 - ✅ Send `gameData` WebSocket message to all clients:
   - On client connect (if data available) — sent after the regular state message
   - On data first acquired or game change
-- ✅ Success message: `{ type: "gameData", gameDataHash, fusionTable: Fusion[], equipTable: EquipEntry[] }`
+- ✅ Success message: `{ type: "gameData", gameDataHash, cards: CardStats[], fusionTable: Fusion[], equipTable: EquipEntry[] }`
 - ✅ Error message: `{ type: "gameData", error: string }` — sent when acquisition fails
-- ✅ `cardStats` bytes are NOT sent to the webapp (only used bridge-side for hashing)
+- ✅ `cardStats` raw bytes are NOT sent to the webapp (only used bridge-side for hashing)
 
 ### Step 7: Webapp consumes bridge game data ✅
 
-- ✅ `BridgeGameData` type defined in `src/engine/worker/messages.ts` — `{ fusionTable, equipTable }`
+- ✅ `BridgeGameData` type defined in `src/engine/worker/messages.ts` — `{ cards, fusionTable, equipTable }`
+- ✅ `BridgeCard` type matches `CardStats` from extraction (id, name, atk, def, gs1, gs2, type, etc.)
 - ✅ `use-emulator-bridge` handles `gameData` message → stores `gameData: BridgeGameData | null` and `gameDataError: string | null` on `EmulatorBridge`
-- ✅ `loadGameDataWithBridgeTables()` added to `load-game-data-core.ts` — loads cards from CSV (for ATK), fusions/equips from bridge arrays
-- ✅ `initializeBuffersBrowser()` and `initializeSuggestionBuffersBrowser()` accept optional `gameData` param — uses bridge tables when provided, falls back to CSV
+- ✅ `loadGameDataWithBridgeTables()` in `load-game-data-core.ts` — loads ALL data from bridge (cards, fusions, equips), zero CSV dependency
+- ✅ `initializeBuffersBrowser()` and `initializeSuggestionBuffersBrowser()` accept optional `gameData` param — uses bridge data when provided, falls back to CSV
+- ✅ `FusionTableProvider` uses bridge game data for UI display (card names, reference table) via `bridgeGameDataToReference()` conversion — no CSV in bridge mode
 - ✅ All worker init messages (`WorkerInit`, `ScorerInit`, `ExplainerInit`) include optional `gameData` field
 - ✅ All workers (`sa-worker`, `scorer-worker`, `explainer-worker`, `suggestion-worker`) pass `gameData` through to buffer initialization
 - ✅ `orchestrator.ts` accepts `gameData` option, passes to SA and scorer workers

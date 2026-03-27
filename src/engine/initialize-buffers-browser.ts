@@ -1,4 +1,4 @@
-import type { Collection } from "./data/card-model.ts";
+import type { CardSpec, Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
 import {
@@ -34,9 +34,8 @@ function getCsvCache(modId: ModId = DEFAULT_MOD): CsvCache {
 
 /**
  * Browser-compatible initialization pipeline.
- * Caller must `await ensureCsvLoaded(modId)` before calling this.
- * When `gameData` is provided, fusion/equip tables come from the bridge
- * instead of CSV files. Cards CSV is always used for ATK values.
+ * When `gameData` is provided, all data comes from the bridge (no CSV).
+ * Otherwise caller must `await ensureCsvLoaded(modId)` before calling this.
  */
 export function initializeBuffersBrowser(
   collection: Collection,
@@ -61,11 +60,19 @@ export function initializeSuggestionBuffersBrowser(
 }
 
 function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData?: BridgeGameData) {
-  const csv = getCsvCache(modId);
   const buf = createBuffers();
-  const cards = gameData
-    ? loadGameDataWithBridgeTables(buf, csv.cards, gameData.fusionTable, gameData.equipTable)
-    : loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
+  let cards: CardSpec[];
+  if (gameData) {
+    cards = loadGameDataWithBridgeTables(
+      buf,
+      gameData.cards,
+      gameData.fusionTable,
+      gameData.equipTable,
+    );
+  } else {
+    const csv = getCsvCache(modId);
+    cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
+  }
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);
   return { buf, cards };

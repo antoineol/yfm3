@@ -119,11 +119,10 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   if (raw.duelPhase != null) {
     const isPlayerTurn = raw.turnIndicator === 0;
     const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
-    const handReliable =
-      isPlayerTurn &&
-      (raw.duelPhase === PHASE_CLEANUP ||
-        raw.duelPhase === PHASE_DRAW ||
-        raw.duelPhase === PHASE_HAND_SELECT);
+    // With handSlots-based filtering the hand data is deterministic at all
+    // phases and turns — no flickering from status-byte transitions.
+    // The player's hand doesn't change during the opponent's turn either.
+    const handReliable = true;
 
     // A recognized duel phase means we are in a duel, even if cards have not
     // been dealt yet (e.g. first DRAW).  The game always progresses through
@@ -437,7 +436,12 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
             setGameData(null);
             setGameDataError(msg.error);
           } else {
-            setGameData({ fusionTable: msg.fusionTable, equipTable: msg.equipTable });
+            setGameData({
+              cards: msg.cards,
+              duelists: msg.duelists,
+              fusionTable: msg.fusionTable,
+              equipTable: msg.equipTable,
+            });
             setGameDataError(null);
           }
           return;

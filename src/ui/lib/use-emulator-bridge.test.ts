@@ -269,19 +269,19 @@ describe("interpretRawState", () => {
       expect(result.handReliable).toBe(true);
     });
 
-    it("unreliable during fusion on player turn", () => {
+    it("reliable during fusion on player turn (handSlots is deterministic)", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x07, turnIndicator: 0 }));
-      expect(result.handReliable).toBe(false);
+      expect(result.handReliable).toBe(true);
     });
 
-    it("unreliable during battle on player turn", () => {
+    it("reliable during battle on player turn (handSlots is deterministic)", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x09, turnIndicator: 0 }));
-      expect(result.handReliable).toBe(false);
+      expect(result.handReliable).toBe(true);
     });
 
-    it("unreliable on opponent turn even at reliable phase", () => {
+    it("reliable on opponent turn (handSlots is deterministic, hand unchanged)", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x04, turnIndicator: 1 }));
-      expect(result.handReliable).toBe(false);
+      expect(result.handReliable).toBe(true);
     });
 
     it("reliable during hand select even when a card is transitioning (0x90)", () => {
@@ -350,7 +350,7 @@ describe("interpretRawState", () => {
         }),
       );
       expect(result.inDuel).toBe(true);
-      expect(result.handReliable).toBe(false);
+      expect(result.handReliable).toBe(true);
     });
 
     it("false when phase is unrecognized and hand is empty", () => {

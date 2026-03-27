@@ -96,6 +96,8 @@ function buildGameDataMessage(data: GameData): string {
   return JSON.stringify({
     type: "gameData",
     gameDataHash: data.gameDataHash,
+    cards: data.cards,
+    duelists: data.duelists,
     fusionTable: data.fusionTable,
     equipTable: data.equipTable,
   });
@@ -810,20 +812,26 @@ async function poll(): Promise<void> {
         // Game data acquisition (runs once per game/mod change)
         if (fingerprint !== gameDataFingerprint) {
           gameDataFingerprint = fingerprint;
-          const cardStats = readCardStats(mapping.view);
-          const data = acquireGameData(cardStats, serial, __dirname);
-          currentGameData = data;
-          if (data) {
-            broadcast(buildGameDataMessage(data));
-          } else {
-            broadcast(
-              JSON.stringify({
-                type: "gameData",
-                error: serial
-                  ? "Could not find or read game disc image — check bridge.log"
-                  : "No game serial detected",
-              }),
-            );
+          try {
+            const cardStats = readCardStats(mapping.view);
+            const data = acquireGameData(cardStats, serial, __dirname);
+            currentGameData = data;
+            if (data) {
+              broadcast(buildGameDataMessage(data));
+            } else {
+              broadcast(
+                JSON.stringify({
+                  type: "gameData",
+                  error: serial
+                    ? "Could not find or read game disc image — check bridge.log"
+                    : "No game serial detected",
+                }),
+              );
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(`Game data acquisition failed: ${msg}`);
+            broadcast(JSON.stringify({ type: "gameData", error: msg }));
           }
         }
 

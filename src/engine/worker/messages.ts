@@ -1,8 +1,37 @@
 import type { EngineConfig } from "../config.ts";
 import type { ModId } from "../mods.ts";
 
-/** Game data received from the emulator bridge (fusion/equip tables from disc image). */
+/** A card extracted from the game disc image by the bridge. */
+export type BridgeCard = {
+  id: number;
+  name: string;
+  atk: number;
+  def: number;
+  gs1: string;
+  gs2: string;
+  type: string;
+  color: string;
+  level: number;
+  attribute: string;
+  description: string;
+  starchipCost: number;
+  password: string;
+};
+
+/** A duelist extracted from the game disc image by the bridge. */
+export type BridgeDuelist = {
+  id: number;
+  name: string;
+  deck: number[];
+  saPow: number[];
+  bcd: number[];
+  saTec: number[];
+};
+
+/** Game data received from the emulator bridge (all game tables from disc image). */
 export type BridgeGameData = {
+  cards: BridgeCard[];
+  duelists: BridgeDuelist[];
   fusionTable: Array<{ material1: number; material2: number; result: number }>;
   equipTable: Array<{ equipId: number; monsterIds: number[] }>;
 };

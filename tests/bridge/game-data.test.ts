@@ -195,12 +195,30 @@ describe("acquireGameData cache round-trip", () => {
     const stats = new Uint8Array(2888).fill(0x42);
     const hash = computeGameDataHash(stats);
 
-    // Write a cache file manually
+    // Write a cache file manually (must include cards and duelists)
     const cache = {
       gameDataHash: hash,
       gameSerial: "SLES_039.48",
       capturedAt: new Date().toISOString(),
       cardStats: Buffer.from(stats).toString("base64"),
+      cards: [
+        {
+          id: 1,
+          name: "Test",
+          atk: 100,
+          def: 200,
+          gs1: "Sun",
+          gs2: "Moon",
+          type: "Dragon",
+          color: "",
+          level: 1,
+          attribute: "Light",
+          description: "",
+          starchipCost: 0,
+          password: "",
+        },
+      ],
+      duelists: [{ id: 1, name: "Simon", deck: [], saPow: [], bcd: [], saTec: [] }],
       fusions: [{ m1: 1, m2: 2, r: 3 }],
       equips: [{ e: 600, m: [1, 2, 3] }],
     };
@@ -209,6 +227,8 @@ describe("acquireGameData cache round-trip", () => {
     const result = acquireGameData(stats, "SLES_039.48", tmpDir);
     expect(result).not.toBeNull();
     expect(result?.gameDataHash).toBe(hash);
+    expect(result?.cards).toHaveLength(1);
+    expect(result?.duelists).toHaveLength(1);
     expect(result?.fusionTable).toEqual([{ material1: 1, material2: 2, result: 3 }]);
     expect(result?.equipTable).toEqual([{ equipId: 600, monsterIds: [1, 2, 3] }]);
     expect(result?.cardStats).toEqual(stats);

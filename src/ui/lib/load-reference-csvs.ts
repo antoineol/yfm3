@@ -5,6 +5,7 @@ import type {
   RefEquip,
   RefFusion,
 } from "../../engine/reference/build-reference-table.ts";
+import type { BridgeGameData } from "../../engine/worker/messages.ts";
 
 /**
  * Fetch and parse the reference CSVs from /data/{modId}/ (static assets in /public).
@@ -147,4 +148,66 @@ function parseEquipsCsv(csv: string): RefEquip[] {
     equips.push({ equipId, monsterId });
   }
   return equips;
+}
+
+/**
+ * Convert bridge game data to the reference table format.
+ * All data (cards, fusions, equips, duelists) comes from the bridge's disc extraction.
+ */
+export function bridgeGameDataToReference(gameData: BridgeGameData): {
+  cards: RefCard[];
+  fusions: RefFusion[];
+  duelists: RefDuelistCard[];
+  equips: RefEquip[];
+} {
+  const cards: RefCard[] = gameData.cards.map((c) => ({
+    id: c.id,
+    name: c.name || `Card #${c.id}`,
+    atk: c.atk,
+    def: c.def,
+    type: c.type,
+    guardianStar1: c.gs1,
+    guardianStar2: c.gs2,
+    color: c.color || undefined,
+    level: c.level,
+    attribute: c.attribute || undefined,
+    starchipCost: c.starchipCost,
+    password: c.password ? parseInt(c.password, 10) : undefined,
+    description: c.description
+      ? c.description.replaceAll("-\n", "-").replaceAll("\n", " ").replace(/ {2,}/g, " ").trim()
+      : undefined,
+  }));
+
+  const cardAtk = new Map(cards.map((c) => [c.id, c.atk]));
+  const fusions: RefFusion[] = gameData.fusionTable.map((f) => ({
+    material1Id: f.material1,
+    material2Id: f.material2,
+    resultId: f.result,
+    resultAtk: cardAtk.get(f.result) ?? 0,
+  }));
+
+  const equips: RefEquip[] = [];
+  for (const e of gameData.equipTable) {
+    for (const monsterId of e.monsterIds) {
+      equips.push({ equipId: e.equipId, monsterId });
+    }
+  }
+
+  const duelists: RefDuelistCard[] = [];
+  for (const d of gameData.duelists) {
+    for (let cardIdx = 0; cardIdx < d.deck.length; cardIdx++) {
+      const cardId = cardIdx + 1;
+      duelists.push({
+        duelistId: d.id,
+        duelistName: d.name,
+        cardId,
+        deck: d.deck[cardIdx] ?? 0,
+        saPow: d.saPow[cardIdx] ?? 0,
+        bcd: d.bcd[cardIdx] ?? 0,
+        saTec: d.saTec[cardIdx] ?? 0,
+      });
+    }
+  }
+
+  return { cards, fusions, duelists, equips };
 }

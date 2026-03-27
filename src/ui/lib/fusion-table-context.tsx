@@ -3,8 +3,9 @@ import {
   buildReferenceTableData,
   type ReferenceTableData,
 } from "../../engine/reference/build-reference-table.ts";
+import { useBridge } from "./bridge-context.tsx";
 import { CardDbProvider } from "./card-db-context.tsx";
-import { loadReferenceCsvs } from "./load-reference-csvs.ts";
+import { bridgeGameDataToReference, loadReferenceCsvs } from "./load-reference-csvs.ts";
 import { useSelectedMod } from "./use-selected-mod.ts";
 
 export type FusionTableData = ReferenceTableData;
@@ -14,11 +15,18 @@ const FusionTableContext = createContext<FusionTableData | null>(null);
 export function FusionTableProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<FusionTableData | null>(null);
   const selectedMod = useSelectedMod();
+  const bridge = useBridge();
 
   useEffect(() => {
+    // Bridge mode: use game data from emulator (no CSV)
+    if (bridge.gameData) {
+      setData(buildReferenceTableData(bridgeGameDataToReference(bridge.gameData)));
+      return;
+    }
+    // Manual mode: load from CSV
     setData(null);
     void loadReferenceCsvs(selectedMod).then((rows) => setData(buildReferenceTableData(rows)));
-  }, [selectedMod]);
+  }, [selectedMod, bridge.gameData]);
 
   return (
     <FusionTableContext.Provider value={data}>

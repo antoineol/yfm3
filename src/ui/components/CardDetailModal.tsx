@@ -18,7 +18,7 @@ export function CardDetailModal() {
     <BaseDialog.Root onOpenChange={(v) => !v && closeCard()} open={isOpen}>
       <BaseDialog.Portal keepMounted>
         <BaseDialog.Backdrop className="fm-modal-backdrop fixed inset-0 z-50" />
-        <BaseDialog.Popup className="fm-modal-popup fixed inset-0 z-50 lg:inset-6 mx-auto lg:max-w-3xl bg-bg-panel lg:rounded-xl lg:border lg:border-border-accent flex flex-col focus:outline-none">
+        <BaseDialog.Popup className="fm-modal-popup fixed inset-0 z-50 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-3xl sm:max-h-[calc(100dvh-3rem)] bg-bg-panel sm:rounded-xl sm:border sm:border-border-accent flex flex-col focus:outline-none">
           <div className="flex-1 overflow-y-auto min-h-0">
             {card && <CardDetailContent card={card} />}
           </div>
@@ -69,7 +69,7 @@ function useBackClose(isOpen: boolean, onClose: () => void) {
 
 function MobileCloseFooter() {
   return (
-    <div className="flex justify-end border-t border-border-subtle p-3 lg:hidden">
+    <div className="flex justify-end border-t border-border-subtle p-3 sm:hidden">
       <BaseDialog.Close className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-surface/60 px-4 py-2.5 text-sm font-medium text-text-muted transition-colors duration-150 hover:border-gold/40 hover:text-gold active:scale-[0.97] focus-visible:ring-1 focus-visible:ring-gold focus-visible:outline-none">
         <svg
           aria-hidden="true"
@@ -122,7 +122,7 @@ function CardDetailContent({ card }: { card: CardSpec }) {
                 <line x1="10" x2="21" y1="14" y2="3" />
               </svg>
             </IconButton>
-            <span className="hidden lg:inline">
+            <span className="hidden sm:inline">
               <BaseDialog.Close render={<CloseButton label="Close" />} />
             </span>
           </div>

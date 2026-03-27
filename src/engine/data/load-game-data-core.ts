@@ -1,5 +1,6 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
+import type { BridgeCard } from "../worker/messages.ts";
 import { type CardSpec, nonMonsterTypes } from "./card-model.ts";
 import { addCard, createCardDb } from "./game-db.ts";
 
@@ -65,32 +66,26 @@ export function loadGameDataFromStrings(
 }
 
 /**
- * Load game data using bridge-provided fusion/equip tables.
- * Cards are still loaded from CSV (for ATK values and deck building).
- * Fusions and equips come from the emulator bridge's disc extraction.
+ * Load game data entirely from bridge-provided data (cards, fusions, equips).
+ * No CSV fallback — all data comes from the emulator bridge's disc extraction.
  */
 export function loadGameDataWithBridgeTables(
   buf: OptBuffers,
-  cardsCsvContent: string,
+  cards: BridgeCard[],
   fusions: Array<{ material1: number; material2: number; result: number }>,
   equips: Array<{ equipId: number; monsterIds: number[] }>,
 ): CardSpec[] {
   const cardDb = createCardDb();
 
-  for (const cols of parseCsvRows(cardsCsvContent)) {
-    const id = parseInt(cols[0] ?? "", 10);
-    const name = cols[1] ?? "";
-    const atk = parseInt(cols[2] ?? "", 10);
-    const def = parseInt(cols[3] ?? "", 10);
-    const type = cols[6] ?? "";
-    if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
+  for (const c of cards) {
+    if (c.id < 1 || c.id >= MAX_CARD_ID) continue;
     addCard(cardDb, {
-      id,
-      name: name || `Card #${id}`,
-      attack: atk,
-      defense: def,
+      id: c.id,
+      name: c.name || `Card #${c.id}`,
+      attack: c.atk,
+      defense: c.def,
       kinds: [],
-      isMonster: !nonMonsterTypes.has(type),
+      isMonster: !nonMonsterTypes.has(c.type),
     });
   }
 
