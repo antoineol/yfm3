@@ -13,6 +13,7 @@ import {
   liveBestScoreAtom,
   resultAtom,
 } from "../../lib/atoms.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 const LIVE_DECK_UPDATE_INTERVAL_MS = 1500;
@@ -31,6 +32,7 @@ export function useOptimize() {
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
+  const bridge = useBridge();
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastDeckUpdateRef = useRef(0);
 
@@ -62,6 +64,7 @@ export function useOptimize() {
       fusionDepth,
       useEquipment,
       modId,
+      gameData: bridge.gameData ?? undefined,
       signal: controller.signal,
       onProgress: (_progress, bestScore, bestDeck) => {
         setLiveBestScore(bestScore);

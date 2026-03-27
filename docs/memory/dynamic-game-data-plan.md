@@ -274,29 +274,37 @@ Main entry point: `acquireGameData(cardStats, serial, cacheDir)` — orchestrate
 
 ~~Step 4: RAM fusion/equip scanning (fallback)~~ — removed (unnecessary complexity; .bin reading covers all cases).
 
-### Step 6: serve.ts integration + WebSocket gameData message
+### Step 6: serve.ts integration + WebSocket gameData message ✅
 
-Wire `acquireGameData()` into the bridge poll loop in `serve.ts`:
+Wired `acquireGameData()` into the bridge poll loop in `serve.ts`:
 
-- Add module-level state: `gameData: GameData | null`, `lastGameDataHash: string | null`
-- When `isGameLoaded` becomes true (or serial changes): call `readCardStats(view)` → `acquireGameData(cardStats, serial, import.meta.dir)`
-- Only re-acquire when `gameDataHash` changes (avoids redundant .bin reads)
-- Send `gameData` WebSocket message to all clients:
-  - On client connect (if data available)
-  - When data first acquired
-  - After game change + re-acquisition
-- Message shape: `{ type: "gameData", gameDataHash, fusionTable: Fusion[], equipTable: EquipEntry[] }`
-- `cardStats` bytes are NOT sent to the webapp (only used bridge-side for hashing)
+- ✅ Module-level state: `currentGameData: GameData | null`, `gameDataFingerprint: string | null`
+- ✅ Trigger: mod fingerprint change (cheap comparison on every poll, avoids computing SHA-256 each tick)
+- ✅ On fingerprint change: `readCardStats(view)` → `acquireGameData(cardStats, serial, __dirname)` → store + broadcast
+- ✅ `resetGameData()` called at all mapping-loss / reconnect points (alongside `resetProfile()`)
+- ✅ Send `gameData` WebSocket message to all clients:
+  - On client connect (if data available) — sent after the regular state message
+  - On data first acquired or game change
+- ✅ Success message: `{ type: "gameData", gameDataHash, fusionTable: Fusion[], equipTable: EquipEntry[] }`
+- ✅ Error message: `{ type: "gameData", error: string }` — sent when acquisition fails
+- ✅ `cardStats` bytes are NOT sent to the webapp (only used bridge-side for hashing)
 
-### Step 7: Webapp consumes bridge game data
+### Step 7: Webapp consumes bridge game data ✅
 
-- `use-emulator-bridge` receives `gameData` message → store in bridge state atom
-- Worker initialization: if bridge `gameData` is available, build `OptBuffers` from `Fusion[]` / `EquipEntry[]` (same card→atk lookup, fusion matrix, equip compat as current CSV path)
-- If bridge data unavailable → fall back to CSV loading (manual mode, unchanged)
-- Key: the webapp already has `cardAtk` from the static CSV (card stats are always available). Only `fusionTable` and `equipTable` come dynamically from the bridge.
+- ✅ `BridgeGameData` type defined in `src/engine/worker/messages.ts` — `{ fusionTable, equipTable }`
+- ✅ `use-emulator-bridge` handles `gameData` message → stores `gameData: BridgeGameData | null` and `gameDataError: string | null` on `EmulatorBridge`
+- ✅ `loadGameDataWithBridgeTables()` added to `load-game-data-core.ts` — loads cards from CSV (for ATK), fusions/equips from bridge arrays
+- ✅ `initializeBuffersBrowser()` and `initializeSuggestionBuffersBrowser()` accept optional `gameData` param — uses bridge tables when provided, falls back to CSV
+- ✅ All worker init messages (`WorkerInit`, `ScorerInit`, `ExplainerInit`) include optional `gameData` field
+- ✅ All workers (`sa-worker`, `scorer-worker`, `explainer-worker`, `suggestion-worker`) pass `gameData` through to buffer initialization
+- ✅ `orchestrator.ts` accepts `gameData` option, passes to SA and scorer workers
+- ✅ `suggest-deck-swap.ts` accepts optional `gameData` parameter
+- ✅ All UI hooks that launch workers thread `bridge.gameData` through:
+  - `use-optimize.ts`, `use-post-duel-suggestion.ts`, `use-deck-score.ts`, `ScoreExplanation.tsx`, `use-deck-swap-suggestion.ts`
+- ✅ CSV fallback: when `gameData` is `undefined`, all paths use CSV as before (manual mode)
 
-### Step 8: UI feedback
+### Step 8: UI feedback ✅
 
-- Bridge connected + game data ready: optimizer fully operational (no visible change needed — it just works)
-- Bridge connected + game data acquisition failed: show warning with reason (e.g. "gamelist.cache not found")
-- No bridge: manual mode with CSV files (existing behavior)
+- ✅ Bridge connected + game data ready: optimizer uses bridge data transparently (no visible change)
+- ✅ Bridge connected + game data failed: `GameDataErrorBanner` component shows yellow warning with error message (added to `App.tsx` alongside `ModMismatchBanner`)
+- ✅ No bridge: manual mode with CSV files (existing behavior, unchanged)

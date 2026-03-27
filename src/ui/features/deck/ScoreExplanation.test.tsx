@@ -17,6 +17,10 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
 
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: vi.fn(() => ({ gameData: null })),
+}));
+
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 

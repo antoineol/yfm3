@@ -17,6 +17,9 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
 vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: vi.fn(() => ({ gameData: null })),
+}));
 
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { _resetDeckScoreCache, useDeckScore } from "./use-deck-score.ts";

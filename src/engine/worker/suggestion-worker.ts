@@ -5,18 +5,20 @@ import {
   type FindBestDeckSwapSuggestionOptions,
   findBestDeckSwapSuggestion,
 } from "../suggest-deck-swap.ts";
+import type { BridgeGameData } from "./messages.ts";
 
 self.onmessage = async (
   event: MessageEvent<{
     requestId: number;
     options: FindBestDeckSwapSuggestionOptions;
     modId: ModId;
+    gameData?: BridgeGameData;
   }>,
 ) => {
-  const { requestId, options, modId } = event.data;
+  const { requestId, options, modId, gameData } = event.data;
   await ensureCsvLoaded(modId);
   self.postMessage({
     requestId,
-    suggestion: findBestDeckSwapSuggestion(options, modId) as DeckSwapSuggestion | null,
+    suggestion: findBestDeckSwapSuggestion(options, modId, gameData) as DeckSwapSuggestion | null,
   });
 };

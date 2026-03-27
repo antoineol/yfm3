@@ -8,6 +8,7 @@ import { DeltaEvaluator } from "./scoring/delta-evaluator.ts";
 import { exactScore } from "./scoring/exact-scorer.ts";
 import { FusionScorer } from "./scoring/fusion-scorer.ts";
 import type { OptBuffers } from "./types/buffers.ts";
+import type { BridgeGameData } from "./worker/messages.ts";
 
 export interface DeckSwapSuggestion {
   removedCardId: number;
@@ -38,6 +39,7 @@ const SUGGESTION_SEED = 42;
 export function findBestDeckSwapSuggestion(
   options: FindBestDeckSwapSuggestionOptions,
   modId: ModId = DEFAULT_MOD,
+  gameData?: BridgeGameData,
 ): DeckSwapSuggestion | null {
   const { addedCardId, config, currentDeckScore, deck } = options;
   if (deck.length !== config.deckSize) {
@@ -45,7 +47,7 @@ export function findBestDeckSwapSuggestion(
   }
 
   setConfig(config);
-  const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED), modId);
+  const buf = initializeSuggestionBuffersBrowser(mulberry32(SUGGESTION_SEED), modId, gameData);
   if (!config.useEquipment) buf.equipCompat.fill(0);
 
   buf.cardCounts.fill(0);

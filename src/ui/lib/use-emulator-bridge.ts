@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { BridgeGameData } from "../../engine/worker/messages.ts";
 
 /** Duel phase labels derived from raw bridge data. */
 export type DuelPhase =
@@ -339,6 +340,10 @@ export type EmulatorBridge = {
   deckDefinition: number[] | null;
   /** Hex fingerprint of card stats in RAM — identifies which mod is running. */
   modFingerprint: string | null;
+  /** Fusion/equip tables extracted from the disc image by the bridge. */
+  gameData: BridgeGameData | null;
+  /** Error message when bridge failed to acquire game data. */
+  gameDataError: string | null;
   /** True when the last restart request failed on the bridge side. */
   restartFailed: boolean;
   scan: () => void;
@@ -368,6 +373,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [collection, setCollection] = useState<Record<number, number> | null>(null);
   const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
   const [modFingerprint, setModFingerprint] = useState<string | null>(null);
+  const [gameData, setGameData] = useState<BridgeGameData | null>(null);
+  const [gameDataError, setGameDataError] = useState<string | null>(null);
   const [restartFailed, setRestartFailed] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -400,6 +407,17 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
         // Handle restart failure notification from the bridge
         if (msg.type === "restart_result" && msg.success === false) {
           setRestartFailed(true);
+          return;
+        }
+        // Handle game data message (fusion/equip tables from disc)
+        if (msg.type === "gameData") {
+          if (msg.error) {
+            setGameData(null);
+            setGameDataError(msg.error);
+          } else {
+            setGameData({ fusionTable: msg.fusionTable, equipTable: msg.equipTable });
+            setGameDataError(null);
+          }
           return;
         }
         const stateMsg: RawBridgeMessage = msg;
@@ -447,6 +465,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setCollection(null);
           setDeckDefinition(null);
           setModFingerprint(null);
+          setGameData(null);
+          setGameDataError(null);
         } else if (!stateMsg.connected) {
           setStatus("connected");
           setDetail(
@@ -469,6 +489,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setCollection(null);
           setDeckDefinition(null);
           setModFingerprint(null);
+          setGameData(null);
+          setGameDataError(null);
         }
       } catch {
         // Ignore malformed messages
@@ -491,6 +513,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStats(null);
       setCollection(null);
       setDeckDefinition(null);
+      setGameData(null);
+      setGameDataError(null);
       if (enabledRef.current) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
       }
@@ -520,6 +544,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStats(null);
       setCollection(null);
       setDeckDefinition(null);
+      setGameData(null);
+      setGameDataError(null);
       return;
     }
     connect();
@@ -559,6 +585,8 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     collection,
     deckDefinition,
     modFingerprint,
+    gameData,
+    gameDataError,
     restartFailed,
     scan,
     restartEmulator,

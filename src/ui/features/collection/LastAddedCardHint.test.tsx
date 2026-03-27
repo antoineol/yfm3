@@ -50,6 +50,9 @@ vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
 vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: vi.fn(() => ({ gameData: null })),
+}));
 
 import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";

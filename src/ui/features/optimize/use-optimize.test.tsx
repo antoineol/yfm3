@@ -22,6 +22,9 @@ vi.mock("../../../engine/index-browser.ts", () => ({
 vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: vi.fn(() => ({ gameData: null })),
+}));
 
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";

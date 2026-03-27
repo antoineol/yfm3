@@ -14,6 +14,7 @@
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { acquireGameData, type GameData } from "./game-data.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
 import {
   closeSharedMemory,
@@ -22,6 +23,7 @@ import {
   isGameLoaded,
   openSharedMemory,
   PAL_PROFILE,
+  readCardStats,
   readCollection,
   readDeckDefinition,
   readGameSerial,
@@ -76,6 +78,24 @@ const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
 let lastConnectStatus = ""; // deduplicates tryConnect console logs
+
+// ── Game data (fusion/equip tables from disc image) ───────────────
+let currentGameData: GameData | null = null;
+let gameDataFingerprint: string | null = null; // mod fingerprint we last attempted acquisition for
+
+function resetGameData(): void {
+  currentGameData = null;
+  gameDataFingerprint = null;
+}
+
+function buildGameDataMessage(data: GameData): string {
+  return JSON.stringify({
+    type: "gameData",
+    gameDataHash: data.gameDataHash,
+    fusionTable: data.fusionTable,
+    equipTable: data.equipTable,
+  });
+}
 
 // ── Offset profile resolution ─────────────────────────────────────
 // undefined = not yet attempted, object = resolved, null = unknown version
@@ -301,6 +321,10 @@ const server = Bun.serve({
               logStateChange(state);
               lastJson = json;
             }
+            // Send game data if already acquired
+            if (currentGameData) {
+              ws.send(buildGameDataMessage(currentGameData));
+            }
           }
         } catch {
           ws.send(
@@ -430,6 +454,7 @@ async function forceReconnect(): Promise<void> {
   reopenedAfterStale = false;
   lastConnectStatus = "";
   resetProfile();
+  resetGameData();
   await tryConnect();
 }
 
@@ -472,6 +497,7 @@ async function restartDuckStation(): Promise<boolean> {
     reopenedAfterStale = false;
     consecutiveZeroReads = 0;
     resetProfile();
+    resetGameData();
   }
 
   // Graceful kill (sends WM_CLOSE), then wait up to 10s
@@ -667,6 +693,7 @@ async function poll(): Promise<void> {
             reopenedAfterStale = false;
             lastJson = "";
             resetProfile();
+            resetGameData();
             setTimeout(poll, POLL_MS);
             return;
           }
@@ -684,6 +711,7 @@ async function poll(): Promise<void> {
           consecutiveZeroReads = 0;
           reopenedAfterStale = true;
           resetProfile();
+          resetGameData();
         }
 
         // Broadcast "waiting_for_game"
@@ -708,14 +736,16 @@ async function poll(): Promise<void> {
 
         const profile = resolveOffsetProfile(mapping.view);
         const state = readGameState(mapping.view, profile);
+        const fingerprint = readModFingerprint(mapping.view);
+        const serial = readGameSerial(mapping.view);
 
         const json = JSON.stringify({
           connected: true,
           status: "ready",
           version: VERSION,
           pid: mapping.pid,
-          modFingerprint: readModFingerprint(mapping.view),
-          gameSerial: readGameSerial(mapping.view),
+          modFingerprint: fingerprint,
+          gameSerial: serial,
           ...state,
         });
 
@@ -723,6 +753,26 @@ async function poll(): Promise<void> {
           logStateChange(state);
           lastJson = json;
           broadcast(json);
+        }
+
+        // Game data acquisition (runs once per game/mod change)
+        if (fingerprint !== gameDataFingerprint) {
+          gameDataFingerprint = fingerprint;
+          const cardStats = readCardStats(mapping.view);
+          const data = acquireGameData(cardStats, serial, __dirname);
+          currentGameData = data;
+          if (data) {
+            broadcast(buildGameDataMessage(data));
+          } else {
+            broadcast(
+              JSON.stringify({
+                type: "gameData",
+                error: serial
+                  ? "Could not find or read game disc image — check bridge.log"
+                  : "No game serial detected",
+              }),
+            );
+          }
         }
 
         // Collection & deck tracking (separate from broadcast)
@@ -741,6 +791,7 @@ async function poll(): Promise<void> {
       hadNonZeroData = false;
       reopenedAfterStale = false;
       resetProfile();
+      resetGameData();
       broadcast(
         JSON.stringify({
           connected: false,

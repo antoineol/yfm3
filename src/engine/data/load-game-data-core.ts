@@ -64,6 +64,65 @@ export function loadGameDataFromStrings(
   return cardDb.cards;
 }
 
+/**
+ * Load game data using bridge-provided fusion/equip tables.
+ * Cards are still loaded from CSV (for ATK values and deck building).
+ * Fusions and equips come from the emulator bridge's disc extraction.
+ */
+export function loadGameDataWithBridgeTables(
+  buf: OptBuffers,
+  cardsCsvContent: string,
+  fusions: Array<{ material1: number; material2: number; result: number }>,
+  equips: Array<{ equipId: number; monsterIds: number[] }>,
+): CardSpec[] {
+  const cardDb = createCardDb();
+
+  for (const cols of parseCsvRows(cardsCsvContent)) {
+    const id = parseInt(cols[0] ?? "", 10);
+    const name = cols[1] ?? "";
+    const atk = parseInt(cols[2] ?? "", 10);
+    const def = parseInt(cols[3] ?? "", 10);
+    const type = cols[6] ?? "";
+    if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
+    addCard(cardDb, {
+      id,
+      name: name || `Card #${id}`,
+      attack: atk,
+      defense: def,
+      kinds: [],
+      isMonster: !nonMonsterTypes.has(type),
+    });
+  }
+
+  for (const card of cardDb.cards) {
+    buf.cardAtk[card.id] = card.attack;
+  }
+
+  buf.fusionTable.fill(FUSION_NONE);
+  for (const f of fusions) {
+    if (
+      f.material1 >= 1 &&
+      f.material1 < MAX_CARD_ID &&
+      f.material2 >= 1 &&
+      f.material2 < MAX_CARD_ID
+    ) {
+      buf.fusionTable[f.material1 * MAX_CARD_ID + f.material2] = f.result;
+      buf.fusionTable[f.material2 * MAX_CARD_ID + f.material1] = f.result;
+    }
+  }
+
+  for (const e of equips) {
+    if (e.equipId < 1 || e.equipId >= MAX_CARD_ID) continue;
+    for (const monsterId of e.monsterIds) {
+      if (monsterId >= 1 && monsterId < MAX_CARD_ID) {
+        buf.equipCompat[e.equipId * MAX_CARD_ID + monsterId] = 1;
+      }
+    }
+  }
+
+  return cardDb.cards;
+}
+
 function parseCsvRows(csvContent: string): string[][] {
   return csvContent
     .split("\n")

@@ -9,6 +9,7 @@ import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
 import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
 import { SignIn } from "./features/auth/SignIn.tsx";
+import { GameDataErrorBanner } from "./features/bridge/GameDataErrorBanner.tsx";
 import { ModMismatchBanner } from "./features/bridge/ModMismatchBanner.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
 import { useAutoSyncCollection } from "./features/collection/use-auto-sync-collection.ts";
@@ -63,6 +64,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
         >
           <Header />
           <ModMismatchBanner />
+          <GameDataErrorBanner />
           <DeckTabPanel />
 
           <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">

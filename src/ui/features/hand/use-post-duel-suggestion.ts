@@ -227,6 +227,7 @@ export function usePostDuelSuggestion(
       fusionDepth,
       useEquipment,
       modId,
+      gameData: bridge.gameData ?? undefined,
       onProgress: (p, bestScore) => {
         setProgress(p);
         setLiveBestScore(bestScore);
@@ -270,6 +271,7 @@ export function usePostDuelSuggestion(
     fusionDepth,
     useEquipment,
     modId,
+    bridge.gameData,
     setState,
     setResult,
     setCurrentDeck,

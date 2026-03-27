@@ -12,6 +12,7 @@ import {
   NUM_HANDS,
 } from "./types/constants.ts";
 import type {
+  BridgeGameData,
   ScorerInit,
   ScorerResponse,
   WorkerInit,
@@ -51,6 +52,7 @@ function scoreInWorker(
   collectionRecord: Record<number, number>,
   deck: number[],
   modId: ModId,
+  gameData?: BridgeGameData,
 ): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const worker = new Worker(new URL("./worker/scorer-worker.ts", import.meta.url), {
@@ -65,7 +67,14 @@ function scoreInWorker(
       worker.terminate();
     };
     const config = getConfig();
-    const msg: ScorerInit = { type: "SCORE", collection: collectionRecord, deck, config, modId };
+    const msg: ScorerInit = {
+      type: "SCORE",
+      collection: collectionRecord,
+      deck,
+      config,
+      modId,
+      gameData,
+    };
     worker.postMessage(msg);
   });
 }
@@ -96,6 +105,7 @@ export async function optimizeDeckParallel(
     fusionDepth?: number;
     useEquipment?: boolean;
     modId?: ModId;
+    gameData?: BridgeGameData;
     onProgress?: (progress: number, bestScore: number, bestDeck: number[]) => void;
   },
 ): Promise<OptimizeDeckParallelResult> {
@@ -104,6 +114,7 @@ export async function optimizeDeckParallel(
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const useEquipment = options?.useEquipment ?? true;
   const modId = options?.modId ?? DEFAULT_MOD;
+  const gameData = options?.gameData;
   const start = performance.now();
 
   if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
@@ -136,7 +147,7 @@ export async function optimizeDeckParallel(
   if (options?.currentDeckScore != null) {
     currentDeckPromise = Promise.resolve(options.currentDeckScore);
   } else if (options?.currentDeck && options.currentDeck.length === deckSize) {
-    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, modId);
+    currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, modId, gameData);
   }
 
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
@@ -252,6 +263,7 @@ export async function optimizeDeckParallel(
       initialDeck: initialDecks[i],
       config: getConfig(),
       modId,
+      gameData,
     };
     worker.postMessage(init);
   }
@@ -284,7 +296,7 @@ export async function optimizeDeckParallel(
 
   // 4. Exact-score best deck + await current deck score (both in parallel)
   const [expectedAtk, currentDeckScore] = await Promise.all([
-    scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId),
+    scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId, gameData),
     currentDeckPromise,
   ]);
 

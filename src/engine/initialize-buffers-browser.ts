@@ -1,11 +1,15 @@
 import type { Collection } from "./data/card-model.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
-import { loadGameDataFromStrings } from "./data/load-game-data-core.ts";
+import {
+  loadGameDataFromStrings,
+  loadGameDataWithBridgeTables,
+} from "./data/load-game-data-core.ts";
 import { DEFAULT_MOD, type ModId } from "./mods.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
 import { MAX_COPIES } from "./types/constants.ts";
+import type { BridgeGameData } from "./worker/messages.ts";
 
 type CsvCache = { cards: string; fusions: string; equips: string };
 const csvCache = new Map<ModId, CsvCache>();
@@ -31,13 +35,16 @@ function getCsvCache(modId: ModId = DEFAULT_MOD): CsvCache {
 /**
  * Browser-compatible initialization pipeline.
  * Caller must `await ensureCsvLoaded(modId)` before calling this.
+ * When `gameData` is provided, fusion/equip tables come from the bridge
+ * instead of CSV files. Cards CSV is always used for ATK values.
  */
 export function initializeBuffersBrowser(
   collection: Collection,
   rand: () => number,
   modId: ModId = DEFAULT_MOD,
+  gameData?: BridgeGameData,
 ): OptBuffers {
-  const { buf, cards } = initializeBrowserGameBuffers(rand, modId);
+  const { buf, cards } = initializeBrowserGameBuffers(rand, modId, gameData);
   for (const card of cards) {
     buf.availableCounts[card.id] = Math.min(collection.get(card.id) ?? 0, MAX_COPIES);
   }
@@ -48,14 +55,17 @@ export function initializeBuffersBrowser(
 export function initializeSuggestionBuffersBrowser(
   rand: () => number,
   modId: ModId = DEFAULT_MOD,
+  gameData?: BridgeGameData,
 ): OptBuffers {
-  return initializeBrowserGameBuffers(rand, modId).buf;
+  return initializeBrowserGameBuffers(rand, modId, gameData).buf;
 }
 
-function initializeBrowserGameBuffers(rand: () => number, modId: ModId) {
+function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData?: BridgeGameData) {
   const csv = getCsvCache(modId);
   const buf = createBuffers();
-  const cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
+  const cards = gameData
+    ? loadGameDataWithBridgeTables(buf, csv.cards, gameData.fusionTable, gameData.equipTable)
+    : loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);
   return { buf, cards };

@@ -4,6 +4,7 @@ import type {
   DeckSwapSuggestion,
   FindBestDeckSwapSuggestionOptions,
 } from "../../../engine/suggest-deck-swap.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 interface SuggestionWorkerResponse {
@@ -32,6 +33,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     useEquipment,
   } = options;
   const modId = useSelectedMod();
+  const bridge = useBridge();
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<DeckSwapSuggestion | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -105,8 +107,13 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       }
     };
 
-    worker.postMessage({ requestId, options: request, modId });
-  }, [request, modId]);
+    worker.postMessage({
+      requestId,
+      options: request,
+      modId,
+      gameData: bridge.gameData ?? undefined,
+    });
+  }, [request, modId, bridge.gameData]);
 
   useEffect(() => {
     return () => {

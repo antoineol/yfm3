@@ -6,14 +6,14 @@ import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { ExplainerInit, ExplainerResult } from "./messages.ts";
 
 self.onmessage = async (e: MessageEvent<ExplainerInit>) => {
-  const { collection, deck, config, modId } = e.data;
+  const { collection, deck, config, modId, gameData } = e.data;
   setConfig(config);
   await ensureCsvLoaded(modId);
 
   const collectionMap = new Map(
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),
   );
-  const buf = initializeBuffersBrowser(collectionMap, mulberry32(42), modId);
+  const buf = initializeBuffersBrowser(collectionMap, mulberry32(42), modId, gameData);
   if (!getConfig().useEquipment) buf.equipCompat.fill(0);
   for (let i = 0; i < deck.length; i++) {
     buf.deck[i] = deck[i] ?? 0;

@@ -59,6 +59,8 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     collection: null,
     deckDefinition: null,
     modFingerprint: null,
+    gameData: null,
+    gameDataError: null,
     restartFailed: false,
     scan: vi.fn(),
     restartEmulator: vi.fn(),

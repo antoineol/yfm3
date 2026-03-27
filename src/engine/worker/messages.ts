@@ -1,6 +1,12 @@
 import type { EngineConfig } from "../config.ts";
 import type { ModId } from "../mods.ts";
 
+/** Game data received from the emulator bridge (fusion/equip tables from disc image). */
+export type BridgeGameData = {
+  fusionTable: Array<{ material1: number; material2: number; result: number }>;
+  equipTable: Array<{ equipId: number; monsterIds: number[] }>;
+};
+
 /** Main thread → Worker: initialize buffers and run SA. */
 export type WorkerInit = {
   type: "INIT";
@@ -14,6 +20,8 @@ export type WorkerInit = {
   config: EngineConfig;
   /** Which game mod's data to load. */
   modId: ModId;
+  /** Bridge game data — overrides CSV fusions/equips when provided. */
+  gameData?: BridgeGameData;
 };
 
 /** Worker → Main thread: SA finished, here's the best result. */
@@ -41,6 +49,8 @@ export type ScorerInit = {
   config: EngineConfig;
   /** Which game mod's data to load. */
   modId: ModId;
+  /** Bridge game data — overrides CSV fusions/equips when provided. */
+  gameData?: BridgeGameData;
 };
 
 /** Scorer Worker → Main thread: exact scoring result. */
@@ -60,6 +70,8 @@ export type ExplainerInit = {
   config: EngineConfig;
   /** Which game mod's data to load. */
   modId: ModId;
+  /** Bridge game data — overrides CSV fusions/equips when provided. */
+  gameData?: BridgeGameData;
 };
 
 /** Explainer Worker → Main thread: score explanation result. */

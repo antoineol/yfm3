@@ -5,6 +5,7 @@ import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**
@@ -26,6 +27,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
+  const bridge = useBridge();
 
   useEffect(() => {
     // Stable identity check: sort + join to ignore order changes from re-renders
@@ -70,13 +72,23 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       deck: deckCardIds,
       config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
       modId,
+      gameData: bridge.gameData ?? undefined,
     });
 
     return () => {
       cancelled = true;
       worker.terminate();
     };
-  }, [deckCardIds, deckSize, fusionDepth, useEquipment, ownedCardTotals, setScore, modId]);
+  }, [
+    deckCardIds,
+    deckSize,
+    fusionDepth,
+    useEquipment,
+    ownedCardTotals,
+    setScore,
+    modId,
+    bridge.gameData,
+  ]);
 
   return score;
 }

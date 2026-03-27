@@ -7,6 +7,10 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
 
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: vi.fn(() => ({ gameData: null })),
+}));
+
 import { useDeckSwapSuggestion } from "./use-deck-swap-suggestion.ts";
 
 const originalWorker = globalThis.Worker;
