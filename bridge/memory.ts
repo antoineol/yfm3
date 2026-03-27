@@ -79,6 +79,7 @@ const COLLECTION_SIZE = 722;
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 
 export const CARD_STATS_OFFSET = 0x1d4244;
+export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
 const FINGERPRINT_BYTES = 16;
 
 const PS1_RAM_SIZE = 0x200000;
@@ -534,6 +535,19 @@ export function readShuffledDeck(view: DataView): number[] {
 export function readRawHex(view: DataView, offset: number, length: number): string {
   const bytes = readU8Array(view, offset, length);
   return bytes.map((b) => b.toString(16).padStart(2, "0")).join(" ");
+}
+
+/**
+ * Read the full card stats table (2888 bytes) from RAM.
+ * Returns a copy (snapshot) — safe to use after shared memory changes.
+ */
+export function readCardStats(view: DataView): Uint8Array {
+  return new Uint8Array(
+    view.buffer.slice(
+      view.byteOffset + CARD_STATS_OFFSET,
+      view.byteOffset + CARD_STATS_OFFSET + CARD_STATS_SIZE,
+    ),
+  );
 }
 
 /**

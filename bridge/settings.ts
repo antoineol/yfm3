@@ -74,27 +74,39 @@ export function patchSettingsIni(content: string): { patched: boolean; content: 
 // ── Path resolution ───────────────────────────────────────────────
 
 /**
- * Locate DuckStation's settings.ini on disk.
+ * Locate the DuckStation data directory on disk.
  *
  * New DuckStation versions store data under the system Documents folder
  * (resolved via FOLDERID_Documents, which may be redirected — e.g. OneDrive).
  * Older versions used %LOCALAPPDATA%\DuckStation.
  */
-export function findSettingsPath(): string | null {
-  // 1. New DuckStation: Documents\DuckStation\settings.ini
+export function findDuckStationDataDir(): string | null {
+  // 1. New DuckStation: Documents\DuckStation
   const docsDir = getDocumentsPath();
   if (docsDir) {
-    const p = join(docsDir, "DuckStation", "settings.ini");
+    const p = join(docsDir, "DuckStation");
     if (existsSync(p)) return p;
   }
 
-  // 2. Old DuckStation: %LOCALAPPDATA%\DuckStation\settings.ini
+  // 2. Old DuckStation: %LOCALAPPDATA%\DuckStation
   const localAppData = process.env.LOCALAPPDATA;
   if (localAppData) {
-    const p = join(localAppData, "DuckStation", "settings.ini");
+    const p = join(localAppData, "DuckStation");
     if (existsSync(p)) return p;
   }
 
+  return null;
+}
+
+/**
+ * Locate DuckStation's settings.ini on disk.
+ */
+export function findSettingsPath(): string | null {
+  const dataDir = findDuckStationDataDir();
+  if (dataDir) {
+    const p = join(dataDir, "settings.ini");
+    if (existsSync(p)) return p;
+  }
   return null;
 }
 

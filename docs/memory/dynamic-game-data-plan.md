@@ -159,22 +159,6 @@ Game change detected
 
 No duel needed in this flow. The .bin is always readable from the filesystem.
 
-### Fallback flow (RAM-only, if .bin not found)
-
-If the .bin path can't be resolved (gamelist.cache missing, ambiguous entries, file moved):
-
-```
-Bridge starts, game loaded
-  → Read card stats from RAM → compute gameDataHash
-  → Check disk cache: hash match?
-    YES → load from cache → ready
-    NO  → wait for duel
-
-Duel starts (LP > 0)
-  → Scan RAM for fusion/equip table signatures → read them
-  → Write disk cache → ready
-```
-
 ## Bridge runtime: migrate to Bun
 
 ### Why
@@ -277,67 +261,42 @@ Small surface. 5 Windows API functions total (OpenFileMappingW, MapViewOfFile, U
 - ✅ Version bumped to 2.0.0 (major: runtime changed from Node to Bun)
 - ✅ Zero dependencies — no `node_modules/`, no `koffi`, no `ws`
 
-### Step 1: gameDataHash
+### Steps 1–3 + 5: Game data acquisition ✅
 
-Add to memory module:
-- `readCardStats(view)` → `Uint8Array(2888)` from `0x1D4244`
-- `computeGameDataHash(cardStats)` → SHA-256 hex string
+All implemented in `bridge/game-data.ts` (new module):
 
-### Step 2: .bin path resolution
+- ✅ **Step 1: gameDataHash** — `readCardStats(view)` in `memory.ts`, `computeGameDataHash(cardStats)` in `game-data.ts` (SHA-256 hex)
+- ✅ **Step 2: .bin path resolution** — `findDuckStationDataDir()` in `settings.ts`, `parseGamelistCache(buf, serial)` parses DuckStation's binary gamelist cache, `resolveBinPath(cuePath)` parses .cue → .bin, disambiguates via card stats hash when multiple candidates share a serial
+- ✅ **Step 3: .bin extraction** — imports `scripts/extract/` modules directly (TypeScript, shared codebase): `loadDiscData()`, `detectWaMrgLayout()`, `extractFusions()`, `extractEquips()`
+- ✅ **Step 5: Disk cache** — single-entry JSON cache at `bridge/game-data-cache.json`, keyed by gameDataHash. Cache check on every call; write on successful extraction.
 
-Add to bridge:
-- `findGamelistCache()` → locate `{DS_DATA}/cache/gamelist.cache`
-- `parseGamelistCache(cacheBuffer, serial)` → extract .cue path(s) for a serial
-- `resolveBinPath(cuePath)` → parse .cue, return absolute .bin path
-- Disambiguate via gameDataHash when multiple candidates share a serial
+Main entry point: `acquireGameData(cardStats, serial, cacheDir)` — orchestrates hash → cache check → .bin resolution → extraction → cache write.
 
-### Step 3: .bin extraction
+~~Step 4: RAM fusion/equip scanning (fallback)~~ — removed (unnecessary complexity; .bin reading covers all cases).
 
-Import extraction modules directly (TypeScript, shared codebase):
-- `scripts/extract/iso9660.ts` → read disc image
-- `scripts/extract/detect-wamrg.ts` → find table offsets
-- `scripts/extract/extract-fusions.ts` → parse fusion table
-- `scripts/extract/extract-equips.ts` → parse equip table
+### Step 6: serve.ts integration + WebSocket gameData message
 
-### Step 4: RAM fusion/equip scanning (fallback)
+Wire `acquireGameData()` into the bridge poll loop in `serve.ts`:
 
-Add to memory module:
-- `scanFusionTable(view)` → scan RAM for fusion header signature, return `Uint8Array(65536)` or null
-- `scanEquipTable(view)` → scan for equip entry pattern, return `Uint8Array` or null
-
-Called once when bridge first detects LP > 0, only if .bin reading failed.
-
-### Step 5: Disk cache
-
-Simple read/write in serve module:
-- On bridge start: load cache, compare gameDataHash
-- On .bin extraction or RAM capture: overwrite cache
-
-### Step 6: WebSocket gameData message
-
-Bridge sends `gameData` to webapp:
-- On client connect (if data available)
-- When data first acquired (.bin extraction or duel capture)
-- After game change + re-acquisition
-
-```json
-{
-  "type": "gameData",
-  "gameDataHash": "82a9bbf0...",
-  "cardStats": [/* 2888 bytes */],
-  "fusionTable": [/* 65536 bytes or null */],
-  "equipTable": [/* ~8218 bytes or null */]
-}
-```
+- Add module-level state: `gameData: GameData | null`, `lastGameDataHash: string | null`
+- When `isGameLoaded` becomes true (or serial changes): call `readCardStats(view)` → `acquireGameData(cardStats, serial, import.meta.dir)`
+- Only re-acquire when `gameDataHash` changes (avoids redundant .bin reads)
+- Send `gameData` WebSocket message to all clients:
+  - On client connect (if data available)
+  - When data first acquired
+  - After game change + re-acquisition
+- Message shape: `{ type: "gameData", gameDataHash, fusionTable: Fusion[], equipTable: EquipEntry[] }`
+- `cardStats` bytes are NOT sent to the webapp (only used bridge-side for hashing)
 
 ### Step 7: Webapp consumes bridge game data
 
-New data source path in worker initialization:
-- Bridge provides `gameData` → decode into OptBuffers (same parsing as current CSV path)
-- Bridge data unavailable → fall back to CSV loading (manual mode)
+- `use-emulator-bridge` receives `gameData` message → store in bridge state atom
+- Worker initialization: if bridge `gameData` is available, build `OptBuffers` from `Fusion[]` / `EquipEntry[]` (same card→atk lookup, fusion matrix, equip compat as current CSV path)
+- If bridge data unavailable → fall back to CSV loading (manual mode, unchanged)
+- Key: the webapp already has `cardAtk` from the static CSV (card stats are always available). Only `fusionTable` and `equipTable` come dynamically from the bridge.
 
 ### Step 8: UI feedback
 
-- Bridge connected + data ready: optimizer fully operational
-- Bridge connected + no fusion data: "Enter a duel to capture game data" (only if .bin reading failed)
-- No bridge: manual mode with CSV files
+- Bridge connected + game data ready: optimizer fully operational (no visible change needed — it just works)
+- Bridge connected + game data acquisition failed: show warning with reason (e.g. "gamelist.cache not found")
+- No bridge: manual mode with CSV files (existing behavior)
