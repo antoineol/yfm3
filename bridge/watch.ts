@@ -139,7 +139,7 @@ async function restart(filename: string): Promise<void> {
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const watcher = watch(__dirname, (_event, filename) => {
+const watcher = watch(__dirname, { recursive: true }, (_event, filename) => {
   if (stopping) return;
   if (!filename?.endsWith(".ts")) return;
   if (debounceTimer) clearTimeout(debounceTimer);

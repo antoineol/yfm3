@@ -107,19 +107,25 @@ export const DEFAULT_PROFILE: OffsetProfile = {
  * Phase/turn are in one segment (delta +0x132A from NTSC-U), LP in another
  * (delta +0x1286).
  *
- * Scene ID, terrain, duelist ID, and fusion counter are not yet mapped for PAL.
- * They are set to 0 so readGameState returns null for those fields.
+ * PAL scene ID is 0 during duels and non-zero on menu screens (opposite of
+ * NTSC-U). This still works for resolveEndedPhase(): it records sceneId=0 at
+ * duel end and detects the change to non-zero when the user navigates away.
+ *
+ * Terrain is not yet mapped — all tested duels had neutral terrain, making it
+ * impossible to identify via diffing. Needs a duel with non-Normal terrain.
+ *
+ * See docs/memory/pal-remaining-addresses.md for investigation evidence.
  */
 export const PAL_PROFILE: OffsetProfile = {
   label: "PAL",
   duelPhase: 0x09c564,
   turnIndicator: 0x09c504,
-  sceneId: 0, // TODO: not yet discovered
-  terrain: 0, // TODO: not yet discovered
-  duelistId: 0, // TODO: not yet discovered
+  sceneId: 0x09c4c2, // phase-0xA2, uint16: 0 in duel, non-zero on menus
+  terrain: 0, // not yet discovered — needs non-Normal terrain duel
+  duelistId: 0x09c6f3, // phase+0x18F, uint8
   lpP1: 0x0eb28a,
   lpP2: 0x0eb2aa,
-  fusionCounter: 0, // TODO: not yet discovered
+  fusionCounter: 0x0eb27f, // lpP1-0x0B, uint8
 };
 
 /**
@@ -268,9 +274,10 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
 }
 
 // ── Relative offsets between duel-state variables ─────────────────
-// These distances are preserved across NTSC-U and PAL because the
-// variables live in the same struct/data segment.  Only the segment's
-// base address changes between binaries.
+// NOTE: These NTSC-U relative distances are used by scanForPhaseStructurally()
+// for auto-detection of unknown binaries. They do NOT hold for PAL (PAL offsets
+// differ wildly: sceneId is phase-0xA2 vs phase+0x32, duelistId is phase+0x18F
+// vs phase+0x127, etc.). PAL is detected by disc serial, not structural scan.
 const turnDist = DEFAULT_PROFILE.duelPhase - DEFAULT_PROFILE.turnIndicator; // 0x65
 const sceneDist = DEFAULT_PROFILE.sceneId - DEFAULT_PROFILE.duelPhase; // 0x32
 const terrainDist = DEFAULT_PROFILE.terrain - DEFAULT_PROFILE.duelPhase; // 0x12A

@@ -667,7 +667,7 @@ function logCollectionDeckState(view: DataView, sceneId: number | null): void {
 
 // ── PAL address investigation (optional diagnostic) ────────────────
 // Enable by setting DIAG_PAL=true. See debug/pal-address-probe.ts.
-const DIAG_PAL = true; // flip to false to disable
+const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
 
 function resetPalProbe(): void {
