@@ -1,26 +1,24 @@
 /**
  * Watch & restart wrapper for the bridge server.
  *
- * Runs under Linux `node` (WSL2 side). Watches .mjs files with fs.watch
- * (inotify-backed, works on WSL2 fs) and manages node.exe via spawn/kill.
+ * Runs under Linux `bun` (WSL2 side). Watches .ts files with fs.watch
+ * (inotify-backed, works on WSL2 fs) and manages bun.exe via spawn/kill.
  *
- * Usage:  node bridge/watch.mjs          (or: bun bridge)
+ * Usage:  bun bridge/watch.ts          (or: bun bridge)
  */
 
-import { execFileSync, execSync, spawn } from "node:child_process";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { watch } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = import.meta.dir;
 const PORT = Number(process.env.BRIDGE_PORT || 3333);
 const DEBOUNCE_MS = 300;
 
 // ── Ghost cleanup ─────────────────────────────────────────────────
-// Kill stale node.exe on our port from a previous crashed session.
+// Kill stale processes on our port from a previous crashed session.
 
-function killGhost() {
-  let pid;
+function killGhost(): void {
+  let pid: string | undefined;
   try {
     pid = execSync(`netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`, {
       encoding: "utf8",
@@ -46,33 +44,14 @@ function killGhost() {
   }
 }
 
-// ── npm install (Windows-side deps for node.exe) ─────────────────
-// Uses \\wsl$\ share (not \\wsl.localhost\) because cmd.exe's pushd
-// can map \\wsl$\ to a temp drive letter but fails on \\wsl.localhost\.
-
-function npmInstall() {
-  const distro = execSync("wsl.exe -l -q 2>/dev/null || echo Ubuntu", {
-    encoding: "utf8",
-  })
-    .trim()
-    .split("\n")[0]
-    .replace(/[\0\r]/g, "");
-  const wslPath = `\\\\wsl$\\${distro}${__dirname.replaceAll("/", "\\")}`;
-  execFileSync(
-    "cmd.exe",
-    ["/c", `pushd ${wslPath} && npm install --prefer-offline 2>nul && popd`],
-    { stdio: "inherit", timeout: 60_000, cwd: "/mnt/c" },
-  );
-}
-
 // ── Bridge process management ─────────────────────────────────────
 
-let child = null;
+let child: ChildProcess | null = null;
 let stopping = false;
 
-function start() {
+function start(): void {
   console.log("[watch] starting bridge...");
-  child = spawn("node.exe", ["serve.mjs"], {
+  child = spawn("bun.exe", ["run", "serve.ts"], {
     cwd: __dirname,
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -84,15 +63,15 @@ function start() {
   });
 }
 
-function stop() {
+function stop(): Promise<void> {
   return new Promise((resolve) => {
     if (!child) return resolve();
-    child.once("exit", resolve);
+    child.once("exit", () => resolve());
     child.kill();
   });
 }
 
-function portFree() {
+function portFree(): boolean {
   try {
     execSync(`netstat.exe -ano | findstr.exe "LISTENING" | findstr.exe ":${PORT} "`, {
       stdio: "pipe",
@@ -104,7 +83,7 @@ function portFree() {
   }
 }
 
-async function waitPortFree() {
+async function waitPortFree(): Promise<void> {
   for (let i = 0; i < 20; i++) {
     if (portFree()) return;
     await new Promise((r) => setTimeout(r, 250));
@@ -112,7 +91,7 @@ async function waitPortFree() {
   console.warn(`[watch] port ${PORT} still in use after 5s`);
 }
 
-async function restart(filename) {
+async function restart(filename: string): Promise<void> {
   stopping = true;
   console.log(`[watch] ${filename} changed — restarting...`);
   await stop();
@@ -123,11 +102,11 @@ async function restart(filename) {
 
 // ── File watcher ──────────────────────────────────────────────────
 
-let debounceTimer = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const watcher = watch(__dirname, (_event, filename) => {
   if (stopping) return;
-  if (!filename?.endsWith(".mjs")) return;
+  if (!filename?.endsWith(".ts")) return;
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
@@ -137,7 +116,7 @@ const watcher = watch(__dirname, (_event, filename) => {
 
 // ── Shutdown ──────────────────────────────────────────────────────
 
-function shutdown() {
+function shutdown(): void {
   if (stopping) return;
   stopping = true;
   console.log("[watch] shutting down...");
@@ -152,5 +131,4 @@ process.on("SIGTERM", shutdown);
 // ── Start ─────────────────────────────────────────────────────────
 
 killGhost();
-npmInstall();
 start();

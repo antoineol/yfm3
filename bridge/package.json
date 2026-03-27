@@ -1,15 +1,7 @@
 {
   "name": "yfm3-bridge",
   "private": true,
-  "version": "1.0.13",
+  "version": "2.0.1",
   "type": "module",
-  "description": "Reads DuckStation shared memory and serves hand card data over WebSocket",
-  "scripts": {
-    "start": "node serve.mjs",
-    "dev": "node watch.mjs"
-  },
-  "dependencies": {
-    "koffi": "^2.9.0",
-    "ws": "^8.18.0"
-  }
+  "description": "Reads DuckStation shared memory and serves hand card data over WebSocket"
 }

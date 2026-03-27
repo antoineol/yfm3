@@ -16,10 +16,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Check version and decide whether to release
         id: version
         run: |
-          VERSION=$(node -p "require('./bridge/package.json').version")
+          VERSION=$(bun -e "console.log(require('./bridge/package.json').version)")
           TAG="bridge-v${VERSION}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"

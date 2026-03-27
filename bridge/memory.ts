@@ -13,9 +13,54 @@
  * 2. **Version-dependent** — differ between compiled binaries (US vs EU).
  *    Duel phase, turn indicator, LP, scene ID, terrain, duelist ID, fusions.
  *    These are stored in an "offset profile" resolved at runtime.
+ *
+ * Uses bun:ffi to call Windows kernel32.dll for shared memory access.
  */
 
-import koffi from "koffi";
+import { dlopen, ptr, toArrayBuffer } from "bun:ffi";
+import { execSync } from "node:child_process";
+
+// ── Types ────────────────────────────────────────────────────────
+
+export interface OffsetProfile {
+  label: string;
+  duelPhase: number;
+  turnIndicator: number;
+  sceneId: number;
+  terrain: number;
+  duelistId: number;
+  lpP1: number;
+  lpP2: number;
+  fusionCounter: number;
+}
+
+export interface SharedMemoryMapping {
+  handle: number;
+  viewPtr: number;
+  view: DataView;
+  pid: number;
+}
+
+interface CardSlot {
+  cardId: number;
+  atk: number;
+  def: number;
+  status: number;
+}
+
+export interface GameState {
+  sceneId: number | null;
+  duelPhase: number | null;
+  turnIndicator: number | null;
+  hand: CardSlot[];
+  field: CardSlot[];
+  lp: [number, number] | null;
+  fusions: number | null;
+  terrain: number | null;
+  duelistId: number | null;
+  trunk: number[];
+  deckDefinition: number[];
+}
 
 // ── Windows constants ──────────────────────────────────────────────
 const FILE_MAP_READ = 0x0004;
@@ -32,20 +77,16 @@ const DECK_DEF_CARDS = 40;
 const COLLECTION_OFFSET = 0x1d0250; // Cards owned (722 bytes, 1 per card ID)
 const COLLECTION_SIZE = 722;
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
-const _CPU_SHUFFLED_DECK_OFFSET = 0x178038; // eslint-disable-line -- documented for reference
 
-const CARD_STATS_OFFSET = 0x1d4244;
+export const CARD_STATS_OFFSET = 0x1d4244;
 const FINGERPRINT_BYTES = 16;
 
 const PS1_RAM_SIZE = 0x200000;
 
 // ── Version-dependent offset profiles ─────────────────────────────
-// Different compiled binaries (NTSC-U vs PAL) place runtime game-state
-// variables at different RAM addresses. The profile maps each variable
-// to its address for a specific binary.
 
 /** Default profile: NTSC-U (SLUS-01411) — also used by RP mod. */
-export const DEFAULT_PROFILE = {
+export const DEFAULT_PROFILE: OffsetProfile = {
   label: "NTSC-U",
   duelPhase: 0x09b23a,
   turnIndicator: 0x09b1d5,
@@ -67,9 +108,8 @@ export const DEFAULT_PROFILE = {
  *
  * Scene ID, terrain, duelist ID, and fusion counter are not yet mapped for PAL.
  * They are set to 0 so readGameState returns null for those fields.
- * See docs/investigation-duel-memory.md for the plan to find them.
  */
-export const PAL_PROFILE = {
+export const PAL_PROFILE: OffsetProfile = {
   label: "PAL",
   duelPhase: 0x09c564,
   turnIndicator: 0x09c504,
@@ -87,7 +127,7 @@ export const PAL_PROFILE = {
  * Values above that indicate the addresses are wrong for this binary.
  */
 const MAX_VALID_LP = 9999;
-export function validateProfile(view, profile) {
+export function validateProfile(view: DataView, profile: OffsetProfile): boolean {
   const lp1 = readU16(view, profile.lpP1);
   const lp2 = readU16(view, profile.lpP2);
   return lp1 <= MAX_VALID_LP && lp2 <= MAX_VALID_LP;
@@ -99,21 +139,21 @@ export function validateProfile(view, profile) {
  * when the game is running, regardless of version.
  */
 const ALL_ZERO_FP = "0".repeat(FINGERPRINT_BYTES * 2);
-export function isGameLoaded(view) {
+export function isGameLoaded(view: DataView): boolean {
   return readModFingerprint(view) !== ALL_ZERO_FP;
 }
 
 /**
- * Read a uint8 at a given offset (exported for serve.mjs diagnostics).
+ * Read a uint8 at a given offset (exported for serve.ts diagnostics).
  */
-export function peekU8(view, offset) {
+export function peekU8(view: DataView, offset: number): number {
   return readU8(view, offset);
 }
 
 /**
- * Read a uint16 LE at a given offset (exported for serve.mjs diagnostics).
+ * Read a uint16 LE at a given offset (exported for serve.ts diagnostics).
  */
-export function peekU16(view, offset) {
+export function peekU16(view: DataView, offset: number): number {
   return readU16(view, offset);
 }
 
@@ -128,9 +168,9 @@ export function peekU16(view, offset) {
  *
  * Returns a candidate profile or null if no match found.
  */
-export function scanForOffsets(view, startingLP) {
+export function scanForOffsets(view: DataView, startingLP: number): OffsetProfile | null {
   const LpStride = 0x20;
-  const candidates = [];
+  const candidates: number[] = [];
 
   // Scan game-state variable range (0x080000–0x120000)
   for (let off = 0x080000; off <= 0x120000 - LpStride; off += 2) {
@@ -142,7 +182,7 @@ export function scanForOffsets(view, startingLP) {
   if (candidates.length === 0) return null;
 
   // Try each candidate: compute delta from NTSC-U LP, derive full profile, validate
-  const lpDelta = (lpP1) => lpP1 - DEFAULT_PROFILE.lpP1;
+  const lpDelta = (lpP1: number) => lpP1 - DEFAULT_PROFILE.lpP1;
 
   for (const lpP1 of candidates) {
     const d = lpDelta(lpP1);
@@ -150,7 +190,7 @@ export function scanForOffsets(view, startingLP) {
     const fusionCounter = DEFAULT_PROFILE.fusionCounter + d;
     // The 0x09Bxxx group (phase, scene, turn, terrain, duelist) may have
     // a different delta. Try the same delta first.
-    const candidate = {
+    const candidate: OffsetProfile = {
       label: `discovered (delta=0x${d.toString(16)})`,
       duelPhase: DEFAULT_PROFILE.duelPhase + d,
       turnIndicator: DEFAULT_PROFILE.turnIndicator + d,
@@ -180,9 +220,7 @@ export function scanForOffsets(view, startingLP) {
   // LP and phase segments have different deltas in PAL.
   // Scan for phase independently: during HAND_SELECT, phase=0x04 and
   // turn indicator=0x00 at a fixed relative offset (0x65 bytes before phase).
-  const turnDist = DEFAULT_PROFILE.duelPhase - DEFAULT_PROFILE.turnIndicator; // 0x65
-  const duelistDist = DEFAULT_PROFILE.duelistId - DEFAULT_PROFILE.duelPhase; // 0x127
-  const phaseCandidates = [];
+  const phaseCandidates: Array<{ offset: number; duelistId: number; sceneId: number }> = [];
 
   for (let off = 0x090000; off < 0x0b0000; off++) {
     if (readU8(view, off) !== 0x04) continue; // HAND_SELECT
@@ -208,6 +246,7 @@ export function scanForOffsets(view, startingLP) {
     if (phaseCandidates.length === 1) {
       const pc = phaseCandidates[0];
       const lpP1 = candidates[0];
+      if (!pc || lpP1 === undefined) return null;
       return {
         label: "PAL-discovered",
         duelPhase: pc.offset,
@@ -248,10 +287,17 @@ const lpStride = 0x20; // distance between LP_P1 and LP_P2
  *
  * @returns Array of { offset, phase, turn, terrain, duelist, scene }.
  */
-export function scanForPhaseStructurally(view) {
+export function scanForPhaseStructurally(view: DataView) {
   const scanStart = 0x080000;
   const scanEnd = 0x0c0000;
-  const candidates = [];
+  const candidates: Array<{
+    offset: number;
+    phase: number;
+    turn: number;
+    terrain: number;
+    duelist: number;
+    scene: number;
+  }> = [];
 
   for (let off = scanStart + turnDist; off < scanEnd - terrainDist; off++) {
     const phase = readU8(view, off);
@@ -282,16 +328,21 @@ export function scanForPhaseStructurally(view) {
  * Returns array of { offset, lp1, lp2 }.
  */
 export function scanForLpPairs(
-  view,
-  { exactValue = null, rangeStart = 0x080000, rangeEnd = 0x120000 } = {},
+  view: DataView,
+  {
+    exactValue = null,
+    rangeStart = 0x080000,
+    rangeEnd = 0x120000,
+  }: { exactValue?: number | null; rangeStart?: number; rangeEnd?: number } = {},
 ) {
-  const candidates = [];
+  const candidates: Array<{ offset: number; lp1: number; lp2: number }> = [];
 
   for (let off = rangeStart; off <= rangeEnd - lpStride; off += 2) {
     const v1 = readU16(view, off);
     const v2 = readU16(view, off + lpStride);
     if (v1 < 1 || v1 > 9999 || v2 < 1 || v2 > 9999) continue;
-    if (exactValue !== null && (v1 !== exactValue || v2 !== exactValue)) continue;
+    if (exactValue !== null && exactValue !== undefined && (v1 !== exactValue || v2 !== exactValue))
+      continue;
     candidates.push({ offset: off, lp1: v1, lp2: v2 });
   }
 
@@ -302,7 +353,10 @@ export function scanForLpPairs(
  * Build a complete offset profile from a discovered phase address and LP address.
  * Uses the known relative distances from NTSC-U.
  */
-export function buildProfileFromDiscovery(phaseAddr, lpP1Addr) {
+export function buildProfileFromDiscovery(
+  phaseAddr: number,
+  lpP1Addr: number | null,
+): OffsetProfile {
   return {
     label: `discovered (phase=0x${phaseAddr.toString(16)}, lp=0x${(lpP1Addr || 0).toString(16)})`,
     duelPhase: phaseAddr,
@@ -316,36 +370,58 @@ export function buildProfileFromDiscovery(phaseAddr, lpP1Addr) {
   };
 }
 
-// ── Load Windows kernel32 ──────────────────────────────────────────
-const kernel32 = koffi.load("kernel32.dll");
-const OpenFileMappingW = kernel32.func(
-  "void* __stdcall OpenFileMappingW(uint32_t dwDesiredAccess, int bInheritHandle, const char16_t* lpName)",
-);
-const MapViewOfFile = kernel32.func(
-  "void* __stdcall MapViewOfFile(void* hFileMappingObject, uint32_t dwDesiredAccess, uint32_t dwFileOffsetHigh, uint32_t dwFileOffsetLow, uintptr_t dwNumberOfBytesToMap)",
-);
-const UnmapViewOfFile = kernel32.func("int __stdcall UnmapViewOfFile(void* lpBaseAddress)");
-const CloseHandle = kernel32.func("int __stdcall CloseHandle(void* hObject)");
-const GetLastError = kernel32.func("uint32_t __stdcall GetLastError()");
+// ── Load Windows kernel32 via bun:ffi ────────────────────────────
+
+const { symbols: k32 } = dlopen("kernel32.dll", {
+  OpenFileMappingW: {
+    args: ["u32", "i32", "ptr"],
+    returns: "ptr",
+  },
+  MapViewOfFile: {
+    args: ["ptr", "u32", "u32", "u32", "u64"],
+    returns: "ptr",
+  },
+  UnmapViewOfFile: {
+    args: ["ptr"],
+    returns: "i32",
+  },
+  CloseHandle: {
+    args: ["ptr"],
+    returns: "i32",
+  },
+  GetLastError: {
+    args: [],
+    returns: "u32",
+  },
+});
+
+/** Encode a JavaScript string as a null-terminated UTF-16LE buffer for Win32 W APIs. */
+function encodeWideString(str: string): Buffer {
+  const buf = Buffer.alloc((str.length + 1) * 2);
+  for (let i = 0; i < str.length; i++) {
+    buf.writeUInt16LE(str.charCodeAt(i), i * 2);
+  }
+  return buf;
+}
 
 // ── Memory read helpers ────────────────────────────────────────────
-function readU16(view, offset) {
-  return koffi.decode(view, offset, "uint16");
+function readU16(view: DataView, offset: number): number {
+  return view.getUint16(offset, true); // little-endian
 }
-function readU8(view, offset) {
-  return koffi.decode(view, offset, "uint8");
+function readU8(view: DataView, offset: number): number {
+  return view.getUint8(offset);
 }
-function readU16Array(view, offset, count) {
-  const result = [];
-  for (let i = 0; i < count; i++) result.push(readU16(view, offset + i * 2));
+function readU16Array(view: DataView, offset: number, count: number): number[] {
+  const result: number[] = [];
+  for (let i = 0; i < count; i++) result.push(view.getUint16(offset + i * 2, true));
   return result;
 }
-function readU8Array(view, offset, count) {
-  const result = [];
-  for (let i = 0; i < count; i++) result.push(readU8(view, offset + i));
+function readU8Array(view: DataView, offset: number, count: number): number[] {
+  const result: number[] = [];
+  for (let i = 0; i < count; i++) result.push(view.getUint8(offset + i));
   return result;
 }
-function readCardSlot(view, base, index) {
+function readCardSlot(view: DataView, base: number, index: number): CardSlot {
   const offset = base + index * HAND_STRIDE;
   const equipBoost = readU16(view, offset + 0x06);
   return {
@@ -357,15 +433,14 @@ function readCardSlot(view, base, index) {
 }
 
 // ── Exported functions ─────────────────────────────────────────────
-export async function findDuckStationPids() {
-  const { execSync } = await import("node:child_process");
+export async function findDuckStationPids(): Promise<number[]> {
   try {
     const output = execSync('tasklist /FI "IMAGENAME eq duckstation*" /FO CSV /NH', {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],
       cwd: "C:\\",
     });
-    const pids = [];
+    const pids: number[] = [];
     for (const line of output.split("\n")) {
       const match = line.match(/"[^"]*","(\d+)"/);
       if (match) pids.push(Number(match[1]));
@@ -376,45 +451,45 @@ export async function findDuckStationPids() {
   }
 }
 
-export function openSharedMemory(pid, { quiet = false } = {}) {
+export function openSharedMemory(pid: number, { quiet = false } = {}): SharedMemoryMapping | null {
   const name = `duckstation_${pid}`;
-  const handle = OpenFileMappingW(FILE_MAP_READ, 0, name);
+  const nameBuf = encodeWideString(name);
+  const handle = k32.OpenFileMappingW(FILE_MAP_READ, 0, ptr(nameBuf));
   if (!handle) {
-    if (!quiet) console.error(`OpenFileMappingW("${name}") failed, error=${GetLastError()}`);
+    if (!quiet) console.error(`OpenFileMappingW("${name}") failed, error=${k32.GetLastError()}`);
     return null;
   }
-  const view = MapViewOfFile(handle, FILE_MAP_READ, 0, 0, PS1_RAM_SIZE);
-  if (!view) {
-    if (!quiet) console.error(`MapViewOfFile failed, error=${GetLastError()}`);
-    CloseHandle(handle);
+  const viewPtr = k32.MapViewOfFile(handle, FILE_MAP_READ, 0, 0, PS1_RAM_SIZE);
+  if (!viewPtr) {
+    if (!quiet) console.error(`MapViewOfFile failed, error=${k32.GetLastError()}`);
+    k32.CloseHandle(handle);
     return null;
   }
+  const view = new DataView(toArrayBuffer(viewPtr, 0, PS1_RAM_SIZE));
   console.log(`Mapped shared memory for PID ${pid} (${name})`);
-  return { handle, view, pid };
+  return { handle, viewPtr, view, pid };
 }
 
-export function closeSharedMemory(mapping) {
-  if (mapping.view) UnmapViewOfFile(mapping.view);
-  if (mapping.handle) CloseHandle(mapping.handle);
+export function closeSharedMemory(mapping: SharedMemoryMapping): void {
+  if (mapping.viewPtr) k32.UnmapViewOfFile(mapping.viewPtr);
+  if (mapping.handle) k32.CloseHandle(mapping.handle);
 }
 
 /**
  * Read raw game state from mapped PS1 RAM.
  * Returns uninterpreted values — the webapp handles all game logic.
- *
- * @param {*} view - Mapped shared memory view
- * @param {object|null} profile - Version-dependent offset profile.
- *   When null, version-dependent fields (duelPhase, lp, etc.) are null.
  */
-export function readGameState(view, profile) {
-  const hand = [];
+export function readGameState(view: DataView, profile: OffsetProfile | null): GameState {
+  const hand: CardSlot[] = [];
   for (let i = 0; i < HAND_SLOTS; i++) hand.push(readCardSlot(view, HAND_BASE, i));
-  const field = [];
+  const field: CardSlot[] = [];
   for (let i = 0; i < FIELD_SLOTS; i++) field.push(readCardSlot(view, FIELD_BASE, i));
 
   // Helper: read from profile offset, returning null if offset is 0 (unmapped)
-  const u8 = (off) => (profile && off ? readU8(view, off) : null);
-  const u16 = (off) => (profile && off ? readU16(view, off) : null);
+  const u8 = (off: number | undefined): number | null =>
+    profile && off ? readU8(view, off) : null;
+  const u16 = (off: number | undefined): number | null =>
+    profile && off ? readU16(view, off) : null;
 
   return {
     sceneId: u16(profile?.sceneId),
@@ -435,28 +510,28 @@ export function readGameState(view, profile) {
  * Read the player's card collection (722 bytes, one per card ID 1–722).
  * Each byte = number of copies owned (expected 0–3).
  */
-export function readCollection(view) {
+export function readCollection(view: DataView): number[] {
   return readU8Array(view, COLLECTION_OFFSET, COLLECTION_SIZE);
 }
 
 /**
  * Read the player's deck definition (40 card IDs as uint16 LE).
  */
-export function readDeckDefinition(view) {
+export function readDeckDefinition(view: DataView): number[] {
   return readU16Array(view, DECK_DEF_OFFSET, DECK_DEF_CARDS);
 }
 
 /**
  * Read the player's shuffled deck during a duel (40 card IDs).
  */
-export function readShuffledDeck(view) {
+export function readShuffledDeck(view: DataView): number[] {
   return readU16Array(view, PLAYER_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
 }
 
 /**
  * Read raw bytes as hex string for memory exploration.
  */
-export function readRawHex(view, offset, length) {
+export function readRawHex(view: DataView, offset: number, length: number): string {
   const bytes = readU8Array(view, offset, length);
   return bytes.map((b) => b.toString(16).padStart(2, "0")).join(" ");
 }
@@ -465,9 +540,15 @@ export function readRawHex(view, offset, length) {
  * Read a mod fingerprint from the card stats table in RAM.
  * The first 16 bytes (4 card stat entries) uniquely identify each mod.
  */
-export function readModFingerprint(view) {
-  const bytes = readU8Array(view, CARD_STATS_OFFSET, FINGERPRINT_BYTES);
-  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+export function readModFingerprint(view: DataView): string {
+  let hex = "";
+  for (let i = 0; i < FINGERPRINT_BYTES; i++) {
+    hex += view
+      .getUint8(CARD_STATS_OFFSET + i)
+      .toString(16)
+      .padStart(2, "0");
+  }
+  return hex;
 }
 
 /**
@@ -481,18 +562,20 @@ export function readModFingerprint(view) {
  */
 const SERIAL_RE = /^S[CL][A-Z]{2}_\d{3}\.\d{2}$/;
 
-export function readGameSerial(view) {
+export function readGameSerial(view: DataView): string | null {
   const scanLen = 0x80000; // first 512 KB
-  const bytes = readU8Array(view, 0, scanLen);
 
-  for (let i = 0; i < bytes.length - 11; i++) {
+  for (let i = 0; i < scanLen - 11; i++) {
     // Quick filter: must start with 'S' (0x53)
-    if (bytes[i] !== 0x53) continue;
+    if (view.getUint8(i) !== 0x53) continue;
     // Must have 'L' or 'C' at position 1
-    const b1 = bytes[i + 1];
+    const b1 = view.getUint8(i + 1);
     if (b1 !== 0x4c && b1 !== 0x43) continue;
 
-    const candidate = String.fromCharCode(...bytes.slice(i, i + 11));
+    let candidate = "";
+    for (let j = 0; j < 11; j++) {
+      candidate += String.fromCharCode(view.getUint8(i + j));
+    }
     if (SERIAL_RE.test(candidate)) {
       return candidate;
     }

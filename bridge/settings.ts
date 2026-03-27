@@ -18,11 +18,8 @@ import { join } from "node:path";
 /**
  * Patch INI content to ensure `[Hacks] ExportSharedMemory = true`.
  * Preserves original line-ending style (CRLF / LF).
- *
- * @param {string} content  Raw INI file content.
- * @returns {{ patched: boolean, content: string }}
  */
-export function patchSettingsIni(content) {
+export function patchSettingsIni(content: string): { patched: boolean; content: string } {
   const eol = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(/\r?\n/);
 
@@ -31,7 +28,8 @@ export function patchSettingsIni(content) {
   let exportLineIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const trimmed = lines[i]?.trim();
+    if (trimmed === undefined) continue;
 
     if (trimmed === "[Hacks]") {
       hacksIdx = i;
@@ -50,7 +48,7 @@ export function patchSettingsIni(content) {
 
   // Already enabled
   if (exportLineIdx >= 0) {
-    const value = lines[exportLineIdx].match(/=\s*(.+)/)?.[1]?.trim();
+    const value = lines[exportLineIdx]?.match(/=\s*(.+)/)?.[1]?.trim();
     if (value === "true") {
       return { patched: false, content };
     }
@@ -69,7 +67,7 @@ export function patchSettingsIni(content) {
   // No [Hacks] section at all — append
   const suffix =
     content.length > 0 && !content.endsWith("\n") && !content.endsWith("\r") ? eol : "";
-  const appended = content + suffix + `[Hacks]${eol}ExportSharedMemory = true${eol}`;
+  const appended = `${content}${suffix}[Hacks]${eol}ExportSharedMemory = true${eol}`;
   return { patched: true, content: appended };
 }
 
@@ -81,10 +79,8 @@ export function patchSettingsIni(content) {
  * New DuckStation versions store data under the system Documents folder
  * (resolved via FOLDERID_Documents, which may be redirected — e.g. OneDrive).
  * Older versions used %LOCALAPPDATA%\DuckStation.
- *
- * @returns {string | null}  Absolute path to settings.ini, or null.
  */
-export function findSettingsPath() {
+export function findSettingsPath(): string | null {
   // 1. New DuckStation: Documents\DuckStation\settings.ini
   const docsDir = getDocumentsPath();
   if (docsDir) {
@@ -106,10 +102,8 @@ export function findSettingsPath() {
  * Get the Windows "Documents" folder path via PowerShell.
  * This calls the same underlying API (SHGetKnownFolderPath / FOLDERID_Documents)
  * that DuckStation uses, so it handles OneDrive redirection correctly.
- *
- * @returns {string | null}
  */
-function getDocumentsPath() {
+function getDocumentsPath(): string | null {
   try {
     return execSync(
       "powershell -NoProfile -Command \"[Environment]::GetFolderPath('MyDocuments')\"",
@@ -124,23 +118,23 @@ function getDocumentsPath() {
 
 /**
  * Check and patch DuckStation settings to enable shared memory export.
- *
- * @returns {{ patched: boolean, enabled: boolean, error?: string }}
- *   - patched: true if the INI was modified this call
- *   - enabled: true if the setting is confirmed enabled in the INI
- *     (whether we just patched it or it was already there)
  */
-export function ensureSharedMemoryEnabled() {
+export function ensureSharedMemoryEnabled(): {
+  patched: boolean;
+  enabled: boolean;
+  error?: string;
+} {
   const settingsPath = findSettingsPath();
   if (!settingsPath) {
     return { patched: false, enabled: false, error: "DuckStation settings.ini not found" };
   }
 
-  let content;
+  let content: string;
   try {
     content = readFileSync(settingsPath, "utf-8");
-  } catch (err) {
-    return { patched: false, enabled: false, error: `Cannot read ${settingsPath}: ${err.message}` };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { patched: false, enabled: false, error: `Cannot read ${settingsPath}: ${msg}` };
   }
 
   const result = patchSettingsIni(content);
@@ -149,11 +143,12 @@ export function ensureSharedMemoryEnabled() {
   try {
     writeFileSync(settingsPath, result.content, "utf-8");
     return { patched: true, enabled: true };
-  } catch (err) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
     return {
       patched: false,
       enabled: false,
-      error: `Cannot write ${settingsPath}: ${err.message}`,
+      error: `Cannot write ${settingsPath}: ${msg}`,
     };
   }
 }

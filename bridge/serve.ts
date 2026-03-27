@@ -3,19 +3,18 @@
  * over WebSocket.
  *
  * Usage (from Windows):
- *   cd bridge && npm install && npm start
+ *   cd bridge && bun serve.ts
  *
- * Or from WSL2:
- *   cd bridge && node.exe serve.mjs
+ * Or as compiled standalone:
+ *   bridge.exe
  *
  * Connects to ws://localhost:3333
  */
 
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { WebSocket, WebSocketServer } from "ws";
+import { join } from "node:path";
+import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
 import {
   closeSharedMemory,
   DEFAULT_PROFILE,
@@ -31,22 +30,22 @@ import {
   readRawHex,
   readShuffledDeck,
   validateProfile,
-} from "./memory.mjs";
-import { ensureSharedMemoryEnabled } from "./settings.mjs";
+} from "./memory.ts";
+import { ensureSharedMemoryEnabled } from "./settings.ts";
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const VERSION = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8")).version;
+const __dirname = import.meta.dir;
+const VERSION: string = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8")).version;
 const LOG_PATH = join(__dirname, "bridge.log");
 const logStream = createWriteStream(LOG_PATH, { flags: "w" });
 
-function timestamp() {
+function timestamp(): string {
   return new Date().toISOString();
 }
 
-for (const level of ["log", "info", "warn", "error", "debug"]) {
+for (const level of ["log", "info", "warn", "error", "debug"] as const) {
   const orig = console[level].bind(console);
-  console[level] = (...args) => {
+  console[level] = (...args: unknown[]) => {
     orig(...args);
     logStream.write(`${timestamp()} [${level}] ${args.join(" ")}\n`);
   };
@@ -59,17 +58,17 @@ const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 50);
 const COLL_LOG_PATH = join(__dirname, "collection.log");
 const collStream = createWriteStream(COLL_LOG_PATH, { flags: "w" });
 
-function collLog(msg) {
+function collLog(msg: string): void {
   const line = `${timestamp()} ${msg}\n`;
   collStream.write(line);
   logStream.write(`${timestamp()} [collection] ${msg}\n`);
 }
 
 // ── State ──────────────────────────────────────────────────────────
-let mapping = null; // { handle, view, pid }
+let mapping: SharedMemoryMapping | null = null;
 let lastJson = ""; // deduplicate broadcasts
-let lastLogState = null; // previous state for change-based logging
-let lastSceneId = null;
+let lastLogState: GameState | null = null; // previous state for change-based logging
+let lastSceneId: number | null = null;
 let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
 let consecutiveZeroReads = 0;
@@ -80,21 +79,14 @@ let lastConnectStatus = ""; // deduplicates tryConnect console logs
 
 // ── Offset profile resolution ─────────────────────────────────────
 // undefined = not yet attempted, object = resolved, null = unknown version
-let resolvedProfile;
-let lastSerial = null;
+let resolvedProfile: OffsetProfile | null | undefined;
+let lastSerial: string | null = null;
 
 /**
  * Resolve the offset profile for the current game binary.
- * Re-resolves automatically if the game serial changes (e.g. user
- * switched from PAL vanilla to NTSC-U RP in the same DuckStation session).
- *
- * Strategy:
- * 1. Read disc serial from RAM (e.g. "SLUS_014.11", "SLES_039.48")
- * 2. NTSC-U serials (SLUS) → use DEFAULT_PROFILE
- * 3. Unknown serials → validate DEFAULT_PROFILE via LP sanity check
- * 4. If validation fails → null profile (graceful degradation)
+ * Re-resolves automatically if the game serial changes.
  */
-function resolveOffsetProfile(view) {
+function resolveOffsetProfile(view: DataView): OffsetProfile | null {
   const serial = readGameSerial(view);
 
   // Re-resolve if the game serial changed (user loaded a different disc/mod)
@@ -121,7 +113,6 @@ function resolveOffsetProfile(view) {
       return resolvedProfile;
     }
     // LP not valid yet (game might still be loading) — use PAL profile anyway
-    // since we've verified the addresses empirically
     resolvedProfile = PAL_PROFILE;
     console.log(`Game serial: ${serial} → offset profile: ${PAL_PROFILE.label}`);
     return resolvedProfile;
@@ -146,7 +137,7 @@ function resolveOffsetProfile(view) {
 }
 
 /** Reset profile resolution (e.g. after DuckStation restart or game change). */
-function resetProfile() {
+function resetProfile(): void {
   resolvedProfile = undefined;
   lastSerial = null;
 }
@@ -154,7 +145,7 @@ function resetProfile() {
 // ── Port guard: detect if another bridge (or other process) holds the port ──
 await checkPortAvailable(PORT);
 
-async function checkPortAvailable(port) {
+async function checkPortAvailable(port: number): Promise<void> {
   const result = await probePort(port);
   if (result === "free") return; // port available, carry on
 
@@ -182,29 +173,29 @@ async function checkPortAvailable(port) {
 }
 
 /** Ask an existing bridge to shut down and wait until the port is free. */
-function shutdownExistingBridge(port) {
+function shutdownExistingBridge(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://localhost:${port}`);
     const timeout = setTimeout(() => {
-      ws.terminate();
+      ws.close();
       reject(new Error("Timed out waiting for previous bridge to shut down"));
     }, 5000);
 
-    ws.on("open", () => {
+    ws.onopen = () => {
       ws.send(JSON.stringify({ type: "shutdown" }));
-    });
+    };
 
-    ws.on("close", () => {
+    ws.onclose = () => {
       clearTimeout(timeout);
       // Give the OS a moment to release the port
       setTimeout(resolve, 500);
-    });
+    };
 
-    ws.on("error", () => {
+    ws.onerror = () => {
       clearTimeout(timeout);
       // Connection refused means it already closed — port is free
       resolve();
-    });
+    };
   });
 }
 
@@ -218,16 +209,20 @@ function shutdownExistingBridge(port) {
  * - If it connects via WebSocket but no bridge message → "bridge"
  *   (a WebSocket handshake on the bridge port is strong enough evidence).
  * - If the TCP connect succeeds but the WebSocket upgrade is rejected
- *   (non-WS server) → "other".
+ *   (non-WS server) → "free" (Bun.serve will catch this with a clear error).
  */
-function probePort(port) {
+function probePort(port: number): Promise<"free" | "bridge" | "other"> {
   return new Promise((resolve) => {
     const ws = new WebSocket(`ws://localhost:${port}`);
     let settled = false;
-    const done = (value) => {
+    const done = (value: "free" | "bridge" | "other") => {
       if (settled) return;
       settled = true;
-      ws.terminate();
+      try {
+        ws.close();
+      } catch {
+        /* already closed */
+      }
       resolve(value);
     };
 
@@ -237,119 +232,130 @@ function probePort(port) {
       done("bridge");
     }, 1500);
 
-    ws.on("message", (data) => {
+    ws.onmessage = (event) => {
       clearTimeout(timer);
       try {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(String(event.data));
         done(msg.version ? "bridge" : "other");
       } catch {
         done("other");
       }
-    });
+    };
 
-    ws.on("error", (err) => {
+    ws.onerror = () => {
       clearTimeout(timer);
-      // WebSocket upgrade rejected (HTTP server, etc.) → port taken by other
-      if (err?.message?.includes("Unexpected server response")) {
-        done("other");
-      } else {
-        done("free"); // ECONNREFUSED → port is available
-      }
-    });
+      done("free"); // ECONNREFUSED or upgrade failed → port available
+    };
   });
 }
 
-// ── WebSocket server ───────────────────────────────────────────────
-const wss = new WebSocketServer({ port: PORT });
+// ── WebSocket server (Bun built-in) ─────────────────────────────
 
-wss.on("listening", () => {
-  console.log(`Bridge WebSocket server listening on ws://localhost:${PORT}`);
-});
+// We define a minimal interface for the server WebSocket so TypeScript
+// understands the API without requiring @types/bun globally.
+interface BridgeWebSocket {
+  send(data: string): void;
+  close(): void;
+  readyState: number;
+}
 
-wss.on("connection", (ws) => {
-  console.log(`Client connected (${wss.clients.size} total)`);
+const clients = new Set<BridgeWebSocket>();
 
-  // Always send fresh state on connect — never rely solely on cache.
-  // Handles: bridge restart, app reconnect, app started late.
-  if (mapping) {
-    try {
-      if (!isGameLoaded(mapping.view)) {
-        ws.send(
-          JSON.stringify({
-            connected: true,
-            status: "waiting_for_game",
-            version: VERSION,
-            pid: mapping.pid,
-          }),
-        );
-      } else {
-        const profile = resolveOffsetProfile(mapping.view);
-        const state = readGameState(mapping.view, profile);
-        const json = JSON.stringify({
-          connected: true,
-          status: "ready",
-          version: VERSION,
-          pid: mapping.pid,
-          modFingerprint: readModFingerprint(mapping.view),
-          gameSerial: readGameSerial(mapping.view),
-          ...state,
-        });
-        ws.send(json);
-        if (json !== lastJson) {
-          logStateChange(state);
-          lastJson = json;
-        }
-      }
-    } catch {
-      ws.send(
-        JSON.stringify({
-          connected: false,
-          status: "error",
-          version: VERSION,
-          reason: "Failed to read game state",
-        }),
-      );
-    }
-  } else if (lastJson) {
-    ws.send(lastJson);
-  }
+const server = Bun.serve({
+  port: PORT,
+  fetch(req, server) {
+    if (server.upgrade(req)) return undefined;
+    return new Response("WebSocket upgrade required", { status: 426 });
+  },
+  websocket: {
+    open(ws) {
+      clients.add(ws as unknown as BridgeWebSocket);
+      console.log(`Client connected (${clients.size} total)`);
 
-  // Handle "scan" command from client to force reconnect
-  ws.on("message", (data) => {
-    try {
-      const msg = JSON.parse(data.toString());
-      if (msg.type === "scan") {
-        console.log("Received scan/reconnect request from client");
-        void forceReconnect();
-      } else if (msg.type === "shutdown") {
-        console.log("Received shutdown request from newer bridge — exiting");
-        if (mapping) closeSharedMemory(mapping);
-        wss.close(() => process.exit(0));
-        return;
-      } else if (msg.type === "restart_duckstation") {
-        console.log("Received restart DuckStation request from client");
-        void restartDuckStation().then((ok) => {
-          if (!ok) {
-            try {
-              ws.send(JSON.stringify({ type: "restart_result", success: false }));
-            } catch {
-              /* client may have disconnected */
+      // Always send fresh state on connect — never rely solely on cache.
+      if (mapping) {
+        try {
+          if (!isGameLoaded(mapping.view)) {
+            ws.send(
+              JSON.stringify({
+                connected: true,
+                status: "waiting_for_game",
+                version: VERSION,
+                pid: mapping.pid,
+              }),
+            );
+          } else {
+            const profile = resolveOffsetProfile(mapping.view);
+            const state = readGameState(mapping.view, profile);
+            const json = JSON.stringify({
+              connected: true,
+              status: "ready",
+              version: VERSION,
+              pid: mapping.pid,
+              modFingerprint: readModFingerprint(mapping.view),
+              gameSerial: readGameSerial(mapping.view),
+              ...state,
+            });
+            ws.send(json);
+            if (json !== lastJson) {
+              logStateChange(state);
+              lastJson = json;
             }
           }
-        });
+        } catch {
+          ws.send(
+            JSON.stringify({
+              connected: false,
+              status: "error",
+              version: VERSION,
+              reason: "Failed to read game state",
+            }),
+          );
+        }
+      } else if (lastJson) {
+        ws.send(lastJson);
       }
-    } catch {
-      // ignore invalid messages
-    }
-  });
+    },
 
-  ws.on("close", () => {
-    console.log(`Client disconnected (${wss.clients.size} total)`);
-  });
+    message(ws, message) {
+      try {
+        const msg = JSON.parse(String(message));
+        if (msg.type === "scan") {
+          console.log("Received scan/reconnect request from client");
+          void forceReconnect();
+        } else if (msg.type === "shutdown") {
+          console.log("Received shutdown request from newer bridge — exiting");
+          if (mapping) closeSharedMemory(mapping);
+          server.stop();
+          process.exit(0);
+        } else if (msg.type === "restart_duckstation") {
+          console.log("Received restart DuckStation request from client");
+          void restartDuckStation().then((ok) => {
+            if (!ok) {
+              try {
+                ws.send(JSON.stringify({ type: "restart_result", success: false }));
+              } catch {
+                /* client may have disconnected */
+              }
+            }
+          });
+        }
+      } catch {
+        // ignore invalid messages
+      }
+    },
+
+    close(ws) {
+      clients.delete(ws as unknown as BridgeWebSocket);
+      console.log(`Client disconnected (${clients.size} total)`);
+    },
+  },
 });
 
-function broadcast(json) {
-  for (const client of wss.clients) {
+console.log(`Bridge WebSocket server listening on ws://localhost:${PORT}`);
+
+function broadcast(json: string): void {
+  for (const client of clients) {
     if (client.readyState === 1 /* OPEN */) {
       client.send(json);
     }
@@ -357,16 +363,13 @@ function broadcast(json) {
 }
 
 // ── Connection to DuckStation ──────────────────────────────────────
-async function tryConnect() {
+async function tryConnect(): Promise<boolean> {
   if (mapping) return true;
 
   const pids = await findDuckStationPids();
   if (pids.length === 0) {
     if (lastConnectStatus !== "no_emulator") {
       lastConnectStatus = "no_emulator";
-      // DuckStation is not running — patch settings now so the next launch
-      // picks up the change. (Patching while DuckStation is running is
-      // pointless because it overwrites the INI on exit.)
       patchSettingsIfNeeded();
       console.log("DuckStation not found. Waiting...");
     }
@@ -386,17 +389,12 @@ async function tryConnect() {
     if (m) {
       mapping = m;
       lastConnectStatus = "";
-      // Don't broadcast "ready" yet — the poll loop will read the actual
-      // game state and broadcast either "ready" or "waiting_for_game".
       return true;
     }
   }
 
   if (lastConnectStatus !== "no_shared_memory") {
     lastConnectStatus = "no_shared_memory";
-    // Patch now so the UI knows a restart will fix it. The running
-    // DuckStation won't see it (it overwrites on exit), but the
-    // no_emulator handler re-patches after the kill.
     patchSettingsIfNeeded();
     console.log(
       `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Waiting...`,
@@ -417,7 +415,7 @@ async function tryConnect() {
 }
 
 /** Force-close current mapping and reconnect (used by manual reconnect button). */
-async function forceReconnect() {
+async function forceReconnect(): Promise<void> {
   if (mapping) {
     try {
       closeSharedMemory(mapping);
@@ -437,13 +435,14 @@ async function forceReconnect() {
 
 /** Restart DuckStation: kill gracefully, wait for exit, relaunch.
  *  Returns true on success, false on failure. */
-async function restartDuckStation() {
+async function restartDuckStation(): Promise<boolean> {
   const pids = await findDuckStationPids();
   if (pids.length === 0) return false;
   const pid = mapping?.pid ?? pids[0];
+  if (pid === undefined) return false;
 
   // Get executable path before killing
-  let exePath;
+  let exePath: string | undefined;
   try {
     exePath = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
       encoding: "utf-8",
@@ -489,29 +488,37 @@ async function restartDuckStation() {
   try {
     spawn(exePath, [], { detached: true, stdio: "ignore" }).unref();
     return true;
-  } catch (err) {
-    console.error(`restartDuckStation: failed to launch: ${err.message}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`restartDuckStation: failed to launch: ${msg}`);
     return false;
   }
 }
 
 // ── Diagnostic logging ────────────────────────────────────────────
 
-function slotSummary(slot) {
+function slotSummary(slot: {
+  cardId: number;
+  atk: number;
+  def: number;
+  status: number;
+}): string | null {
   if (slot.cardId === 0 && slot.status === 0) return null;
   return `${String(slot.cardId)}(${slot.atk}/${slot.def}):0x${slot.status.toString(16).padStart(2, "0")}`;
 }
 
-function slotsSummary(slots) {
+function slotsSummary(
+  slots: Array<{ cardId: number; atk: number; def: number; status: number }>,
+): string {
   const parts = slots.map(slotSummary).filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "(empty)";
 }
 
-function logStateChange(state) {
+function logStateChange(state: GameState): void {
   const prev = lastLogState;
   lastLogState = state;
 
-  const parts = [];
+  const parts: string[] = [];
 
   if (state.duelPhase != null && (!prev || prev.duelPhase !== state.duelPhase)) {
     parts.push(`phase=0x${state.duelPhase.toString(16).padStart(2, "0")}`);
@@ -549,7 +556,7 @@ function logStateChange(state) {
 
 // ── Collection & deck polling ─────────────────────────────────────
 
-function collectionSummary(coll) {
+function collectionSummary(coll: number[]): { unique: number; total: number } {
   let unique = 0;
   let total = 0;
   for (const count of coll) {
@@ -561,7 +568,10 @@ function collectionSummary(coll) {
   return { unique, total };
 }
 
-function logCollectionDeckState(view, sceneId) {
+let lastShuffledKey = "";
+let dumpedContext = false;
+
+function logCollectionDeckState(view: DataView, sceneId: number | null): void {
   // Scene ID change (only when available)
   if (sceneId != null && sceneId !== lastSceneId) {
     const prev = lastSceneId;
@@ -580,8 +590,7 @@ function logCollectionDeckState(view, sceneId) {
     const { unique, total } = collectionSummary(coll);
 
     if (prevColl) {
-      // Log diff: which cards changed
-      const diffs = [];
+      const diffs: string[] = [];
       for (let i = 0; i < coll.length; i++) {
         if (coll[i] !== prevColl[i]) {
           diffs.push(`card${i + 1}: ${prevColl[i]}→${coll[i]}`);
@@ -590,10 +599,10 @@ function logCollectionDeckState(view, sceneId) {
       collLog(`COLLECTION CHANGED (${unique} unique, ${total} total): ${diffs.join(", ")}`);
     } else {
       collLog(`COLLECTION SNAPSHOT (${unique} unique, ${total} total)`);
-      // Log full collection on first read (cards that have count > 0)
-      const owned = [];
+      const owned: string[] = [];
       for (let i = 0; i < coll.length; i++) {
-        if (coll[i] > 0) owned.push(`${i + 1}×${coll[i]}`);
+        const cnt = coll[i];
+        if (cnt && cnt > 0) owned.push(`${i + 1}×${cnt}`);
       }
       collLog(`  OWNED: ${owned.join(" ")}`);
     }
@@ -612,27 +621,23 @@ function logCollectionDeckState(view, sceneId) {
   const shuffled = readShuffledDeck(view);
   const shuffledNonZero = shuffled.filter((id) => id > 0);
   if (shuffledNonZero.length > 0) {
-    // Only log once per change — use a static var
     const shuffledKey = shuffled.join(",");
-    if (shuffledKey !== logCollectionDeckState._lastShuffledKey) {
-      logCollectionDeckState._lastShuffledKey = shuffledKey;
+    if (shuffledKey !== lastShuffledKey) {
+      lastShuffledKey = shuffledKey;
       collLog(`SHUFFLED DECK [${shuffledNonZero.length} cards]: ${shuffledNonZero.join(" ")}`);
     }
   }
 
   // Dump a small region around collection for exploration (first time only)
-  if (!logCollectionDeckState._dumpedContext) {
-    logCollectionDeckState._dumpedContext = true;
-    // 16 bytes before deck def and 16 bytes after collection end
+  if (!dumpedContext) {
+    dumpedContext = true;
     collLog(`RAW before deck (0x1D01F0): ${readRawHex(view, 0x1d01f0, 16)}`);
     collLog(`RAW after collection (0x1D0522): ${readRawHex(view, 0x1d0522, 32)}`);
   }
 }
-logCollectionDeckState._lastShuffledKey = "";
-logCollectionDeckState._dumpedContext = false;
 
 // ── Poll loop ──────────────────────────────────────────────────────
-async function poll() {
+async function poll(): Promise<void> {
   // Try to connect if not connected
   if (!mapping) {
     await tryConnect();
@@ -647,12 +652,9 @@ async function poll() {
         consecutiveZeroReads++;
 
         if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && hadNonZeroData && !reopenedAfterStale) {
-          // Had real data before → might be save-state load or emulator restart.
-          // Check if the PID is still alive to decide.
           const pids = await findDuckStationPids();
 
           if (!pids.includes(mapping.pid)) {
-            // PID dead → DuckStation was restarted. Close and reconnect.
             console.warn("DuckStation PID gone. Reconnecting...");
             try {
               closeSharedMemory(mapping);
@@ -665,13 +667,11 @@ async function poll() {
             reopenedAfterStale = false;
             lastJson = "";
             resetProfile();
-            // Will call tryConnect() next cycle
             setTimeout(poll, POLL_MS);
             return;
           }
 
-          // PID alive → try reopening shared memory once (save-state case:
-          // DuckStation may have recreated the memory region).
+          // PID alive → try reopening shared memory once
           console.log("Reopening shared memory (possible save-state load)...");
           const oldPid = mapping.pid;
           try {
@@ -680,13 +680,13 @@ async function poll() {
             /* ignore */
           }
           const m = openSharedMemory(oldPid);
-          mapping = m; // may be null if reopen failed
+          mapping = m;
           consecutiveZeroReads = 0;
-          reopenedAfterStale = true; // don't reopen again until we see real data
+          reopenedAfterStale = true;
           resetProfile();
         }
 
-        // Broadcast "waiting_for_game" — no game data, just status.
+        // Broadcast "waiting_for_game"
         if (mapping) {
           const json = JSON.stringify({
             connected: true,
@@ -728,9 +728,9 @@ async function poll() {
         // Collection & deck tracking (separate from broadcast)
         logCollectionDeckState(mapping.view, state.sceneId);
       }
-    } catch (err) {
-      console.error("Error reading game state:", err.message);
-      // DuckStation may have closed — clean up and retry next poll
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Error reading game state:", msg);
       try {
         closeSharedMemory(mapping);
       } catch {
@@ -756,11 +756,12 @@ async function poll() {
 }
 
 // ── DuckStation settings auto-patch ─────────────────────────────────
-let lastPatchResult = { patched: false, enabled: false };
+let lastPatchResult: { patched: boolean; enabled: boolean; error?: string } = {
+  patched: false,
+  enabled: false,
+};
 
-/** Patch the DuckStation INI to enable shared memory export.
- *  Only useful when DuckStation is NOT running (it overwrites on exit). */
-function patchSettingsIfNeeded() {
+function patchSettingsIfNeeded(): void {
   const result = ensureSharedMemoryEnabled();
   lastPatchResult = result;
   if (result.patched) {

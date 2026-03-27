@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { patchSettingsIni } from "../../bridge/settings.mjs";
+import { patchSettingsIni } from "../../bridge/settings.ts";
 
 describe("patchSettingsIni", () => {
   it("returns patched: false when already enabled", () => {

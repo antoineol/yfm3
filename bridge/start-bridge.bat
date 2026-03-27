@@ -23,7 +23,7 @@ echo.
 echo  Starting bridge...
 echo.
 
-"%~dp0runtime\node.exe" "%~dp0runtime\serve.mjs"
+"%~dp0runtime\bridge.exe"
 
 if %errorlevel% neq 0 (
     echo.

@@ -22,7 +22,7 @@
     "extract:rp": "bun run scripts/extract-game-data.ts 'gamedata/rp-bin/Yu-Gi-Oh! FM REMASTERED PERFECTED.bin' public/data/rp",
     "extract:vanilla": "bun run scripts/extract-game-data.ts 'gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin' public/data/vanilla",
     "build:vanilla-ref": "bun run scripts/build-vanilla-reference.ts",
-    "bridge": "node bridge/watch.mjs",
+    "bridge": "bun bridge/watch.ts",
     "bridge:build": "bash scripts/build-bridge-zip.sh",
     "bridge:bump": "cd bridge && npm version patch && npm install",
     "deploy": "convex deploy --cmd 'bun run build' --cmd-url-env-var-name VITE_CONVEX_URL && convex run migrations:runAll",
