@@ -4,7 +4,7 @@ import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts
 
 /**
  * Shows a warning banner when the game running in DuckStation doesn't match
- * the mod selected in the app.
+ * the mod selected in the app, or when the game version is unrecognized.
  */
 export function ModMismatchBanner() {
   const bridge = useBridge();
@@ -14,7 +14,22 @@ export function ModMismatchBanner() {
   if (!bridge.modFingerprint) return null;
 
   const detectedMod = modIdForFingerprint(bridge.modFingerprint);
-  if (!detectedMod || detectedMod === selectedMod) return null;
+
+  if (detectedMod === null) {
+    return (
+      <div className="mx-3 mt-2 flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-950/30 border border-yellow-900/40">
+        <span className="inline-block size-2.5 rounded-full shrink-0 bg-yellow-400" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-yellow-400">
+            Unknown game version detected (fingerprint:{" "}
+            <code className="text-xs">{bridge.modFingerprint.slice(0, 12)}...</code>)
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (detectedMod === selectedMod) return null;
 
   const detectedName = MODS[detectedMod].name;
 

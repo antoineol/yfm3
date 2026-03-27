@@ -4,15 +4,50 @@
  * Runs under Linux `bun` (WSL2 side). Watches .ts files with fs.watch
  * (inotify-backed, works on WSL2 fs) and manages bun.exe via spawn/kill.
  *
+ * On first run, downloads a cached copy of bun.exe for Windows into
+ * .cache/ (same pattern the old node.exe approach used).
+ *
  * Usage:  bun bridge/watch.ts          (or: bun bridge)
  */
 
 import { type ChildProcess, execSync, spawn } from "node:child_process";
-import { watch } from "node:fs";
+import { existsSync, watch } from "node:fs";
+import { join } from "node:path";
 
 const __dirname = import.meta.dir;
+const ROOT = join(__dirname, "..");
 const PORT = Number(process.env.BRIDGE_PORT || 3333);
 const DEBOUNCE_MS = 300;
+
+// ── Auto-download bun.exe for Windows ─────────────────────────────
+// Match the version of bun running this watcher (WSL2 side).
+
+const BUN_VERSION = process.versions.bun ?? "1.3.4";
+const BUN_EXE_PATH = join(ROOT, ".cache", `bun-${BUN_VERSION}-win-x64`, "bun.exe");
+
+function ensureBunExe(): void {
+  if (existsSync(BUN_EXE_PATH)) return;
+
+  const cacheDir = join(ROOT, ".cache");
+  const zipPath = join(cacheDir, `bun-${BUN_VERSION}-win-x64.zip`);
+  const extractDir = join(cacheDir, `bun-${BUN_VERSION}-win-x64`);
+
+  console.log(`[watch] downloading bun.exe v${BUN_VERSION} for Windows...`);
+  execSync(`mkdir -p "${cacheDir}"`, { stdio: "pipe" });
+  execSync(
+    `curl -fSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-windows-x64.zip" -o "${zipPath}"`,
+    { stdio: "inherit", timeout: 60_000 },
+  );
+  execSync(`mkdir -p "${extractDir}"`, { stdio: "pipe" });
+  // Zip contains bun-windows-x64/bun.exe — extract and move to cache dir
+  execSync(`unzip -o "${zipPath}" -d "${cacheDir}"`, { stdio: "pipe" });
+  execSync(`mv "${join(cacheDir, "bun-windows-x64", "bun.exe")}" "${extractDir}/bun.exe"`, {
+    stdio: "pipe",
+  });
+  // Cleanup
+  execSync(`rm -rf "${zipPath}" "${join(cacheDir, "bun-windows-x64")}"`, { stdio: "pipe" });
+  console.log(`[watch] cached bun.exe at ${BUN_EXE_PATH}`);
+}
 
 // ── Ghost cleanup ─────────────────────────────────────────────────
 // Kill stale processes on our port from a previous crashed session.
@@ -51,7 +86,7 @@ let stopping = false;
 
 function start(): void {
   console.log("[watch] starting bridge...");
-  child = spawn("bun.exe", ["run", "serve.ts"], {
+  child = spawn(BUN_EXE_PATH, ["run", "serve.ts"], {
     cwd: __dirname,
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -130,5 +165,6 @@ process.on("SIGTERM", shutdown);
 
 // ── Start ─────────────────────────────────────────────────────────
 
+ensureBunExe();
 killGhost();
 start();

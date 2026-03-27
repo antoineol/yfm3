@@ -14,6 +14,7 @@
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
 import {
@@ -455,6 +456,7 @@ async function forceReconnect(): Promise<void> {
   lastConnectStatus = "";
   resetProfile();
   resetGameData();
+  resetPalProbe();
   await tryConnect();
 }
 
@@ -498,6 +500,7 @@ async function restartDuckStation(): Promise<boolean> {
     consecutiveZeroReads = 0;
     resetProfile();
     resetGameData();
+    resetPalProbe();
   }
 
   // Graceful kill (sends WM_CLOSE), then wait up to 10s
@@ -662,6 +665,15 @@ function logCollectionDeckState(view: DataView, sceneId: number | null): void {
   }
 }
 
+// ── PAL address investigation (optional diagnostic) ────────────────
+// Enable by setting DIAG_PAL=true. See debug/pal-address-probe.ts.
+const DIAG_PAL = true; // flip to false to disable
+let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
+
+function resetPalProbe(): void {
+  if (DIAG_PAL) palProbe = createPalProbe();
+}
+
 // ── Poll loop ──────────────────────────────────────────────────────
 async function poll(): Promise<void> {
   // Try to connect if not connected
@@ -694,6 +706,7 @@ async function poll(): Promise<void> {
             lastJson = "";
             resetProfile();
             resetGameData();
+            resetPalProbe();
             setTimeout(poll, POLL_MS);
             return;
           }
@@ -712,6 +725,7 @@ async function poll(): Promise<void> {
           reopenedAfterStale = true;
           resetProfile();
           resetGameData();
+          resetPalProbe();
         }
 
         // Broadcast "waiting_for_game"
@@ -751,6 +765,7 @@ async function poll(): Promise<void> {
 
         if (json !== lastJson) {
           logStateChange(state);
+          palProbe?.onStateChange(mapping.view, state, profile);
           lastJson = json;
           broadcast(json);
         }
@@ -792,6 +807,7 @@ async function poll(): Promise<void> {
       reopenedAfterStale = false;
       resetProfile();
       resetGameData();
+      resetPalProbe();
       broadcast(
         JSON.stringify({
           connected: false,
