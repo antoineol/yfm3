@@ -33,6 +33,8 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     fusions: 0,
     terrain: 0,
     duelistId: 5,
+    handSlots: [0, 1, 2, 3, 4],
+    shuffledDeck: new Array(40).fill(0) as number[],
     trunk: new Array(722).fill(0) as number[],
     deckDefinition: new Array(40).fill(0) as number[],
     ...overrides,
@@ -51,7 +53,9 @@ describe("interpretRawState", () => {
       expect(result.hand).toHaveLength(3);
     });
 
-    it("excludes hand cards with transitioning flag (0x10 = being played to field)", () => {
+    it("keeps transitioning card in hand when handSlots says present", () => {
+      // With handSlots, the 0x10 transitioning bit is irrelevant — handSlots
+      // is authoritative and only flips to FF on final confirm.
       const result = interpretRawState(
         makeRaw({
           hand: [
@@ -61,21 +65,73 @@ describe("interpretRawState", () => {
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
+          handSlots: [0, 1, 2, 3, 4],
         }),
       );
-      expect(result.hand).toEqual([100]);
+      expect(result.hand).toEqual([100, 200]);
     });
 
-    it("excludes cards with status 0x00 (truly empty)", () => {
+    it("excludes card when handSlots says FF (card left hand)", () => {
       const result = interpretRawState(
         makeRaw({
           hand: [
-            { cardId: 100, atk: 1200, def: 800, status: 0x00 }, // status cleared = not present
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+            { cardId: 300, atk: 900, def: 700, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          handSlots: [0, 0xff, 2, 3, 4],
+        }),
+      );
+      expect(result.hand).toEqual([100, 300]);
+    });
+
+    it("excludes cards with status 0x00 even when handSlots says present", () => {
+      // handSlots may lag behind cardId being cleared — cardId check still applies.
+      const result = interpretRawState(
+        makeRaw({
+          hand: [
+            { cardId: 0, atk: 0, def: 0, status: 0x00 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
+          handSlots: [0, 1, 2, 3, 4],
+        }),
+      );
+      expect(result.hand).toEqual([]);
+    });
+
+    it("fallback: excludes transitioning cards when handSlots is null", () => {
+      // Without handSlots, the old status-byte filter kicks in.
+      const result = interpretRawState(
+        makeRaw({
+          hand: [
+            { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // present + transitioning
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          handSlots: null,
+        }),
+      );
+      expect(result.hand).toEqual([100]);
+    });
+
+    it("fallback: excludes status 0x00 cards when handSlots is null", () => {
+      const result = interpretRawState(
+        makeRaw({
+          hand: [
+            { cardId: 100, atk: 1200, def: 800, status: 0x00 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          handSlots: null,
         }),
       );
       expect(result.hand).toEqual([]);
@@ -235,16 +291,15 @@ describe("interpretRawState", () => {
           turnIndicator: 0,
           hand: [
             { cardId: 100, atk: 1200, def: 800, status: 0x80 },
-            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // transitioning → excluded from hand
+            { cardId: 200, atk: 1500, def: 1000, status: 0x90 }, // transitioning but handSlots says present
             { cardId: 300, atk: 900, def: 700, status: 0x80 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
         }),
       );
-      // Transitioning card excluded from hand array
-      expect(result.hand).toEqual([100, 300]);
-      // handReliable still true because it depends on phase, not hand count
+      // handSlots is authoritative — transitioning card stays in hand
+      expect(result.hand).toEqual([100, 200, 300]);
       expect(result.handReliable).toBe(true);
     });
   });
@@ -438,9 +493,9 @@ describe("interpretRawState", () => {
     });
 
     it("infers phase='field' when a hand card is transitioning to field (0x90)", () => {
-      // This is the exact scenario from the bug: card 567 has status 0x90 in hand
-      // (transitioning) and 0x94 in field. Without the 0x10 filter, hand would
-      // have 5 cards and phase would stay "hand" instead of switching to "field".
+      // Fallback scenario (no profile → handSlots null): card 567 has status 0x90
+      // in hand (transitioning) and 0x94 in field. The status-byte filter excludes
+      // the transitioning card, so hand count drops below 5 → phase becomes "field".
       const result = interpretRawState(
         makeRaw({
           duelPhase: null,
@@ -449,6 +504,7 @@ describe("interpretRawState", () => {
           fusions: null,
           terrain: null,
           duelistId: null,
+          handSlots: null,
           hand: [
             { cardId: 567, atk: 1200, def: 900, status: 0x90 }, // transitioning → excluded
             { cardId: 102, atk: 900, def: 400, status: 0x80 },

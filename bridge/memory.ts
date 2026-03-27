@@ -32,6 +32,10 @@ export interface OffsetProfile {
   lpP1: number;
   lpP2: number;
   fusionCounter: number;
+  /** Absolute address of total-cards-dealt counter (u8). */
+  cardsDealt: number;
+  /** Absolute address of hand slot index array (u8[5], 0xFF = card left hand). */
+  handSlots: number;
 }
 
 export interface SharedMemoryMapping {
@@ -58,6 +62,10 @@ export interface GameState {
   fusions: number | null;
   terrain: number | null;
   duelistId: number | null;
+  /** Hand slot indices (u8[5]): sequential deal index or 0xFF = card left hand. */
+  handSlots: number[] | null;
+  /** Player's shuffled deck during a duel (40 card IDs, 0 = empty slot). */
+  shuffledDeck: number[];
   trunk: number[];
   deckDefinition: number[];
 }
@@ -97,6 +105,8 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   lpP1: 0x0ea004,
   lpP2: 0x0ea024,
   fusionCounter: 0x0e9ff8,
+  cardsDealt: 0x0ea008, // lpP1+0x04 (NTSC-U has 2 LP copies before dealt)
+  handSlots: 0x0ea00a, // lpP1+0x06
 };
 
 /**
@@ -126,6 +136,8 @@ export const PAL_PROFILE: OffsetProfile = {
   lpP1: 0x0eb28a,
   lpP2: 0x0eb2aa,
   fusionCounter: 0x0eb27f, // lpP1-0x0B, uint8
+  cardsDealt: 0x0eb290, // lpP1+0x06 (PAL has 3 LP copies before dealt)
+  handSlots: 0x0eb292, // lpP1+0x08
 };
 
 /**
@@ -207,6 +219,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       lpP1,
       lpP2: lpP1 + LpStride,
       fusionCounter,
+      cardsDealt: DEFAULT_PROFILE.cardsDealt + d,
+      handSlots: DEFAULT_PROFILE.handSlots + d,
     };
 
     // Quick validation: duel phase should be a recognized value (1–13) during a duel
@@ -264,6 +278,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
         lpP1,
         lpP2: lpP1 + 0x20,
         fusionCounter: lpP1 - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter),
+        cardsDealt: lpP1 + (PAL_PROFILE.cardsDealt - PAL_PROFILE.lpP1),
+        handSlots: lpP1 + (PAL_PROFILE.handSlots - PAL_PROFILE.lpP1),
       };
     }
   } else {
@@ -375,6 +391,8 @@ export function buildProfileFromDiscovery(
     lpP1: lpP1Addr || 0,
     lpP2: lpP1Addr ? lpP1Addr + lpStride : 0,
     fusionCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter) : 0,
+    cardsDealt: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.cardsDealt - DEFAULT_PROFILE.lpP1) : 0,
+    handSlots: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.handSlots - DEFAULT_PROFILE.lpP1) : 0,
   };
 }
 
@@ -509,6 +527,8 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     fusions: u8(profile?.fusionCounter),
     terrain: u8(profile?.terrain),
     duelistId: u8(profile?.duelistId),
+    handSlots: profile?.handSlots ? readU8Array(view, profile.handSlots, HAND_SLOTS) : null,
+    shuffledDeck: readShuffledDeck(view),
     trunk: readCollection(view),
     deckDefinition: readDeckDefinition(view),
   };

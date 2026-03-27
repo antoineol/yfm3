@@ -1,6 +1,6 @@
 # Step: Bridge Extended State Extraction (exploratory)
 
-Status: **IDEA** — discovered during PAL address investigation, not yet prioritized.
+Status: **PARTIAL** (2026-03-27) — hand slot tracking and shuffled deck implemented.
 
 ## Context
 
@@ -86,20 +86,30 @@ Could be AI type, difficulty level, duelist category, or some other per-opponent
 
 ## Priority assessment
 
-| Data | Effort | Value | Priority |
-|------|--------|-------|----------|
-| Hand slot tracking (lpP1+6..C) | Low — read 6 bytes | **High** — reliable hand change detection, replaces chaotic status-byte method | **Do first** |
-| Shuffled deck to webapp | Low — already read, just send it | High — enables deck tracking | Worth doing |
+| Data | Effort | Value | Status |
+|------|--------|-------|--------|
+| Hand slot tracking | Low — read 5 bytes | **High** — reliable hand change detection | **DONE** (2026-03-27) |
+| Shuffled deck to webapp | Low — already read, just send it | High — enables deck tracking | **DONE** (2026-03-27) |
 | Card slot extra bytes | Medium — needs RAM investigation | Medium — richer card state | Later |
 | Opponent hand size | Low — read lpP2+6 | Low — cosmetic | Later |
 
-## Implementation sketch (hand slot tracking)
+## Implemented: Hand slot tracking
 
-1. **In `memory.ts`**: add `readHandSlots(view, lpOffset)` that reads lpP1+0x08..+0x0C (5 bytes) and returns `number[]` (indices or 0xFF)
-2. **In `GameState`**: add `handSlots: number[]` field
-3. **In `serve.ts`**: include in state broadcast
-4. **In webapp**: use `handSlots` to detect card consumption instead of (or alongside) status byte flickering. A slot going from index → FF means that card was played/fused.
-5. **Need to verify on NTSC-U**: the lpP1+8 layout was observed on PAL. Verify same offsets work for NTSC-U before shipping.
+**Verified offsets** (confirmed by diagnostic probe on both versions):
+
+| Version | cardsDealt | handSlots (u8[5]) | Notes |
+|---------|-----------|-------------------|-------|
+| **NTSC-U** | lpP1+0x04 | lpP1+0x06..0x0A | 2 LP copies before dealt counter |
+| **PAL** | lpP1+0x06 | lpP1+0x08..0x0C | 3 LP copies before dealt counter |
+
+The -2 byte shift is caused by PAL having an extra LP copy (3 × u16) vs NTSC-U (2 × u16).
+
+**Changes made:**
+1. `OffsetProfile` in `memory.ts`: added `cardsDealt` and `handSlots` fields
+2. `GameState` in `memory.ts`: added `handSlots: number[] | null` and `shuffledDeck: number[]`
+3. `readGameState()`: reads hand slots from profile, shuffled deck always
+4. `use-emulator-bridge.ts`: new `filterHandBySlots()` replaces status-byte detection when handSlots available; old `filterCardSlots()` kept as fallback for unknown binaries
+5. Diagnostic probe at `bridge/debug/hand-slot-probe.ts` (disabled, kept for reference)
 
 ## Approach
 

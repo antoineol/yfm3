@@ -38,9 +38,13 @@ type RawBridgeState = {
   fusions: number | null;
   terrain: number | null;
   duelistId: number | null;
+  /** Hand slot indices (u8[5]): deal index or 0xFF = card left hand. Null if profile unavailable. */
+  handSlots: number[] | null;
   // Universal fields — always available.
   hand: RawCardSlot[];
   field: RawCardSlot[];
+  /** Player's shuffled deck during a duel (40 card IDs, 0 = empty). */
+  shuffledDeck: number[];
   trunk: number[];
   deckDefinition: number[];
 };
@@ -102,7 +106,9 @@ type InterpretedState = {
  * duel state is inferred from hand/field card presence.
  */
 export function interpretRawState(raw: RawBridgeState): InterpretedState {
-  const hand = filterCardSlots(raw.hand);
+  const hand = raw.handSlots
+    ? filterHandBySlots(raw.hand, raw.handSlots)
+    : filterCardSlots(raw.hand);
   const field = filterFieldSlots(raw.field);
   const stats: DuelStats | null =
     raw.fusions != null
@@ -157,6 +163,23 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   return { hand, field, handReliable: false, phase: "other", inDuel: false, lp: raw.lp, stats };
 }
 
+/**
+ * Filter hand cards using the hand slot index array from RAM.
+ * A slot with a non-0xFF value means the card is present in hand.
+ * This is deterministic — no flickering during animations.
+ */
+function filterHandBySlots(slots: RawCardSlot[], handSlots: number[]): number[] {
+  const result: number[] = [];
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    if (!s) continue;
+    if (handSlots[i] !== 0xff && s.cardId > 0 && s.cardId < 723) {
+      result.push(s.cardId);
+    }
+  }
+  return result;
+}
+
 /** A card occupies a slot if it has a valid ID and non-zero status. */
 function isActiveSlot(s: RawCardSlot): boolean {
   // Any non-zero status means the card is in an active state.
@@ -167,20 +190,16 @@ function isActiveSlot(s: RawCardSlot): boolean {
 }
 
 /**
- * A hand card is active AND not transitioning to the field.
+ * Fallback hand filter when handSlots is unavailable (unknown game binary).
+ * Uses the status byte, which can flicker during animations.
  * Bit 0x10 is set when a card is being played from hand to field —
  * the card briefly exists in both zones during the animation.
- * Excluding it prevents double-counting (hand=5 + field=1) which
- * breaks fallback phase detection.
+ * Excluding it prevents double-counting (hand=5 + field=1).
  */
-function isHandSlotActive(s: RawCardSlot): boolean {
-  return isActiveSlot(s) && (s.status & 0x10) === 0;
-}
-
 function filterCardSlots(slots: RawCardSlot[]): number[] {
   const result: number[] = [];
   for (const s of slots) {
-    if (isHandSlotActive(s)) result.push(s.cardId);
+    if (isActiveSlot(s) && (s.status & 0x10) === 0) result.push(s.cardId);
   }
   return result;
 }
@@ -338,6 +357,8 @@ export type EmulatorBridge = {
   stats: DuelStats | null;
   collection: Record<number, number> | null;
   deckDefinition: number[] | null;
+  /** Player's shuffled deck during a duel (40 card IDs, 0 = empty slot). */
+  shuffledDeck: number[] | null;
   /** Hex fingerprint of card stats in RAM — identifies which mod is running. */
   modFingerprint: string | null;
   /** Fusion/equip tables extracted from the disc image by the bridge. */
@@ -372,6 +393,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [stats, setStats] = useState<DuelStats | null>(null);
   const [collection, setCollection] = useState<Record<number, number> | null>(null);
   const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
+  const [shuffledDeck, setShuffledDeck] = useState<number[] | null>(null);
   const [modFingerprint, setModFingerprint] = useState<string | null>(null);
   const [gameData, setGameData] = useState<BridgeGameData | null>(null);
   const [gameDataError, setGameDataError] = useState<string | null>(null);
@@ -447,6 +469,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(state.stats);
           setCollection(computeOwnedCards(stateMsg.trunk, stateMsg.deckDefinition));
           setDeckDefinition(stateMsg.deckDefinition);
+          setShuffledDeck(stateMsg.shuffledDeck ?? null);
           setModFingerprint(stateMsg.modFingerprint ?? null);
         } else if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
           // Bridge connected to DuckStation but game not loaded yet
@@ -464,6 +487,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(null);
           setCollection(null);
           setDeckDefinition(null);
+          setShuffledDeck(null);
           setModFingerprint(null);
           setGameData(null);
           setGameDataError(null);
@@ -488,6 +512,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
           setStats(null);
           setCollection(null);
           setDeckDefinition(null);
+          setShuffledDeck(null);
           setModFingerprint(null);
           setGameData(null);
           setGameDataError(null);
@@ -513,6 +538,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStats(null);
       setCollection(null);
       setDeckDefinition(null);
+      setShuffledDeck(null);
       setGameData(null);
       setGameDataError(null);
       if (enabledRef.current) {
@@ -544,6 +570,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       setStats(null);
       setCollection(null);
       setDeckDefinition(null);
+      setShuffledDeck(null);
       setGameData(null);
       setGameDataError(null);
       return;
@@ -584,6 +611,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     stats,
     collection,
     deckDefinition,
+    shuffledDeck,
     modFingerprint,
     gameData,
     gameDataError,

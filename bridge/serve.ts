@@ -14,6 +14,7 @@
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
@@ -79,6 +80,8 @@ const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
 let lastConnectStatus = ""; // deduplicates tryConnect console logs
+let pidCheckCounter = 0;
+const PID_CHECK_INTERVAL = 40; // check PID every 40 polls (40 × 50ms = 2 seconds)
 
 // ── Game data (fusion/equip tables from disc image) ───────────────
 let currentGameData: GameData | null = null;
@@ -453,6 +456,7 @@ async function forceReconnect(): Promise<void> {
   consecutiveZeroReads = 0;
   hadNonZeroData = false;
   reopenedAfterStale = false;
+  pidCheckCounter = 0;
   lastConnectStatus = "";
   resetProfile();
   resetGameData();
@@ -665,13 +669,15 @@ function logCollectionDeckState(view: DataView, sceneId: number | null): void {
   }
 }
 
-// ── PAL address investigation (optional diagnostic) ────────────────
-// Enable by setting DIAG_PAL=true. See debug/pal-address-probe.ts.
+// ── Diagnostic probes (optional) ────────────────────────────────────
 const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
+const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL — see docs/memory/steps/bridge-extended-state.md
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
+let handProbe: HandSlotProbe | null = DIAG_HAND_SLOTS ? createHandSlotProbe() : null;
 
 function resetPalProbe(): void {
   if (DIAG_PAL) palProbe = createPalProbe();
+  if (DIAG_HAND_SLOTS) handProbe = createHandSlotProbe();
 }
 
 // ── Poll loop ──────────────────────────────────────────────────────
@@ -703,6 +709,7 @@ async function poll(): Promise<void> {
             consecutiveZeroReads = 0;
             hadNonZeroData = false;
             reopenedAfterStale = false;
+            pidCheckCounter = 0;
             lastJson = "";
             resetProfile();
             resetGameData();
@@ -723,6 +730,7 @@ async function poll(): Promise<void> {
           mapping = m;
           consecutiveZeroReads = 0;
           reopenedAfterStale = true;
+          pidCheckCounter = 0;
           resetProfile();
           resetGameData();
           resetPalProbe();
@@ -748,6 +756,34 @@ async function poll(): Promise<void> {
         hadNonZeroData = true;
         reopenedAfterStale = false;
 
+        // Periodically verify the DuckStation PID is still alive.
+        // When the emulator exits, the mapped shared memory stays
+        // readable (frozen data) so zero-read stale detection never
+        // fires.  This check catches that case and forces reconnect.
+        pidCheckCounter++;
+        if (pidCheckCounter >= PID_CHECK_INTERVAL) {
+          pidCheckCounter = 0;
+          const pids = await findDuckStationPids();
+          if (!pids.includes(mapping.pid)) {
+            console.warn("DuckStation PID gone (detected during live read). Reconnecting...");
+            try {
+              closeSharedMemory(mapping);
+            } catch {
+              /* ignore */
+            }
+            mapping = null;
+            consecutiveZeroReads = 0;
+            hadNonZeroData = false;
+            reopenedAfterStale = false;
+            lastJson = "";
+            resetProfile();
+            resetGameData();
+            resetPalProbe();
+            setTimeout(poll, POLL_MS);
+            return;
+          }
+        }
+
         const profile = resolveOffsetProfile(mapping.view);
         const state = readGameState(mapping.view, profile);
         const fingerprint = readModFingerprint(mapping.view);
@@ -766,6 +802,7 @@ async function poll(): Promise<void> {
         if (json !== lastJson) {
           logStateChange(state);
           palProbe?.onStateChange(mapping.view, state, profile);
+          handProbe?.onStateChange(mapping.view, state, profile);
           lastJson = json;
           broadcast(json);
         }
@@ -805,6 +842,7 @@ async function poll(): Promise<void> {
       lastJson = "";
       hadNonZeroData = false;
       reopenedAfterStale = false;
+      pidCheckCounter = 0;
       resetProfile();
       resetGameData();
       resetPalProbe();

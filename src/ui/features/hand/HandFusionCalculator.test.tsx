@@ -46,6 +46,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     stats: null,
     collection: null,
     deckDefinition: null,
+    shuffledDeck: null,
     modFingerprint: null,
     gameData: null,
     gameDataError: null,
