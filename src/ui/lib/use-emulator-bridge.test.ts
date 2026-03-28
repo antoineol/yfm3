@@ -985,6 +985,22 @@ describe("processBridgeMessage", () => {
     });
   });
 
+  describe("stage_noop message", () => {
+    it("sets stageFailed to true", () => {
+      const msg = { type: "stage_noop" };
+      const { state: s } = process(msg);
+      expect(s.stageFailed).toBe(true);
+    });
+
+    it("does not reset other state fields", () => {
+      const prev = dirtyState();
+      const msg = { type: "stage_noop" };
+      const { state: s } = process(msg, prev);
+      expect(s.hand).toEqual(prev.hand);
+      expect(s.status).toBe(prev.status);
+    });
+  });
+
   describe("update_restart_ack message", () => {
     it("sets updating to true", () => {
       const msg = { type: "update_restart_ack" };

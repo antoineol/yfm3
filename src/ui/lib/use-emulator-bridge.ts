@@ -431,6 +431,8 @@ export type BridgeState = {
   updating: boolean;
   /** True when the bridge has pre-downloaded an update ready for a fast restart. */
   updateStaged: boolean;
+  /** True when the bridge tried to stage an update but found nothing to download. */
+  stageFailed: boolean;
   /** Opponent's hand card IDs (from RAM, filtered same as player). */
   opponentHand: number[];
   /** Opponent's field cards with live ATK/DEF. */
@@ -462,6 +464,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   restartFailed: false,
   updating: false,
   updateStaged: false,
+  stageFailed: false,
   opponentHand: [],
   opponentField: [],
   cpuSwaps: [],
@@ -471,6 +474,7 @@ export type EmulatorBridge = BridgeState & {
   scan: () => void;
   restartEmulator: () => void;
   updateAndRestart: () => void;
+  stageUpdate: () => void;
 };
 
 // ── Pure message processor (testable) ────────────────────────────────
@@ -500,6 +504,11 @@ export function processBridgeMessage(
   // ── Partial update: background download staged an update ────────
   if (m.type === "update_staged") {
     return { state: { ...currentState, updateStaged: true }, tracker };
+  }
+
+  // ── Partial update: staging found nothing to download ────────────
+  if (m.type === "stage_noop") {
+    return { state: { ...currentState, stageFailed: true }, tracker };
   }
 
   // ── Partial update: update-and-restart acknowledged ─────────────
@@ -768,5 +777,11 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     }
   }, []);
 
-  return { ...state, scan, restartEmulator, updateAndRestart };
+  const stageUpdate = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "stage_update" }));
+    }
+  }, []);
+
+  return { ...state, scan, restartEmulator, updateAndRestart, stageUpdate };
 }

@@ -77,11 +77,18 @@ function collLog(msg: string): void {
 
 // ── Background update staging ─────────────────────────────────────
 let updateStaged = false;
+let stagingInProgress = false;
 
 function stageUpdateInBackground(): void {
-  const scriptPath = join(__dirname, "update.ps1");
-  if (!existsSync(scriptPath)) return;
+  if (stagingInProgress || updateStaged) return;
 
+  const scriptPath = join(__dirname, "update.ps1");
+  if (!existsSync(scriptPath)) {
+    broadcast(JSON.stringify({ type: "stage_noop" }));
+    return;
+  }
+
+  stagingInProgress = true;
   console.log("Checking for updates in background…");
   const proc = spawn(
     "powershell",
@@ -94,7 +101,13 @@ function stageUpdateInBackground(): void {
     stdout += chunk.toString();
   });
 
+  proc.on("error", () => {
+    stagingInProgress = false;
+    broadcast(JSON.stringify({ type: "stage_noop" }));
+  });
+
   proc.on("exit", (code) => {
+    stagingInProgress = false;
     if (stdout.trim()) console.log(`[update] ${stdout.trim()}`);
     const pendingPkgPath = join(__dirname, "runtime.pending", "package.json");
     if (code === 0 && existsSync(pendingPkgPath)) {
@@ -104,8 +117,10 @@ function stageUpdateInBackground(): void {
         console.log(`Update staged: v${pkg.version} ready to install`);
         broadcast(JSON.stringify({ type: "update_staged" }));
       } catch {
-        /* ignore malformed package.json */
+        broadcast(JSON.stringify({ type: "stage_noop" }));
       }
+    } else {
+      broadcast(JSON.stringify({ type: "stage_noop" }));
     }
   });
 }
@@ -414,6 +429,12 @@ const server = Bun.serve({
               }
             }
           });
+        } else if (msg.type === "stage_update") {
+          if (updateStaged) {
+            broadcast(JSON.stringify({ type: "update_staged" }));
+          } else {
+            stageUpdateInBackground();
+          }
         } else if (msg.type === "update_and_restart") {
           console.log("Received update-and-restart request from client");
           broadcast(JSON.stringify({ type: "update_restart_ack" }));

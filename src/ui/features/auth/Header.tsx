@@ -2,10 +2,11 @@ import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
 import { useSetAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
+import { Spinner } from "../../components/Loader.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
@@ -34,6 +35,17 @@ export function Header() {
   useEffect(() => {
     if (!hasUpdate) setUpdateOpen(false);
   }, [hasUpdate]);
+
+  // Auto-trigger background download when a version mismatch is detected
+  const { updateStaged, updating, stageFailed, stageUpdate } = bridge;
+  const stageSentRef = useRef(false);
+  useEffect(() => {
+    if (hasUpdate && !updateStaged && !updating && !stageFailed && !stageSentRef.current) {
+      stageSentRef.current = true;
+      stageUpdate();
+    }
+    if (!hasUpdate) stageSentRef.current = false;
+  }, [hasUpdate, updateStaged, updating, stageFailed, stageUpdate]);
 
   const handleSetupGuide = useCallback(() => {
     if (bridgeAutoSync) {
@@ -84,7 +96,7 @@ export function Header() {
       </Tabs.List>
 
       <div className="flex items-center gap-3 justify-end">
-        <BridgeToggle hasUpdate={hasUpdate} onUpdate={() => setUpdateOpen(true)} />
+        <BridgeToggle onOpenDialog={() => setUpdateOpen(true)} />
         <HeaderMenu
           onSettings={() => setConfigOpen(true)}
           onSetupGuide={handleSetupGuide}
@@ -94,13 +106,7 @@ export function Header() {
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
         <ConfigPanel onClose={() => setConfigOpen(false)} />
       </Dialog>
-      {bridge.version && (
-        <BridgeUpdateDialog
-          currentVersion={bridge.version}
-          onClose={() => setUpdateOpen(false)}
-          open={updateOpen}
-        />
-      )}
+      <BridgeUpdateDialog onClose={() => setUpdateOpen(false)} open={updateOpen} />
     </div>
   );
 }
@@ -108,7 +114,7 @@ export function Header() {
 const menuItemClass =
   "w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer";
 
-function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: () => void }) {
+function BridgeToggle({ onOpenDialog }: { onOpenDialog: () => void }) {
   const bridge = useBridge();
   const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
@@ -165,12 +171,70 @@ function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: (
         <span className="bridge-switch-label">Sync</span>
       </button>
 
-      {hasUpdate && (
-        <button
-          className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
-          onClick={onUpdate}
-          type="button"
+      <UpdateButton onOpenDialog={onOpenDialog} />
+    </div>
+  );
+}
+
+function UpdateButton({ onOpenDialog }: { onOpenDialog: () => void }) {
+  const bridge = useBridge();
+  const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
+
+  // Restarting — muted non-interactive indicator
+  if (bridge.updating) {
+    return (
+      <span className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-neutral-500/15 text-neutral-400">
+        <Spinner className="size-3.5" />
+        <span className="hidden sm:inline">Restarting</span>
+      </span>
+    );
+  }
+
+  if (!hasUpdate) return null;
+
+  // Ready to restart — green, direct action
+  if (bridge.updateStaged) {
+    return (
+      <button
+        className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-green-400/15 text-green-400 hover:bg-green-400/25 transition-colors cursor-pointer"
+        onClick={() => bridge.updateAndRestart()}
+        type="button"
+      >
+        <span className="hidden sm:inline">Restart</span>
+        <svg
+          aria-hidden="true"
+          className="size-4 sm:hidden"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
         >
+          <path
+            d="M4 4v5h5M20 20v-5h-5M5.5 15A7.5 7.5 0 0 0 19 12M18.5 9A7.5 7.5 0 0 0 5 12"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    );
+  }
+
+  // Downloading or fallback — yellow, opens dialog for details
+  const isDownloading = !bridge.stageFailed;
+
+  return (
+    <button
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
+      onClick={onOpenDialog}
+      type="button"
+    >
+      {isDownloading ? (
+        <>
+          <Spinner className="size-3.5" />
+          <span className="hidden sm:inline">Downloading</span>
+        </>
+      ) : (
+        <>
           <span className="hidden sm:inline">Update</span>
           <svg
             aria-hidden="true"
@@ -182,9 +246,9 @@ function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: (
           >
             <path d="M12 5v14m0 0-5-5m5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
+        </>
       )}
-    </div>
+    </button>
   );
 }
 

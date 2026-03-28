@@ -65,6 +65,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     restartFailed: false,
     updating: false,
     updateStaged: false,
+    stageFailed: false,
     opponentHand: [],
     opponentField: [],
     cpuSwaps: [],
@@ -72,6 +73,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     scan: vi.fn(),
     restartEmulator: vi.fn(),
     updateAndRestart: vi.fn(),
+    stageUpdate: vi.fn(),
     ...overrides,
   };
 }
