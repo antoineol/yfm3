@@ -1,8 +1,17 @@
 # Auto-update script for YFM Bridge.
 # Called by start-bridge.bat before launching the bridge.
 # Usage: powershell -File update.ps1 "C:\path\to\bridge\"
+#        powershell -File update.ps1 "C:\path\to\bridge\" -DownloadOnly
+#
+# -DownloadOnly: download and stage the update in runtime.pending\ but do NOT
+#   swap it in.  The bridge calls this in the background so the user is not
+#   blocked.  The normal (non-DownloadOnly) run detects runtime.pending\ and
+#   performs the fast atomic swap without re-downloading.
 
-param([string]$BridgeDir)
+param(
+    [string]$BridgeDir,
+    [switch]$DownloadOnly
+)
 
 # Sanitize: %~dp0 adds a trailing backslash which, when quoted, becomes \"
 # and PowerShell interprets it as an escaped quote embedded in the string.
@@ -21,6 +30,33 @@ try {
     $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
     $localVer = $pkg.version
 
+    # ── Fast path: a previous -DownloadOnly run already staged the update ──
+    $pendingRuntime = Join-Path $BridgeDir 'runtime.pending'
+    if (-not $DownloadOnly -and (Test-Path (Join-Path $pendingRuntime 'package.json'))) {
+        $pendingPkg = Get-Content (Join-Path $pendingRuntime 'package.json') -Raw | ConvertFrom-Json
+        $pendingVer = $pendingPkg.version
+
+        if ([System.Version]$pendingVer -gt [System.Version]$localVer) {
+            Write-Host "  Installing staged update v$localVer -> v$pendingVer..."
+
+            $localRuntime = Join-Path $BridgeDir 'runtime'
+            $backupRuntime = Join-Path $BridgeDir 'runtime.old'
+
+            if (Test-Path $backupRuntime) { Remove-Item -Recurse -Force $backupRuntime }
+            Rename-Item -Path $localRuntime -NewName 'runtime.old'
+            Move-Item -Path $pendingRuntime -Destination $localRuntime
+            Remove-Item -Recurse -Force $backupRuntime
+
+            Write-Host "  Updated to v$pendingVer!"
+            exit 0
+        } else {
+            # Staged version is not newer (e.g. user already updated manually)
+            Write-Host "  Removing stale staged update (v$pendingVer)."
+            Remove-Item -Recurse -Force $pendingRuntime
+        }
+    }
+
+    # ── Query GitHub for the latest release ────────────────────────────────
     # Query GitHub releases API (filter for bridge-v* tags)
     $headers = @{ 'User-Agent' = 'yfm-bridge-updater' }
     $releases = Invoke-RestMethod `
@@ -93,6 +129,17 @@ try {
         exit 0
     }
 
+    # ── DownloadOnly: stage the update for a fast swap later ───────────────
+    if ($DownloadOnly) {
+        $pendingRuntime = Join-Path $BridgeDir 'runtime.pending'
+        if (Test-Path $pendingRuntime) { Remove-Item -Recurse -Force $pendingRuntime }
+        Move-Item -Path $newRuntime -Destination $pendingRuntime
+        Remove-Item -Recurse -Force $tempDir
+        Write-Host "  Staged v$remoteVer for install on next restart."
+        exit 0
+    }
+
+    # ── Normal: atomic replacement ─────────────────────────────────────────
     # Atomic replacement: rename old -> move new -> delete old
     $localRuntime = Join-Path $BridgeDir 'runtime'
     $backupRuntime = Join-Path $BridgeDir 'runtime.old'

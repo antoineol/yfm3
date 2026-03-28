@@ -75,6 +75,41 @@ function collLog(msg: string): void {
   logStream.write(`${timestamp()} [collection] ${msg}\n`);
 }
 
+// ── Background update staging ─────────────────────────────────────
+let updateStaged = false;
+
+function stageUpdateInBackground(): void {
+  const scriptPath = join(__dirname, "update.ps1");
+  if (!existsSync(scriptPath)) return;
+
+  console.log("Checking for updates in background…");
+  const proc = spawn(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath, __dirname, "-DownloadOnly"],
+    { stdio: ["ignore", "pipe", "ignore"] },
+  );
+
+  let stdout = "";
+  proc.stdout?.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+
+  proc.on("exit", (code) => {
+    if (stdout.trim()) console.log(`[update] ${stdout.trim()}`);
+    const pendingPkgPath = join(__dirname, "runtime.pending", "package.json");
+    if (code === 0 && existsSync(pendingPkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pendingPkgPath, "utf-8"));
+        updateStaged = true;
+        console.log(`Update staged: v${pkg.version} ready to install`);
+        broadcast(JSON.stringify({ type: "update_staged" }));
+      } catch {
+        /* ignore malformed package.json */
+      }
+    }
+  });
+}
+
 // ── State ──────────────────────────────────────────────────────────
 let mapping: SharedMemoryMapping | null = null;
 let lastJson = ""; // deduplicate broadcasts
@@ -336,6 +371,10 @@ const server = Bun.serve({
             // Send game data if already acquired
             if (currentGameData) {
               ws.send(buildGameDataMessage(currentGameData));
+            }
+            // Notify about pre-staged update
+            if (updateStaged) {
+              ws.send(JSON.stringify({ type: "update_staged" }));
             }
           }
         } catch {
@@ -945,4 +984,5 @@ function patchSettingsIfNeeded(): void {
 console.log("YFM3 Emulator Bridge");
 console.log(`Poll interval: ${POLL_MS}ms`);
 console.log("Searching for DuckStation...");
+stageUpdateInBackground();
 void poll();

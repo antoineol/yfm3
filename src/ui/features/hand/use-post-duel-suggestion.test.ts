@@ -64,6 +64,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     gameDataError: null,
     restartFailed: false,
     updating: false,
+    updateStaged: false,
     opponentHand: [],
     opponentField: [],
     scan: vi.fn(),

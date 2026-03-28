@@ -406,6 +406,8 @@ export type BridgeState = {
   restartFailed: boolean;
   /** True while the bridge is updating and restarting (between ack and reconnect). */
   updating: boolean;
+  /** True when the bridge has pre-downloaded an update ready for a fast restart. */
+  updateStaged: boolean;
   /** Opponent's hand card IDs (from RAM, filtered same as player). */
   opponentHand: number[];
   /** Opponent's field cards with live ATK/DEF. */
@@ -433,6 +435,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   gameDataError: null,
   restartFailed: false,
   updating: false,
+  updateStaged: false,
   opponentHand: [],
   opponentField: [],
 };
@@ -466,6 +469,11 @@ export function processBridgeMessage(
   if (typeof msg !== "object" || msg === null) return null;
 
   const m = msg as Record<string, unknown>;
+
+  // ── Partial update: background download staged an update ────────
+  if (m.type === "update_staged") {
+    return { state: { ...currentState, updateStaged: true }, tracker };
+  }
 
   // ── Partial update: update-and-restart acknowledged ─────────────
   if (m.type === "update_restart_ack") {

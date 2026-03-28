@@ -25,7 +25,9 @@ export function BridgeUpdateDialog({
         </div>
 
         {bridge.updating ? (
-          <p className="text-text-secondary text-center py-2">Updating and restarting bridge…</p>
+          <p className="text-text-secondary text-center py-2">
+            {bridge.updateStaged ? "Restarting bridge…" : "Updating and restarting bridge…"}
+          </p>
         ) : (
           <>
             <button
@@ -33,31 +35,37 @@ export function BridgeUpdateDialog({
               onClick={() => bridge.updateAndRestart()}
               type="button"
             >
-              Update &amp; Restart
+              {bridge.updateStaged ? "Restart to update" : "Update & Restart"}
             </button>
 
-            <details className="text-text-muted">
-              <summary className="text-xs cursor-pointer hover:text-text-secondary transition-colors">
-                Manual update
-              </summary>
-              <ol className="list-decimal ml-5 mt-2 space-y-2 text-text-secondary">
-                <li>Close the bridge window</li>
-                <li>
-                  <a
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors"
-                    download
-                    href={BRIDGE_DOWNLOAD_URL}
-                    rel="noopener noreferrer"
-                  >
-                    Download the latest bridge
-                  </a>
-                </li>
-                <li>Replace the old folder with the new download</li>
-                <li>
-                  Double-click <strong>start-bridge.bat</strong>
-                </li>
-              </ol>
-            </details>
+            {bridge.updateStaged ? (
+              <p className="text-text-muted text-xs text-center">
+                Update already downloaded — restart will only take a few seconds.
+              </p>
+            ) : (
+              <details className="text-text-muted">
+                <summary className="text-xs cursor-pointer hover:text-text-secondary transition-colors">
+                  Manual update
+                </summary>
+                <ol className="list-decimal ml-5 mt-2 space-y-2 text-text-secondary">
+                  <li>Close the bridge window</li>
+                  <li>
+                    <a
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors"
+                      download
+                      href={BRIDGE_DOWNLOAD_URL}
+                      rel="noopener noreferrer"
+                    >
+                      Download the latest bridge
+                    </a>
+                  </li>
+                  <li>Replace the old folder with the new download</li>
+                  <li>
+                    Double-click <strong>start-bridge.bat</strong>
+                  </li>
+                </ol>
+              </details>
+            )}
           </>
         )}
 

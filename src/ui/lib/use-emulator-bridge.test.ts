@@ -923,6 +923,22 @@ describe("processBridgeMessage", () => {
     });
   });
 
+  describe("update_staged message", () => {
+    it("sets updateStaged to true", () => {
+      const msg = { type: "update_staged" };
+      const { state: s } = process(msg);
+      expect(s.updateStaged).toBe(true);
+    });
+
+    it("does not reset other state fields", () => {
+      const prev = dirtyState();
+      const msg = { type: "update_staged" };
+      const { state: s } = process(msg, prev);
+      expect(s.hand).toEqual(prev.hand);
+      expect(s.status).toBe(prev.status);
+    });
+  });
+
   describe("update_restart_ack message", () => {
     it("sets updating to true", () => {
       const msg = { type: "update_restart_ack" };
