@@ -206,44 +206,50 @@ function parseAllGamelistPaths(buf: Buffer): string[] {
 }
 
 /**
- * Parse DuckStation's gamelist.cache binary file sequentially.
+ * Scan gamelist.cache for disc image entries.
  *
- * Each entry is: [pathLen:u32LE][path:pathLen bytes, null-terminated]
- *                [serialLen:u32LE][serial:ceil(serialLen/4)*4 bytes]
- *                [trailing: 48 bytes metadata]
+ * Uses a .cue byte scan (version-agnostic — no dependency on trailing metadata
+ * size which varies across DuckStation versions), then reads the length prefixes
+ * to get exact path and serial boundaries (no heuristic walk-back).
+ *
+ * Entry layout: [pathLen:u32LE][path (null-terminated)][serialLen:u32LE][serial]…
  */
 const GAMELIST_SERIAL_RE = /^S[CL][A-Z]{2}-\d{5}/;
-const TRAILING_METADATA_SIZE = 48;
 function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: string }> {
   if (buf.length < 8 || buf.subarray(0, 4).toString("ascii") !== GAMELIST_MAGIC) {
     return [];
   }
 
   const entries: Array<{ path: string; serial: string }> = [];
-  let pos = 4; // skip magic
 
-  while (pos + 8 < buf.length) {
-    // Path: length-prefixed, null-terminated
-    const pathLen = buf.readUInt32LE(pos);
-    if (pathLen < 5 || pathLen > 1024) break;
-    pos += 4;
-    if (pos + pathLen > buf.length) break;
-    const path = buf.subarray(pos, pos + pathLen - 1).toString("utf-8");
-    pos += pathLen;
+  for (let i = 4; i < buf.length - 5; i++) {
+    // Look for ".cue" followed by a null byte
+    if (
+      buf[i] !== 0x2e ||
+      buf[i + 1] !== 0x63 ||
+      buf[i + 2] !== 0x75 ||
+      buf[i + 3] !== 0x65 ||
+      buf[i + 4] !== 0x00
+    )
+      continue;
 
-    // Serial: length-prefixed, 4-byte aligned
-    if (pos + 4 > buf.length) break;
-    const serialLen = buf.readUInt32LE(pos);
-    if (serialLen < 4 || serialLen > 32) break;
-    pos += 4;
-    const serialAligned = Math.ceil(serialLen / 4) * 4;
-    if (pos + serialAligned > buf.length) break;
-    const serial = buf.subarray(pos, pos + serialLen).toString("ascii");
-    pos += serialAligned;
+    // Use the length prefix to find the exact path start.
+    // Path (with null) ends at i+4 inclusive, so pathLen = i+5-start.
+    // The u32LE header at start-4 must equal pathLen.
+    const nullPos = i + 4;
+    const headerPos = findPathHeader(buf, i);
+    if (headerPos < 4) continue;
+    const pathStart = headerPos + 4;
+    const path = buf.subarray(pathStart, i + 4).toString("utf-8");
 
-    // Skip trailing metadata
-    if (pos + TRAILING_METADATA_SIZE > buf.length) break;
-    pos += TRAILING_METADATA_SIZE;
+    // Serial length prefix follows immediately after the path null byte
+    const serialHeaderPos = nullPos + 1;
+    if (serialHeaderPos + 4 > buf.length) continue;
+    const serialLen = buf.readUInt32LE(serialHeaderPos);
+    if (serialLen < 4 || serialLen > 32) continue;
+    const serialStart = serialHeaderPos + 4;
+    if (serialStart + serialLen > buf.length) continue;
+    const serial = buf.subarray(serialStart, serialStart + serialLen).toString("ascii");
 
     if (path.endsWith(".cue") && GAMELIST_SERIAL_RE.test(serial)) {
       entries.push({ path, serial });
@@ -251,6 +257,29 @@ function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: stri
   }
 
   return entries;
+}
+
+/**
+ * Walk back from a ".cue" match to find the u32LE path-length header.
+ * Returns the header position, or -1 if not found.
+ */
+function findPathHeader(buf: Buffer, dotCuePos: number): number {
+  // Walk back through printable bytes to approximate the path start
+  let start = dotCuePos;
+  while (start > 4 && (buf[start - 1] ?? 0) >= 0x20) start--;
+  // The header at start-4 should encode pathLen = dotCuePos + 5 - start
+  if (start >= 4 && buf.readUInt32LE(start - 4) === dotCuePos + 5 - start) {
+    return start - 4;
+  }
+  // Walk-back overshot (adjacent printable data) — scan forward from
+  // the approximate start to find a header that gives a consistent length.
+  for (let h = start - 4; h <= dotCuePos - 8; h++) {
+    const len = buf.readUInt32LE(h);
+    if (len >= 5 && len <= 1024 && h + 4 + len - 1 === dotCuePos + 4) {
+      return h;
+    }
+  }
+  return -1;
 }
 
 /**

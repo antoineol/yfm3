@@ -867,6 +867,12 @@ describe("processBridgeMessage", () => {
       expect(s.gameDataError).toBe(prev.gameDataError);
     });
 
+    it("preserves updateStaged flag (arrives via separate message)", () => {
+      const prev = { ...dirtyState(), updateStaged: true };
+      const { state: s } = process(readyMsg(), prev);
+      expect(s.updateStaged).toBe(true);
+    });
+
     it("resets game fields not present in the message", () => {
       const { state: s } = process(readyMsg(), dirtyState());
       expect(s.restartFailed).toBe(false);
@@ -888,6 +894,12 @@ describe("processBridgeMessage", () => {
       expect(s.collection).toBeNull();
       expect(s.gameData).toBeNull();
       expect(s.restartFailed).toBe(false);
+    });
+
+    it("preserves updateStaged flag", () => {
+      const prev = { ...dirtyState(), updateStaged: true };
+      const { state: s } = process(msg, prev);
+      expect(s.updateStaged).toBe(true);
     });
   });
 

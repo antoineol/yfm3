@@ -622,6 +622,8 @@ export function processBridgeMessage(
         // Preserve game data — it arrives via a separate message
         gameData: currentState.gameData,
         gameDataError: currentState.gameDataError,
+        // Preserve update flag — it arrives via a separate message
+        updateStaged: currentState.updateStaged,
         opponentHand: interpreted.opponentHand,
         opponentField: interpreted.opponentField,
         cpuSwaps,
@@ -637,6 +639,7 @@ export function processBridgeMessage(
         status: "connected",
         detail: "waiting_for_game",
         version: stateMsg.version ?? null,
+        updateStaged: currentState.updateStaged,
       },
       tracker,
     };
