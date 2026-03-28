@@ -6,19 +6,10 @@ import { SectionLabel } from "../../components/panel-chrome.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import type { FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { useZoneToggle } from "./use-zone-toggle.ts";
 import { ZonePanel } from "./ZonePanel.tsx";
-
-// ── Mock data (prototype) ─────────────────────────────────────────
-// Will be replaced by real bridge opponent data.
-const MOCK_OPPONENT_HAND = [5, 23, 47, 112, 198];
-const MOCK_OPPONENT_FIELD: FieldCard[] = [
-  { cardId: 67, atk: 1600, def: 1200 },
-  { cardId: 145, atk: 1900, def: 1500 },
-];
 
 /**
  * Opponent view — mirrors the player's layout (3D zone arena when synced,
@@ -30,8 +21,8 @@ export function OpponentPanel() {
   const isSynced = bridge.status === "connected" && bridge.inDuel;
   const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
 
-  const opponentHand = MOCK_OPPONENT_HAND;
-  const opponentField = MOCK_OPPONENT_FIELD;
+  const opponentHand = bridge.opponentHand;
+  const opponentField = bridge.opponentField;
 
   // Fake HandCard objects — docIds are never accessed (no onPlayFusion).
   const fakeHandCards: HandCard[] = useMemo(
@@ -40,7 +31,7 @@ export function OpponentPanel() {
         docId: `opponent-${String(i)}` as Id<"hand">,
         cardId,
       })),
-    [],
+    [opponentHand],
   );
 
   const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.phase);

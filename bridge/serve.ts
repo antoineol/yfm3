@@ -15,6 +15,7 @@ import { execSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
+import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
@@ -374,6 +375,23 @@ const server = Bun.serve({
               }
             }
           });
+        } else if (msg.type === "update_and_restart") {
+          console.log("Received update-and-restart request from client");
+          broadcast(JSON.stringify({ type: "update_restart_ack" }));
+          // Give time for the ack to be sent, then exit with code 75.
+          // The batch script detects exit code 75 and loops back to run
+          // update.ps1 before restarting bridge.exe.
+          setTimeout(() => {
+            if (mapping) {
+              try {
+                closeSharedMemory(mapping);
+              } catch {
+                /* ignore */
+              }
+            }
+            server.stop();
+            process.exit(75);
+          }, 200);
         }
       } catch {
         // ignore invalid messages
@@ -579,6 +597,18 @@ function logStateChange(state: GameState): void {
     parts.push(`field=[${currField}]`);
   }
 
+  const prevOppHand = prev ? slotsSummary(prev.opponentHand) : null;
+  const currOppHand = slotsSummary(state.opponentHand);
+  if (prevOppHand !== currOppHand) {
+    parts.push(`opp-hand=[${currOppHand}]`);
+  }
+
+  const prevOppField = prev ? slotsSummary(prev.opponentField) : null;
+  const currOppField = slotsSummary(state.opponentField);
+  if (prevOppField !== currOppField) {
+    parts.push(`opp-field=[${currOppField}]`);
+  }
+
   if (
     state.lp != null &&
     (!prev || !prev.lp || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1])
@@ -679,12 +709,15 @@ function logCollectionDeckState(view: DataView, sceneId: number | null): void {
 // ── Diagnostic probes (optional) ────────────────────────────────────
 const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
 const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL — see docs/memory/steps/bridge-extended-state.md
+const DIAG_OPPONENT = true; // ACTIVE — discovering opponent hand/field addresses
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
 let handProbe: HandSlotProbe | null = DIAG_HAND_SLOTS ? createHandSlotProbe() : null;
+let oppProbe: OpponentProbe | null = DIAG_OPPONENT ? createOpponentProbe() : null;
 
 function resetPalProbe(): void {
   if (DIAG_PAL) palProbe = createPalProbe();
   if (DIAG_HAND_SLOTS) handProbe = createHandSlotProbe();
+  if (DIAG_OPPONENT) oppProbe = createOpponentProbe();
 }
 
 // ── Poll loop ──────────────────────────────────────────────────────
@@ -810,6 +843,7 @@ async function poll(): Promise<void> {
           logStateChange(state);
           palProbe?.onStateChange(mapping.view, state, profile);
           handProbe?.onStateChange(mapping.view, state, profile);
+          oppProbe?.onStateChange(mapping.view, state, profile);
           lastJson = json;
           broadcast(json);
         }

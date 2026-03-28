@@ -36,7 +36,7 @@ function CardDetailModalWhenReady() {
 
 export default function App() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const [tab, setTab] = useTabFromHash(TABS, "duel");
+  const [tab] = useTabFromHash(TABS, "duel");
 
   if (isLoading) {
     return <LoaderBlock />;
@@ -46,10 +46,10 @@ export default function App() {
     return <SignIn />;
   }
 
-  return <AuthenticatedApp setTab={setTab} tab={tab} />;
+  return <AuthenticatedApp tab={tab} />;
 }
 
-function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) => void }) {
+function AuthenticatedApp({ tab }: { tab: string }) {
   const bridgeAutoSync = useBridgeAutoSync();
   const bridge = useEmulatorBridge(bridgeAutoSync);
 
@@ -58,11 +58,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
   return (
     <BridgeProvider bridge={bridge}>
       <FusionTableProvider>
-        <Tabs.Root
-          className="h-dvh flex flex-col overflow-hidden"
-          onValueChange={setTab}
-          value={tab}
-        >
+        <Tabs.Root className="h-dvh flex flex-col overflow-hidden" value={tab}>
           <Header />
           <ModMismatchBanner />
           <GameDataErrorBanner />

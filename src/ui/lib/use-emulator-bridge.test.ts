@@ -40,6 +40,22 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     shuffledDeck: new Array(40).fill(0) as number[],
     trunk: new Array(722).fill(0) as number[],
     deckDefinition: new Array(40).fill(0) as number[],
+    opponentHand: [
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+    ],
+    opponentField: [
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+      { cardId: 0, atk: 0, def: 0, status: 0 },
+    ],
+    opponentHandSlots: null,
+    cpuShuffledDeck: new Array(40).fill(0) as number[],
     ...overrides,
   };
 }
@@ -904,6 +920,22 @@ describe("processBridgeMessage", () => {
       const { state: s } = process(msg, prev);
       expect(s.hand).toEqual(prev.hand);
       expect(s.modFingerprint).toBe(prev.modFingerprint);
+    });
+  });
+
+  describe("update_restart_ack message", () => {
+    it("sets updating to true", () => {
+      const msg = { type: "update_restart_ack" };
+      const { state: s } = process(msg);
+      expect(s.updating).toBe(true);
+    });
+
+    it("does not reset other state fields", () => {
+      const prev = dirtyState();
+      const msg = { type: "update_restart_ack" };
+      const { state: s } = process(msg, prev);
+      expect(s.hand).toEqual(prev.hand);
+      expect(s.status).toBe(prev.status);
     });
   });
 

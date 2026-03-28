@@ -47,6 +47,11 @@ type RawBridgeState = {
   shuffledDeck: number[];
   trunk: number[];
   deckDefinition: number[];
+  // Opponent data (same card slot struct as player)
+  opponentHand: RawCardSlot[];
+  opponentField: RawCardSlot[];
+  opponentHandSlots: number[] | null;
+  cpuShuffledDeck: number[];
 };
 
 type BridgeWaitingForGame = {
@@ -93,6 +98,8 @@ type InterpretedState = {
   inDuel: boolean;
   lp: [number, number] | null;
   stats: DuelStats | null;
+  opponentHand: number[];
+  opponentField: FieldCard[];
 };
 
 /**
@@ -114,6 +121,14 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
     raw.fusions != null
       ? { fusions: raw.fusions, terrain: raw.terrain ?? 0, duelistId: raw.duelistId ?? 0 }
       : null;
+
+  // Opponent data — same filtering logic as player (gracefully handle missing data from older bridges)
+  const opponentHand = raw.opponentHand
+    ? raw.opponentHandSlots
+      ? filterHandBySlots(raw.opponentHand, raw.opponentHandSlots)
+      : filterCardSlots(raw.opponentHand)
+    : [];
+  const opponentField = raw.opponentField ? filterFieldSlots(raw.opponentField) : [];
 
   // ── Exact detection: duel phase byte is available ──────────────────
   if (raw.duelPhase != null) {
@@ -139,7 +154,17 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       raw.duelPhase === PHASE_BATTLE ||
       raw.duelPhase === PHASE_POST_BATTLE;
 
-    return { hand, field, handReliable, phase, inDuel, lp: raw.lp, stats };
+    return {
+      hand,
+      field,
+      handReliable,
+      phase,
+      inDuel,
+      lp: raw.lp,
+      stats,
+      opponentHand,
+      opponentField,
+    };
   }
 
   // ── Fallback: no duel phase — infer from hand/field presence ───────
@@ -156,10 +181,22 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       inDuel: true,
       lp: raw.lp,
       stats,
+      opponentHand,
+      opponentField,
     };
   }
 
-  return { hand, field, handReliable: false, phase: "other", inDuel: false, lp: raw.lp, stats };
+  return {
+    hand,
+    field,
+    handReliable: false,
+    phase: "other",
+    inDuel: false,
+    lp: raw.lp,
+    stats,
+    opponentHand,
+    opponentField,
+  };
 }
 
 /**
@@ -367,6 +404,12 @@ export type BridgeState = {
   gameDataError: string | null;
   /** True when the last restart request failed on the bridge side. */
   restartFailed: boolean;
+  /** True while the bridge is updating and restarting (between ack and reconnect). */
+  updating: boolean;
+  /** Opponent's hand card IDs (from RAM, filtered same as player). */
+  opponentHand: number[];
+  /** Opponent's field cards with live ATK/DEF. */
+  opponentField: FieldCard[];
 };
 
 export const INITIAL_BRIDGE_STATE: BridgeState = {
@@ -389,11 +432,15 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   gameData: null,
   gameDataError: null,
   restartFailed: false,
+  updating: false,
+  opponentHand: [],
+  opponentField: [],
 };
 
 export type EmulatorBridge = BridgeState & {
   scan: () => void;
   restartEmulator: () => void;
+  updateAndRestart: () => void;
 };
 
 // ── Pure message processor (testable) ────────────────────────────────
@@ -419,6 +466,11 @@ export function processBridgeMessage(
   if (typeof msg !== "object" || msg === null) return null;
 
   const m = msg as Record<string, unknown>;
+
+  // ── Partial update: update-and-restart acknowledged ─────────────
+  if (m.type === "update_restart_ack") {
+    return { state: { ...currentState, updating: true }, tracker };
+  }
 
   // ── Partial update: restart failure ─────────────────────────────
   if (m.type === "restart_result" && m.success === false) {
@@ -480,6 +532,8 @@ export function processBridgeMessage(
         // Preserve game data — it arrives via a separate message
         gameData: currentState.gameData,
         gameDataError: currentState.gameDataError,
+        opponentHand: interpreted.opponentHand,
+        opponentField: interpreted.opponentField,
       },
       tracker: nextTracker,
     };
@@ -571,7 +625,10 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
     ws.onclose = () => {
       wsRef.current = null;
-      setState(INITIAL_BRIDGE_STATE);
+      // Preserve `updating` flag so the UI shows "Updating…" during reconnect
+      setState((prev) =>
+        prev.updating ? { ...INITIAL_BRIDGE_STATE, updating: true } : INITIAL_BRIDGE_STATE,
+      );
       if (enabledRef.current) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
       }
@@ -611,5 +668,11 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     }
   }, []);
 
-  return { ...state, scan, restartEmulator };
+  const updateAndRestart = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "update_and_restart" }));
+    }
+  }, []);
+
+  return { ...state, scan, restartEmulator, updateAndRestart };
 }

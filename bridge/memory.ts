@@ -68,6 +68,14 @@ export interface GameState {
   shuffledDeck: number[];
   trunk: number[];
   deckDefinition: number[];
+  /** Opponent hand card slots (same 0x1C-byte struct as player). */
+  opponentHand: CardSlot[];
+  /** Opponent field card slots. */
+  opponentField: CardSlot[];
+  /** Opponent hand slot indices (u8[5]): same as player handSlots but at lpP2+offset. */
+  opponentHandSlots: number[] | null;
+  /** CPU's shuffled deck during a duel (40 card IDs, 0 = empty slot). */
+  cpuShuffledDeck: number[];
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -80,11 +88,19 @@ const HAND_SLOTS = 5;
 const FIELD_BASE = 0x1a7b70;
 const FIELD_SLOTS = 5;
 
+// Opponent card zones — verified via diagnostic probe (2026-03-28).
+// Layout: each player occupies 15 slot positions (hand + field + unknown zone),
+// with 0x1C (28) bytes per slot. Player starts at 0x1A7AE4, opponent at 0x1A7C88.
+// The 5-slot gap between player field end and opponent hand (0x1A7BFC) is unused/unknown.
+const OPPONENT_HAND_BASE = 0x1a7c88;
+const OPPONENT_FIELD_BASE = 0x1a7c88 + 5 * 0x1c; // 0x1A7D14
+
 const DECK_DEF_OFFSET = 0x1d0200; // Player's deck definition (40 × uint16 LE)
 const DECK_DEF_CARDS = 40;
 const COLLECTION_OFFSET = 0x1d0250; // Cards owned (722 bytes, 1 per card ID)
 const COLLECTION_SIZE = 722;
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
+const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
 
 export const CARD_STATS_OFFSET = 0x1d4244;
 export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
@@ -511,6 +527,18 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
   const field: CardSlot[] = [];
   for (let i = 0; i < FIELD_SLOTS; i++) field.push(readCardSlot(view, FIELD_BASE, i));
 
+  // Opponent card zones (same struct layout as player)
+  const opponentHand: CardSlot[] = [];
+  for (let i = 0; i < HAND_SLOTS; i++) opponentHand.push(readCardSlot(view, OPPONENT_HAND_BASE, i));
+  const opponentField: CardSlot[] = [];
+  for (let i = 0; i < FIELD_SLOTS; i++)
+    opponentField.push(readCardSlot(view, OPPONENT_FIELD_BASE, i));
+
+  // Opponent hand slot tracking: same relative offset from lpP2 as player's from lpP1
+  const opponentHandSlots = profile?.handSlots
+    ? readU8Array(view, profile.lpP2 + (profile.handSlots - profile.lpP1), HAND_SLOTS)
+    : null;
+
   // Helper: read from profile offset, returning null if offset is 0 (unmapped)
   const u8 = (off: number | undefined): number | null =>
     profile && off ? readU8(view, off) : null;
@@ -531,6 +559,10 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     shuffledDeck: readShuffledDeck(view),
     trunk: readCollection(view),
     deckDefinition: readDeckDefinition(view),
+    opponentHand,
+    opponentField,
+    opponentHandSlots,
+    cpuShuffledDeck: readCpuShuffledDeck(view),
   };
 }
 
@@ -554,6 +586,13 @@ export function readDeckDefinition(view: DataView): number[] {
  */
 export function readShuffledDeck(view: DataView): number[] {
   return readU16Array(view, PLAYER_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
+}
+
+/**
+ * Read the CPU's shuffled deck during a duel (40 card IDs).
+ */
+export function readCpuShuffledDeck(view: DataView): number[] {
+  return readU16Array(view, CPU_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
 }
 
 /**

@@ -16,6 +16,9 @@ echo  ^|  5. Turn on "Sync" in the top-right corner   ^|
 echo  ^|                                              ^|
 echo  +----------------------------------------------+
 echo.
+:: ── Main loop (re-enters on update-and-restart) ────────────────
+:bridge_loop
+
 :: ── Auto-update check ──────────────────────────────────────────
 echo  Checking for updates...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\update.ps1" "%~dp0"
@@ -24,6 +27,14 @@ echo  Starting bridge...
 echo.
 
 "%~dp0runtime\bridge.exe"
+
+:: Exit code 75 = update-and-restart requested from the web app
+if %errorlevel% equ 75 (
+    echo.
+    echo  Update requested — restarting...
+    echo.
+    goto bridge_loop
+)
 
 if %errorlevel% neq 0 (
     echo.
