@@ -1281,7 +1281,6 @@ input[type="number"] {
   border-radius: 6px;
   border: 1.5px solid transparent;
   background: transparent;
-  cursor: pointer;
   transition:
     border-color 300ms ease,
     box-shadow 350ms ease;
@@ -1422,7 +1421,6 @@ input[type="number"] {
   opacity: 0.55;
   background: transparent;
   border: none;
-  cursor: pointer;
   transition:
     background 200ms ease,
     color 200ms ease,

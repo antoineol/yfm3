@@ -1,6 +1,5 @@
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
@@ -23,13 +22,13 @@ import { OpponentPanel } from "./OpponentPanel.tsx";
 import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
+import { useZoneToggle } from "./use-zone-toggle.ts";
+import { ZonePanel } from "./ZonePanel.tsx";
 
 const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "all", label: "All cards" },
   { value: "deck", label: "Deck only" },
 ];
-
-type FocusedZone = "hand" | "field";
 
 /** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
 const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
@@ -60,34 +59,7 @@ export function HandFusionCalculator() {
   const showOpponent = cheatMode && cheatView === "opponent";
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
-  const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
-
-  // Animated zone switch via View Transitions API (browser-native FLIP).
-  const animatedSetZone = useCallback((zone: FocusedZone) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
-        flushSync(() => setFocusedZone(zone));
-      });
-    } else {
-      setFocusedZone(zone);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isSynced) {
-      setFocusedZone("hand"); // Reset without animation
-      return;
-    }
-    // Auto-switch based on game phase:
-    // hand/draw → hand expanded (player is deciding)
-    // fusion/field/battle/opponent → field expanded (action is on the board)
-    // other → keep current (transitional, don't flicker)
-    if (bridge.phase === "hand" || bridge.phase === "draw") {
-      animatedSetZone("hand");
-    } else if (bridge.phase !== "other") {
-      animatedSetZone("field");
-    }
-  }, [bridge.phase, isSynced, animatedSetZone]);
+  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.phase);
 
   // ── Manual mode input focus management ───────────────────────
 
@@ -360,34 +332,6 @@ function DuelEnded({ lp, stats }: { lp: [number, number] | null; stats: DuelStat
           {String(stats.fusions)} fusion{stats.fusions > 1 ? "s" : ""} performed
         </p>
       )}
-    </div>
-  );
-}
-
-// ── Zone panel (3D-perspective card zone) ──────────────────────
-
-function ZonePanel({
-  active,
-  label,
-  count,
-  maxCount,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  count: number;
-  maxCount: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`fm-zone ${active ? "fm-zone--active" : "fm-zone--inactive"}`}>
-      <div className="fm-zone-header">
-        <span className="fm-zone-header-label">{label}</span>
-        <span className="fm-zone-header-count">
-          {String(count)}/{String(maxCount)}
-        </span>
-      </div>
-      {children}
     </div>
   );
 }

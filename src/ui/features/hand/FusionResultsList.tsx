@@ -1,5 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import {
@@ -50,32 +50,38 @@ export function FusionResultsList({
     );
   }
 
-  // Split into hand-based plays and field-based plays
-  const handPlays = results.filter((r) => r.fieldMaterialCardIds.length === 0);
-  const fieldPlays = results.filter((r) => r.fieldMaterialCardIds.length > 0);
+  // Keep natural ATK-sorted order. Extra field plays collapse after the first one.
+  const firstFieldIdx = results.findIndex((r) => r.fieldMaterialCardIds.length > 0);
+  const extraFieldPlays =
+    firstFieldIdx >= 0
+      ? results.filter((r, i) => i > firstFieldIdx && r.fieldMaterialCardIds.length > 0)
+      : [];
+  const extraFieldSet = new Set(extraFieldPlays);
 
   return (
     <div className="flex flex-col gap-1.5" ref={animateRef}>
-      {handPlays.map((r) => (
-        <FusionResultRow
-          handCards={handCards}
-          key={`${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
-          onPlay={onPlayFusion ?? undefined}
-          result={r}
-        />
-      ))}
-      {fieldPlays.length > 0 && (
-        <CollapsedFieldPlays
-          fieldPlays={fieldPlays}
-          handCards={handCards}
-          onPlay={onPlayFusion ?? undefined}
-        />
-      )}
+      {results.map((r, i) => {
+        // Skip extra field plays in the main list — they appear in the collapsed section
+        if (extraFieldSet.has(r)) return null;
+        return (
+          <Fragment key={`${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}>
+            <FusionResultRow handCards={handCards} onPlay={onPlayFusion ?? undefined} result={r} />
+            {/* After the first field play, insert the collapsed extras */}
+            {i === firstFieldIdx && extraFieldPlays.length > 0 && (
+              <CollapsedFieldPlays
+                fieldPlays={extraFieldPlays}
+                handCards={handCards}
+                onPlay={onPlayFusion ?? undefined}
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
 
-/** Show the top field play inline, collapse the rest behind an expander. */
+/** Collapse extra field plays behind an expander. */
 function CollapsedFieldPlays({
   fieldPlays,
   handCards,
@@ -86,14 +92,10 @@ function CollapsedFieldPlays({
   onPlay?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const first = fieldPlays[0];
-  const rest = fieldPlays.slice(1);
-  if (!first) return null;
 
   return (
     <>
-      <FusionResultRow handCards={handCards} onPlay={onPlay} result={first} />
-      {rest.length > 0 && !expanded && (
+      {!expanded && (
         <button
           className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-sky-400/80 hover:text-sky-400 transition-colors cursor-pointer rounded-lg border border-dashed border-sky-400/20 hover:border-sky-400/40 hover:bg-sky-400/5"
           onClick={() => setExpanded(true)}
@@ -110,18 +112,28 @@ function CollapsedFieldPlays({
             <rect height="10" rx="1.5" width="14" x="1" y="3" />
             <line x1="8" x2="8" y1="3" y2="13" />
           </svg>
-          {rest.length} more field {rest.length === 1 ? "play" : "plays"}
+          {fieldPlays.length} more field {fieldPlays.length === 1 ? "play" : "plays"}
         </button>
       )}
-      {expanded &&
-        rest.map((r) => (
-          <FusionResultRow
-            handCards={handCards}
-            key={`f${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
-            onPlay={onPlay}
-            result={r}
-          />
-        ))}
+      {expanded && (
+        <>
+          {fieldPlays.map((r) => (
+            <FusionResultRow
+              handCards={handCards}
+              key={`f${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
+              onPlay={onPlay}
+              result={r}
+            />
+          ))}
+          <button
+            className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-sky-400/80 hover:text-sky-400 transition-colors cursor-pointer rounded-lg border border-dashed border-sky-400/20 hover:border-sky-400/40 hover:bg-sky-400/5"
+            onClick={() => setExpanded(false)}
+            type="button"
+          >
+            Hide field plays
+          </button>
+        </>
+      )}
     </>
   );
 }

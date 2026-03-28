@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { flushSync } from "react-dom";
+import { useMemo } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
 import { MiniGameCard } from "../../components/MiniGameCard.tsx";
@@ -10,6 +9,8 @@ import { useCardDb } from "../../lib/card-db-context.tsx";
 import type { FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
+import { useZoneToggle } from "./use-zone-toggle.ts";
+import { ZonePanel } from "./ZonePanel.tsx";
 
 // ── Mock data (prototype) ─────────────────────────────────────────
 // Will be replaced by real bridge opponent data.
@@ -18,8 +19,6 @@ const MOCK_OPPONENT_FIELD: FieldCard[] = [
   { cardId: 67, atk: 1600, def: 1200 },
   { cardId: 145, atk: 1900, def: 1500 },
 ];
-
-type FocusedZone = "hand" | "field";
 
 /**
  * Opponent view — mirrors the player's layout (3D zone arena when synced,
@@ -35,35 +34,16 @@ export function OpponentPanel() {
   const opponentField = MOCK_OPPONENT_FIELD;
 
   // Fake HandCard objects — docIds are never accessed (no onPlayFusion).
-  const fakeHandCards: HandCard[] = opponentHand.map((cardId, i) => ({
-    docId: `opponent-${String(i)}` as Id<"hand">,
-    cardId,
-  }));
+  const fakeHandCards: HandCard[] = useMemo(
+    () =>
+      opponentHand.map((cardId, i) => ({
+        docId: `opponent-${String(i)}` as Id<"hand">,
+        cardId,
+      })),
+    [],
+  );
 
-  // ── Zone toggle (mirrors player behavior) ───────────────────
-  const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
-
-  const animatedSetZone = useCallback((zone: FocusedZone) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
-        flushSync(() => setFocusedZone(zone));
-      });
-    } else {
-      setFocusedZone(zone);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isSynced) {
-      setFocusedZone("hand");
-      return;
-    }
-    if (bridge.phase === "hand" || bridge.phase === "draw") {
-      animatedSetZone("hand");
-    } else if (bridge.phase !== "other") {
-      animatedSetZone("field");
-    }
-  }, [bridge.phase, isSynced, animatedSetZone]);
+  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.phase);
 
   return (
     <>
@@ -150,34 +130,6 @@ export function OpponentPanel() {
         </section>
       )}
     </>
-  );
-}
-
-// ── Zone panel (same structure as player side) ────────────────────
-
-function ZonePanel({
-  active,
-  label,
-  count,
-  maxCount,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  count: number;
-  maxCount: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={`fm-zone ${active ? "fm-zone--active" : "fm-zone--inactive"}`}>
-      <div className="fm-zone-header">
-        <span className="fm-zone-header-label">{label}</span>
-        <span className="fm-zone-header-count">
-          {String(count)}/{String(maxCount)}
-        </span>
-      </div>
-      {children}
-    </div>
   );
 }
 
