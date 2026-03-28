@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CardId } from "../../../engine/data/card-model.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { CloseButton } from "../../components/CloseButton.tsx";
-import { useCheatMode } from "../../db/use-user-preferences.ts";
+import { useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { artworkSrc } from "../../lib/format.ts";
@@ -12,14 +12,16 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
  * Banner that appears when the CPU AI swaps cards in its hand.
  * Visible on both Player/Opponent tabs while cheat mode is enabled.
  * Auto-dismisses when the player's turn starts; manually dismissable via X.
+ * Reads swap data from Convex (persists across page refreshes).
  * Uses the same grid-template-rows animation pattern as CheatViewSwitch.
  */
 export function CpuCheatBanner() {
-  const { cpuSwaps, phase } = useBridge();
+  const { phase } = useBridge();
+  const cpuSwaps = useCpuSwaps();
   const cheatMode = useCheatMode();
   const [manuallyDismissed, setManuallyDismissed] = useState(false);
 
-  // Auto-dismiss when phase leaves "opponent" (player's turn starts)
+  // Auto-dismiss when phase transitions to "opponent" (player's turn ends)
   const prevPhaseRef = useRef(phase);
   useEffect(() => {
     if (prevPhaseRef.current !== "opponent" && phase === "opponent") {

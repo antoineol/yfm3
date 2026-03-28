@@ -28,6 +28,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useHandSourceMode: vi.fn(() => "deck"),
   useCheatMode: vi.fn(() => false),
   useCheatView: vi.fn(() => "player"),
+  useCpuSwaps: vi.fn(() => []),
 }));
 
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
@@ -96,6 +97,10 @@ vi.mock("./EmulatorBridgeBar.tsx", () => ({
 
 vi.mock("./use-auto-sync-hand.ts", () => ({
   useAutoSyncHand: vi.fn(),
+}));
+
+vi.mock("./use-sync-cpu-swaps.ts", () => ({
+  useSyncCpuSwaps: vi.fn(),
 }));
 
 vi.mock("./use-post-duel-suggestion.ts", () => ({

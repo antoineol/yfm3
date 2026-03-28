@@ -62,5 +62,11 @@ export default defineSchema({
     handSourceMode: v.optional(handSourceModeValidator),
     cheatMode: v.optional(v.boolean()), // Millennium Eye: reveal opponent's cards
     cheatView: v.optional(v.union(v.literal("player"), v.literal("opponent"))),
+    cpuSwaps: v.optional(v.array(v.object({
+      slotIndex: v.number(),
+      fromCardId: v.number(),
+      toCardId: v.number(),
+      timestamp: v.number(),
+    }))),
   }).index('by_user', ['userId']),
 });

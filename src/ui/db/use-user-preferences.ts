@@ -65,3 +65,8 @@ export function useCheatView(): CheatView {
   const settings = useUserSettings();
   return settings?.cheatView ?? "player";
 }
+
+export function useCpuSwaps() {
+  const settings = useUserSettings();
+  return settings?.cpuSwaps ?? [];
+}

@@ -26,6 +26,7 @@ import { OpponentPanel } from "./OpponentPanel.tsx";
 import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
+import { useSyncCpuSwaps } from "./use-sync-cpu-swaps.ts";
 import { useZoneToggle } from "./use-zone-toggle.ts";
 import { ZonePanel } from "./ZonePanel.tsx";
 
@@ -49,6 +50,7 @@ export function HandFusionCalculator() {
 
   // Auto-sync hand from bridge (always active, even when bar is hidden)
   useAutoSyncHand(bridge, hand ?? []);
+  useSyncCpuSwaps();
   const deckCardIds = deck?.map((d) => d.cardId);
   const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
 

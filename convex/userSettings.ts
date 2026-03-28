@@ -47,6 +47,13 @@ export const setSelectedMod = mutation({
 
 const cheatViewValidator = v.union(v.literal("player"), v.literal("opponent"));
 
+const cpuSwapValidator = v.object({
+  slotIndex: v.number(),
+  fromCardId: v.number(),
+  toCardId: v.number(),
+  timestamp: v.number(),
+});
+
 export const updateUserSettings = mutation({
   args: {
     // null means "unset" (reset to undefined / never-chosen state)
@@ -83,5 +90,33 @@ export const updateUserSettings = mutation({
     } else {
       await ctx.db.insert("userSettings", { userId, selectedMod: DEFAULT_MOD, ...patch });
     }
+  },
+});
+
+export const appendCpuSwaps = mutation({
+  args: { swaps: v.array(cpuSwapValidator) },
+  handler: async (ctx, args) => {
+    if (args.swaps.length === 0) return;
+    const userId = await requireAuth(ctx);
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!settings) return;
+    const existing = settings.cpuSwaps ?? [];
+    await ctx.db.patch(settings._id, { cpuSwaps: [...existing, ...args.swaps] });
+  },
+});
+
+export const clearCpuSwaps = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const settings = await ctx.db
+      .query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!settings || !settings.cpuSwaps?.length) return;
+    await ctx.db.patch(settings._id, { cpuSwaps: [] });
   },
 });
