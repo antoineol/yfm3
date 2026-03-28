@@ -137,7 +137,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   if (raw.duelPhase != null) {
     const isPlayerTurn = raw.turnIndicator === 0;
     const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
-    const opponentPhase = mapRawPhase(raw.duelPhase);
+    const opponentPhase = isPlayerTurn ? ("field" as DuelPhase) : mapRawPhase(raw.duelPhase);
     // With handSlots-based filtering the hand data is deterministic at all
     // phases and turns — no flickering from status-byte transitions.
     // The player's hand doesn't change during the opponent's turn either.

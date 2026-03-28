@@ -75,7 +75,7 @@ export function HandFusionCalculator() {
   }, [bridge.inDuel, cheatView, updatePreferences]);
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
-  const zonePhase = bridge.phase === "opponent" ? bridge.opponentPhase : bridge.phase;
+  const zonePhase = bridge.phase === "opponent" ? ("field" as const) : bridge.phase;
   const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, zonePhase);
 
   // ── Manual mode input focus management ───────────────────────

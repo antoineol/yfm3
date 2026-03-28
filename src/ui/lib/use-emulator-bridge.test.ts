@@ -293,14 +293,11 @@ describe("interpretRawState", () => {
       expect(result.opponentPhase).toBe("battle");
     });
 
-    it("maps raw phase on player turn too — hand select", () => {
-      const result = interpretRawState(makeRaw({ duelPhase: 0x04, turnIndicator: 0 }));
-      expect(result.opponentPhase).toBe("hand");
-    });
-
-    it("maps raw phase on player turn too — field", () => {
-      const result = interpretRawState(makeRaw({ duelPhase: 0x05, turnIndicator: 0 }));
-      expect(result.opponentPhase).toBe("field");
+    it("locks to 'field' during player turn regardless of raw phase", () => {
+      const hand = interpretRawState(makeRaw({ duelPhase: 0x04, turnIndicator: 0 }));
+      expect(hand.opponentPhase).toBe("field");
+      const draw = interpretRawState(makeRaw({ duelPhase: 0x03, turnIndicator: 0 }));
+      expect(draw.opponentPhase).toBe("field");
     });
 
     it("falls back to 'other' when duelPhase is null", () => {
