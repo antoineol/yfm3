@@ -10,6 +10,7 @@ import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import type { DuelPhase } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
 import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";
@@ -44,7 +45,11 @@ export function Header() {
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
       <div className="flex items-center gap-2 min-w-0">
-        <h1 className="hidden lg:block font-display text-lg font-bold text-gold">YFM Copilot</h1>
+        {bridge.inDuel ? (
+          <DuelPhaseIndicator />
+        ) : (
+          <h1 className="hidden lg:block font-display text-lg font-bold text-gold">YFM Copilot</h1>
+        )}
         <ModSelector />
       </div>
 
@@ -191,6 +196,48 @@ function ModSelector() {
         </option>
       ))}
     </select>
+  );
+}
+
+// ── Duel phase indicator (shown in header during duel) ─────────
+
+const HEADER_PHASE_CONFIG: Record<
+  DuelPhase,
+  { label: string; dotColor: string; pulse?: boolean; textColor: string }
+> = {
+  hand: { label: "Your turn", dotColor: "bg-green-400", textColor: "text-green-400" },
+  draw: { label: "Drawing", dotColor: "bg-green-400", pulse: true, textColor: "text-green-400" },
+  fusion: {
+    label: "Fusing",
+    dotColor: "bg-yellow-400",
+    pulse: true,
+    textColor: "text-yellow-400/90",
+  },
+  field: { label: "Field play", dotColor: "bg-yellow-400", textColor: "text-yellow-400/90" },
+  battle: { label: "Battle", dotColor: "bg-yellow-400", textColor: "text-yellow-400/90" },
+  opponent: { label: "Opponent", dotColor: "bg-blue-400", textColor: "text-blue-400/90" },
+  ended: { label: "Duel over", dotColor: "bg-green-400", textColor: "text-green-400" },
+  other: { label: "In duel", dotColor: "bg-neutral-500", textColor: "text-text-muted" },
+};
+
+function DuelPhaseIndicator() {
+  const bridge = useBridge();
+  const cfg = HEADER_PHASE_CONFIG[bridge.phase];
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span
+        className={`inline-block w-2 h-2 rounded-full shrink-0 ${cfg.dotColor} ${cfg.pulse ? "animate-pulse" : ""}`}
+      />
+      <span className={`font-display font-semibold uppercase tracking-wider ${cfg.textColor}`}>
+        {cfg.label}
+      </span>
+      {bridge.lp && (
+        <span className="text-text-muted tabular-nums ml-1">
+          LP {String(bridge.lp[0])} vs {String(bridge.lp[1])}
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -68,7 +68,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
           <GameDataErrorBanner />
           <DeckTabPanel />
 
-          <Tabs.Panel className="flex-1 px-3 pt-4 pb-16 lg:pb-6 overflow-y-auto" value="duel">
+          <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-6 overflow-y-auto" value="duel">
             <TabOnboardingGate>
               <RequireReferenceData>
                 <HandFusionCalculator />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
@@ -68,6 +68,50 @@ export function HandFusionCalculator() {
     }
   }, [bridge.phase, isSynced]);
 
+  // ── FLIP animation for zone swap ───────────────────────────
+  const handZoneRef = useRef<HTMLDivElement>(null);
+  const fieldZoneRef = useRef<HTMLDivElement>(null);
+  const zoneSnapshotRef = useRef<{ hand: number; field: number } | null>(null);
+
+  // Snapshot zone positions after every paint.
+  // Uses offsetTop (layout-only) so running WAAPI animations don't pollute the snapshot.
+  useEffect(() => {
+    if (handZoneRef.current && fieldZoneRef.current) {
+      zoneSnapshotRef.current = {
+        hand: handZoneRef.current.offsetTop,
+        field: fieldZoneRef.current.offsetTop,
+      };
+    }
+  });
+
+  // FLIP-animate zone position swap before paint
+  useLayoutEffect(() => {
+    // Read focusedZone so the effect re-runs on zone switch
+    const _zone = focusedZone;
+    const snap = zoneSnapshotRef.current;
+    if (!snap) return;
+    const hand = handZoneRef.current;
+    const field = fieldZoneRef.current;
+    if (!hand || !field) return;
+
+    // Cancel any in-progress FLIP animations
+    for (const a of hand.getAnimations()) a.cancel();
+    for (const a of field.getAnimations()) a.cancel();
+
+    for (const [el, prev] of [
+      [hand, snap.hand],
+      [field, snap.field],
+    ] as const) {
+      const dy = prev - el.offsetTop;
+      if (Math.abs(dy) < 2) continue;
+      el.animate([{ transform: `translateY(${String(dy)}px)` }, { transform: "translateY(0)" }], {
+        duration: 550,
+        easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+      });
+    }
+    void _zone;
+  }, [focusedZone]);
+
   // ── Manual mode input focus management ───────────────────────
 
   const handLength = hand?.length ?? 0;
@@ -128,7 +172,7 @@ export function HandFusionCalculator() {
     postDuel.state === "result" ||
     postDuel.state === "no_change";
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col gap-3">
+    <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar />}
 
@@ -159,31 +203,44 @@ export function HandFusionCalculator() {
       {/* ── Synced mode: 3D arena with both zones always visible ── */}
       {isSynced && (
         <div className="fm-zone-arena">
-          <ZonePanel
-            active={focusedZone === "field"}
-            count={bridge.field.length}
-            label="Field"
-            maxCount={5}
-            onFocus={() => setFocusedZone("field")}
-            zone="field"
-          >
-            <FieldDisplay cards={bridge.field} />
-          </ZonePanel>
-
-          <ZonePanel
-            active={focusedZone === "hand"}
-            count={hand.length}
-            label="Hand"
-            maxCount={HAND_SIZE}
-            onFocus={() => setFocusedZone("hand")}
-            zone="hand"
-          >
-            <HandDisplay
-              cards={hand}
-              drawing={bridge.phase === "draw"}
-              frozen={bridge.inDuel && !bridge.handReliable}
-            />
-          </ZonePanel>
+          {/* Keyed array: active zone first in DOM. React moves nodes on swap;
+              FLIP animation (above) smooths the visual transition. */}
+          {(focusedZone === "hand"
+            ? (["hand", "field"] as const)
+            : (["field", "hand"] as const)
+          ).map((zone) => (
+            <div
+              className="fm-zone-slot"
+              key={zone}
+              ref={zone === "hand" ? handZoneRef : fieldZoneRef}
+            >
+              {zone === "hand" ? (
+                <ZonePanel
+                  active={focusedZone === "hand"}
+                  count={hand.length}
+                  label="Hand"
+                  maxCount={HAND_SIZE}
+                  onFocus={() => setFocusedZone("hand")}
+                >
+                  <HandDisplay
+                    cards={hand}
+                    drawing={bridge.phase === "draw"}
+                    frozen={bridge.inDuel && !bridge.handReliable}
+                  />
+                </ZonePanel>
+              ) : (
+                <ZonePanel
+                  active={focusedZone === "field"}
+                  count={bridge.field.length}
+                  label="Field"
+                  maxCount={5}
+                  onFocus={() => setFocusedZone("field")}
+                >
+                  <FieldDisplay cards={bridge.field} />
+                </ZonePanel>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -245,9 +302,11 @@ export function HandFusionCalculator() {
       {/* ── Fusion results (only during hand/draw in synced mode, always in manual) ── */}
       {!isWaitingForDuel && (!isSynced || SHOW_FUSIONS_PHASES.has(bridge.phase)) && (
         <section>
-          <div className="mb-2">
-            <SectionLabel>Best Plays</SectionLabel>
-          </div>
+          {!isSynced && (
+            <div className="mb-1">
+              <SectionLabel>Best Plays</SectionLabel>
+            </div>
+          )}
           <FusionResultsList
             fieldCards={isSynced ? bridge.field : manualField}
             handCards={hand}
@@ -315,7 +374,6 @@ function DuelEnded({ lp, stats }: { lp: [number, number] | null; stats: DuelStat
 // ── Zone panel (3D-perspective card zone) ──────────────────────
 
 function ZonePanel({
-  zone,
   active,
   label,
   count,
@@ -323,7 +381,6 @@ function ZonePanel({
   onFocus,
   children,
 }: {
-  zone: FocusedZone;
   active: boolean;
   label: string;
   count: number;
@@ -332,7 +389,7 @@ function ZonePanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`fm-zone fm-zone--${zone} ${active ? "fm-zone--active" : "fm-zone--inactive"}`}>
+    <div className={`fm-zone ${active ? "fm-zone--active" : "fm-zone--inactive"}`}>
       <div className="fm-zone-header">
         <span className="fm-zone-header-label">{label}</span>
         <span className="fm-zone-header-count">

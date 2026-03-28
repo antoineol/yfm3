@@ -734,17 +734,33 @@ input[type="number"] {
  * ─────────────────────────────────────────────────────────────── */
 
 .fm-zone-arena {
+  position: relative; /* offset parent for FLIP offsetTop measurements */
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   perspective: 1200px;
   perspective-origin: center 60%;
+}
+
+/* Wrapper slots: handle stacking order and overlap.
+   Active zone is always first in DOM (keyed array swap + FLIP animation).
+   preserve-3d keeps the perspective chain intact through the wrapper. */
+.fm-zone-slot {
+  position: relative;
+  transform-style: preserve-3d;
+}
+.fm-zone-slot:first-child {
+  z-index: 2;
+}
+.fm-zone-slot:nth-child(2) {
+  z-index: 1;
+  margin-top: -32px;
 }
 
 .fm-zone {
   position: relative;
   border-radius: 10px;
-  padding: 8px;
+  padding: 6px;
   border: 1px solid transparent;
   will-change: transform, opacity;
   transition:
@@ -753,14 +769,6 @@ input[type="number"] {
     filter 450ms ease,
     border-color 300ms ease,
     box-shadow 300ms ease;
-}
-
-/* Fixed transform origins per zone position */
-.fm-zone--field {
-  transform-origin: center bottom;
-}
-.fm-zone--hand {
-  transform-origin: center top;
 }
 
 /* ── Active (foreground) ── */
@@ -772,19 +780,12 @@ input[type="number"] {
   box-shadow: 0 0 24px rgba(201, 168, 76, 0.03);
 }
 
-/* ── Inactive (receded) ── */
+/* ── Inactive (receded — always second slot, tucks behind active) ── */
 .fm-zone--inactive {
   opacity: 0.5;
   filter: brightness(0.75) saturate(0.7);
-}
-
-/* Field (top): top edge tilts away from viewer */
-.fm-zone--field.fm-zone--inactive {
-  transform: rotateX(12deg) scale(0.88) translateZ(-30px);
-}
-/* Hand (bottom): bottom edge tilts away from viewer */
-.fm-zone--hand.fm-zone--inactive {
-  transform: rotateX(-12deg) scale(0.88) translateZ(-30px);
+  transform: rotateX(-14deg) scale(0.85) translateZ(-40px);
+  transform-origin: center top;
 }
 
 /* Hover: inactive zone lifts toward viewer */
@@ -793,12 +794,7 @@ input[type="number"] {
   filter: brightness(0.85) saturate(0.8);
   border-color: rgba(201, 168, 76, 0.15);
   box-shadow: 0 0 20px rgba(201, 168, 76, 0.05);
-}
-.fm-zone--field.fm-zone--inactive:hover {
-  transform: rotateX(8deg) scale(0.9) translateZ(-15px);
-}
-.fm-zone--hand.fm-zone--inactive:hover {
-  transform: rotateX(-8deg) scale(0.9) translateZ(-15px);
+  transform: rotateX(-10deg) scale(0.88) translateZ(-20px);
 }
 
 /* ── Zone header ── */
@@ -806,7 +802,7 @@ input[type="number"] {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
   padding: 0 2px;
 }
 
@@ -847,11 +843,8 @@ input[type="number"] {
 }
 
 @media (min-width: 640px) {
-  .fm-zone-arena {
-    gap: 8px;
-  }
   .fm-zone {
-    padding: 10px;
+    padding: 8px;
   }
   .fm-zone-header-label {
     font-size: 11px;
