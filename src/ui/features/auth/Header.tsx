@@ -167,11 +167,21 @@ function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: (
 
       {hasUpdate && (
         <button
-          className="hidden lg:block px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
+          className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
           onClick={onUpdate}
           type="button"
         >
-          Update
+          <span className="hidden sm:inline">Update</span>
+          <svg
+            aria-hidden="true"
+            className="size-4 sm:hidden"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="M12 5v14m0 0-5-5m5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       )}
     </div>
