@@ -6,7 +6,7 @@ import {
   acquireGameData,
   computeGameDataHash,
   normalizeSerial,
-  parseGamelistCache,
+  parseGameDirs,
   resolveBinPath,
 } from "../../bridge/game-data.ts";
 
@@ -58,76 +58,32 @@ describe("computeGameDataHash", () => {
   });
 });
 
-// ── parseGamelistCache ──────────────────────────────────────────
+// ── parseGameDirs ──────────────────────────────────────────────
 
-/** Build a synthetic gamelist.cache entry. */
-function buildEntry(cuePath: string, serial: string): Buffer {
-  const pathBuf = Buffer.alloc(cuePath.length + 1); // null-terminated
-  pathBuf.write(cuePath, "ascii");
-
-  const serialAligned = Math.ceil(serial.length / 4) * 4;
-  const serialBuf = Buffer.alloc(serialAligned);
-  serialBuf.write(serial, "ascii");
-
-  const pathHeader = Buffer.alloc(4);
-  pathHeader.writeUInt32LE(pathBuf.length);
-
-  const serialHeader = Buffer.alloc(4);
-  serialHeader.writeUInt32LE(serial.length);
-
-  const trailing = Buffer.alloc(48); // metadata (unknown, filesize, unknown, timestamp, hash)
-
-  return Buffer.concat([pathHeader, pathBuf, serialHeader, serialBuf, trailing]);
-}
-
-function buildGamelistCache(entries: Array<{ cuePath: string; serial: string }>): Buffer {
-  const magic = Buffer.from("HLCE", "ascii");
-  const entryBufs = entries.map((e) => buildEntry(e.cuePath, e.serial));
-  return Buffer.concat([magic, ...entryBufs]);
-}
-
-describe("parseGamelistCache", () => {
-  it("returns empty for invalid magic", () => {
-    const buf = Buffer.from(`XYZW${"\x00".repeat(100)}`);
-    expect(parseGamelistCache(buf, "SLES_039.48")).toEqual([]);
+describe("parseGameDirs", () => {
+  it("extracts RecursivePaths from [GameList] section", () => {
+    const ini = "[GameList]\nRecursivePaths = C:\\jeux\\ps1\n[Other]\nFoo = bar\n";
+    expect(parseGameDirs(ini)).toEqual(["C:\\jeux\\ps1"]);
   });
 
-  it("returns empty for empty buffer", () => {
-    expect(parseGamelistCache(Buffer.alloc(0), "SLES_039.48")).toEqual([]);
+  it("handles CRLF line endings", () => {
+    const ini = "[GameList]\r\nRecursivePaths = D:\\games\r\n[Hacks]\r\n";
+    expect(parseGameDirs(ini)).toEqual(["D:\\games"]);
   });
 
-  it("finds a single matching entry", () => {
-    const buf = buildGamelistCache([{ cuePath: "C:\\games\\yfm-fr.cue", serial: "SLES-03948" }]);
-    const result = parseGamelistCache(buf, "SLES_039.48");
-    expect(result).toEqual(["C:\\games\\yfm-fr.cue"]);
+  it("returns empty when no [GameList] section", () => {
+    const ini = "[Hacks]\nExportSharedMemory = true\n";
+    expect(parseGameDirs(ini)).toEqual([]);
   });
 
-  it("matches across serial formats (dash vs underscore+dot)", () => {
-    const buf = buildGamelistCache([{ cuePath: "C:\\games\\yfm-us.cue", serial: "SLUS-01411" }]);
-    expect(parseGamelistCache(buf, "SLUS_014.11")).toEqual(["C:\\games\\yfm-us.cue"]);
+  it("returns empty when no RecursivePaths key", () => {
+    const ini = "[GameList]\nSomeOtherKey = value\n";
+    expect(parseGameDirs(ini)).toEqual([]);
   });
 
-  it("returns multiple matches for same serial", () => {
-    const buf = buildGamelistCache([
-      { cuePath: "C:\\games\\vanilla.cue", serial: "SLUS-01411" },
-      { cuePath: "C:\\games\\rp-mod.cue", serial: "SLUS-01411" },
-    ]);
-    const result = parseGamelistCache(buf, "SLUS_014.11");
-    expect(result).toEqual(["C:\\games\\vanilla.cue", "C:\\games\\rp-mod.cue"]);
-  });
-
-  it("skips non-matching entries", () => {
-    const buf = buildGamelistCache([
-      { cuePath: "C:\\games\\other.cue", serial: "SCUS-94163" },
-      { cuePath: "C:\\games\\yfm.cue", serial: "SLES-03948" },
-    ]);
-    const result = parseGamelistCache(buf, "SLES_039.48");
-    expect(result).toEqual(["C:\\games\\yfm.cue"]);
-  });
-
-  it("returns empty when no serial matches", () => {
-    const buf = buildGamelistCache([{ cuePath: "C:\\games\\other.cue", serial: "SCUS-94163" }]);
-    expect(parseGamelistCache(buf, "SLES_039.48")).toEqual([]);
+  it("trims whitespace from path", () => {
+    const ini = "[GameList]\nRecursivePaths =   C:\\games  \n";
+    expect(parseGameDirs(ini)).toEqual(["C:\\games"]);
   });
 });
 

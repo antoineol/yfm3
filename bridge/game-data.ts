@@ -19,7 +19,7 @@ import { extractEquips } from "../scripts/extract/extract-equips.ts";
 import { extractFusions } from "../scripts/extract/extract-fusions.ts";
 import { langIdxForSerial, loadDiscData } from "../scripts/extract/index.ts";
 import type { CardStats, DuelistData, EquipEntry, Fusion } from "../scripts/extract/types.ts";
-import { findDuckStationDataDir } from "./settings.ts";
+import { findSettingsPath } from "./settings.ts";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -47,7 +47,6 @@ interface GameDataCache {
 // ── Constants ─────────────────────────────────────────────────────
 
 const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — must match memory.ts
-const GAMELIST_MAGIC = "HLCE";
 const CACHE_FILENAME = "game-data-cache.json";
 
 // ── Main entry point ──────────────────────────────────────────────
@@ -75,30 +74,16 @@ export function acquireGameData(
   }
   console.log(`Game data cache miss (hash=${gameDataHash.slice(0, 12)}...)`);
 
-  // Resolve .bin path(s) from DuckStation's gamelist cache
-  const gamelistBuf = readGamelistCache();
-  if (!gamelistBuf) {
-    console.warn("Cannot read DuckStation gamelist — no .bin resolution possible");
+  // Resolve .bin path(s) by scanning DuckStation's game directories
+  const cuePaths = findCueFiles();
+  if (cuePaths.length === 0) {
+    console.warn("No .cue files found in DuckStation game directories");
     return null;
   }
 
-  const binPaths = serial ? cuesToBins(parseGamelistCache(gamelistBuf, serial)) : [];
-
-  // Try serial-matched bins first, then fall back to all gamelist entries.
-  // Mods often have a different serial in DuckStation than in RAM
-  // (custom serial, PAL disc with NTSC-U EXE, etc.).
-  let data =
-    binPaths.length > 0 ? extractFromBins(binPaths, gameDataHash, cardStats, serial) : null;
-
-  if (!data) {
-    const allBins = cuesToBins(parseAllGamelistPaths(gamelistBuf));
-    if (allBins.length > 0) {
-      console.log(
-        `Serial ${serial ?? "unknown"} did not match — trying all ${allBins.length} gamelist entries`,
-      );
-      data = extractFromBins(allBins, gameDataHash, cardStats, serial);
-    }
-  }
+  const allBins = cuesToBins(cuePaths);
+  const data =
+    allBins.length > 0 ? extractFromBins(allBins, gameDataHash, cardStats, serial) : null;
 
   if (data) {
     saveCache(cachePath, data);
@@ -160,26 +145,80 @@ function saveCache(cachePath: string, data: GameData): void {
   writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
 }
 
-// ── .bin path resolution ──────────────────────────────────────────
+// ── .cue file discovery ──────────────────────────────────────────
 
-function readGamelistCache(): Buffer | null {
-  const dsDataDir = findDuckStationDataDir();
-  if (!dsDataDir) {
-    console.warn("DuckStation data directory not found");
-    return null;
+/**
+ * Find all .cue files by scanning DuckStation's configured game directories.
+ * Reads `[GameList] RecursivePaths` from settings.ini — the same dirs
+ * DuckStation scans, so results always match what the UI shows.
+ */
+function findCueFiles(): string[] {
+  const settingsPath = findSettingsPath();
+  if (!settingsPath) {
+    console.warn("DuckStation settings.ini not found");
+    return [];
   }
-  const gamelistPath = join(dsDataDir, "cache", "gamelist.cache");
-  if (!existsSync(gamelistPath)) {
-    console.warn(`gamelist.cache not found at ${gamelistPath}`);
-    return null;
+  const content = readFileSync(settingsPath, "utf-8");
+  const gameDirs = parseGameDirs(content);
+  if (gameDirs.length === 0) {
+    console.warn("No game directories in DuckStation settings.ini");
+    return [];
   }
-  return readFileSync(gamelistPath);
+  const cues: string[] = [];
+  for (const dir of gameDirs) scanForCueFiles(dir, cues, 0);
+  return cues;
+}
+
+/**
+ * Extract game directories from settings.ini content.
+ * Parses `[GameList] RecursivePaths` (newline-separated list of dirs).
+ */
+export function parseGameDirs(iniContent: string): string[] {
+  const lines = iniContent.split(/\r?\n/);
+  let inSection = false;
+  const dirs: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "[GameList]") {
+      inSection = true;
+      continue;
+    }
+    if (inSection && trimmed.startsWith("[")) break;
+    if (inSection) {
+      const match = trimmed.match(/^RecursivePaths\s*=\s*(.+)/);
+      if (match?.[1]) dirs.push(match[1].trim());
+    }
+  }
+  return dirs;
+}
+
+const MAX_SCAN_DEPTH = 5;
+function scanForCueFiles(dir: string, out: string[], depth: number): void {
+  if (depth > MAX_SCAN_DEPTH || !existsSync(dir)) return;
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const name of entries) {
+    const full = join(dir, name);
+    if (name.toLowerCase().endsWith(".cue")) {
+      out.push(full);
+    } else {
+      try {
+        const stat = readdirSync(full); // throws if not a directory
+        if (stat) scanForCueFiles(full, out, depth + 1);
+      } catch {
+        // not a directory, skip
+      }
+    }
+  }
 }
 
 function cuesToBins(cuePaths: string[]): string[] {
   const binPaths: string[] = [];
   for (const cue of cuePaths) {
-    if (!existsSync(cue)) continue; // stale gamelist entry — directory was moved or deleted
     const bin = resolveBinPath(cue);
     if (bin) {
       binPaths.push(bin);
@@ -188,61 +227,6 @@ function cuesToBins(cuePaths: string[]): string[] {
     }
   }
   return binPaths;
-}
-
-/**
- * Parse DuckStation's gamelist.cache binary file and return .cue paths
- * matching the given serial.
- */
-export function parseGamelistCache(buf: Buffer, targetSerial: string): string[] {
-  const normalTarget = normalizeSerial(targetSerial);
-  return iterateGamelistEntries(buf)
-    .filter((e) => normalizeSerial(e.serial) === normalTarget)
-    .map((e) => e.path);
-}
-
-/** Return ALL .cue paths from a gamelist.cache buffer. */
-function parseAllGamelistPaths(buf: Buffer): string[] {
-  return iterateGamelistEntries(buf).map((e) => e.path);
-}
-
-/**
- * Scan gamelist.cache for disc image entries by finding `.cue` path markers.
- * The binary format varies across DuckStation versions, so instead of parsing
- * the entry structure we scan for `.cue` paths and the serial that follows.
- */
-const GAMELIST_SERIAL_RE = /^S[CL][A-Z]{2}-\d{5}/;
-function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: string }> {
-  if (buf.length < 8 || buf.subarray(0, 4).toString("ascii") !== GAMELIST_MAGIC) {
-    return [];
-  }
-
-  const entries: Array<{ path: string; serial: string }> = [];
-
-  for (let i = 4; i < buf.length - 4; i++) {
-    // Look for ".cue" followed by a low byte (null, newline, etc.)
-    if (buf[i] !== 0x2e || buf[i + 1] !== 0x63 || buf[i + 2] !== 0x75 || buf[i + 3] !== 0x65)
-      continue;
-    if ((buf[i + 4] ?? 0) >= 0x20) continue;
-
-    // Walk back to find path start (first printable char after a non-printable)
-    let start = i;
-    while (start > 0 && (buf[start - 1] ?? 0) >= 0x20) start--;
-    const path = buf.subarray(start, i + 4).toString("utf-8");
-
-    // Serial follows after null/low bytes
-    let sPos = i + 4;
-    while (sPos < buf.length && (buf[sPos] ?? 0) < 0x20) sPos++;
-    let sEnd = sPos;
-    while (sEnd < buf.length && (buf[sEnd] ?? 0) >= 0x20) sEnd++;
-    const serial = buf.subarray(sPos, sEnd).toString("ascii");
-
-    if (path.endsWith(".cue") && GAMELIST_SERIAL_RE.test(serial)) {
-      entries.push({ path, serial });
-    }
-  }
-
-  return entries;
 }
 
 /**
