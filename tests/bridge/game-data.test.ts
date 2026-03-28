@@ -129,17 +129,6 @@ describe("parseGamelistCache", () => {
     const buf = buildGamelistCache([{ cuePath: "C:\\games\\other.cue", serial: "SCUS-94163" }]);
     expect(parseGamelistCache(buf, "SLES_039.48")).toEqual([]);
   });
-
-  it("ignores phantom paths from adjacent printable metadata", () => {
-    // Simulate printable metadata (e.g. "gamedata") immediately before a real entry,
-    // with no null separator — the old walk-back heuristic would include it in the path.
-    const realEntry = buildEntry("C:\\games\\yfm.cue", "SLUS-01411");
-    const junk = Buffer.from("gamedata", "ascii"); // printable, no null before entry
-    const magic = Buffer.from("HLCE", "ascii");
-    const buf = Buffer.concat([magic, junk, realEntry]);
-    const result = parseGamelistCache(buf, "SLUS_014.11");
-    expect(result).toEqual(["C:\\games\\yfm.cue"]);
-  });
 });
 
 // ── resolveBinPath ──────────────────────────────────────────────

@@ -179,6 +179,7 @@ function readGamelistCache(): Buffer | null {
 function cuesToBins(cuePaths: string[]): string[] {
   const binPaths: string[] = [];
   for (const cue of cuePaths) {
+    if (!existsSync(cue)) continue; // stale gamelist entry — directory was moved or deleted
     const bin = resolveBinPath(cue);
     if (bin) {
       binPaths.push(bin);
@@ -206,13 +207,9 @@ function parseAllGamelistPaths(buf: Buffer): string[] {
 }
 
 /**
- * Scan gamelist.cache for disc image entries.
- *
- * Uses a .cue byte scan (version-agnostic — no dependency on trailing metadata
- * size which varies across DuckStation versions), then reads the length prefixes
- * to get exact path and serial boundaries (no heuristic walk-back).
- *
- * Entry layout: [pathLen:u32LE][path (null-terminated)][serialLen:u32LE][serial]…
+ * Scan gamelist.cache for disc image entries by finding `.cue` path markers.
+ * The binary format varies across DuckStation versions, so instead of parsing
+ * the entry structure we scan for `.cue` paths and the serial that follows.
  */
 const GAMELIST_SERIAL_RE = /^S[CL][A-Z]{2}-\d{5}/;
 function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: string }> {
@@ -222,34 +219,23 @@ function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: stri
 
   const entries: Array<{ path: string; serial: string }> = [];
 
-  for (let i = 4; i < buf.length - 5; i++) {
-    // Look for ".cue" followed by a null byte
-    if (
-      buf[i] !== 0x2e ||
-      buf[i + 1] !== 0x63 ||
-      buf[i + 2] !== 0x75 ||
-      buf[i + 3] !== 0x65 ||
-      buf[i + 4] !== 0x00
-    )
+  for (let i = 4; i < buf.length - 4; i++) {
+    // Look for ".cue" followed by a low byte (null, newline, etc.)
+    if (buf[i] !== 0x2e || buf[i + 1] !== 0x63 || buf[i + 2] !== 0x75 || buf[i + 3] !== 0x65)
       continue;
+    if ((buf[i + 4] ?? 0) >= 0x20) continue;
 
-    // Use the length prefix to find the exact path start.
-    // Path (with null) ends at i+4 inclusive, so pathLen = i+5-start.
-    // The u32LE header at start-4 must equal pathLen.
-    const nullPos = i + 4;
-    const headerPos = findPathHeader(buf, i);
-    if (headerPos < 4) continue;
-    const pathStart = headerPos + 4;
-    const path = buf.subarray(pathStart, i + 4).toString("utf-8");
+    // Walk back to find path start (first printable char after a non-printable)
+    let start = i;
+    while (start > 0 && (buf[start - 1] ?? 0) >= 0x20) start--;
+    const path = buf.subarray(start, i + 4).toString("utf-8");
 
-    // Serial length prefix follows immediately after the path null byte
-    const serialHeaderPos = nullPos + 1;
-    if (serialHeaderPos + 4 > buf.length) continue;
-    const serialLen = buf.readUInt32LE(serialHeaderPos);
-    if (serialLen < 4 || serialLen > 32) continue;
-    const serialStart = serialHeaderPos + 4;
-    if (serialStart + serialLen > buf.length) continue;
-    const serial = buf.subarray(serialStart, serialStart + serialLen).toString("ascii");
+    // Serial follows after null/low bytes
+    let sPos = i + 4;
+    while (sPos < buf.length && (buf[sPos] ?? 0) < 0x20) sPos++;
+    let sEnd = sPos;
+    while (sEnd < buf.length && (buf[sEnd] ?? 0) >= 0x20) sEnd++;
+    const serial = buf.subarray(sPos, sEnd).toString("ascii");
 
     if (path.endsWith(".cue") && GAMELIST_SERIAL_RE.test(serial)) {
       entries.push({ path, serial });
@@ -257,29 +243,6 @@ function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: stri
   }
 
   return entries;
-}
-
-/**
- * Walk back from a ".cue" match to find the u32LE path-length header.
- * Returns the header position, or -1 if not found.
- */
-function findPathHeader(buf: Buffer, dotCuePos: number): number {
-  // Walk back through printable bytes to approximate the path start
-  let start = dotCuePos;
-  while (start > 4 && (buf[start - 1] ?? 0) >= 0x20) start--;
-  // The header at start-4 should encode pathLen = dotCuePos + 5 - start
-  if (start >= 4 && buf.readUInt32LE(start - 4) === dotCuePos + 5 - start) {
-    return start - 4;
-  }
-  // Walk-back overshot (adjacent printable data) — scan forward from
-  // the approximate start to find a header that gives a consistent length.
-  for (let h = start - 4; h <= dotCuePos - 8; h++) {
-    const len = buf.readUInt32LE(h);
-    if (len >= 5 && len <= 1024 && h + 4 + len - 1 === dotCuePos + 4) {
-      return h;
-    }
-  }
-  return -1;
 }
 
 /**
