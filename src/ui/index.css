@@ -734,7 +734,6 @@ input[type="number"] {
  * ─────────────────────────────────────────────────────────────── */
 
 .fm-zone-arena {
-  position: relative; /* offset parent for FLIP offsetTop measurements */
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -742,12 +741,10 @@ input[type="number"] {
   perspective-origin: center 60%;
 }
 
-/* Wrapper slots: handle stacking order and overlap.
-   Active zone is always first in DOM (keyed array swap + FLIP animation).
-   preserve-3d keeps the perspective chain intact through the wrapper. */
+/* Wrapper slots: active zone is always first in DOM (keyed array swap).
+   View Transitions API animates the position swap. */
 .fm-zone-slot {
   position: relative;
-  transform-style: preserve-3d;
 }
 .fm-zone-slot:first-child {
   z-index: 2;
@@ -755,6 +752,24 @@ input[type="number"] {
 .fm-zone-slot:nth-child(2) {
   z-index: 1;
   margin-top: -32px;
+}
+
+/* ── View Transition: zone swap animation ── */
+::view-transition-group(hand-zone),
+::view-transition-group(field-zone) {
+  animation-duration: 550ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Instant content swap (no cross-fade) — CSS transitions on .fm-zone
+   handle the visual active/inactive change independently. */
+::view-transition-old(hand-zone),
+::view-transition-old(field-zone) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(hand-zone),
+::view-transition-new(field-zone) {
+  animation: none;
 }
 
 .fm-zone {

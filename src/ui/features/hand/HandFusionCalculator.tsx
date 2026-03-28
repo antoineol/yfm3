@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
@@ -52,9 +53,20 @@ export function HandFusionCalculator() {
   // ── Zone toggle (hand/field, synced mode only) ───────────────
   const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
 
+  // Animated zone switch via View Transitions API (browser-native FLIP).
+  const animatedSetZone = useCallback((zone: FocusedZone) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        flushSync(() => setFocusedZone(zone));
+      });
+    } else {
+      setFocusedZone(zone);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isSynced) {
-      setFocusedZone("hand");
+      setFocusedZone("hand"); // Reset without animation
       return;
     }
     // Auto-switch based on game phase:
@@ -62,55 +74,11 @@ export function HandFusionCalculator() {
     // fusion/field/battle/opponent → field expanded (action is on the board)
     // other → keep current (transitional, don't flicker)
     if (bridge.phase === "hand" || bridge.phase === "draw") {
-      setFocusedZone("hand");
+      animatedSetZone("hand");
     } else if (bridge.phase !== "other") {
-      setFocusedZone("field");
+      animatedSetZone("field");
     }
-  }, [bridge.phase, isSynced]);
-
-  // ── FLIP animation for zone swap ───────────────────────────
-  const handZoneRef = useRef<HTMLDivElement>(null);
-  const fieldZoneRef = useRef<HTMLDivElement>(null);
-  const zoneSnapshotRef = useRef<{ hand: number; field: number } | null>(null);
-
-  // Snapshot zone positions after every paint.
-  // Uses offsetTop (layout-only) so running WAAPI animations don't pollute the snapshot.
-  useEffect(() => {
-    if (handZoneRef.current && fieldZoneRef.current) {
-      zoneSnapshotRef.current = {
-        hand: handZoneRef.current.offsetTop,
-        field: fieldZoneRef.current.offsetTop,
-      };
-    }
-  });
-
-  // FLIP-animate zone position swap before paint
-  useLayoutEffect(() => {
-    // Read focusedZone so the effect re-runs on zone switch
-    const _zone = focusedZone;
-    const snap = zoneSnapshotRef.current;
-    if (!snap) return;
-    const hand = handZoneRef.current;
-    const field = fieldZoneRef.current;
-    if (!hand || !field) return;
-
-    // Cancel any in-progress FLIP animations
-    for (const a of hand.getAnimations()) a.cancel();
-    for (const a of field.getAnimations()) a.cancel();
-
-    for (const [el, prev] of [
-      [hand, snap.hand],
-      [field, snap.field],
-    ] as const) {
-      const dy = prev - el.offsetTop;
-      if (Math.abs(dy) < 2) continue;
-      el.animate([{ transform: `translateY(${String(dy)}px)` }, { transform: "translateY(0)" }], {
-        duration: 550,
-        easing: "cubic-bezier(0.16, 1, 0.3, 1)",
-      });
-    }
-    void _zone;
-  }, [focusedZone]);
+  }, [bridge.phase, isSynced, animatedSetZone]);
 
   // ── Manual mode input focus management ───────────────────────
 
@@ -203,24 +171,19 @@ export function HandFusionCalculator() {
       {/* ── Synced mode: 3D arena with both zones always visible ── */}
       {isSynced && (
         <div className="fm-zone-arena">
-          {/* Keyed array: active zone first in DOM. React moves nodes on swap;
-              FLIP animation (above) smooths the visual transition. */}
+          {/* Keyed array: active zone first in DOM. View Transitions API
+              animates the position swap when the DOM order changes. */}
           {(focusedZone === "hand"
             ? (["hand", "field"] as const)
             : (["field", "hand"] as const)
           ).map((zone) => (
-            <div
-              className="fm-zone-slot"
-              key={zone}
-              ref={zone === "hand" ? handZoneRef : fieldZoneRef}
-            >
+            <div className="fm-zone-slot" key={zone} style={{ viewTransitionName: `${zone}-zone` }}>
               {zone === "hand" ? (
                 <ZonePanel
                   active={focusedZone === "hand"}
                   count={hand.length}
                   label="Hand"
                   maxCount={HAND_SIZE}
-                  onFocus={() => setFocusedZone("hand")}
                 >
                   <HandDisplay
                     cards={hand}
@@ -234,10 +197,19 @@ export function HandFusionCalculator() {
                   count={bridge.field.length}
                   label="Field"
                   maxCount={5}
-                  onFocus={() => setFocusedZone("field")}
                 >
                   <FieldDisplay cards={bridge.field} />
                 </ZonePanel>
+              )}
+              {/* Focus overlay on the wrapper — not inside the zone,
+                  so it covers the full slot area regardless of 3D transforms */}
+              {focusedZone !== zone && (
+                <button
+                  aria-label={`Switch to ${zone}`}
+                  className="fm-zone-focus-btn"
+                  onClick={() => animatedSetZone(zone)}
+                  type="button"
+                />
               )}
             </div>
           ))}
@@ -378,14 +350,12 @@ function ZonePanel({
   label,
   count,
   maxCount,
-  onFocus,
   children,
 }: {
   active: boolean;
   label: string;
   count: number;
   maxCount: number;
-  onFocus: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -397,14 +367,6 @@ function ZonePanel({
         </span>
       </div>
       {children}
-      {!active && (
-        <button
-          aria-label={`Switch to ${label.toLowerCase()}`}
-          className="fm-zone-focus-btn"
-          onClick={onFocus}
-          type="button"
-        />
-      )}
     </div>
   );
 }
