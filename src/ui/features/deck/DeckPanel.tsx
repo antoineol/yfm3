@@ -72,7 +72,7 @@ export function DeckPanel() {
       </PanelHeader>
       <PanelBody>
         <CardTable entries={entries} leftActions={readOnly ? undefined : renderLeftActions} />
-        <div className="flex flex-col gap-4 mt-4 pt-4 border-t border-border-subtle">
+        <div className="flex flex-col gap-4 mt-4 pt-4 px-3 border-t border-border-subtle">
           <DeckFusionList deckCardIds={deckCardIds} />
           <ScoreExplanation deckCardIds={deckCardIds} />
         </div>

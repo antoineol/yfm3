@@ -476,8 +476,6 @@ export type EmulatorBridge = BridgeState & {
 type ProcessResult = {
   state: BridgeState;
   tracker: EndedTracker;
-  /** Raw state for CPU swap detection across consecutive messages. */
-  raw: RawBridgeState | null;
 };
 
 /**
@@ -491,7 +489,6 @@ export function processBridgeMessage(
   msg: unknown,
   currentState: BridgeState,
   tracker: EndedTracker,
-  prevRaw: RawBridgeState | null,
   now: number,
 ): ProcessResult | null {
   if (typeof msg !== "object" || msg === null) return null;
@@ -500,17 +497,17 @@ export function processBridgeMessage(
 
   // ── Partial update: background download staged an update ────────
   if (m.type === "update_staged") {
-    return { state: { ...currentState, updateStaged: true }, tracker, raw: prevRaw };
+    return { state: { ...currentState, updateStaged: true }, tracker };
   }
 
   // ── Partial update: update-and-restart acknowledged ─────────────
   if (m.type === "update_restart_ack") {
-    return { state: { ...currentState, updating: true }, tracker, raw: prevRaw };
+    return { state: { ...currentState, updating: true }, tracker };
   }
 
   // ── Partial update: restart failure ─────────────────────────────
   if (m.type === "restart_result" && m.success === false) {
-    return { state: { ...currentState, restartFailed: true }, tracker, raw: prevRaw };
+    return { state: { ...currentState, restartFailed: true }, tracker };
   }
 
   // ── Partial update: game data from disc ─────────────────────────
@@ -519,7 +516,6 @@ export function processBridgeMessage(
       return {
         state: { ...currentState, gameData: null, gameDataError: m.error as string },
         tracker,
-        raw: prevRaw,
       };
     }
     return {
@@ -534,7 +530,6 @@ export function processBridgeMessage(
         gameDataError: null,
       },
       tracker,
-      raw: prevRaw,
     };
   }
 
@@ -551,12 +546,14 @@ export function processBridgeMessage(
       now,
     );
 
-    // CPU swap detection: compare raw opponent hand across consecutive messages
+    // CPU swap detection: compare interpreted hands (same data that drives the
+    // UI). Fusion-consumed cards are already filtered out, so hand count changes
+    // and detection is skipped. No raw state tracking needed.
     const newSwaps = detectCpuSwaps(
-      prevRaw?.opponentHand,
-      raw.opponentHand,
-      prevRaw?.opponentHandSlots,
-      raw.opponentHandSlots,
+      currentState.opponentHand,
+      interpreted.opponentHand,
+      currentState.opponentField.length,
+      interpreted.opponentField.length,
       currentState.inDuel,
       interpreted.inDuel,
       now,
@@ -589,7 +586,6 @@ export function processBridgeMessage(
         cpuSwaps,
       },
       tracker: nextTracker,
-      raw,
     };
   }
 
@@ -602,7 +598,6 @@ export function processBridgeMessage(
         version: stateMsg.version ?? null,
       },
       tracker,
-      raw: null,
     };
   }
 
@@ -623,7 +618,6 @@ export function processBridgeMessage(
         version: disconnected.version ?? null,
       },
       tracker,
-      raw: null,
     };
   }
 
@@ -646,7 +640,6 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const endedTrackerRef = useRef<EndedTracker>(INITIAL_ENDED_TRACKER);
-  const prevRawRef = useRef<RawBridgeState | null>(null);
 
   const connect = useCallback(() => {
     if (!enabledRef.current) return;
@@ -670,16 +663,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       try {
         const msg: unknown = JSON.parse(event.data as string);
         setState((current) => {
-          const result = processBridgeMessage(
-            msg,
-            current,
-            endedTrackerRef.current,
-            prevRawRef.current,
-            Date.now(),
-          );
+          const result = processBridgeMessage(msg, current, endedTrackerRef.current, Date.now());
           if (!result) return current;
           endedTrackerRef.current = result.tracker;
-          prevRawRef.current = result.raw;
           return result.state;
         });
       } catch {

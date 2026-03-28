@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockRemoveOne = vi.fn();
 
 vi.mock("convex/react", () => ({
+  useQuery: () => undefined,
   useMutation: (ref: string) => {
     if (ref === "removeOneByCardId") return mockRemoveOne;
     return vi.fn();
@@ -14,6 +15,7 @@ vi.mock("convex/react", () => ({
 vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     deck: { removeOneByCardId: "removeOneByCardId" },
+    userSettings: { getSelectedMod: "getSelectedMod" },
   },
 }));
 

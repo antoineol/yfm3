@@ -119,7 +119,11 @@ export function CollectionPanel() {
           />
         )}
       </PanelHeader>
-      {!readOnly && <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />}
+      {!readOnly && (
+        <div className="px-3">
+          <LastAddedCardHint comboboxOpen={comboboxOpen} inputRef={inputRef} />
+        </div>
+      )}
       {data.totalOwnedCards === 0 ? (
         readOnly ? (
           <PanelEmptyState
@@ -127,7 +131,7 @@ export function CollectionPanel() {
             title="Waiting for emulator sync..."
           />
         ) : data.deckLength === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 gap-5 text-center">
+          <div className="flex flex-col items-center justify-center py-8 px-3 gap-5 text-center">
             <div className="flex gap-1.5 opacity-50">
               <div className="w-8 h-11 border-2 border-gold-dim rounded -rotate-6" />
               <div className="w-8 h-11 border-2 border-gold rounded" />

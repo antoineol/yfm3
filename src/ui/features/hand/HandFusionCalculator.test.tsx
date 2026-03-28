@@ -103,6 +103,10 @@ vi.mock("./use-sync-cpu-swaps.ts", () => ({
   useSyncCpuSwaps: vi.fn(),
 }));
 
+vi.mock("./CpuCheatBanner.tsx", () => ({
+  CpuCheatBanner: () => null,
+}));
+
 vi.mock("./use-post-duel-suggestion.ts", () => ({
   usePostDuelSuggestion: vi.fn(() => ({
     state: "idle",

@@ -36,7 +36,7 @@ export function SortableHeader({
 }) {
   return (
     <th
-      className={`${align} py-2 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
+      className={`${align} py-1.5 ${px} font-normal cursor-pointer select-none hover:text-text-primary ${dir ? "text-gold" : ""}`}
       onClick={onClick}
     >
       {label}

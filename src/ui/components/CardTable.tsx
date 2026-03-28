@@ -4,8 +4,9 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
-import { formatCardId } from "../lib/format.ts";
+import { artworkSrc, formatCardId } from "../lib/format.ts";
 import { useIsDesktop } from "../lib/use-is-desktop.ts";
+import { useSelectedMod } from "../lib/use-selected-mod.ts";
 import { CardName } from "./CardName.tsx";
 import type { SortKey, SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
@@ -103,6 +104,7 @@ export function CardTable<T extends CardEntry>({
   defaultSort?: SortState;
   showKinds?: boolean;
 }) {
+  const modId = useSelectedMod();
   const isDesktop = useIsDesktop();
   const [animateRef] = useAutoAnimate();
   const [sort, setSort] = useState<SortState>(defaultSort ?? { key: "id", dir: "asc" });
@@ -128,6 +130,7 @@ export function CardTable<T extends CardEntry>({
             hasCopyColumns={hasCopyColumns}
             key={e.rowKey ?? e.id}
             leftActions={leftActions}
+            modId={modId}
             showC={showC}
             showD={showD}
           />
@@ -141,20 +144,21 @@ export function CardTable<T extends CardEntry>({
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle">
           <tr className="text-text-secondary text-xs uppercase tracking-wide">
-            {leftActions && <th className="py-2 px-1 font-normal" />}
+            {leftActions && <th className="py-1.5 px-1 font-normal" />}
+            <th className="py-1.5 w-7" />
             <SortableHeader
               dir={sort?.key === "id" ? sort.dir : undefined}
               label="#"
               onClick={() => handleSortChange("id")}
             />
-            <th className="text-left py-2 px-1 font-normal">Card</th>
+            <th className="text-left py-1.5 px-1 font-normal">Card</th>
             {showC && (
-              <th className="text-center py-2 px-1 font-normal" title="In collection">
+              <th className="text-center py-1.5 px-1 font-normal" title="In collection">
                 C
               </th>
             )}
             {showD && (
-              <th className="text-center py-2 px-1 font-normal" title="In deck">
+              <th className="text-center py-1.5 px-1 font-normal" title="In deck">
                 D
               </th>
             )}
@@ -164,16 +168,16 @@ export function CardTable<T extends CardEntry>({
               onClick={() => handleSortChange("atk")}
               px="px-2"
             />
-            <th className="text-left py-2 px-2 font-normal">DFD</th>
+            <th className="text-left py-1.5 px-2 font-normal">DFD</th>
             {showKinds && (
               <>
-                <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind1</th>
-                <th className="text-left py-2 px-1 font-normal hidden sm:table-cell">Kind2</th>
-                <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Kind3</th>
-                <th className="text-left py-2 px-1 font-normal hidden md:table-cell">Color</th>
+                <th className="text-left py-1.5 px-1 font-normal hidden sm:table-cell">Kind1</th>
+                <th className="text-left py-1.5 px-1 font-normal hidden sm:table-cell">Kind2</th>
+                <th className="text-left py-1.5 px-1 font-normal hidden md:table-cell">Kind3</th>
+                <th className="text-left py-1.5 px-1 font-normal hidden md:table-cell">Color</th>
               </>
             )}
-            {actions && <th className="py-2 px-1 font-normal" />}
+            {actions && <th className="py-1.5 px-1 font-normal" />}
           </tr>
         </thead>
         <tbody ref={animateRef}>
@@ -223,8 +227,16 @@ export function CardTable<T extends CardEntry>({
                 key={e.rowKey ?? e.id}
               >
                 {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
-                <td className={`py-1.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
-                <td className={`py-1.5 px-1 ${nameColor}`}>
+                <td className="py-0.5 px-1">
+                  <img
+                    alt=""
+                    className="w-7 h-6 object-cover rounded-[3px] border border-border-subtle/50"
+                    loading="lazy"
+                    src={artworkSrc(modId, e.id)}
+                  />
+                </td>
+                <td className={`py-0.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
+                <td className={`py-0.5 px-1 ${nameColor}`}>
                   <CardName cardId={e.id} className={nameColor} name={e.name} />
                   {!hasCopyColumns && e.qty > 1 && (
                     <span
@@ -234,36 +246,36 @@ export function CardTable<T extends CardEntry>({
                 </td>
                 {showC && (
                   <td
-                    className={`py-1.5 px-1 text-center font-mono text-xs ${e.collectionCount ? "text-text-secondary" : "text-text-muted/50"}`}
+                    className={`py-0.5 px-1 text-center font-mono text-xs ${e.collectionCount ? "text-text-secondary" : "text-text-muted/50"}`}
                   >
                     {e.collectionCount ?? 0}
                   </td>
                 )}
                 {showD && (
                   <td
-                    className={`py-1.5 px-1 text-center font-mono text-xs ${e.deckCount ? "text-text-secondary" : "text-text-muted/50"}`}
+                    className={`py-0.5 px-1 text-center font-mono text-xs ${e.deckCount ? "text-text-secondary" : "text-text-muted/50"}`}
                   >
                     {e.deckCount ?? 0}
                   </td>
                 )}
-                <td className={`py-1.5 px-2 text-left font-mono font-bold ${atkColor}`}>
+                <td className={`py-0.5 px-2 text-left font-mono font-bold ${atkColor}`}>
                   {e.isMonster ? e.atk : ""}
                 </td>
-                <td className={`py-1.5 px-2 text-left font-mono text-xs ${defColor}`}>
+                <td className={`py-0.5 px-2 text-left font-mono text-xs ${defColor}`}>
                   {e.isMonster ? e.def : ""}
                 </td>
                 {showKinds && (
                   <>
-                    <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+                    <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
                       {e.kind1}
                     </td>
-                    <td className="py-1.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+                    <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
                       {e.kind2}
                     </td>
-                    <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
+                    <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">
                       {e.kind3}
                     </td>
-                    <td className="py-1.5 px-1 text-text-muted text-xs hidden md:table-cell">
+                    <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">
                       {e.color}
                     </td>
                   </>
@@ -289,6 +301,7 @@ function MobileCardRow<T extends CardEntry>({
   hasCopyColumns,
   showC,
   showD,
+  modId,
 }: {
   entry: T;
   leftActions?: (entry: T) => ReactNode;
@@ -296,6 +309,7 @@ function MobileCardRow<T extends CardEntry>({
   hasCopyColumns: boolean;
   showC: boolean;
   showD: boolean;
+  modId: string;
 }) {
   const diff = e.diffStatus;
   const rowBg =
@@ -323,57 +337,65 @@ function MobileCardRow<T extends CardEntry>({
 
   return (
     <div
-      className={`flex flex-col gap-1.5 py-3 px-3 border-b border-border-subtle/50 ${rowBg} ${e.qty === 0 ? "opacity-40" : ""}`}
+      className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${rowBg} ${e.qty === 0 ? "opacity-40" : ""}`}
     >
-      {/* Row 1: Name + stats */}
-      <div className="flex items-baseline gap-3">
-        <span className={`flex-1 min-w-0 truncate flex text-[15px] ${nameColor}`}>
-          <CardName cardId={e.id} className={nameColor} name={e.name} />
-          {!hasCopyColumns && e.qty > 1 && (
-            <span className={`${qtyColor} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
-          )}
-        </span>
-        {e.isMonster && (
-          <span className="shrink-0 flex items-baseline gap-1.5">
-            <span className={`font-mono font-bold text-base ${atkColor}`}>{e.atk}</span>
-            <span className={`font-mono text-xs ${defColor}`}>/ {e.def}</span>
+      <img
+        alt=""
+        className="w-9 h-8 object-cover rounded-[3px] border border-border-subtle/50 shrink-0"
+        loading="lazy"
+        src={artworkSrc(modId, e.id)}
+      />
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        {/* Row 1: Name + stats */}
+        <div className="flex items-baseline gap-3">
+          <span className={`flex-1 min-w-0 truncate flex text-[15px] ${nameColor}`}>
+            <CardName cardId={e.id} className={nameColor} name={e.name} />
+            {!hasCopyColumns && e.qty > 1 && (
+              <span className={`${qtyColor} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
+            )}
           </span>
-        )}
-      </div>
+          {e.isMonster && (
+            <span className="shrink-0 flex items-baseline gap-1.5">
+              <span className={`font-mono font-bold text-base ${atkColor}`}>{e.atk}</span>
+              <span className={`font-mono text-xs ${defColor}`}>/ {e.def}</span>
+            </span>
+          )}
+        </div>
 
-      {/* Row 2: Ownership pills + actions */}
-      <div className="flex items-center gap-2">
-        <div className={`text-xs font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
-        {hasPills && (
-          <div className="flex items-center gap-1.5">
-            {showC && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-1 text-text-secondary">
-                <span className="text-text-muted">C</span>
-                <span
-                  className={`font-bold ${(e.collectionCount ?? 0) > 0 ? "text-text-primary" : "text-text-muted"}`}
-                >
-                  {e.collectionCount ?? 0}
+        {/* Row 2: Ownership pills + actions */}
+        <div className="flex items-center gap-2">
+          <div className={`text-xs font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
+          {hasPills && (
+            <div className="flex items-center gap-1.5">
+              {showC && (
+                <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-0.5 text-text-secondary">
+                  <span className="text-text-muted">C</span>
+                  <span
+                    className={`font-bold ${(e.collectionCount ?? 0) > 0 ? "text-text-primary" : "text-text-muted"}`}
+                  >
+                    {e.collectionCount ?? 0}
+                  </span>
                 </span>
-              </span>
-            )}
-            {showD && (
-              <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-1 text-text-secondary">
-                <span className="text-text-muted">D</span>
-                <span
-                  className={`font-bold ${(e.deckCount ?? 0) > 0 ? "text-gold" : "text-text-muted"}`}
-                >
-                  {e.deckCount ?? 0}
+              )}
+              {showD && (
+                <span className="inline-flex items-center gap-1 text-xs font-mono bg-bg-surface rounded px-2 py-0.5 text-text-secondary">
+                  <span className="text-text-muted">D</span>
+                  <span
+                    className={`font-bold ${(e.deckCount ?? 0) > 0 ? "text-gold" : "text-text-muted"}`}
+                  >
+                    {e.deckCount ?? 0}
+                  </span>
                 </span>
-              </span>
-            )}
-          </div>
-        )}
-        {(leftActions || actions) && (
-          <div className="ml-auto flex items-center gap-2">
-            {leftActions?.(e)}
-            {actions?.(e)}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+          {(leftActions || actions) && (
+            <div className="ml-auto flex items-center gap-2">
+              {leftActions?.(e)}
+              {actions?.(e)}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

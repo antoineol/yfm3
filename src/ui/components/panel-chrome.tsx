@@ -9,7 +9,7 @@ export function PanelCard({
 }) {
   return (
     <div
-      className={`min-h-0 flex flex-col min-w-0 bg-bg-panel border border-border-subtle rounded-xl p-3 shadow-panel ${className}`}
+      className={`min-h-0 flex flex-col min-w-0 bg-bg-panel border border-border-subtle rounded-xl py-3 shadow-panel ${className}`}
     >
       {children}
     </div>
@@ -32,7 +32,7 @@ export function PanelHeader({
   bottomBar?: ReactNode;
 }) {
   return (
-    <div className="relative flex items-center gap-3 pb-3 mb-2 border-b border-border-subtle">
+    <div className="relative flex items-center gap-3 px-3 pb-3 mb-2 border-b border-border-subtle">
       <h2 className="font-display text-sm font-bold uppercase tracking-wide text-gold shrink-0">
         {title}
       </h2>
@@ -49,7 +49,7 @@ export function PanelHeader({
 
 export function PanelLoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3">
+    <div className="flex flex-col items-center justify-center py-16 px-3 gap-3">
       <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-spin-gold" />
       <div className="space-y-2 w-full max-w-xs">
         {[1, 2, 3].map((i) => (
@@ -71,7 +71,7 @@ export function PanelLoadingState() {
 
 export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+    <div className="flex flex-col items-center justify-center py-16 px-3 gap-3 text-center">
       <div className="w-12 h-16 border-2 border-text-muted rounded-lg opacity-40" />
       <p className="text-text-secondary">{title}</p>
       <p className="text-xs text-text-muted">{subtitle}</p>

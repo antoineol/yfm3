@@ -34,6 +34,7 @@ vi.mock("../../components/CardAutocomplete.tsx", () => ({
 }));
 
 vi.mock("convex/react", () => ({
+  useQuery: () => undefined,
   useMutation: (ref: string) => {
     if (ref === "addCard") return mockAddCard;
     if (ref === "removeCard") return mockRemoveCard;
@@ -46,6 +47,7 @@ vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     ownedCards: { addCard: "addCard", removeCard: "removeCard" },
     deck: { addToDeck: "addToDeck" },
+    userSettings: { getSelectedMod: "getSelectedMod" },
   },
 }));
 

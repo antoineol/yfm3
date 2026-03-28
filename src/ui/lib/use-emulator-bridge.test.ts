@@ -829,22 +829,22 @@ describe("processBridgeMessage", () => {
     current: BridgeState = INITIAL_BRIDGE_STATE,
     t: EndedTracker = tracker,
   ) {
-    const result = processBridgeMessage(msg, current, t, null, T);
+    const result = processBridgeMessage(msg, current, t, T);
     expect(result).not.toBeNull();
     // Safe after the assertion above
     return result as Exclude<typeof result, null>;
   }
 
   it("returns null for non-object messages", () => {
-    expect(processBridgeMessage(null, INITIAL_BRIDGE_STATE, tracker, null, T)).toBeNull();
-    expect(processBridgeMessage("string", INITIAL_BRIDGE_STATE, tracker, null, T)).toBeNull();
-    expect(processBridgeMessage(42, INITIAL_BRIDGE_STATE, tracker, null, T)).toBeNull();
+    expect(processBridgeMessage(null, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+    expect(processBridgeMessage("string", INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+    expect(processBridgeMessage(42, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
   });
 
   it("returns null for unrecognized message shapes", () => {
     // { connected: true } but neither "ready" nor "waiting_for_game"
     const msg = { connected: true, status: "unknown_status", pid: 1 };
-    expect(processBridgeMessage(msg, INITIAL_BRIDGE_STATE, tracker, null, T)).toBeNull();
+    expect(processBridgeMessage(msg, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
   });
 
   describe("ready message", () => {
@@ -1039,34 +1039,27 @@ describe("processBridgeMessage", () => {
     /** Chain helper: processes a message and asserts non-null result. */
     function chain(
       msg: ReturnType<typeof makeRaw>,
-      prev: { state: BridgeState; tracker: EndedTracker; raw: unknown },
+      prev: { state: BridgeState; tracker: EndedTracker },
       time: number,
     ) {
-      const result = processBridgeMessage(msg, prev.state, prev.tracker, prev.raw as never, time);
+      const result = processBridgeMessage(msg, prev.state, prev.tracker, time);
       expect(result).not.toBeNull();
       return result as Exclude<typeof result, null>;
     }
 
-    const seed = { state: { ...INITIAL_BRIDGE_STATE, inDuel: false }, tracker, raw: null };
+    const notInDuel = { state: { ...INITIAL_BRIDGE_STATE, inDuel: false }, tracker };
+
+    /** Creates a "duel already running" seed by processing a duel-start message. */
+    function startDuel(hand: Array<{ cardId: number; atk: number; def: number; status: number }>) {
+      return chain(readyWithOpp(hand), notInDuel, T - 100);
+    }
 
     it("detects a card swap between consecutive ready messages", () => {
-      const prev = readyWithOpp([
-        oppSlot(22),
-        oppSlot(14),
-        oppSlot(67),
-        oppSlot(0, 0, 0),
-        oppSlot(0, 0, 0),
-      ]);
-      const curr = readyWithOpp([
-        oppSlot(71),
-        oppSlot(14),
-        oppSlot(67),
-        oppSlot(0, 0, 0),
-        oppSlot(0, 0, 0),
-      ]);
+      const baseHand = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+      const swapped = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
 
-      const r1 = chain(prev, seed, T);
-      const r2 = chain(curr, r1, T + 50);
+      const r1 = startDuel(baseHand);
+      const r2 = chain(readyWithOpp(swapped), r1, T);
 
       expect(r2.state.cpuSwaps).toHaveLength(1);
       expect(r2.state.cpuSwaps[0]).toMatchObject({ slotIndex: 0, fromCardId: 22, toCardId: 71 });
@@ -1077,9 +1070,9 @@ describe("processBridgeMessage", () => {
       const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
       const hand3 = [oppSlot(71), oppSlot(15), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
 
-      const r1 = chain(readyWithOpp(hand1), seed, T);
-      const r2 = chain(readyWithOpp(hand2), r1, T + 50);
-      const r3 = chain(readyWithOpp(hand3), r2, T + 100);
+      const r1 = startDuel(hand1);
+      const r2 = chain(readyWithOpp(hand2), r1, T);
+      const r3 = chain(readyWithOpp(hand3), r2, T + 50);
 
       expect(r3.state.cpuSwaps).toHaveLength(2);
       expect(r3.state.cpuSwaps[0]).toMatchObject({ fromCardId: 22, toCardId: 71 });
@@ -1090,13 +1083,30 @@ describe("processBridgeMessage", () => {
       const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
       const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
 
-      const r1 = chain(readyWithOpp(hand1), seed, T);
-      const r2 = chain(readyWithOpp(hand2), r1, T + 50);
+      const r1 = startDuel(hand1);
+      const r2 = chain(readyWithOpp(hand2), r1, T);
       expect(r2.state.cpuSwaps).toHaveLength(1);
 
       // Duel ends (phase goes to results = 0x0D)
-      const r3 = chain(readyWithOpp(hand2, { duelPhase: 0x0d }), r2, T + 100);
+      const r3 = chain(readyWithOpp(hand2, { duelPhase: 0x0d }), r2, T + 50);
       expect(r3.state.cpuSwaps).toEqual([]);
+    });
+
+    it("does not flag initial deal as swaps on duel start", () => {
+      // Previous duel had different cards. New duel starts with a fresh hand.
+      const oldHand = [oppSlot(100), oppSlot(200), oppSlot(300), oppSlot(400), oppSlot(500)];
+      const newHand = [oppSlot(10), oppSlot(20), oppSlot(30), oppSlot(40), oppSlot(50)];
+
+      const r1 = startDuel(oldHand);
+      // Duel ends
+      const r2 = chain(readyWithOpp(oldHand, { duelPhase: 0x0d }), r1, T);
+      // New duel starts with completely different hand — wasInDuel=false → skipped
+      const r3 = chain(readyWithOpp(newHand), r2, T + 50);
+      // Second message in new duel (hand unchanged)
+      const r4 = chain(readyWithOpp(newHand), r3, T + 100);
+
+      expect(r3.state.cpuSwaps).toEqual([]);
+      expect(r4.state.cpuSwaps).toEqual([]);
     });
   });
 });

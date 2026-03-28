@@ -175,7 +175,7 @@ function ResultHeader({
 
 function ResultEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+    <div className="flex flex-col items-center justify-center py-16 px-3 gap-4 text-center">
       <p className="text-gold/60 font-display text-sm uppercase tracking-wide">
         Awaiting optimization
       </p>

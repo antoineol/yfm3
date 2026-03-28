@@ -10,6 +10,10 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
   ScoreExplanation: () => <div data-testid="score-explanation" />,
 }));
 
+vi.mock("convex/react", () => ({
+  useQuery: () => undefined,
+}));
+
 import { SuggestedDeckComparison } from "./SuggestedDeckComparison.tsx";
 
 const baseResult = {
