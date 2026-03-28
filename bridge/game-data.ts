@@ -179,7 +179,6 @@ function readGamelistCache(): Buffer | null {
 function cuesToBins(cuePaths: string[]): string[] {
   const binPaths: string[] = [];
   for (const cue of cuePaths) {
-    if (!existsSync(cue)) continue; // skip phantom paths from heuristic gamelist parsing
     const bin = resolveBinPath(cue);
     if (bin) {
       binPaths.push(bin);
@@ -207,35 +206,44 @@ function parseAllGamelistPaths(buf: Buffer): string[] {
 }
 
 /**
- * Scan gamelist.cache for disc image entries by finding `.cue` path markers.
- * The binary format varies across DuckStation versions, so instead of parsing
- * the entry structure we scan for `.cue` paths and the serial that follows.
+ * Parse DuckStation's gamelist.cache binary file sequentially.
+ *
+ * Each entry is: [pathLen:u32LE][path:pathLen bytes, null-terminated]
+ *                [serialLen:u32LE][serial:ceil(serialLen/4)*4 bytes]
+ *                [trailing: 48 bytes metadata]
  */
 const GAMELIST_SERIAL_RE = /^S[CL][A-Z]{2}-\d{5}/;
+const TRAILING_METADATA_SIZE = 48;
 function iterateGamelistEntries(buf: Buffer): Array<{ path: string; serial: string }> {
   if (buf.length < 8 || buf.subarray(0, 4).toString("ascii") !== GAMELIST_MAGIC) {
     return [];
   }
 
   const entries: Array<{ path: string; serial: string }> = [];
+  let pos = 4; // skip magic
 
-  for (let i = 4; i < buf.length - 4; i++) {
-    // Look for ".cue" followed by a low byte (null, newline, etc.)
-    if (buf[i] !== 0x2e || buf[i + 1] !== 0x63 || buf[i + 2] !== 0x75 || buf[i + 3] !== 0x65)
-      continue;
-    if ((buf[i + 4] ?? 0) >= 0x20) continue;
+  while (pos + 8 < buf.length) {
+    // Path: length-prefixed, null-terminated
+    const pathLen = buf.readUInt32LE(pos);
+    if (pathLen < 5 || pathLen > 1024) break;
+    pos += 4;
+    if (pos + pathLen > buf.length) break;
+    const path = buf.subarray(pos, pos + pathLen - 1).toString("utf-8");
+    pos += pathLen;
 
-    // Walk back to find path start (first printable char after a non-printable)
-    let start = i;
-    while (start > 0 && (buf[start - 1] ?? 0) >= 0x20) start--;
-    const path = buf.subarray(start, i + 4).toString("utf-8");
+    // Serial: length-prefixed, 4-byte aligned
+    if (pos + 4 > buf.length) break;
+    const serialLen = buf.readUInt32LE(pos);
+    if (serialLen < 4 || serialLen > 32) break;
+    pos += 4;
+    const serialAligned = Math.ceil(serialLen / 4) * 4;
+    if (pos + serialAligned > buf.length) break;
+    const serial = buf.subarray(pos, pos + serialLen).toString("ascii");
+    pos += serialAligned;
 
-    // Serial follows after null/low bytes
-    let sPos = i + 4;
-    while (sPos < buf.length && (buf[sPos] ?? 0) < 0x20) sPos++;
-    let sEnd = sPos;
-    while (sEnd < buf.length && (buf[sEnd] ?? 0) >= 0x20) sEnd++;
-    const serial = buf.subarray(sPos, sEnd).toString("ascii");
+    // Skip trailing metadata
+    if (pos + TRAILING_METADATA_SIZE > buf.length) break;
+    pos += TRAILING_METADATA_SIZE;
 
     if (path.endsWith(".cue") && GAMELIST_SERIAL_RE.test(serial)) {
       entries.push({ path, serial });
