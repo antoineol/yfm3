@@ -86,10 +86,16 @@ const PID_CHECK_INTERVAL = 40; // check PID every 40 polls (40 × 50ms = 2 secon
 // ── Game data (fusion/equip tables from disc image) ───────────────
 let currentGameData: GameData | null = null;
 let gameDataFingerprint: string | null = null; // mod fingerprint we last attempted acquisition for
+let gameDataRetryAt: number | null = null; // timestamp for next retry (null = no retry scheduled)
+let gameDataRetries = 0;
+const GAME_DATA_MAX_RETRIES = 3;
+const GAME_DATA_RETRY_DELAY_MS = 5000;
 
 function resetGameData(): void {
   currentGameData = null;
   gameDataFingerprint = null;
+  gameDataRetryAt = null;
+  gameDataRetries = 0;
 }
 
 function buildGameDataMessage(data: GameData): string {
@@ -809,16 +815,28 @@ async function poll(): Promise<void> {
           broadcast(json);
         }
 
-        // Game data acquisition (runs once per game/mod change)
-        if (fingerprint !== gameDataFingerprint) {
+        // Game data acquisition (runs once per game/mod change, retries on failure)
+        const shouldAcquire =
+          fingerprint !== gameDataFingerprint ||
+          (gameDataRetryAt !== null && Date.now() >= gameDataRetryAt);
+        if (shouldAcquire) {
           gameDataFingerprint = fingerprint;
+          gameDataRetryAt = null;
           try {
             const cardStats = readCardStats(mapping.view);
             const data = acquireGameData(cardStats, serial, __dirname);
             currentGameData = data;
             if (data) {
+              gameDataRetries = 0;
               broadcast(buildGameDataMessage(data));
             } else {
+              gameDataRetries++;
+              if (gameDataRetries <= GAME_DATA_MAX_RETRIES) {
+                console.log(
+                  `Game data unavailable — retry ${gameDataRetries}/${GAME_DATA_MAX_RETRIES} in ${GAME_DATA_RETRY_DELAY_MS / 1000}s`,
+                );
+                gameDataRetryAt = Date.now() + GAME_DATA_RETRY_DELAY_MS;
+              }
               broadcast(
                 JSON.stringify({
                   type: "gameData",
@@ -831,6 +849,10 @@ async function poll(): Promise<void> {
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             console.error(`Game data acquisition failed: ${msg}`);
+            gameDataRetries++;
+            if (gameDataRetries <= GAME_DATA_MAX_RETRIES) {
+              gameDataRetryAt = Date.now() + GAME_DATA_RETRY_DELAY_MS;
+            }
             broadcast(JSON.stringify({ type: "gameData", error: msg }));
           }
         }

@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { detectAttributeMapping, detectExeLayout } from "../scripts/extract/detect-exe.ts";
 import { detectWaMrgLayout } from "../scripts/extract/detect-wamrg.ts";
@@ -180,7 +180,11 @@ function cuesToBins(cuePaths: string[]): string[] {
   const binPaths: string[] = [];
   for (const cue of cuePaths) {
     const bin = resolveBinPath(cue);
-    if (bin) binPaths.push(bin);
+    if (bin) {
+      binPaths.push(bin);
+    } else {
+      console.warn(`Could not resolve .bin from .cue: ${cue}`);
+    }
   }
   return binPaths;
 }
@@ -250,14 +254,22 @@ export function normalizeSerial(serial: string): string {
 
 /**
  * Parse a .cue file and return the absolute path to the referenced .bin file.
+ * Falls back to scanning the directory for .bin files when the .cue references
+ * a filename that doesn't exist (e.g. extra spaces in the name).
  */
 export function resolveBinPath(cuePath: string): string | null {
   try {
     const cueContent = readFileSync(cuePath, "utf-8");
     const match = cueContent.match(/FILE\s+"([^"]+)"\s+BINARY/i);
     if (!match?.[1]) return null;
-    const binPath = join(dirname(cuePath), match[1]);
-    return existsSync(binPath) ? binPath : null;
+    const dir = dirname(cuePath);
+    const binPath = join(dir, match[1]);
+    if (existsSync(binPath)) return binPath;
+
+    // .cue filename doesn't match disk — scan directory for .bin files
+    const bins = readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".bin"));
+    if (bins.length === 1 && bins[0]) return join(dir, bins[0]);
+    return null;
   } catch {
     return null;
   }
@@ -308,11 +320,18 @@ function extractFromBins(
       const { slus, waMrg, serial: discSerial } = loadDiscData(binPath);
       const exeLayout = detectExeLayout(slus);
       const binStats = slus.subarray(exeLayout.cardStats, exeLayout.cardStats + CARD_STATS_SIZE);
-      if (computeGameDataHash(binStats) === gameDataHash) {
+      const binHash = computeGameDataHash(binStats);
+      if (binHash === gameDataHash) {
         matches.push({ binPath, slus, waMrg, discSerial, exeLayout });
+      } else {
+        console.log(
+          `Hash mismatch for ${binPath} (disc=${discSerial}): ` +
+            `bin=${binHash.slice(0, 12)}… vs ram=${gameDataHash.slice(0, 12)}…`,
+        );
       }
-    } catch {
-      // skip unreadable bins
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Skipping unreadable .bin ${binPath}: ${msg}`);
     }
   }
 

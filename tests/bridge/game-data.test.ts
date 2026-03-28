@@ -170,6 +170,25 @@ describe("resolveBinPath", () => {
   it("returns null when .cue file does not exist", () => {
     expect(resolveBinPath(join(tmpDir, "nope.cue"))).toBeNull();
   });
+
+  it("falls back to directory scan when .cue references wrong filename", () => {
+    const binPath = join(tmpDir, "game.bin");
+    const cuePath = join(tmpDir, "game.cue");
+    writeFileSync(binPath, "dummy");
+    // .cue references a filename with extra spaces (doesn't match actual file)
+    writeFileSync(cuePath, 'FILE "game  .bin" BINARY\n  TRACK 01 MODE2/2352\n');
+
+    expect(resolveBinPath(cuePath)).toBe(binPath);
+  });
+
+  it("returns null when .cue references wrong filename and multiple .bin exist", () => {
+    const cuePath = join(tmpDir, "game.cue");
+    writeFileSync(join(tmpDir, "a.bin"), "dummy");
+    writeFileSync(join(tmpDir, "b.bin"), "dummy");
+    writeFileSync(cuePath, 'FILE "wrong.bin" BINARY\n');
+
+    expect(resolveBinPath(cuePath)).toBeNull();
+  });
 });
 
 // ── acquireGameData (cache round-trip) ──────────────────────────
