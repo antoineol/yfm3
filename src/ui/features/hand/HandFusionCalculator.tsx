@@ -28,7 +28,7 @@ import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
 import { useSyncCpuSwaps } from "./use-sync-cpu-swaps.ts";
 import { useZoneToggle } from "./use-zone-toggle.ts";
-import { ZonePanel } from "./ZonePanel.tsx";
+import { ZoneArena } from "./ZoneArena.tsx";
 
 const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
   { value: "all", label: "All cards" },
@@ -197,50 +197,26 @@ export function HandFusionCalculator() {
 
           {/* ── Synced mode: 3D arena with both zones always visible ── */}
           {isSynced && (
-            <div className="fm-zone-arena">
-              {(focusedZone === "hand"
-                ? (["hand", "field"] as const)
-                : (["field", "hand"] as const)
-              ).map((zone) => (
-                <div
-                  className="fm-zone-slot"
-                  key={zone}
-                  style={{ viewTransitionName: `${zone}-zone` }}
-                >
-                  {zone === "hand" ? (
-                    <ZonePanel
-                      active={focusedZone === "hand"}
-                      count={hand.length}
-                      label="Hand"
-                      maxCount={HAND_SIZE}
-                    >
-                      <HandDisplay
-                        cards={hand}
-                        drawing={bridge.phase === "draw"}
-                        frozen={bridge.inDuel && !bridge.handReliable}
-                      />
-                    </ZonePanel>
-                  ) : (
-                    <ZonePanel
-                      active={focusedZone === "field"}
-                      count={bridge.field.length}
-                      label="Field"
-                      maxCount={5}
-                    >
-                      <FieldDisplay cards={bridge.field} />
-                    </ZonePanel>
-                  )}
-                  {focusedZone !== zone && (
-                    <button
-                      aria-label={`Switch to ${zone}`}
-                      className="fm-zone-focus-btn"
-                      onClick={() => animatedSetZone(zone)}
-                      type="button"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            <ZoneArena
+              field={{
+                children: <FieldDisplay cards={bridge.field} />,
+                count: bridge.field.length,
+                maxCount: 5,
+              }}
+              focusedZone={focusedZone}
+              hand={{
+                children: (
+                  <HandDisplay
+                    cards={hand}
+                    drawing={bridge.phase === "draw"}
+                    frozen={bridge.inDuel && !bridge.handReliable}
+                  />
+                ),
+                count: hand.length,
+                maxCount: HAND_SIZE,
+              }}
+              onSwitchZone={animatedSetZone}
+            />
           )}
 
           {/* ── Manual mode: field section ── */}

@@ -9,7 +9,7 @@ import { useCardDb } from "../../lib/card-db-context.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { useZoneToggle } from "./use-zone-toggle.ts";
-import { ZonePanel } from "./ZonePanel.tsx";
+import { ZoneArena } from "./ZoneArena.tsx";
 
 /**
  * Opponent view — mirrors the player's layout (3D zone arena when synced,
@@ -40,42 +40,20 @@ export function OpponentPanel() {
     <>
       {/* ── Synced mode: 3D arena (same as player) ── */}
       {isSynced && (
-        <div className="fm-zone-arena">
-          {(focusedZone === "hand"
-            ? (["hand", "field"] as const)
-            : (["field", "hand"] as const)
-          ).map((zone) => (
-            <div className="fm-zone-slot" key={zone} style={{ viewTransitionName: `${zone}-zone` }}>
-              {zone === "hand" ? (
-                <ZonePanel
-                  active={focusedZone === "hand"}
-                  count={opponentHand.length}
-                  label="Hand"
-                  maxCount={HAND_SIZE}
-                >
-                  <OpponentCardGrid cardIds={opponentHand} />
-                </ZonePanel>
-              ) : (
-                <ZonePanel
-                  active={focusedZone === "field"}
-                  count={opponentField.length}
-                  label="Field"
-                  maxCount={5}
-                >
-                  <FieldDisplay cards={opponentField} />
-                </ZonePanel>
-              )}
-              {focusedZone !== zone && (
-                <button
-                  aria-label={`Switch to ${zone}`}
-                  className="fm-zone-focus-btn"
-                  onClick={() => animatedSetZone(zone)}
-                  type="button"
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        <ZoneArena
+          field={{
+            children: <FieldDisplay cards={opponentField} />,
+            count: opponentField.length,
+            maxCount: 5,
+          }}
+          focusedZone={focusedZone}
+          hand={{
+            children: <OpponentCardGrid cardIds={opponentHand} />,
+            count: opponentHand.length,
+            maxCount: HAND_SIZE,
+          }}
+          onSwitchZone={animatedSetZone}
+        />
       )}
 
       {/* ── Manual mode: flat sections (same as player) ── */}

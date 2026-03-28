@@ -179,6 +179,7 @@ function readGamelistCache(): Buffer | null {
 function cuesToBins(cuePaths: string[]): string[] {
   const binPaths: string[] = [];
   for (const cue of cuePaths) {
+    if (!existsSync(cue)) continue; // skip phantom paths from heuristic gamelist parsing
     const bin = resolveBinPath(cue);
     if (bin) {
       binPaths.push(bin);

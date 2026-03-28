@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeGameData } from "../../engine/worker/messages.ts";
 import { type CpuSwap, detectCpuSwaps } from "./detect-cpu-swaps.ts";
 
-const DIAG_CPU_SWAPS = true; // ACTIVE — tracing duplicate swap detections
+const DIAG_CPU_SWAPS = false;
 
 /** Duel phase labels derived from raw bridge data. */
 export type DuelPhase =
@@ -595,7 +595,11 @@ export function processBridgeMessage(
         "already-known swap(s)",
       );
     }
-    const cpuSwaps = interpreted.inDuel ? [...currentState.cpuSwaps, ...uniqueNewSwaps] : [];
+    const cpuSwaps = !interpreted.inDuel
+      ? []
+      : uniqueNewSwaps.length > 0
+        ? [...currentState.cpuSwaps, ...uniqueNewSwaps]
+        : currentState.cpuSwaps;
 
     return {
       state: {
