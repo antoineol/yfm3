@@ -12,6 +12,9 @@ export const currentDeckScoreAtom = atom<number | null>(null);
 /** Card currently shown in the detail modal. `null` = modal closed. */
 export const openCardIdAtom = atom<CardId | null>(null);
 
+/** Whether the manual setup modal is open. */
+export const manualSetupModalOpenAtom = atom(false);
+
 /** Active sub-tab within the Deck panel on mobile. */
 export type DeckSubTab = "collection" | "deck" | "result";
 export const deckSubTabAtom = atom<DeckSubTab>("collection");

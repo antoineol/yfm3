@@ -1,6 +1,6 @@
 import { useMutation } from "convex/react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useSetAtom } from "jotai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
@@ -13,8 +13,8 @@ import {
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { importExportSchema } from "../config/import-export-schema.ts";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import {
   type CollectionCardViewModel,
@@ -31,33 +31,22 @@ export function CollectionPanel() {
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
-  const importMutation = useMutation(api.importExport.importData);
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
-  const [loadingSample, setLoadingSample] = useState(false);
+  const setManualSetupOpen = useSetAtom(manualSetupModalOpenAtom);
 
-  async function loadSampleData() {
-    setLoadingSample(true);
-    try {
-      const res = await fetch("/data/sample.json");
-      const parsed = importExportSchema.safeParse(await res.json());
-      if (!parsed.success) {
-        toast.error("Invalid sample data");
-        return;
-      }
-      await importMutation({
-        collection: parsed.data.collection,
-        deck: parsed.data.deck,
-      });
-      toast.success("Sample collection loaded");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load sample data");
-    } finally {
-      setLoadingSample(false);
+  // Auto-open the manual setup modal on first render when collection is empty
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current || readOnly) return;
+    if (data === undefined) return; // still loading
+    autoOpenedRef.current = true;
+    if (data.totalOwnedCards === 0 && data.deckLength === 0) {
+      setManualSetupOpen(true);
     }
-  }
+  }, [data, readOnly, setManualSetupOpen]);
 
   const autocompleteCards = useMemo(
     () =>
@@ -146,8 +135,8 @@ export function CollectionPanel() {
             </div>
             <p className="text-text-primary font-medium">Start building your collection</p>
             <div className="flex flex-col gap-3 w-full max-w-64">
-              <Button disabled={loadingSample} onClick={() => void loadSampleData()}>
-                {loadingSample ? "Loading..." : "Load sample collection"}
+              <Button onClick={() => setManualSetupOpen(true)} variant="outline">
+                Open setup guide
               </Button>
               <p className="text-xs text-text-muted">Or search above to add cards manually.</p>
             </div>

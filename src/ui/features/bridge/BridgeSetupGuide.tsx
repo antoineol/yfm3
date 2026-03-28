@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
-import { BRIDGE_DOWNLOAD_URL } from "./bridge-constants.ts";
+import {
+  BIOS_EU_URL,
+  BIOS_US_URL,
+  BRIDGE_DOWNLOAD_URL,
+  DUCKSTATION_URL,
+} from "./bridge-constants.ts";
 import {
   DownloadLink,
   DuckStationInstructions,
@@ -50,10 +55,15 @@ function SetupSteps() {
     <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
       <p className="text-xs text-text-muted uppercase tracking-wide mb-3">Setup</p>
 
-      <p className="text-xs text-text-muted mb-3">
+      <p className="text-xs text-text-muted mb-1">
         Requires <strong className="text-text-secondary">Windows</strong> and{" "}
         <strong className="text-text-secondary">DuckStation</strong> emulator.
       </p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
+        <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
+        <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
+      </div>
 
       <Step number={1} state={step1} title="Download the bridge">
         <DownloadLink download href={BRIDGE_DOWNLOAD_URL} onClick={() => setDownloaded(true)}>

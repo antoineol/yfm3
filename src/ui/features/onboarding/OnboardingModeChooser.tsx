@@ -1,21 +1,13 @@
+import { useSetAtom } from "jotai";
 import { useCallback } from "react";
-import { MODS, type ModId } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
+import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
-import { BIOS_EU_URL, BIOS_US_URL, DUCKSTATION_URL } from "../bridge/bridge-constants.ts";
-import { DownloadLink } from "../bridge/setup-steps.tsx";
 
 export function OnboardingModeChooser() {
-  const selectedMod = useSelectedMod();
-  const setSelectedMod = useSetSelectedMod();
   const updatePreferences = useUpdatePreferences();
   const [, setHash] = useHash();
-
-  const handleSelectMod = useCallback(
-    (mod: ModId) => void setSelectedMod({ selectedMod: mod }),
-    [setSelectedMod],
-  );
+  const setManualSetupOpen = useSetAtom(manualSetupModalOpenAtom);
 
   const handleChooseAutoSync = useCallback(() => {
     updatePreferences({ bridgeAutoSync: true });
@@ -23,33 +15,14 @@ export function OnboardingModeChooser() {
 
   const handleChooseManual = useCallback(() => {
     updatePreferences({ bridgeAutoSync: false });
+    setManualSetupOpen(true);
     setHash("deck");
-  }, [updatePreferences, setHash]);
+  }, [updatePreferences, setManualSetupOpen, setHash]);
 
   return (
     <div className="max-w-lg mx-auto flex flex-col items-center gap-6 py-8 px-4">
       <div className="text-center space-y-1.5">
         <h2 className="font-display text-xl font-bold text-gold tracking-wide">Getting started</h2>
-        <p className="text-xs text-text-muted">Choose your game version first.</p>
-      </div>
-
-      <VersionSelector onSelectMod={handleSelectMod} selectedMod={selectedMod} />
-
-      <div className="flex flex-wrap justify-center gap-2">
-        <DownloadLink href={MODS[selectedMod].gameDownloadUrl}>
-          {MODS[selectedMod].gameDownloadLabel}
-        </DownloadLink>
-        <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
-        <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
-        <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
-      </div>
-
-      <div className="w-full border-t border-border-subtle" />
-
-      <div className="text-center space-y-1.5">
-        <h2 className="font-display text-lg font-bold text-text-primary tracking-wide">
-          How do you want to play?
-        </h2>
         <p className="text-xs text-text-muted">You can switch anytime from the menu.</p>
       </div>
 
@@ -71,37 +44,6 @@ export function OnboardingModeChooser() {
           <CardsIcon />
         </ModeCard>
       </div>
-    </div>
-  );
-}
-
-// ── Version selector ──────────────────────────────────────────────
-
-function VersionSelector({
-  selectedMod,
-  onSelectMod,
-}: {
-  selectedMod: ModId;
-  onSelectMod: (mod: ModId) => void;
-}) {
-  const mods = Object.values(MODS);
-
-  return (
-    <div className="flex rounded-lg bg-bg-surface border border-border-subtle p-0.5 w-full">
-      {mods.map((mod) => (
-        <button
-          className={`flex-1 py-2.5 text-xs font-display font-bold uppercase tracking-widest rounded-md transition-colors cursor-pointer ${
-            selectedMod === mod.id
-              ? "bg-bg-hover text-gold-bright"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-          key={mod.id}
-          onClick={() => onSelectMod(mod.id)}
-          type="button"
-        >
-          {mod.name}
-        </button>
-      ))}
     </div>
   );
 }

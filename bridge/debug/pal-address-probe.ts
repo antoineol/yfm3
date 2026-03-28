@@ -81,7 +81,9 @@ function diffSnapshots(prev: Snap, curr: Snap, label: string, regions: Region[])
     if (!a || !b) continue;
     const changes: ByteChange[] = [];
     for (let i = 0; i < a.length; i++) {
-      if (a[i] !== b[i]) changes.push({ addr: r.base + i, prev: a[i], curr: b[i] });
+      const av = a[i] ?? 0;
+      const bv = b[i] ?? 0;
+      if (av !== bv) changes.push({ addr: r.base + i, prev: av, curr: bv });
     }
     if (changes.length > 0) {
       console.log(`[diag] ${label} | ${r.name} (${changes.length} changes):`);

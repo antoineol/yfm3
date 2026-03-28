@@ -289,14 +289,7 @@ function probePort(port: number): Promise<"free" | "bridge" | "other"> {
 
 // ── WebSocket server (Bun built-in) ─────────────────────────────
 
-// We define a minimal interface for the server WebSocket so TypeScript
-// understands the API without requiring @types/bun globally.
-interface BridgeWebSocket {
-  send(data: string): void;
-  close(): void;
-  readyState: number;
-}
-
+type BridgeWebSocket = Bun.ServerWebSocket;
 const clients = new Set<BridgeWebSocket>();
 
 const server = Bun.serve({
@@ -870,7 +863,7 @@ async function poll(): Promise<void> {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Error reading game state:", msg);
       try {
-        closeSharedMemory(mapping);
+        if (mapping) closeSharedMemory(mapping);
       } catch {
         /* ignore */
       }

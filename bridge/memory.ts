@@ -17,7 +17,7 @@
  * Uses bun:ffi to call Windows kernel32.dll for shared memory access.
  */
 
-import { dlopen, ptr, toArrayBuffer } from "bun:ffi";
+import { dlopen, type Pointer, ptr, toArrayBuffer } from "bun:ffi";
 import { execSync } from "node:child_process";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ export interface OffsetProfile {
 }
 
 export interface SharedMemoryMapping {
-  handle: number;
-  viewPtr: number;
+  handle: Pointer;
+  viewPtr: Pointer;
   view: DataView;
   pid: number;
 }

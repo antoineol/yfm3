@@ -17,6 +17,7 @@ import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
+import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { deckSubTabAtom } from "./lib/atoms.ts";
@@ -81,6 +82,7 @@ function AuthenticatedApp({ tab, setTab }: { tab: string; setTab: (t: string) =>
             </RequireReferenceData>
           </Tabs.Panel>
           <BottomTabBar />
+          <ManualSetupModal />
           <CardDetailModalWhenReady />
         </Tabs.Root>
       </FusionTableProvider>

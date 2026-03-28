@@ -1,12 +1,14 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
+import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
@@ -18,7 +20,9 @@ const tabClass =
 
 export function Header() {
   const bridge = useBridge();
+  const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
+  const setManualSetupOpen = useSetAtom(manualSetupModalOpenAtom);
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -30,8 +34,12 @@ export function Header() {
   }, [hasUpdate]);
 
   const handleSetupGuide = useCallback(() => {
-    updatePreferences({ bridgeAutoSync: null });
-  }, [updatePreferences]);
+    if (bridgeAutoSync) {
+      updatePreferences({ bridgeAutoSync: null });
+    } else {
+      setManualSetupOpen(true);
+    }
+  }, [bridgeAutoSync, updatePreferences, setManualSetupOpen]);
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
@@ -166,7 +174,10 @@ function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: (
 function ModSelector() {
   const selectedMod = useSelectedMod();
   const setSelectedMod = useSetSelectedMod();
+  const bridgeAutoSync = useBridgeAutoSync();
   const modEntries = Object.values(MODS);
+
+  if (bridgeAutoSync) return null;
 
   return (
     <select

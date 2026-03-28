@@ -38,6 +38,8 @@ const mockBridge = vi.fn<() => EmulatorBridge>(() => defaultBridge());
 vi.mock("./bridge-constants.ts", () => ({
   BRIDGE_DOWNLOAD_URL: "https://example.com/bridge.zip",
   DUCKSTATION_URL: "https://example.com/duckstation",
+  BIOS_US_URL: "https://example.com/bios-us",
+  BIOS_EU_URL: "https://example.com/bios-eu",
   BRIDGE_MIN_VERSION: "1.0.0",
 }));
 
@@ -63,11 +65,14 @@ describe("BridgeSetupGuide", () => {
     expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
   });
 
-  it("shows requirements disclaimer", () => {
+  it("shows requirements disclaimer with download links", () => {
     render(<BridgeSetupGuide />);
     expect(screen.getByText(/Requires/)).toBeDefined();
     expect(screen.getByText("Windows")).toBeDefined();
-    expect(screen.getByText("DuckStation")).toBeDefined();
+    expect(screen.getByText("DuckStation", { selector: "strong" })).toBeDefined();
+    expect(screen.getByText("Download DuckStation")).toBeDefined();
+    expect(screen.getByText("PS1 BIOS (US)")).toBeDefined();
+    expect(screen.getByText("PS1 BIOS (EU)")).toBeDefined();
   });
 
   it("shows switch mode link", () => {

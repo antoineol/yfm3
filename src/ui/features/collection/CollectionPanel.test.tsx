@@ -18,7 +18,6 @@ import { CardDbProvider } from "../../lib/card-db-context.tsx";
 const mockAddCard = vi.fn();
 const mockRemoveCard = vi.fn();
 const mockAddToDeck = vi.fn();
-const mockImportData = vi.fn();
 
 const mockCardAutocomplete = vi.fn(({ placeholder }: { placeholder?: string }) => (
   <input data-testid="card-autocomplete" placeholder={placeholder} />
@@ -39,7 +38,6 @@ vi.mock("convex/react", () => ({
     if (ref === "addCard") return mockAddCard;
     if (ref === "removeCard") return mockRemoveCard;
     if (ref === "addToDeck") return mockAddToDeck;
-    if (ref === "importData") return mockImportData;
     return vi.fn();
   },
 }));
@@ -48,12 +46,7 @@ vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     ownedCards: { addCard: "addCard", removeCard: "removeCard" },
     deck: { addToDeck: "addToDeck" },
-    importExport: { importData: "importData" },
   },
-}));
-
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock("./use-collection-view-model.ts", () => ({
@@ -73,8 +66,10 @@ vi.mock("./LastAddedCardHint.tsx", () => ({
   LastAddedCardHint: () => <div data-testid="last-added-hint" />,
 }));
 
+import { Provider, useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 
 import { CollectionPanel } from "./CollectionPanel.tsx";
 import {
@@ -183,7 +178,7 @@ describe("CollectionPanel", () => {
     mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByText("Start building your collection")).toBeDefined();
-    expect(screen.getByText("Load sample collection")).toBeDefined();
+    expect(screen.getByText("Open setup guide")).toBeDefined();
   });
 
   it("renders card table when collection has cards", () => {
@@ -490,12 +485,12 @@ describe("CollectionPanel", () => {
     ]);
   });
 
-  it("shows load sample button when collection and deck are both empty", () => {
+  it("shows setup guide button when collection and deck are both empty", () => {
     mockUseCollectionViewModel.mockReturnValue(
       buildCollectionViewModel({ entries: [], deckLength: 0 }),
     );
     render(<CollectionPanel />, { wrapper: Wrapper });
-    expect(screen.getByText("Load sample collection")).toBeDefined();
+    expect(screen.getByText("Open setup guide")).toBeDefined();
   });
 
   it("shows plain empty state when collection is empty but deck has cards", () => {
@@ -504,7 +499,49 @@ describe("CollectionPanel", () => {
     );
     render(<CollectionPanel />, { wrapper: Wrapper });
     expect(screen.getByText("Your collection is empty")).toBeDefined();
-    expect(screen.queryByText("Load sample collection")).toBeNull();
+    expect(screen.queryByText("Open setup guide")).toBeNull();
+  });
+
+  describe("manual setup modal auto-open", () => {
+    function ModalAtomReader() {
+      const open = useAtomValue(manualSetupModalOpenAtom);
+      return <span data-testid="modal-open">{String(open)}</span>;
+    }
+
+    function IsolatedWrapper({ children }: { children: ReactNode }) {
+      return (
+        <Provider>
+          <CardDbProvider cardDb={emptyCardDb}>
+            {children}
+            <ModalAtomReader />
+          </CardDbProvider>
+        </Provider>
+      );
+    }
+
+    it("auto-opens modal when collection and deck are both empty", () => {
+      mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
+      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
+      expect(screen.getByTestId("modal-open").textContent).toBe("true");
+    });
+
+    it("does not auto-open modal when collection has cards", () => {
+      mockUseCollectionViewModel.mockReturnValue(
+        buildCollectionViewModel({
+          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })],
+        }),
+      );
+      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
+      expect(screen.getByTestId("modal-open").textContent).toBe("false");
+    });
+
+    it("does not auto-open modal in auto-sync mode", () => {
+      mockBridgeAutoSync.mockReturnValue(true);
+      mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
+      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
+      expect(screen.getByTestId("modal-open").textContent).toBe("false");
+      mockBridgeAutoSync.mockReturnValue(false);
+    });
   });
 
   describe("auto-sync read-only mode", () => {
@@ -548,8 +585,7 @@ describe("CollectionPanel", () => {
       mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
       render(<CollectionPanel />, { wrapper: Wrapper });
       expect(screen.getByText("Waiting for emulator sync...")).toBeDefined();
-      expect(screen.queryByText("Load sample collection")).toBeNull();
-      expect(screen.queryByText("New here? Try it out instantly")).toBeNull();
+      expect(screen.queryByText("Open setup guide")).toBeNull();
     });
 
     it("still renders card table with card names", () => {
