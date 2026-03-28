@@ -84,6 +84,12 @@ describe("BridgeSetupGuide", () => {
     expect(screen.getByText("PS1 BIOS (EU)")).toBeDefined();
   });
 
+  it("shows game download links", () => {
+    render(<BridgeSetupGuide />);
+    expect(screen.getByText("Download game")).toBeDefined();
+    expect(screen.getByText("Download RP mod")).toBeDefined();
+  });
+
   it("shows switch mode link", () => {
     render(<BridgeSetupGuide />);
     expect(screen.getByText("Switch mode")).toBeDefined();

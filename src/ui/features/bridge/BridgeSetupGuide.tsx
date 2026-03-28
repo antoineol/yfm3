@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { MODS } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import {
@@ -56,13 +57,20 @@ function SetupSteps() {
       <p className="text-xs text-text-muted uppercase tracking-wide mb-3">Setup</p>
 
       <p className="text-xs text-text-muted mb-1">
-        Requires <strong className="text-text-secondary">Windows</strong> and{" "}
-        <strong className="text-text-secondary">DuckStation</strong> emulator.
+        Requires <strong className="text-text-secondary">Windows</strong>,{" "}
+        <strong className="text-text-secondary">DuckStation</strong> emulator, and the game BIN.
       </p>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-1">
         <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
         <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
         <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {Object.values(MODS).map((mod) => (
+          <DownloadLink href={mod.gameDownloadUrl} key={mod.id}>
+            {mod.gameDownloadLabel}
+          </DownloadLink>
+        ))}
       </div>
 
       <Step number={1} state={step1} title="Download the bridge">

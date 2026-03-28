@@ -1,7 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useClerk } from "@clerk/clerk-react";
-import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
@@ -9,7 +8,6 @@ import { IconButton } from "../../components/IconButton.tsx";
 import { Spinner } from "../../components/Loader.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
-import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import type { DuelPhase } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -23,9 +21,7 @@ const tabClass =
 
 export function Header() {
   const bridge = useBridge();
-  const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
-  const setManualSetupOpen = useSetAtom(manualSetupModalOpenAtom);
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
@@ -48,12 +44,8 @@ export function Header() {
   }, [hasUpdate, updateStaged, updating, stageFailed, stageUpdate]);
 
   const handleSetupGuide = useCallback(() => {
-    if (bridgeAutoSync) {
-      updatePreferences({ bridgeAutoSync: null });
-    } else {
-      setManualSetupOpen(true);
-    }
-  }, [bridgeAutoSync, updatePreferences, setManualSetupOpen]);
+    updatePreferences({ bridgeAutoSync: null });
+  }, [updatePreferences]);
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">

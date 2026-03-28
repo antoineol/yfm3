@@ -60,18 +60,17 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useBridgeAutoSync: vi.fn(() => false),
 }));
 
+const mockUpdatePreferences = vi.fn();
 vi.mock("../../db/use-update-preferences.ts", () => ({
-  useUpdatePreferences: () => vi.fn(),
+  useUpdatePreferences: () => mockUpdatePreferences,
 }));
 
 vi.mock("./LastAddedCardHint.tsx", () => ({
   LastAddedCardHint: () => <div data-testid="last-added-hint" />,
 }));
 
-import { Provider, useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
-import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 
 import { CollectionPanel } from "./CollectionPanel.tsx";
 import {
@@ -504,46 +503,11 @@ describe("CollectionPanel", () => {
     expect(screen.queryByText("Open setup guide")).toBeNull();
   });
 
-  describe("manual setup modal auto-open", () => {
-    function ModalAtomReader() {
-      const open = useAtomValue(manualSetupModalOpenAtom);
-      return <span data-testid="modal-open">{String(open)}</span>;
-    }
-
-    function IsolatedWrapper({ children }: { children: ReactNode }) {
-      return (
-        <Provider>
-          <CardDbProvider cardDb={emptyCardDb}>
-            {children}
-            <ModalAtomReader />
-          </CardDbProvider>
-        </Provider>
-      );
-    }
-
-    it("auto-opens modal when collection and deck are both empty", () => {
-      mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
-      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
-      expect(screen.getByTestId("modal-open").textContent).toBe("true");
-    });
-
-    it("does not auto-open modal when collection has cards", () => {
-      mockUseCollectionViewModel.mockReturnValue(
-        buildCollectionViewModel({
-          entries: [buildCollectionEntry({ id: 1, name: "Blue-Eyes" })],
-        }),
-      );
-      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
-      expect(screen.getByTestId("modal-open").textContent).toBe("false");
-    });
-
-    it("does not auto-open modal in auto-sync mode", () => {
-      mockBridgeAutoSync.mockReturnValue(true);
-      mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
-      render(<CollectionPanel />, { wrapper: IsolatedWrapper });
-      expect(screen.getByTestId("modal-open").textContent).toBe("false");
-      mockBridgeAutoSync.mockReturnValue(false);
-    });
+  it("setup guide button resets to mode chooser", () => {
+    mockUseCollectionViewModel.mockReturnValue(buildCollectionViewModel({}));
+    render(<CollectionPanel />, { wrapper: Wrapper });
+    fireEvent.click(screen.getByText("Open setup guide"));
+    expect(mockUpdatePreferences).toHaveBeenCalledWith({ bridgeAutoSync: null });
   });
 
   describe("auto-sync read-only mode", () => {

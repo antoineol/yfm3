@@ -1,6 +1,5 @@
 import { useMutation } from "convex/react";
-import { useSetAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
@@ -12,8 +11,8 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
+import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
-import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import {
@@ -31,22 +30,11 @@ export function CollectionPanel() {
   const addCard = useMutation(api.ownedCards.addCard);
   const removeCard = useMutation(api.ownedCards.removeCard);
   const addToDeck = useMutation(api.deck.addToDeck);
+  const updatePreferences = useUpdatePreferences();
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;
   const inputRef = useRef<HTMLInputElement>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
-  const setManualSetupOpen = useSetAtom(manualSetupModalOpenAtom);
-
-  // Auto-open the manual setup modal on first render when collection is empty
-  const autoOpenedRef = useRef(false);
-  useEffect(() => {
-    if (autoOpenedRef.current || readOnly) return;
-    if (data === undefined) return; // still loading
-    autoOpenedRef.current = true;
-    if (data.totalOwnedCards === 0 && data.deckLength === 0) {
-      setManualSetupOpen(true);
-    }
-  }, [data, readOnly, setManualSetupOpen]);
 
   const autocompleteCards = useMemo(
     () =>
@@ -139,7 +127,7 @@ export function CollectionPanel() {
             </div>
             <p className="text-text-primary font-medium">Start building your collection</p>
             <div className="flex flex-col gap-3 w-full max-w-64">
-              <Button onClick={() => setManualSetupOpen(true)} variant="outline">
+              <Button onClick={() => updatePreferences({ bridgeAutoSync: null })} variant="outline">
                 Open setup guide
               </Button>
               <p className="text-xs text-text-muted">Or search above to add cards manually.</p>
