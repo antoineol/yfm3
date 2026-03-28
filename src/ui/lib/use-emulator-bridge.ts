@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeGameData } from "../../engine/worker/messages.ts";
 import { type CpuSwap, detectCpuSwaps } from "./detect-cpu-swaps.ts";
 
+const DIAG_CPU_SWAPS = true; // ACTIVE — tracing duplicate swap detections
+
 /** Duel phase labels derived from raw bridge data. */
 export type DuelPhase =
   | "hand"
@@ -548,17 +550,52 @@ export function processBridgeMessage(
 
     // CPU swap detection: compare interpreted hands (same data that drives the
     // UI). Fusion-consumed cards are already filtered out, so hand count changes
-    // and detection is skipped. No raw state tracking needed.
-    const newSwaps = detectCpuSwaps(
-      currentState.opponentHand,
-      interpreted.opponentHand,
-      currentState.opponentField.length,
-      interpreted.opponentField.length,
-      currentState.inDuel,
-      interpreted.inDuel,
-      now,
+    // and detection is skipped. Only detect during the opponent's turn — the CPU
+    // never swaps during the player's turn.
+    const isOpponentTurn = effectivePhase === "opponent";
+    const newSwaps = isOpponentTurn
+      ? detectCpuSwaps(
+          currentState.opponentHand,
+          interpreted.opponentHand,
+          currentState.opponentField.length,
+          interpreted.opponentField.length,
+          currentState.inDuel,
+          interpreted.inDuel,
+          now,
+        )
+      : [];
+    // Deduplicate: hand data can briefly flicker (e.g. during player-turn
+    // game operations), causing the same swap to be re-detected or a reverse
+    // swap (B→A) to appear before the original (A→B) re-settles.
+    const uniqueNewSwaps = newSwaps.filter(
+      (s) =>
+        !currentState.cpuSwaps.some(
+          (e) =>
+            e.slotIndex === s.slotIndex &&
+            ((e.fromCardId === s.fromCardId && e.toCardId === s.toCardId) ||
+              (e.fromCardId === s.toCardId && e.toCardId === s.fromCardId)),
+        ),
     );
-    const cpuSwaps = interpreted.inDuel ? [...currentState.cpuSwaps, ...newSwaps] : [];
+    if (DIAG_CPU_SWAPS && uniqueNewSwaps.length > 0) {
+      console.debug(
+        "[CpuSwap] detected:",
+        uniqueNewSwaps.map(
+          (s) => `slot${String(s.slotIndex)} ${String(s.fromCardId)}→${String(s.toCardId)}`,
+        ),
+        "| prev hand:",
+        currentState.opponentHand,
+        "| curr hand:",
+        interpreted.opponentHand,
+      );
+    }
+    if (DIAG_CPU_SWAPS && newSwaps.length > uniqueNewSwaps.length) {
+      console.debug(
+        "[CpuSwap] deduped",
+        newSwaps.length - uniqueNewSwaps.length,
+        "already-known swap(s)",
+      );
+    }
+    const cpuSwaps = interpreted.inDuel ? [...currentState.cpuSwaps, ...uniqueNewSwaps] : [];
 
     return {
       state: {

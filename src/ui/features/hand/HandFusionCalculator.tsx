@@ -38,6 +38,9 @@ const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
 /** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
 const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
 
+/** Phases that indicate it is the player's turn (not opponent, not transient). */
+const PLAYER_PHASES = new Set(["hand", "draw", "fusion", "field", "battle"]);
+
 export function HandFusionCalculator() {
   const bridge = useBridge();
   const hand = useHand();
@@ -73,6 +76,21 @@ export function HandFusionCalculator() {
       updatePreferences({ cheatView: "player" });
     }
   }, [bridge.inDuel, cheatView, updatePreferences]);
+
+  // Auto-switch player/opponent view to follow turn changes
+  const prevPhaseRef = useRef(bridge.phase);
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = bridge.phase;
+
+    if (!cheatMode || !bridge.inDuel) return;
+
+    if (prev !== "opponent" && bridge.phase === "opponent") {
+      if (cheatView !== "opponent") updatePreferences({ cheatView: "opponent" });
+    } else if (prev === "opponent" && PLAYER_PHASES.has(bridge.phase)) {
+      if (cheatView !== "player") updatePreferences({ cheatView: "player" });
+    }
+  }, [bridge.phase, bridge.inDuel, cheatMode, cheatView, updatePreferences]);
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
   const zonePhase = bridge.phase === "opponent" ? ("field" as const) : bridge.phase;

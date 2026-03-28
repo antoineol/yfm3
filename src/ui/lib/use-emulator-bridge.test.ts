@@ -1030,7 +1030,12 @@ describe("processBridgeMessage", () => {
       extra: Record<string, unknown> = {},
     ) {
       return {
-        ...makeRaw({ opponentHand, opponentHandSlots: [40, 41, 42, 43, 44], ...extra }),
+        ...makeRaw({
+          opponentHand,
+          opponentHandSlots: [40, 41, 42, 43, 44],
+          turnIndicator: 1, // opponent's turn — swaps only detected here
+          ...extra,
+        }),
         status: "ready" as const,
         version: "1.0.0",
       };
@@ -1092,6 +1097,22 @@ describe("processBridgeMessage", () => {
       expect(r3.state.cpuSwaps).toEqual([]);
     });
 
+    it("deduplicates when hand flickers back and re-settles", () => {
+      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+      const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+
+      const r1 = startDuel(hand1);
+      const r2 = chain(readyWithOpp(hand2), r1, T); // swap detected
+      expect(r2.state.cpuSwaps).toHaveLength(1);
+
+      // Hand flickers back to old value then re-settles to new value
+      const r3 = chain(readyWithOpp(hand1), r2, T + 50); // revert
+      const r4 = chain(readyWithOpp(hand2), r3, T + 100); // re-settle
+
+      // Should still be 1 swap, not 2
+      expect(r4.state.cpuSwaps).toHaveLength(1);
+    });
+
     it("does not flag initial deal as swaps on duel start", () => {
       // Previous duel had different cards. New duel starts with a fresh hand.
       const oldHand = [oppSlot(100), oppSlot(200), oppSlot(300), oppSlot(400), oppSlot(500)];
@@ -1107,6 +1128,17 @@ describe("processBridgeMessage", () => {
 
       expect(r3.state.cpuSwaps).toEqual([]);
       expect(r4.state.cpuSwaps).toEqual([]);
+    });
+
+    it("ignores hand changes during player's turn", () => {
+      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+      const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+
+      const r1 = startDuel(hand1);
+      // Hand changes during player's turn (turnIndicator: 0)
+      const r2 = chain(readyWithOpp(hand2, { turnIndicator: 0 }), r1, T);
+
+      expect(r2.state.cpuSwaps).toEqual([]);
     });
   });
 });

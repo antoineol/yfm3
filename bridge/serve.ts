@@ -748,7 +748,7 @@ function logCollectionDeckState(view: DataView, sceneId: number | null): void {
 // ── Diagnostic probes (optional) ────────────────────────────────────
 const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
 const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL — see docs/memory/steps/bridge-extended-state.md
-const DIAG_OPPONENT = true; // ACTIVE — discovering opponent hand/field addresses
+const DIAG_OPPONENT = false; // investigation complete
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
 let handProbe: HandSlotProbe | null = DIAG_HAND_SLOTS ? createHandSlotProbe() : null;
 let oppProbe: OpponentProbe | null = DIAG_OPPONENT ? createOpponentProbe() : null;

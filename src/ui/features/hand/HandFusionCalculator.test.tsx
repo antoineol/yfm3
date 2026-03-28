@@ -107,6 +107,10 @@ vi.mock("./CpuCheatBanner.tsx", () => ({
   CpuCheatBanner: () => null,
 }));
 
+vi.mock("./OpponentPanel.tsx", () => ({
+  OpponentPanel: () => <div data-testid="opponent-panel" />,
+}));
+
 vi.mock("./use-post-duel-suggestion.ts", () => ({
   usePostDuelSuggestion: vi.fn(() => ({
     state: "idle",
@@ -122,12 +126,21 @@ vi.mock("./PostDuelSuggestion.tsx", () => ({
   PostDuelSuggestion: () => <div data-testid="post-duel-suggestion" />,
 }));
 
+import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 import { HandFusionCalculator } from "./HandFusionCalculator.tsx";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
+function inDuelBridge(phase: string) {
+  return defaultBridge({
+    status: "connected",
+    inDuel: true,
+    phase: phase as EmulatorBridge["phase"],
+  });
+}
 
 describe("HandFusionCalculator", () => {
   it("hydrates source mode from preferences and persists toggle changes", () => {
@@ -169,5 +182,88 @@ describe("HandFusionCalculator", () => {
 
     expect(screen.queryByTestId("emulator-bridge-bar")).toBeNull();
     expect(screen.getByTestId("hand-card-selector")).toBeTruthy();
+  });
+
+  describe("auto-switch cheat view on turn change", () => {
+    it("switches to opponent view when phase becomes opponent", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      vi.mocked(useCheatView).mockReturnValue("player");
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("opponent"));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "opponent" });
+    });
+
+    it("switches back to player view when phase leaves opponent", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      vi.mocked(useCheatView).mockReturnValue("opponent");
+      mockBridge.mockReturnValue(inDuelBridge("opponent"));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "player" });
+    });
+
+    it("does not switch when cheat mode is off", () => {
+      vi.mocked(useCheatMode).mockReturnValue(false);
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("opponent"));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    });
+
+    it("does not switch when not in a duel", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      mockBridge.mockReturnValue(defaultBridge({ phase: "hand", inDuel: false }));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(defaultBridge({ phase: "opponent", inDuel: false }));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    });
+
+    it("ignores transitions to 'other' or 'ended'", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("other"));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    });
+
+    it("skips update when cheatView already matches", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      vi.mocked(useCheatView).mockReturnValue("opponent");
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+      const { rerender } = render(<HandFusionCalculator />);
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("opponent"));
+      rerender(<HandFusionCalculator />);
+
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    });
   });
 });
