@@ -66,6 +66,8 @@ try {
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     $zipPath = Join-Path $tempDir 'update.zip'
 
+    # Disable progress bar — it makes Invoke-WebRequest 10-100x slower
+    $ProgressPreference = 'SilentlyContinue'
     Invoke-WebRequest `
         -Uri $asset.browser_download_url `
         -OutFile $zipPath `
