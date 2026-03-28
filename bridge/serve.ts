@@ -12,8 +12,8 @@
  */
 
 import { execSync, spawn } from "node:child_process";
-import { createWriteStream, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { createWriteStream, existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
@@ -38,7 +38,13 @@ import {
 import { ensureSharedMemoryEnabled } from "./settings.ts";
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
-const __dirname = import.meta.dir;
+// In compiled Bun standalone, import.meta.dir is a virtual path (e.g. B:\~BUN\root\).
+// Fall back to the actual exe directory so we can find package.json, logs, etc.
+const __dirname = (() => {
+  const devDir = import.meta.dir;
+  if (existsSync(join(devDir, "package.json"))) return devDir;
+  return dirname(process.execPath);
+})();
 const VERSION: string = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8")).version;
 const LOG_PATH = join(__dirname, "bridge.log");
 const logStream = createWriteStream(LOG_PATH, { flags: "w" });
