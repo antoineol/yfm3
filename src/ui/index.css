@@ -1453,3 +1453,120 @@ input[type="number"] {
   --color-gold-dim: #6c3483;
   --color-gold-bright: #bb8fce;
 }
+
+/* ── CPU Cheat Banner ─────────────────────────────────────── */
+
+.fm-cheat-banner-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fm-cheat-banner-wrap--open {
+  grid-template-rows: 1fr;
+}
+
+.fm-cheat-banner-wrap > div {
+  overflow: hidden;
+}
+
+.fm-cheat-banner {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  margin: 0 0 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(140, 20, 20, 0.18) 0%, rgba(180, 40, 40, 0.06) 100%);
+  border: 1px solid rgba(220, 60, 60, 0.3);
+  overflow: hidden;
+}
+
+.fm-cheat-banner-portrait {
+  width: 160px;
+  flex-shrink: 0;
+  object-fit: cover;
+  object-position: center 20%;
+  border-right: 1px solid rgba(220, 60, 60, 0.2);
+  mask-image: linear-gradient(to right, black 70%, transparent);
+  -webkit-mask-image: linear-gradient(to right, black 70%, transparent);
+}
+
+.fm-cheat-banner-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.fm-cheat-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.fm-cheat-banner-tag {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #dc4444;
+  text-shadow: 0 0 12px rgba(220, 50, 50, 0.4);
+}
+
+.fm-cheat-banner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fm-cheat-banner-swap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fm-cheat-banner-cards {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fm-cheat-banner-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba(220, 60, 60, 0.25);
+  flex-shrink: 0;
+}
+
+.fm-cheat-banner-arrow {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  background: currentColor;
+  color: #dc4444;
+  clip-path: polygon(0 35%, 60% 35%, 60% 0, 100% 50%, 60% 100%, 60% 65%, 0 65%);
+}
+
+.fm-cheat-banner-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.fm-cheat-banner-name {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  font-size: inherit;
+}

@@ -1,4 +1,3 @@
-import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
@@ -8,11 +7,16 @@ import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useDeck } from "../../db/use-deck.ts";
 import { useHand, useHandMutations } from "../../db/use-hand.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { type HandSourceMode, useHandSourceMode } from "../../db/use-user-preferences.ts";
-import { cheatModeAtom, cheatViewAtom } from "../../lib/atoms.ts";
+import {
+  type HandSourceMode,
+  useCheatMode,
+  useCheatView,
+  useHandSourceMode,
+} from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import type { DuelStats, FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { CheatViewSwitch } from "./CheatViewSwitch.tsx";
+import { CpuCheatBanner } from "./CpuCheatBanner.tsx";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
@@ -54,12 +58,23 @@ export function HandFusionCalculator() {
   const [manualField, setManualField] = useState<FieldCard[]>([]);
 
   // ── Cheat mode (Millennium Eye) ─────────────────────────────
-  const cheatMode = useAtomValue(cheatModeAtom);
-  const cheatView = useAtomValue(cheatViewAtom);
-  const showOpponent = cheatMode && cheatView === "opponent";
+  const cheatMode = useCheatMode();
+  const cheatView = useCheatView();
+  const showOpponent = cheatMode && cheatView === "opponent" && bridge.inDuel;
+
+  // Reset to player view when a new duel starts
+  const prevInDuelRef = useRef(bridge.inDuel);
+  useEffect(() => {
+    const wasInDuel = prevInDuelRef.current;
+    prevInDuelRef.current = bridge.inDuel;
+    if (!wasInDuel && bridge.inDuel && cheatView === "opponent") {
+      updatePreferences({ cheatView: "player" });
+    }
+  }, [bridge.inDuel, cheatView, updatePreferences]);
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
-  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.phase);
+  const zonePhase = bridge.phase === "opponent" ? bridge.opponentPhase : bridge.phase;
+  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, zonePhase);
 
   // ── Manual mode input focus management ───────────────────────
 
@@ -121,9 +136,7 @@ export function HandFusionCalculator() {
     postDuel.state === "result" ||
     postDuel.state === "no_change";
   return (
-    <div
-      className={`w-full max-w-2xl mx-auto flex flex-col gap-2 ${showOpponent ? "fm-opponent-theme" : ""}`}
-    >
+    <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar />}
 
@@ -139,12 +152,15 @@ export function HandFusionCalculator() {
           <WaitingForDuel />
         ))}
 
-      {/* ── Player / Opponent switch (animated in/out with cheat mode) ── */}
+      {/* ── CPU cheat banner + Player/Opponent switch (animated with cheat mode) ── */}
+      <CpuCheatBanner />
       <CheatViewSwitch />
 
       {/* ── Opponent view (cheat mode) ── */}
       {showOpponent ? (
-        <OpponentPanel />
+        <div className="fm-opponent-theme flex flex-col gap-2">
+          <OpponentPanel />
+        </div>
       ) : (
         <>
           {/* ── Manual controls (only when bridge is not connected) ── */}

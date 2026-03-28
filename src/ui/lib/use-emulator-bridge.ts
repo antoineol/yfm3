@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BridgeGameData } from "../../engine/worker/messages.ts";
+import { type CpuSwap, detectCpuSwaps } from "./detect-cpu-swaps.ts";
 
 /** Duel phase labels derived from raw bridge data. */
 export type DuelPhase =
@@ -95,6 +96,8 @@ type InterpretedState = {
   field: FieldCard[];
   handReliable: boolean;
   phase: DuelPhase;
+  /** Phase mapped from raw bytes during opponent's turn (for opponent zone toggle). */
+  opponentPhase: DuelPhase;
   inDuel: boolean;
   lp: [number, number] | null;
   stats: DuelStats | null;
@@ -134,6 +137,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   if (raw.duelPhase != null) {
     const isPlayerTurn = raw.turnIndicator === 0;
     const phase = mapDuelPhase(raw.duelPhase, isPlayerTurn);
+    const opponentPhase = mapRawPhase(raw.duelPhase);
     // With handSlots-based filtering the hand data is deterministic at all
     // phases and turns — no flickering from status-byte transitions.
     // The player's hand doesn't change during the opponent's turn either.
@@ -159,6 +163,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       field,
       handReliable,
       phase,
+      opponentPhase,
       inDuel,
       lp: raw.lp,
       stats,
@@ -178,6 +183,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       field,
       handReliable: hand.length >= 5,
       phase: fallbackPhase,
+      opponentPhase: "other",
       inDuel: true,
       lp: raw.lp,
       stats,
@@ -191,6 +197,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
     field,
     handReliable: false,
     phase: "other",
+    opponentPhase: "other",
     inDuel: false,
     lp: raw.lp,
     stats,
@@ -261,6 +268,18 @@ export function computeOwnedCards(trunk: number[], deckDef: number[]): Record<nu
     if (cardId > 0) owned[cardId] = (owned[cardId] ?? 0) + 1;
   }
   return owned;
+}
+
+/** Map raw phase byte to DuelPhase, ignoring whose turn it is. */
+function mapRawPhase(duelPhase: number): DuelPhase {
+  if (duelPhase === PHASE_DUEL_END || duelPhase === PHASE_RESULTS) return "ended";
+  if (duelPhase === PHASE_INIT) return "draw";
+  if (duelPhase === PHASE_HAND_SELECT) return "hand";
+  if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";
+  if (duelPhase === PHASE_FUSION || duelPhase === PHASE_FUSION_RESOLVE) return "fusion";
+  if (duelPhase === PHASE_FIELD) return "field";
+  if (duelPhase === PHASE_BATTLE) return "battle";
+  return "other";
 }
 
 function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
@@ -389,6 +408,8 @@ export type BridgeState = {
   field: FieldCard[];
   handReliable: boolean;
   phase: DuelPhase;
+  /** Phase mapped from raw bytes during opponent's turn (for opponent zone auto-switch). */
+  opponentPhase: DuelPhase;
   inDuel: boolean;
   lp: [number, number] | null;
   stats: DuelStats | null;
@@ -412,6 +433,8 @@ export type BridgeState = {
   opponentHand: number[];
   /** Opponent's field cards with live ATK/DEF. */
   opponentField: FieldCard[];
+  /** CPU card swaps detected during the current duel. */
+  cpuSwaps: CpuSwap[];
 };
 
 export const INITIAL_BRIDGE_STATE: BridgeState = {
@@ -424,6 +447,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   field: [],
   handReliable: false,
   phase: "other",
+  opponentPhase: "other",
   inDuel: false,
   lp: null,
   stats: null,
@@ -438,6 +462,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   updateStaged: false,
   opponentHand: [],
   opponentField: [],
+  cpuSwaps: [],
 };
 
 export type EmulatorBridge = BridgeState & {
@@ -451,6 +476,8 @@ export type EmulatorBridge = BridgeState & {
 type ProcessResult = {
   state: BridgeState;
   tracker: EndedTracker;
+  /** Raw state for CPU swap detection across consecutive messages. */
+  raw: RawBridgeState | null;
 };
 
 /**
@@ -464,6 +491,7 @@ export function processBridgeMessage(
   msg: unknown,
   currentState: BridgeState,
   tracker: EndedTracker,
+  prevRaw: RawBridgeState | null,
   now: number,
 ): ProcessResult | null {
   if (typeof msg !== "object" || msg === null) return null;
@@ -472,17 +500,17 @@ export function processBridgeMessage(
 
   // ── Partial update: background download staged an update ────────
   if (m.type === "update_staged") {
-    return { state: { ...currentState, updateStaged: true }, tracker };
+    return { state: { ...currentState, updateStaged: true }, tracker, raw: prevRaw };
   }
 
   // ── Partial update: update-and-restart acknowledged ─────────────
   if (m.type === "update_restart_ack") {
-    return { state: { ...currentState, updating: true }, tracker };
+    return { state: { ...currentState, updating: true }, tracker, raw: prevRaw };
   }
 
   // ── Partial update: restart failure ─────────────────────────────
   if (m.type === "restart_result" && m.success === false) {
-    return { state: { ...currentState, restartFailed: true }, tracker };
+    return { state: { ...currentState, restartFailed: true }, tracker, raw: prevRaw };
   }
 
   // ── Partial update: game data from disc ─────────────────────────
@@ -491,6 +519,7 @@ export function processBridgeMessage(
       return {
         state: { ...currentState, gameData: null, gameDataError: m.error as string },
         tracker,
+        raw: prevRaw,
       };
     }
     return {
@@ -505,6 +534,7 @@ export function processBridgeMessage(
         gameDataError: null,
       },
       tracker,
+      raw: prevRaw,
     };
   }
 
@@ -520,6 +550,19 @@ export function processBridgeMessage(
       tracker,
       now,
     );
+
+    // CPU swap detection: compare raw opponent hand across consecutive messages
+    const newSwaps = detectCpuSwaps(
+      prevRaw?.opponentHand,
+      raw.opponentHand,
+      prevRaw?.opponentHandSlots,
+      raw.opponentHandSlots,
+      currentState.inDuel,
+      interpreted.inDuel,
+      now,
+    );
+    const cpuSwaps = interpreted.inDuel ? [...currentState.cpuSwaps, ...newSwaps] : [];
+
     return {
       state: {
         ...INITIAL_BRIDGE_STATE,
@@ -530,6 +573,7 @@ export function processBridgeMessage(
         field: interpreted.field,
         handReliable: interpreted.handReliable,
         phase: effectivePhase,
+        opponentPhase: interpreted.opponentPhase,
         inDuel: interpreted.inDuel,
         lp: interpreted.lp,
         stats: interpreted.stats,
@@ -542,8 +586,10 @@ export function processBridgeMessage(
         gameDataError: currentState.gameDataError,
         opponentHand: interpreted.opponentHand,
         opponentField: interpreted.opponentField,
+        cpuSwaps,
       },
       tracker: nextTracker,
+      raw,
     };
   }
 
@@ -556,6 +602,7 @@ export function processBridgeMessage(
         version: stateMsg.version ?? null,
       },
       tracker,
+      raw: null,
     };
   }
 
@@ -576,6 +623,7 @@ export function processBridgeMessage(
         version: disconnected.version ?? null,
       },
       tracker,
+      raw: null,
     };
   }
 
@@ -598,6 +646,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const endedTrackerRef = useRef<EndedTracker>(INITIAL_ENDED_TRACKER);
+  const prevRawRef = useRef<RawBridgeState | null>(null);
 
   const connect = useCallback(() => {
     if (!enabledRef.current) return;
@@ -621,9 +670,16 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       try {
         const msg: unknown = JSON.parse(event.data as string);
         setState((current) => {
-          const result = processBridgeMessage(msg, current, endedTrackerRef.current, Date.now());
+          const result = processBridgeMessage(
+            msg,
+            current,
+            endedTrackerRef.current,
+            prevRawRef.current,
+            Date.now(),
+          );
           if (!result) return current;
           endedTrackerRef.current = result.tracker;
+          prevRawRef.current = result.raw;
           return result.state;
         });
       } catch {

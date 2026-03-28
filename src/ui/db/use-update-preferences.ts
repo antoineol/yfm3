@@ -11,10 +11,15 @@ export function useUpdatePreferences() {
   const mutateModSettings = useMutation(api.userModSettings.updateModSettings);
   const mutateUserSettings = useMutation(api.userSettings.updateUserSettings);
   return (values: UpdatePreferencesArgs) => {
-    const { bridgeAutoSync, handSourceMode, ...modValues } = values;
+    const { bridgeAutoSync, handSourceMode, cheatMode, cheatView, ...modValues } = values;
     const hasModValues = Object.values(modValues).some((v) => v !== undefined);
-    const hasGlobalValues = bridgeAutoSync !== undefined || handSourceMode !== undefined;
+    const hasGlobalValues =
+      bridgeAutoSync !== undefined ||
+      handSourceMode !== undefined ||
+      cheatMode !== undefined ||
+      cheatView !== undefined;
     if (hasModValues) void mutateModSettings(modValues);
-    if (hasGlobalValues) void mutateUserSettings({ bridgeAutoSync, handSourceMode });
+    if (hasGlobalValues)
+      void mutateUserSettings({ bridgeAutoSync, handSourceMode, cheatMode, cheatView });
   };
 }

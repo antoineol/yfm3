@@ -1,15 +1,18 @@
-import { useAtom, useSetAtom } from "jotai";
-import { cheatModeAtom, cheatViewAtom } from "../../lib/atoms.ts";
+import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
+import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 
 /** Compact Millennium Eye toggle for the header bar. */
 export function CheatModeToggle() {
-  const [active, setActive] = useAtom(cheatModeAtom);
-  const setCheatView = useSetAtom(cheatViewAtom);
+  const active = useCheatMode();
+  const cheatView = useCheatView();
+  const save = useUpdatePreferences();
 
   const handleToggle = () => {
     const next = !active;
-    setActive(next);
-    if (next) setCheatView("opponent");
+    save({
+      cheatMode: next,
+      ...(next && cheatView !== "opponent" ? { cheatView: "opponent" } : {}),
+    });
   };
 
   return (

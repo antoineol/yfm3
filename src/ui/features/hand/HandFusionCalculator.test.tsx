@@ -26,6 +26,8 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useHandSourceMode: vi.fn(() => "deck"),
+  useCheatMode: vi.fn(() => false),
+  useCheatView: vi.fn(() => "player"),
 }));
 
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
@@ -55,6 +57,8 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     updateStaged: false,
     opponentHand: [],
     opponentField: [],
+    cpuSwaps: [],
+    opponentPhase: "other" as const,
     scan: vi.fn(),
     restartEmulator: vi.fn(),
     updateAndRestart: vi.fn(),

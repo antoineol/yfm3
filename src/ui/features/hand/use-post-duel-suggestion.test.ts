@@ -67,6 +67,8 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     updateStaged: false,
     opponentHand: [],
     opponentField: [],
+    cpuSwaps: [],
+    opponentPhase: "other" as const,
     scan: vi.fn(),
     restartEmulator: vi.fn(),
     updateAndRestart: vi.fn(),

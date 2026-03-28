@@ -60,5 +60,7 @@ export default defineSchema({
     selectedMod: v.string(), // Currently active mod (e.g. "rp", "vanilla")
     bridgeAutoSync: v.optional(v.boolean()), // Auto-sync collection/deck from emulator bridge
     handSourceMode: v.optional(handSourceModeValidator),
+    cheatMode: v.optional(v.boolean()), // Millennium Eye: reveal opponent's cards
+    cheatView: v.optional(v.union(v.literal("player"), v.literal("opponent"))),
   }).index('by_user', ['userId']),
 });

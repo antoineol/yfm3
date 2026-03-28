@@ -51,3 +51,17 @@ export function useBridgeAutoSyncSetting(): boolean | undefined | null {
   if (settings === undefined) return null; // loading
   return settings?.bridgeAutoSync;
 }
+
+// ── Cheat mode settings (persisted in userSettings table) ─────────────
+
+export type CheatView = "player" | "opponent";
+
+export function useCheatMode(): boolean {
+  const settings = useUserSettings();
+  return settings?.cheatMode ?? false;
+}
+
+export function useCheatView(): CheatView {
+  const settings = useUserSettings();
+  return settings?.cheatView ?? "player";
+}

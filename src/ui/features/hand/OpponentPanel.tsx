@@ -34,7 +34,7 @@ export function OpponentPanel() {
     [opponentHand],
   );
 
-  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.phase);
+  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, bridge.opponentPhase);
 
   return (
     <>

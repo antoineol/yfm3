@@ -1,24 +1,28 @@
-import { useAtom, useAtomValue } from "jotai";
-import { cheatModeAtom, cheatViewAtom } from "../../lib/atoms.ts";
+import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
+import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
+import { useBridge } from "../../lib/bridge-context.tsx";
 
-/** Player / Opponent segmented switch. Animates in/out with cheat mode. */
+/** Player / Opponent segmented switch. Animates in/out with cheat mode, only during a duel. */
 export function CheatViewSwitch() {
-  const cheatMode = useAtomValue(cheatModeAtom);
-  const [view, setView] = useAtom(cheatViewAtom);
+  const cheatMode = useCheatMode();
+  const view = useCheatView();
+  const save = useUpdatePreferences();
+  const bridge = useBridge();
+  const visible = cheatMode && bridge.inDuel;
 
   return (
-    <div className={`fm-cheat-switch-wrap ${cheatMode ? "fm-cheat-switch-wrap--open" : ""}`}>
+    <div className={`fm-cheat-switch-wrap ${visible ? "fm-cheat-switch-wrap--open" : ""}`}>
       <div>
         <div className="fm-cheat-switch">
           <SwitchOption
             active={view === "player"}
             label="Player"
-            onClick={() => setView("player")}
+            onClick={() => save({ cheatView: "player" })}
           />
           <SwitchOption
             active={view === "opponent"}
             label="Opponent"
-            onClick={() => setView("opponent")}
+            onClick={() => save({ cheatView: "opponent" })}
             variant="opponent"
           />
         </div>

@@ -45,11 +45,15 @@ export const setSelectedMod = mutation({
   },
 });
 
+const cheatViewValidator = v.union(v.literal("player"), v.literal("opponent"));
+
 export const updateUserSettings = mutation({
   args: {
     // null means "unset" (reset to undefined / never-chosen state)
     bridgeAutoSync: v.optional(v.union(v.boolean(), v.null())),
     handSourceMode: v.optional(handSourceModeValidator),
+    cheatMode: v.optional(v.boolean()),
+    cheatView: v.optional(cheatViewValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
@@ -62,6 +66,8 @@ export const updateUserSettings = mutation({
     if (args.bridgeAutoSync === null && existing) {
       const { _id, _creationTime, bridgeAutoSync: _, ...rest } = existing;
       if (args.handSourceMode !== undefined) rest.handSourceMode = args.handSourceMode;
+      if (args.cheatMode !== undefined) rest.cheatMode = args.cheatMode;
+      if (args.cheatView !== undefined) rest.cheatView = args.cheatView;
       await ctx.db.replace(_id, rest);
       return;
     }
@@ -69,6 +75,8 @@ export const updateUserSettings = mutation({
     const patch: Record<string, unknown> = {};
     if (args.bridgeAutoSync !== undefined) patch.bridgeAutoSync = args.bridgeAutoSync;
     if (args.handSourceMode !== undefined) patch.handSourceMode = args.handSourceMode;
+    if (args.cheatMode !== undefined) patch.cheatMode = args.cheatMode;
+    if (args.cheatView !== undefined) patch.cheatView = args.cheatView;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);
