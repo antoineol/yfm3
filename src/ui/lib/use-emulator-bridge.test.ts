@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  type BridgeState,
   computeOwnedCards,
   ENDED_STALE_MS,
   type EndedTracker,
+  INITIAL_BRIDGE_STATE,
   INITIAL_ENDED_TRACKER,
   interpretRawState,
+  processBridgeMessage,
   resolveEndedPhase,
 } from "./use-emulator-bridge.ts";
 
@@ -711,5 +714,227 @@ describe("resolveEndedPhase", () => {
       T + ENDED_STALE_MS - 1,
     );
     expect(effectivePhase).toBe("ended");
+  });
+});
+
+// ── processBridgeMessage ─────────────────────────────────────────────
+
+describe("processBridgeMessage", () => {
+  const T = 1_000_000;
+  const tracker = { ...INITIAL_ENDED_TRACKER };
+
+  function readyMsg(overrides: Record<string, unknown> = {}) {
+    return {
+      connected: true,
+      status: "ready",
+      version: "1.2.0",
+      pid: 1234,
+      modFingerprint: "abc123",
+      sceneId: 5,
+      duelPhase: 0x04,
+      turnIndicator: 0,
+      lp: [8000, 8000],
+      fusions: 0,
+      terrain: 0,
+      duelistId: 5,
+      handSlots: [0, 1, 2, 3, 4],
+      hand: [
+        { cardId: 100, atk: 1200, def: 800, status: 0x80 },
+        { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ],
+      field: [
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ],
+      shuffledDeck: new Array(40).fill(0),
+      trunk: new Array(722).fill(0),
+      deckDefinition: new Array(40).fill(0),
+      ...overrides,
+    };
+  }
+
+  /** State with some non-default values to verify resets. */
+  function dirtyState(): BridgeState {
+    return {
+      ...INITIAL_BRIDGE_STATE,
+      status: "connected",
+      detail: "ready",
+      hand: [1, 2, 3],
+      modFingerprint: "old",
+      gameData: { cards: [], duelists: [], fusionTable: [], equipTable: [] },
+      gameDataError: null,
+      restartFailed: true,
+    };
+  }
+
+  /** Helper that calls processBridgeMessage and asserts non-null. */
+  function process(
+    msg: unknown,
+    current: BridgeState = INITIAL_BRIDGE_STATE,
+    t: EndedTracker = tracker,
+  ) {
+    const result = processBridgeMessage(msg, current, t, T);
+    expect(result).not.toBeNull();
+    // Safe after the assertion above
+    return result as Exclude<typeof result, null>;
+  }
+
+  it("returns null for non-object messages", () => {
+    expect(processBridgeMessage(null, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+    expect(processBridgeMessage("string", INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+    expect(processBridgeMessage(42, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+  });
+
+  it("returns null for unrecognized message shapes", () => {
+    // { connected: true } but neither "ready" nor "waiting_for_game"
+    const msg = { connected: true, status: "unknown_status", pid: 1 };
+    expect(processBridgeMessage(msg, INITIAL_BRIDGE_STATE, tracker, T)).toBeNull();
+  });
+
+  describe("ready message", () => {
+    it("populates full state from a ready message", () => {
+      const { state: s } = process(readyMsg());
+      expect(s.status).toBe("connected");
+      expect(s.detail).toBe("ready");
+      expect(s.version).toBe("1.2.0");
+      expect(s.hand).toEqual([100, 200]);
+      expect(s.modFingerprint).toBe("abc123");
+      expect(s.inDuel).toBe(true);
+      expect(s.phase).toBe("hand");
+      expect(s.lp).toEqual([8000, 8000]);
+    });
+
+    it("preserves existing gameData (arrives via separate message)", () => {
+      const prev = dirtyState();
+      const { state: s } = process(readyMsg(), prev);
+      expect(s.gameData).toBe(prev.gameData);
+      expect(s.gameDataError).toBe(prev.gameDataError);
+    });
+
+    it("resets game fields not present in the message", () => {
+      const { state: s } = process(readyMsg(), dirtyState());
+      expect(s.restartFailed).toBe(false);
+      expect(s.settingsPatched).toBe(false);
+    });
+  });
+
+  describe("waiting_for_game message", () => {
+    const msg = { connected: true, status: "waiting_for_game", version: "1.2.0", pid: 1 };
+
+    it("resets game state while keeping connection info", () => {
+      const { state: s } = process(msg, dirtyState());
+      expect(s.status).toBe("connected");
+      expect(s.detail).toBe("waiting_for_game");
+      expect(s.version).toBe("1.2.0");
+      // Game state fully reset
+      expect(s.hand).toEqual([]);
+      expect(s.modFingerprint).toBeNull();
+      expect(s.collection).toBeNull();
+      expect(s.gameData).toBeNull();
+      expect(s.restartFailed).toBe(false);
+    });
+  });
+
+  describe("disconnected message (bridge sees no emulator)", () => {
+    it("maps no_emulator status correctly", () => {
+      const msg = { connected: false, status: "no_emulator", version: "1.2.0" };
+      const { state: s } = process(msg, dirtyState());
+      expect(s.status).toBe("connected");
+      expect(s.detail).toBe("emulator_not_found");
+      expect(s.hand).toEqual([]);
+      expect(s.modFingerprint).toBeNull();
+      expect(s.restartFailed).toBe(false);
+    });
+
+    it("maps no_shared_memory status correctly", () => {
+      const msg = { connected: false, status: "no_shared_memory", version: "1.2.0" };
+      const { state: s } = process(msg, dirtyState());
+      expect(s.detail).toBe("no_shared_memory");
+    });
+
+    it("maps unknown status to error", () => {
+      const msg = { connected: false, status: "error", reason: "boom" };
+      const { state: s } = process(msg, dirtyState());
+      expect(s.detail).toBe("error");
+      expect(s.detailMessage).toBe("boom");
+    });
+
+    it("carries settingsPatched flag through", () => {
+      const msg = { connected: false, status: "no_shared_memory", settingsPatched: true };
+      const { state: s } = process(msg);
+      expect(s.settingsPatched).toBe(true);
+    });
+  });
+
+  describe("gameData message", () => {
+    it("sets gameData on success", () => {
+      const msg = {
+        type: "gameData",
+        cards: [1],
+        duelists: [2],
+        fusionTable: [3],
+        equipTable: [4],
+      };
+      const { state: s } = process(msg);
+      expect(s.gameData).toEqual({
+        cards: [1],
+        duelists: [2],
+        fusionTable: [3],
+        equipTable: [4],
+      });
+      expect(s.gameDataError).toBeNull();
+    });
+
+    it("sets gameDataError on failure", () => {
+      const msg = { type: "gameData", error: "disc not found" };
+      const { state: s } = process(msg, dirtyState());
+      expect(s.gameData).toBeNull();
+      expect(s.gameDataError).toBe("disc not found");
+    });
+
+    it("does not reset other state fields", () => {
+      const prev = dirtyState();
+      const msg = { type: "gameData", cards: [], duelists: [], fusionTable: [], equipTable: [] };
+      const { state: s } = process(msg, prev);
+      expect(s.hand).toEqual(prev.hand);
+      expect(s.modFingerprint).toBe(prev.modFingerprint);
+    });
+  });
+
+  describe("restart_result message", () => {
+    it("sets restartFailed on failure", () => {
+      const msg = { type: "restart_result", success: false };
+      const { state: s } = process(msg);
+      expect(s.restartFailed).toBe(true);
+    });
+
+    it("does not reset other state fields", () => {
+      const prev = dirtyState();
+      const msg = { type: "restart_result", success: false };
+      const { state: s } = process(msg, prev);
+      expect(s.hand).toEqual(prev.hand);
+      expect(s.status).toBe(prev.status);
+    });
+  });
+
+  describe("tracker passthrough", () => {
+    it("returns updated tracker for ready messages", () => {
+      const { tracker: t } = process(readyMsg());
+      // Ready message with inDuel=true should set wasInDuel=true
+      expect(t.wasInDuel).toBe(true);
+    });
+
+    it("passes tracker through unchanged for partial-update messages", () => {
+      const customTracker: EndedTracker = { sceneId: 42, sceneLeft: false, at: T, wasInDuel: true };
+      const msg = { type: "restart_result", success: false };
+      const { tracker: t } = process(msg, INITIAL_BRIDGE_STATE, customTracker);
+      expect(t).toBe(customTracker);
+    });
   });
 });

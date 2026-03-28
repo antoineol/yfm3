@@ -340,7 +340,8 @@ export type BridgeDetail =
   | "ready"
   | "error";
 
-export type EmulatorBridge = {
+/** Reactive bridge state (no callbacks). */
+export type BridgeState = {
   status: BridgeStatus;
   detail: BridgeDetail;
   detailMessage: string | null;
@@ -366,9 +367,160 @@ export type EmulatorBridge = {
   gameDataError: string | null;
   /** True when the last restart request failed on the bridge side. */
   restartFailed: boolean;
+};
+
+export const INITIAL_BRIDGE_STATE: BridgeState = {
+  status: "disconnected",
+  detail: "bridge_not_found",
+  detailMessage: null,
+  settingsPatched: false,
+  version: null,
+  hand: [],
+  field: [],
+  handReliable: false,
+  phase: "other",
+  inDuel: false,
+  lp: null,
+  stats: null,
+  collection: null,
+  deckDefinition: null,
+  shuffledDeck: null,
+  modFingerprint: null,
+  gameData: null,
+  gameDataError: null,
+  restartFailed: false,
+};
+
+export type EmulatorBridge = BridgeState & {
   scan: () => void;
   restartEmulator: () => void;
 };
+
+// ── Pure message processor (testable) ────────────────────────────────
+
+type ProcessResult = {
+  state: BridgeState;
+  tracker: EndedTracker;
+};
+
+/**
+ * Pure function: maps a raw bridge WebSocket message to the next BridgeState.
+ * Returns null for malformed/unparseable messages.
+ *
+ * `currentState` is needed for partial-update messages (gameData, restart_result)
+ * that only touch a subset of fields.
+ */
+export function processBridgeMessage(
+  msg: unknown,
+  currentState: BridgeState,
+  tracker: EndedTracker,
+  now: number,
+): ProcessResult | null {
+  if (typeof msg !== "object" || msg === null) return null;
+
+  const m = msg as Record<string, unknown>;
+
+  // ── Partial update: restart failure ─────────────────────────────
+  if (m.type === "restart_result" && m.success === false) {
+    return { state: { ...currentState, restartFailed: true }, tracker };
+  }
+
+  // ── Partial update: game data from disc ─────────────────────────
+  if (m.type === "gameData") {
+    if (m.error) {
+      return {
+        state: { ...currentState, gameData: null, gameDataError: m.error as string },
+        tracker,
+      };
+    }
+    return {
+      state: {
+        ...currentState,
+        gameData: {
+          cards: m.cards,
+          duelists: m.duelists,
+          fusionTable: m.fusionTable,
+          equipTable: m.equipTable,
+        } as BridgeGameData,
+        gameDataError: null,
+      },
+      tracker,
+    };
+  }
+
+  // ── Full state messages ─────────────────────────────────────────
+  const stateMsg = msg as RawBridgeMessage;
+
+  if (stateMsg.connected && stateMsg.status === "ready") {
+    const raw = stateMsg as RawBridgeState;
+    const interpreted = interpretRawState(raw);
+    const { effectivePhase, tracker: nextTracker } = resolveEndedPhase(
+      interpreted,
+      raw.sceneId ?? 0,
+      tracker,
+      now,
+    );
+    return {
+      state: {
+        ...INITIAL_BRIDGE_STATE,
+        status: "connected",
+        detail: "ready",
+        version: stateMsg.version ?? null,
+        hand: interpreted.hand,
+        field: interpreted.field,
+        handReliable: interpreted.handReliable,
+        phase: effectivePhase,
+        inDuel: interpreted.inDuel,
+        lp: interpreted.lp,
+        stats: interpreted.stats,
+        collection: computeOwnedCards(raw.trunk, raw.deckDefinition),
+        deckDefinition: raw.deckDefinition,
+        shuffledDeck: raw.shuffledDeck ?? null,
+        modFingerprint: raw.modFingerprint ?? null,
+        // Preserve game data — it arrives via a separate message
+        gameData: currentState.gameData,
+        gameDataError: currentState.gameDataError,
+      },
+      tracker: nextTracker,
+    };
+  }
+
+  if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
+    return {
+      state: {
+        ...INITIAL_BRIDGE_STATE,
+        status: "connected",
+        detail: "waiting_for_game",
+        version: stateMsg.version ?? null,
+      },
+      tracker,
+    };
+  }
+
+  if (!stateMsg.connected) {
+    const disconnected = stateMsg as BridgeDisconnected;
+    return {
+      state: {
+        ...INITIAL_BRIDGE_STATE,
+        status: "connected",
+        detail:
+          disconnected.status === "no_emulator"
+            ? "emulator_not_found"
+            : disconnected.status === "no_shared_memory"
+              ? "no_shared_memory"
+              : "error",
+        detailMessage: disconnected.reason ?? null,
+        settingsPatched: disconnected.settingsPatched === true,
+        version: disconnected.version ?? null,
+      },
+      tracker,
+    };
+  }
+
+  return null;
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────
 
 const BRIDGE_URL = "ws://localhost:3333";
 const RECONNECT_MS = 3_000;
@@ -378,30 +530,11 @@ const RECONNECT_MS = 3_000;
  * Automatically reconnects on disconnect.
  */
 export function useEmulatorBridge(enabled = true): EmulatorBridge {
-  const [status, setStatus] = useState<BridgeStatus>("disconnected");
-  const [detail, setDetail] = useState<BridgeDetail>("bridge_not_found");
-  const [detailMessage, setDetailMessage] = useState<string | null>(null);
-  const [settingsPatched, setSettingsPatched] = useState(false);
-  const [version, setVersion] = useState<string | null>(null);
-  const [hand, setHand] = useState<number[]>([]);
-  const [field, setField] = useState<FieldCard[]>([]);
-  const [handReliable, setHandReliable] = useState(false);
-  const [phase, setPhase] = useState<DuelPhase>("other");
-  const [inDuel, setInDuel] = useState(false);
-  const [lp, setLp] = useState<[number, number] | null>(null);
-  const [stats, setStats] = useState<DuelStats | null>(null);
-  const [collection, setCollection] = useState<Record<number, number> | null>(null);
-  const [deckDefinition, setDeckDefinition] = useState<number[] | null>(null);
-  const [shuffledDeck, setShuffledDeck] = useState<number[] | null>(null);
-  const [modFingerprint, setModFingerprint] = useState<string | null>(null);
-  const [gameData, setGameData] = useState<BridgeGameData | null>(null);
-  const [gameDataError, setGameDataError] = useState<string | null>(null);
-  const [restartFailed, setRestartFailed] = useState(false);
+  const [state, setState] = useState<BridgeState>(INITIAL_BRIDGE_STATE);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
-
   const endedTrackerRef = useRef<EndedTracker>(INITIAL_ENDED_TRACKER);
 
   const connect = useCallback(() => {
@@ -413,114 +546,24 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       return;
     }
 
-    setStatus("connecting");
+    setState((s) => ({ ...s, status: "connecting" }));
 
     const ws = new WebSocket(BRIDGE_URL);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      setStatus("connected");
+      setState((s) => ({ ...s, status: "connected" }));
     };
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data as string);
-        // Handle restart failure notification from the bridge
-        if (msg.type === "restart_result" && msg.success === false) {
-          setRestartFailed(true);
-          return;
-        }
-        // Handle game data message (fusion/equip tables from disc)
-        if (msg.type === "gameData") {
-          if (msg.error) {
-            setGameData(null);
-            setGameDataError(msg.error);
-          } else {
-            setGameData({
-              cards: msg.cards,
-              duelists: msg.duelists,
-              fusionTable: msg.fusionTable,
-              equipTable: msg.equipTable,
-            });
-            setGameDataError(null);
-          }
-          return;
-        }
-        const stateMsg: RawBridgeMessage = msg;
-        if (stateMsg.connected && stateMsg.status === "ready") {
-          // Full game state available
-          setStatus("connected");
-          setDetail("ready");
-          setDetailMessage(null);
-          setSettingsPatched(false);
-          setVersion(stateMsg.version ?? null);
-          const state = interpretRawState(stateMsg);
-
-          const { effectivePhase, tracker } = resolveEndedPhase(
-            state,
-            stateMsg.sceneId ?? 0,
-            endedTrackerRef.current,
-            Date.now(),
-          );
-          endedTrackerRef.current = tracker;
-
-          setHand(state.hand);
-          setField(state.field);
-          setHandReliable(state.handReliable);
-          setPhase(effectivePhase);
-          setInDuel(state.inDuel);
-          setLp(state.lp);
-          setStats(state.stats);
-          setCollection(computeOwnedCards(stateMsg.trunk, stateMsg.deckDefinition));
-          setDeckDefinition(stateMsg.deckDefinition);
-          setShuffledDeck(stateMsg.shuffledDeck ?? null);
-          setModFingerprint(stateMsg.modFingerprint ?? null);
-        } else if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
-          // Bridge connected to DuckStation but game not loaded yet
-          setStatus("connected");
-          setDetail("waiting_for_game");
-          setDetailMessage(null);
-          setSettingsPatched(false);
-          setVersion(stateMsg.version ?? null);
-          setHand([]);
-          setField([]);
-          setHandReliable(false);
-          setPhase("other");
-          setInDuel(false);
-          setLp(null);
-          setStats(null);
-          setCollection(null);
-          setDeckDefinition(null);
-          setShuffledDeck(null);
-          setModFingerprint(null);
-          setGameData(null);
-          setGameDataError(null);
-        } else if (!stateMsg.connected) {
-          setStatus("connected");
-          setDetail(
-            stateMsg.status === "no_emulator"
-              ? "emulator_not_found"
-              : stateMsg.status === "no_shared_memory"
-                ? "no_shared_memory"
-                : "error",
-          );
-          setDetailMessage(stateMsg.reason ?? null);
-          setSettingsPatched(stateMsg.settingsPatched === true);
-          setVersion(stateMsg.version ?? null);
-          setHand([]);
-          setField([]);
-          setHandReliable(false);
-          setPhase("other");
-          setInDuel(false);
-          setLp(null);
-          setStats(null);
-          setCollection(null);
-          setDeckDefinition(null);
-          setShuffledDeck(null);
-          setModFingerprint(null);
-          setGameData(null);
-          setGameDataError(null);
-        }
+        const msg: unknown = JSON.parse(event.data as string);
+        setState((current) => {
+          const result = processBridgeMessage(msg, current, endedTrackerRef.current, Date.now());
+          if (!result) return current;
+          endedTrackerRef.current = result.tracker;
+          return result.state;
+        });
       } catch {
         // Ignore malformed messages
       }
@@ -528,23 +571,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
     ws.onclose = () => {
       wsRef.current = null;
-      setStatus("disconnected");
-      setDetail("bridge_not_found");
-      setDetailMessage(null);
-      setSettingsPatched(false);
-      setVersion(null);
-      setHand([]);
-      setField([]);
-      setHandReliable(false);
-      setPhase("other");
-      setInDuel(false);
-      setLp(null);
-      setStats(null);
-      setCollection(null);
-      setDeckDefinition(null);
-      setShuffledDeck(null);
-      setGameData(null);
-      setGameDataError(null);
+      setState(INITIAL_BRIDGE_STATE);
       if (enabledRef.current) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
       }
@@ -560,23 +587,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
-      setStatus("disconnected");
-      setDetail("bridge_not_found");
-      setDetailMessage(null);
-      setSettingsPatched(false);
-      setVersion(null);
-      setHand([]);
-      setField([]);
-      setHandReliable(false);
-      setPhase("other");
-      setInDuel(false);
-      setLp(null);
-      setStats(null);
-      setCollection(null);
-      setDeckDefinition(null);
-      setShuffledDeck(null);
-      setGameData(null);
-      setGameDataError(null);
+      setState(INITIAL_BRIDGE_STATE);
       return;
     }
     connect();
@@ -595,32 +606,10 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
   const restartEmulator = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      setRestartFailed(false);
+      setState((s) => ({ ...s, restartFailed: false }));
       wsRef.current.send(JSON.stringify({ type: "restart_duckstation" }));
     }
   }, []);
 
-  return {
-    status,
-    detail,
-    detailMessage,
-    settingsPatched,
-    version,
-    hand,
-    field,
-    handReliable,
-    phase,
-    inDuel,
-    lp,
-    stats,
-    collection,
-    deckDefinition,
-    shuffledDeck,
-    modFingerprint,
-    gameData,
-    gameDataError,
-    restartFailed,
-    scan,
-    restartEmulator,
-  };
+  return { ...state, scan, restartEmulator };
 }

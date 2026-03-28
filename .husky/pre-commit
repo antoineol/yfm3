@@ -1,5 +1,5 @@
 # Auto-bump bridge version when bridge source files change
-BRIDGE_FILES=$(git diff --cached --name-only -- 'bridge/' | grep -v '^bridge/package\.json$' | grep -v '^bridge/package-lock\.json$')
+BRIDGE_FILES=$(git diff --cached --name-only -- 'bridge/' | grep -v '^bridge/package\.json$' | grep -v '^bridge/package-lock\.json$' || true)
 
 if [ -n "$BRIDGE_FILES" ]; then
   cd bridge && npm version patch --no-git-tag-version && npm install && cd ..
