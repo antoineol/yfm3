@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { MODS } from "../../../engine/mods.ts";
+import { EXTRA_GAME_VARIANTS, MODS } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import {
@@ -49,47 +49,60 @@ function SetupSteps() {
   const [downloaded, setDownloaded] = useState(false);
   const states = stepStatesForDetail(bridge.detail);
 
-  const step1 = downloaded && states[0] === STEP_ACTIVE ? STEP_DONE : states[0];
-  const step4 = bridge.settingsPatched ? STEP_DONE : states[3];
+  const step4 = downloaded && states[3] === STEP_ACTIVE ? STEP_DONE : states[3];
+  const step7 = bridge.settingsPatched ? STEP_DONE : states[6];
 
   return (
     <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
       <p className="text-xs text-text-muted uppercase tracking-wide mb-3">Setup</p>
 
-      <p className="text-xs text-text-muted mb-1">
-        Requires <strong className="text-text-secondary">Windows</strong>,{" "}
-        <strong className="text-text-secondary">DuckStation</strong> emulator, and the game BIN.
+      <p className="text-xs text-text-muted mb-3">
+        Requires <strong className="text-text-secondary">Windows</strong>.
       </p>
-      <div className="flex flex-wrap gap-2 mb-1">
-        <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
-        <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
-        <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
-      </div>
-      <div className="flex flex-wrap gap-2 mb-3">
-        {Object.values(MODS).map((mod) => (
-          <DownloadLink href={mod.gameDownloadUrl} key={mod.id}>
-            {mod.gameDownloadLabel}
-          </DownloadLink>
-        ))}
-      </div>
 
-      <Step number={1} state={step1} title="Download the bridge">
+      <Step number={1} state={states[0]} title="Download the emulator">
+        <DownloadLink href={DUCKSTATION_URL}>Download DuckStation</DownloadLink>
+      </Step>
+
+      <Step number={2} state={states[1]} title="Download a PS1 BIOS for the emulator">
+        <div className="flex flex-wrap gap-2">
+          <DownloadLink href={BIOS_US_URL}>PS1 BIOS (US)</DownloadLink>
+          <DownloadLink href={BIOS_EU_URL}>PS1 BIOS (EU)</DownloadLink>
+        </div>
+      </Step>
+
+      <Step number={3} state={states[2]} title="Download the game">
+        <div className="flex flex-wrap gap-2">
+          {Object.values(MODS).map((mod) => (
+            <DownloadLink href={mod.gameDownloadUrl} key={mod.id}>
+              {mod.name}
+            </DownloadLink>
+          ))}
+          {EXTRA_GAME_VARIANTS.map((v) => (
+            <DownloadLink href={v.gameDownloadUrl} key={v.name}>
+              {v.name}
+            </DownloadLink>
+          ))}
+        </div>
+      </Step>
+
+      <Step number={4} state={step4} title="Download the bridge to connect to the game">
         <DownloadLink download href={BRIDGE_DOWNLOAD_URL} onClick={() => setDownloaded(true)}>
           Download yfm-bridge
         </DownloadLink>
       </Step>
 
       <Step
-        number={2}
-        state={states[1]}
+        number={5}
+        state={states[4]}
         title="Extract the zip and double-click start-bridge.bat"
       />
 
-      <Step number={3} state={states[2]} title="Open DuckStation" />
+      <Step number={6} state={states[5]} title="Open DuckStation" />
 
       <Step
-        number={4}
-        state={step4}
+        number={7}
+        state={step7}
         title={
           bridge.settingsPatched
             ? "Shared memory export enabled — restart DuckStation to apply"
@@ -99,7 +112,7 @@ function SetupSteps() {
         {bridge.settingsPatched ? <RestartDuckStationButton /> : <DuckStationInstructions />}
       </Step>
 
-      <Step number={5} state={states[4]} title="Load the game in DuckStation" />
+      <Step number={8} state={states[7]} title="Load the game in DuckStation" />
     </div>
   );
 }

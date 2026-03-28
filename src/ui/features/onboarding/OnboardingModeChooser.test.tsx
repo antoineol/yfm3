@@ -35,7 +35,7 @@ describe("OnboardingModeChooser", () => {
 
   it("does not show version selector or download links", () => {
     render(<OnboardingModeChooser />);
-    expect(screen.queryByText("Vanilla")).toBeNull();
+    expect(screen.queryByText("Original")).toBeNull();
     expect(screen.queryByText("Download DuckStation")).toBeNull();
     expect(screen.queryByText("PS1 BIOS (US)")).toBeNull();
   });

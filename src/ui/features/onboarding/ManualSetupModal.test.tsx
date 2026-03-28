@@ -71,7 +71,7 @@ describe("ManualSetupModal", () => {
     );
     fireEvent.click(screen.getByText("open-modal"));
     expect(screen.getByText("Setup guide")).toBeDefined();
-    expect(screen.getByText("Vanilla")).toBeDefined();
+    expect(screen.getByText("Original")).toBeDefined();
     expect(screen.getByText("Remastered Perfected")).toBeDefined();
     expect(screen.getByText("Download game")).toBeDefined();
     expect(screen.getByText("Load sample collection")).toBeDefined();

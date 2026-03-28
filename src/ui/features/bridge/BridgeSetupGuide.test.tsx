@@ -65,29 +65,27 @@ import { BridgeSetupGuide } from "./BridgeSetupGuide.tsx";
 afterEach(cleanup);
 
 describe("BridgeSetupGuide", () => {
-  it("renders 5 setup steps", () => {
+  it("renders 8 setup steps", () => {
     render(<BridgeSetupGuide />);
-    expect(screen.getByText("Download the bridge")).toBeDefined();
+    expect(screen.getByText("Download the emulator")).toBeDefined();
+    expect(screen.getByText("Download a PS1 BIOS for the emulator")).toBeDefined();
+    expect(screen.getByText("Download the game")).toBeDefined();
+    expect(screen.getByText("Download the bridge to connect to the game")).toBeDefined();
     expect(screen.getByText("Extract the zip and double-click start-bridge.bat")).toBeDefined();
     expect(screen.getByText("Open DuckStation")).toBeDefined();
     expect(screen.getByText("Enable shared memory export in DuckStation")).toBeDefined();
     expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
   });
 
-  it("shows requirements disclaimer with download links", () => {
+  it("shows download links for each prerequisite step", () => {
     render(<BridgeSetupGuide />);
-    expect(screen.getByText(/Requires/)).toBeDefined();
-    expect(screen.getByText("Windows")).toBeDefined();
-    expect(screen.getByText("DuckStation", { selector: "strong" })).toBeDefined();
     expect(screen.getByText("Download DuckStation")).toBeDefined();
     expect(screen.getByText("PS1 BIOS (US)")).toBeDefined();
     expect(screen.getByText("PS1 BIOS (EU)")).toBeDefined();
-  });
-
-  it("shows game download links", () => {
-    render(<BridgeSetupGuide />);
-    expect(screen.getByText("Download game")).toBeDefined();
-    expect(screen.getByText("Download RP mod")).toBeDefined();
+    expect(screen.getByText("Original")).toBeDefined();
+    expect(screen.getByText("15 cards drop")).toBeDefined();
+    expect(screen.getByText("Remastered Perfected")).toBeDefined();
+    expect(screen.getByText("Download yfm-bridge")).toBeDefined();
   });
 
   it("shows switch mode link", () => {

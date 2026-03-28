@@ -8,22 +8,30 @@ export const STEP_ACTIVE = "active";
 export const STEP_PENDING = "pending";
 export type StepState = typeof STEP_DONE | typeof STEP_ACTIVE | typeof STEP_PENDING;
 
+/**
+ * Maps bridge detail to 8 step states:
+ * [0] emulator, [1] BIOS, [2] game, [3] bridge download, [4] extract & run,
+ * [5] open DuckStation, [6] shared memory, [7] load game
+ */
 export function stepStatesForDetail(
   detail: BridgeDetail,
-): [StepState, StepState, StepState, StepState, StepState] {
+): [StepState, StepState, StepState, StepState, StepState, StepState, StepState, StepState] {
+  const D = STEP_DONE;
+  const A = STEP_ACTIVE;
+  const P = STEP_PENDING;
   switch (detail) {
     case "ready":
-      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE];
+      return [D, D, D, D, D, D, D, D];
     case "waiting_for_game":
-      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE];
+      return [D, D, D, D, D, D, D, A];
     case "no_shared_memory":
-      return [STEP_DONE, STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING];
+      return [D, D, D, D, D, D, A, P];
     case "emulator_not_found":
-      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
+      return [D, D, D, D, D, A, P, P];
     case "bridge_not_found":
-      return [STEP_ACTIVE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING, STEP_PENDING];
+      return [A, A, A, A, A, P, P, P];
     case "error":
-      return [STEP_DONE, STEP_DONE, STEP_ACTIVE, STEP_PENDING, STEP_PENDING];
+      return [D, D, D, D, D, A, P, P];
   }
 }
 

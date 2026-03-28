@@ -16,7 +16,7 @@ export interface ModConfig {
 export const MODS: Record<ModId, ModConfig> = {
   vanilla: {
     id: "vanilla",
-    name: "Vanilla",
+    name: "Original",
     megamorphId: 657,
     fingerprint: "2cf505025090090678c84412788c2001",
     gameDownloadLabel: "Download game",
@@ -31,6 +31,14 @@ export const MODS: Record<ModId, ModConfig> = {
     gameDownloadUrl: "https://mega.nz/file/SwQwVb5a#1EdeL_Sb8mwvlRodT3sJ3loRjT1kjRfHcvP6eHH3sLo",
   },
 };
+
+/** Extra game variants that share a fingerprint with an existing mod (not selectable in manual mode). */
+export const EXTRA_GAME_VARIANTS: readonly { name: string; gameDownloadUrl: string }[] = [
+  {
+    name: "15 cards drop",
+    gameDownloadUrl: "https://www.mediafire.com/file/6dnbt49lt455ld2/15+card+mod.7z",
+  },
+];
 
 /** Default mod when none is selected. */
 export const DEFAULT_MOD: ModId = "vanilla";
