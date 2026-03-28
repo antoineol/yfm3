@@ -1,3 +1,4 @@
+import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -9,13 +10,16 @@ import { useDeck } from "../../db/use-deck.ts";
 import { useHand, useHandMutations } from "../../db/use-hand.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { type HandSourceMode, useHandSourceMode } from "../../db/use-user-preferences.ts";
+import { cheatModeAtom, cheatViewAtom } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import type { DuelStats, FieldCard } from "../../lib/use-emulator-bridge.ts";
+import { CheatViewSwitch } from "./CheatViewSwitch.tsx";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
 import { FieldDisplay } from "./FieldDisplay.tsx";
 import { FusionResultsList } from "./FusionResultsList.tsx";
 import { HandCardSelector } from "./HandCardSelector.tsx";
 import { HandDisplay } from "./HandDisplay.tsx";
+import { OpponentPanel } from "./OpponentPanel.tsx";
 import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
@@ -49,6 +53,11 @@ export function HandFusionCalculator() {
 
   // ── Manual mode field (populated when user clicks "Play") ─────
   const [manualField, setManualField] = useState<FieldCard[]>([]);
+
+  // ── Cheat mode (Millennium Eye) ─────────────────────────────
+  const cheatMode = useAtomValue(cheatModeAtom);
+  const cheatView = useAtomValue(cheatViewAtom);
+  const showOpponent = cheatMode && cheatView === "opponent";
 
   // ── Zone toggle (hand/field, synced mode only) ───────────────
   const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
@@ -140,7 +149,9 @@ export function HandFusionCalculator() {
     postDuel.state === "result" ||
     postDuel.state === "no_change";
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
+    <div
+      className={`w-full max-w-2xl mx-auto flex flex-col gap-2 ${showOpponent ? "fm-opponent-theme" : ""}`}
+    >
       {/* ── Bridge status bar (only when connected) ── */}
       {bridge.status === "connected" && <EmulatorBridgeBar />}
 
@@ -156,135 +167,145 @@ export function HandFusionCalculator() {
           <WaitingForDuel />
         ))}
 
-      {/* ── Manual controls (only when bridge is not connected) ── */}
-      {bridge.status !== "connected" && (
-        <div className="flex flex-col gap-2">
-          <ToggleGroup
-            onChange={handleSourceModeChange}
-            options={SOURCE_OPTIONS}
-            value={sourceMode}
-          />
-          <HandCardSelector inputRef={inputRef} />
-        </div>
-      )}
+      {/* ── Player / Opponent switch (animated in/out with cheat mode) ── */}
+      <CheatViewSwitch />
 
-      {/* ── Synced mode: 3D arena with both zones always visible ── */}
-      {isSynced && (
-        <div className="fm-zone-arena">
-          {/* Keyed array: active zone first in DOM. View Transitions API
-              animates the position swap when the DOM order changes. */}
-          {(focusedZone === "hand"
-            ? (["hand", "field"] as const)
-            : (["field", "hand"] as const)
-          ).map((zone) => (
-            <div className="fm-zone-slot" key={zone} style={{ viewTransitionName: `${zone}-zone` }}>
-              {zone === "hand" ? (
-                <ZonePanel
-                  active={focusedZone === "hand"}
-                  count={hand.length}
-                  label="Hand"
-                  maxCount={HAND_SIZE}
-                >
-                  <HandDisplay
-                    cards={hand}
-                    drawing={bridge.phase === "draw"}
-                    frozen={bridge.inDuel && !bridge.handReliable}
-                  />
-                </ZonePanel>
-              ) : (
-                <ZonePanel
-                  active={focusedZone === "field"}
-                  count={bridge.field.length}
-                  label="Field"
-                  maxCount={5}
-                >
-                  <FieldDisplay cards={bridge.field} />
-                </ZonePanel>
-              )}
-              {/* Focus overlay on the wrapper — not inside the zone,
-                  so it covers the full slot area regardless of 3D transforms */}
-              {focusedZone !== zone && (
-                <button
-                  aria-label={`Switch to ${zone}`}
-                  className="fm-zone-focus-btn"
-                  onClick={() => animatedSetZone(zone)}
-                  type="button"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Manual mode: field section ── */}
-      {!isSynced && !isWaitingForDuel && manualField.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <SectionLabel>
-              Your Field
-              <span className="text-text-muted font-body font-normal ml-1.5">
-                ({String(manualField.length)}/5)
-              </span>
-            </SectionLabel>
-            <button
-              className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
-              onClick={() => setManualField([])}
-              type="button"
-            >
-              Clear field
-            </button>
-          </div>
-          <FieldDisplay cards={manualField} />
-        </section>
-      )}
-
-      {/* ── Manual mode: hand section ── */}
-      {!isSynced && !isWaitingForDuel && (
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <SectionLabel>
-              Your Hand
-              <span className="text-text-muted font-body font-normal ml-1.5">
-                ({String(hand.length)}/{String(HAND_SIZE)})
-              </span>
-            </SectionLabel>
-            {hand.length > 0 && (
-              <button
-                className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
-                onClick={() => {
-                  void clearHand();
-                  requestInputFocus();
-                }}
-                type="button"
-              >
-                Clear hand
-              </button>
-            )}
-          </div>
-          <HandDisplay
-            cards={hand}
-            onRemove={(docId) => {
-              void removeFromHand({ id: docId });
-              requestInputFocus();
-            }}
-          />
-        </section>
-      )}
-
-      {/* ── Fusion results (only during hand/draw in synced mode, always in manual) ── */}
-      {!isWaitingForDuel && (!isSynced || SHOW_FUSIONS_PHASES.has(bridge.phase)) && (
-        <section>
-          {!isSynced && (
-            <div className="mb-1">
-              <SectionLabel>Best Plays</SectionLabel>
+      {/* ── Opponent view (cheat mode) ── */}
+      {showOpponent ? (
+        <OpponentPanel />
+      ) : (
+        <>
+          {/* ── Manual controls (only when bridge is not connected) ── */}
+          {bridge.status !== "connected" && (
+            <div className="flex flex-col gap-2">
+              <ToggleGroup
+                onChange={handleSourceModeChange}
+                options={SOURCE_OPTIONS}
+                value={sourceMode}
+              />
+              <HandCardSelector inputRef={inputRef} />
             </div>
           )}
-          <FusionResultsList
-            fieldCards={isSynced ? bridge.field : manualField}
-            handCards={hand}
-            onPlayFusion={isSynced ? undefined : handlePlayFusion}
-          />
-        </section>
+
+          {/* ── Synced mode: 3D arena with both zones always visible ── */}
+          {isSynced && (
+            <div className="fm-zone-arena">
+              {(focusedZone === "hand"
+                ? (["hand", "field"] as const)
+                : (["field", "hand"] as const)
+              ).map((zone) => (
+                <div
+                  className="fm-zone-slot"
+                  key={zone}
+                  style={{ viewTransitionName: `${zone}-zone` }}
+                >
+                  {zone === "hand" ? (
+                    <ZonePanel
+                      active={focusedZone === "hand"}
+                      count={hand.length}
+                      label="Hand"
+                      maxCount={HAND_SIZE}
+                    >
+                      <HandDisplay
+                        cards={hand}
+                        drawing={bridge.phase === "draw"}
+                        frozen={bridge.inDuel && !bridge.handReliable}
+                      />
+                    </ZonePanel>
+                  ) : (
+                    <ZonePanel
+                      active={focusedZone === "field"}
+                      count={bridge.field.length}
+                      label="Field"
+                      maxCount={5}
+                    >
+                      <FieldDisplay cards={bridge.field} />
+                    </ZonePanel>
+                  )}
+                  {focusedZone !== zone && (
+                    <button
+                      aria-label={`Switch to ${zone}`}
+                      className="fm-zone-focus-btn"
+                      onClick={() => animatedSetZone(zone)}
+                      type="button"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Manual mode: field section ── */}
+          {!isSynced && !isWaitingForDuel && manualField.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <SectionLabel>
+                  Your Field
+                  <span className="text-text-muted font-body font-normal ml-1.5">
+                    ({String(manualField.length)}/5)
+                  </span>
+                </SectionLabel>
+                <button
+                  className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
+                  onClick={() => setManualField([])}
+                  type="button"
+                >
+                  Clear field
+                </button>
+              </div>
+              <FieldDisplay cards={manualField} />
+            </section>
+          )}
+
+          {/* ── Manual mode: hand section ── */}
+          {!isSynced && !isWaitingForDuel && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <SectionLabel>
+                  Your Hand
+                  <span className="text-text-muted font-body font-normal ml-1.5">
+                    ({String(hand.length)}/{String(HAND_SIZE)})
+                  </span>
+                </SectionLabel>
+                {hand.length > 0 && (
+                  <button
+                    className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
+                    onClick={() => {
+                      void clearHand();
+                      requestInputFocus();
+                    }}
+                    type="button"
+                  >
+                    Clear hand
+                  </button>
+                )}
+              </div>
+              <HandDisplay
+                cards={hand}
+                onRemove={(docId) => {
+                  void removeFromHand({ id: docId });
+                  requestInputFocus();
+                }}
+              />
+            </section>
+          )}
+
+          {/* ── Fusion results (only during hand/draw in synced mode, always in manual) ── */}
+          {!isWaitingForDuel && (!isSynced || SHOW_FUSIONS_PHASES.has(bridge.phase)) && (
+            <section>
+              {!isSynced && (
+                <div className="mb-1">
+                  <SectionLabel>Best Plays</SectionLabel>
+                </div>
+              )}
+              <FusionResultsList
+                fieldCards={isSynced ? bridge.field : manualField}
+                handCards={hand}
+                onPlayFusion={isSynced ? undefined : handlePlayFusion}
+              />
+            </section>
+          )}
+        </>
       )}
     </div>
   );

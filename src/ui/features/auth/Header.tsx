@@ -15,6 +15,7 @@ import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
 import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";
 import { ConfigPanel } from "../config/ConfigPanel.tsx";
+import { CheatModeToggle } from "../hand/CheatModeToggle.tsx";
 
 const tabClass =
   "relative py-2.5 font-display text-sm font-bold uppercase tracking-widest text-text-secondary transition-colors duration-200 hover:text-text-primary cursor-pointer data-active:text-gold-bright no-underline";
@@ -45,6 +46,7 @@ export function Header() {
   return (
     <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
       <div className="flex items-center gap-2 min-w-0">
+        <CheatModeToggle />
         {bridge.inDuel ? (
           <DuelPhaseIndicator />
         ) : (
@@ -165,7 +167,7 @@ function BridgeToggle({ hasUpdate, onUpdate }: { hasUpdate: boolean; onUpdate: (
 
       {hasUpdate && (
         <button
-          className="px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
+          className="hidden lg:block px-2 py-1 rounded-md text-[11px] font-bold font-display uppercase tracking-wide bg-yellow-400/15 text-yellow-400 hover:bg-yellow-400/25 transition-colors cursor-pointer"
           onClick={onUpdate}
           type="button"
         >
@@ -232,11 +234,6 @@ function DuelPhaseIndicator() {
       <span className={`font-display font-semibold uppercase tracking-wider ${cfg.textColor}`}>
         {cfg.label}
       </span>
-      {bridge.lp && (
-        <span className="text-text-muted tabular-nums ml-1">
-          LP {String(bridge.lp[0])} vs {String(bridge.lp[1])}
-        </span>
-      )}
     </div>
   );
 }

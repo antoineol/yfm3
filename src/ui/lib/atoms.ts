@@ -15,6 +15,11 @@ export const openCardIdAtom = atom<CardId | null>(null);
 /** Whether the manual setup modal is open. */
 export const manualSetupModalOpenAtom = atom(false);
 
+/** Cheat mode (Millennium Eye): reveals opponent's cards. Session-only. */
+export const cheatModeAtom = atom(false);
+export type CheatView = "player" | "opponent";
+export const cheatViewAtom = atom<CheatView>("player");
+
 /** Active sub-tab within the Deck panel on mobile. */
 export type DeckSubTab = "collection" | "deck" | "result";
 export const deckSubTabAtom = atom<DeckSubTab>("collection");
