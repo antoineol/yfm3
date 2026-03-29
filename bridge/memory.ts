@@ -76,6 +76,8 @@ export interface GameState {
   opponentHandSlots: number[] | null;
   /** CPU's shuffled deck during a duel (40 card IDs, 0 = empty slot). */
   cpuShuffledDeck: number[];
+  /** Free-duel duelist unlock bitfield (raw bytes at 0x1D06F4). */
+  duelistUnlock: number[];
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -99,6 +101,8 @@ const DECK_DEF_OFFSET = 0x1d0200; // Player's deck definition (40 × uint16 LE)
 const DECK_DEF_CARDS = 40;
 const COLLECTION_OFFSET = 0x1d0250; // Cards owned (722 bytes, 1 per card ID)
 const COLLECTION_SIZE = 722;
+const DUELIST_UNLOCK_OFFSET = 0x1d06f4; // Free-duel duelist unlock bitfield (Data Crystal)
+const DUELIST_UNLOCK_BYTES = 8; // 4 documented + 4 extra for safety (39 duelists need 5 bytes)
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
 
@@ -563,6 +567,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentField,
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
+    duelistUnlock: readDuelistUnlock(view),
   };
 }
 
@@ -572,6 +577,13 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
  */
 export function readCollection(view: DataView): number[] {
   return readU8Array(view, COLLECTION_OFFSET, COLLECTION_SIZE);
+}
+
+/**
+ * Read the free-duel duelist unlock bitfield (8 bytes at 0x1D06F4).
+ */
+export function readDuelistUnlock(view: DataView): number[] {
+  return readU8Array(view, DUELIST_UNLOCK_OFFSET, DUELIST_UNLOCK_BYTES);
 }
 
 /**

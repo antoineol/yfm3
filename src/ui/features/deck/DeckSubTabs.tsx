@@ -5,6 +5,7 @@ const SUB_TABS: { value: DeckSubTab; label: string }[] = [
   { value: "collection", label: "Collection" },
   { value: "deck", label: "Deck" },
   { value: "result", label: "Suggested" },
+  { value: "farm", label: "Farm" },
 ];
 
 export function DeckSubTabs() {

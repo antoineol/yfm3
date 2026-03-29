@@ -33,6 +33,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     opponentHand: [],
     opponentField: [],
     cpuSwaps: [],
+    unlockedDuelists: null,
     opponentPhase: "other" as const,
     scan: vi.fn(),
     restartEmulator: vi.fn(),

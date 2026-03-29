@@ -114,3 +114,48 @@ export type ScorerMessage = ScorerInit;
 export type ScorerResponse = ScorerResult;
 export type ExplainerMessage = ExplainerInit;
 export type ExplainerResponse = ExplainerResult;
+
+/** Main thread → Farm Worker: discover farmable fusions (both POW and TEC). */
+export type FarmWorkerInit = {
+  type: "FARM";
+  collection: Record<number, number>;
+  deckScore: number;
+  fusionDepth: number;
+  modId: ModId;
+  gameData?: BridgeGameData;
+  /** Duelist IDs unlocked for free duel. Omit to include all duelists. */
+  unlockedDuelists?: number[];
+};
+
+/** Farm Worker → Main thread: discovery results for both drop modes. */
+export type FarmWorkerResult = {
+  type: "FARM_RESULT";
+  pow: SerializedFarmDiscoveryResult;
+  tec: SerializedFarmDiscoveryResult;
+};
+
+/** Serializable version of FarmDiscoveryResult (Maps → plain objects). */
+export type SerializedFarmDiscoveryResult = {
+  fusions: SerializedFarmableFusion[];
+  duelistRanking: Array<{
+    duelistId: number;
+    duelistName: string;
+    fusionCount: number;
+    bestAtk: number;
+    totalAtk: number;
+  }>;
+};
+
+export type SerializedFarmableFusion = {
+  resultCardId: number;
+  resultAtk: number;
+  resultName: string;
+  depth: number;
+  materials: number[];
+  missingMaterials: number[];
+  /** cardId (as string key) → DropSource[]. Maps don't survive structured clone in all envs. */
+  dropSources: Record<string, Array<{ duelistId: number; duelistName: string; weight: number }>>;
+};
+
+export type FarmWorkerMessage = FarmWorkerInit;
+export type FarmWorkerResponse = FarmWorkerResult;

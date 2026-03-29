@@ -55,6 +55,8 @@ type RawBridgeState = {
   opponentField: RawCardSlot[];
   opponentHandSlots: number[] | null;
   cpuShuffledDeck: number[];
+  /** Free-duel duelist unlock bitfield (raw bytes from 0x1D06F4). */
+  duelistUnlock?: number[];
 };
 
 type BridgeWaitingForGame = {
@@ -272,6 +274,28 @@ export function computeOwnedCards(trunk: number[], deckDef: number[]): Record<nu
   return owned;
 }
 
+const DUELIST_MASTER_K_ID = 39;
+const NUM_DUELISTS = 39;
+
+/**
+ * Decode duelist unlock bitfield (MSB-first within each byte).
+ * Bit position = duelist ID. Duel Master K (39) is always unlocked.
+ */
+export function decodeDuelistUnlock(bytes: number[]): number[] {
+  const unlocked: number[] = [];
+  for (let id = 1; id <= NUM_DUELISTS; id++) {
+    if (id === DUELIST_MASTER_K_ID) {
+      unlocked.push(id);
+      continue;
+    }
+    const byteIdx = Math.floor(id / 8);
+    const bitIdx = 7 - (id % 8); // MSB-first
+    const byteVal = bytes[byteIdx] ?? 0;
+    if ((byteVal & (1 << bitIdx)) !== 0) unlocked.push(id);
+  }
+  return unlocked;
+}
+
 /** Map raw phase byte to DuelPhase, ignoring whose turn it is. */
 function mapRawPhase(duelPhase: number): DuelPhase {
   if (duelPhase === PHASE_DUEL_END || duelPhase === PHASE_RESULTS) return "ended";
@@ -439,6 +463,8 @@ export type BridgeState = {
   opponentField: FieldCard[];
   /** CPU card swaps detected during the current duel. */
   cpuSwaps: CpuSwap[];
+  /** Duelist IDs unlocked for free duel (from RAM bitfield). Null if bridge unavailable. */
+  unlockedDuelists: number[] | null;
 };
 
 export const INITIAL_BRIDGE_STATE: BridgeState = {
@@ -468,6 +494,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   opponentHand: [],
   opponentField: [],
   cpuSwaps: [],
+  unlockedDuelists: null,
 };
 
 export type EmulatorBridge = BridgeState & {
@@ -636,6 +663,7 @@ export function processBridgeMessage(
         opponentHand: interpreted.opponentHand,
         opponentField: interpreted.opponentField,
         cpuSwaps,
+        unlockedDuelists: raw.duelistUnlock ? decodeDuelistUnlock(raw.duelistUnlock) : null,
       },
       tracker: nextTracker,
     };

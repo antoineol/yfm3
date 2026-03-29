@@ -13,6 +13,7 @@ import { useAutoSyncCollection } from "./features/collection/use-auto-sync-colle
 import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
+import { FarmPanelWrapper } from "./features/farm/FarmPanel.tsx";
 import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
@@ -80,7 +81,7 @@ function DeckTabPanel() {
 
   return (
     <Tabs.Panel
-      className={`flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-3 xl:overflow-y-auto ${showOnboarding ? "flex" : "lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr]"}`}
+      className={`flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-3 xl:overflow-y-auto ${showOnboarding ? "flex" : "lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr_4fr]"}`}
       value="deck"
     >
       <TabOnboardingGate>
@@ -92,8 +93,11 @@ function DeckTabPanel() {
           <DeckSubPanel value="deck">
             <DeckPanel />
           </DeckSubPanel>
-          <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="result">
+          <DeckSubPanel value="result">
             <ResultPanel />
+          </DeckSubPanel>
+          <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="farm">
+            <FarmPanelWrapper />
           </DeckSubPanel>
         </RequireReferenceData>
       </TabOnboardingGate>
@@ -108,7 +112,7 @@ function DeckSubPanel({
   className = "",
   children,
 }: {
-  value: "collection" | "deck" | "result";
+  value: "collection" | "deck" | "result" | "farm";
   className?: string;
   children: React.ReactNode;
 }) {
