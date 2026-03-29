@@ -4,7 +4,7 @@ import { createStore, Provider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../engine/data/game-db.ts";
-import type { RefDuelistCard } from "../../engine/reference/build-reference-table.ts";
+import type { RefDuelistCard, RefFusion } from "../../engine/reference/build-reference-table.ts";
 import { CardDbProvider } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
 import type { FusionTableData } from "../lib/fusion-table-context.tsx";
@@ -16,8 +16,18 @@ const testDuelists: RefDuelistCard[] = [
   { duelistId: 3, duelistName: "Seto", cardId: 99, deck: 0, saPow: 100, bcd: 0, saTec: 0 },
 ];
 
+const testFusions: RefFusion[] = [
+  // Baby Dragon (1) + Lonely Card (999) → Fusion Beast (50)
+  { material1Id: 1, material2Id: 999, resultId: 50, resultAtk: 2000 },
+];
+
+// Forward-declared; assigned after testDb is built below.
+// eslint-disable-next-line prefer-const -- assigned after testDb creation
+let mockFusionTableData: Pick<FusionTableData, "duelists" | "fusions" | "cardDb"> =
+  undefined as never;
+
 vi.mock("../lib/fusion-table-context.tsx", () => ({
-  useFusionTable: (): Pick<FusionTableData, "duelists"> => ({ duelists: testDuelists }),
+  useFusionTable: () => mockFusionTableData,
   useHasReferenceData: () => true,
 }));
 
@@ -57,9 +67,21 @@ const noDropCard: CardSpec = {
   defense: 100,
 };
 
+const fusionResultCard: CardSpec = {
+  id: 50,
+  name: "Fusion Beast",
+  kinds: ["Beast"],
+  isMonster: true,
+  attack: 2000,
+  defense: 1500,
+};
+
 const testDb = createCardDb();
 addCard(testDb, testCard);
 addCard(testDb, noDropCard);
+addCard(testDb, fusionResultCard);
+
+mockFusionTableData = { duelists: testDuelists, fusions: testFusions, cardDb: testDb };
 
 function OpenButton({ cardId }: { cardId: number }) {
   const { openCard } = useCardDetail();
@@ -209,5 +231,44 @@ describe("CardDetailModal", () => {
     const ownedSection = screen.getByText("Owned").closest("div");
     const badge = ownedSection?.querySelector(".text-text-muted");
     expect(badge).not.toBeNull();
+  });
+
+  it("shows Fused by section with materials for a fusion result card", () => {
+    renderModal(50);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Fused by")).toBeTruthy();
+    // Materials are visible immediately (no collapse)
+    expect(screen.getByText("Baby Dragon")).toBeTruthy();
+    expect(screen.getByText("Lonely Card")).toBeTruthy();
+  });
+
+  it("shows Fuses to section with result and ATK for a material card", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Fuses to")).toBeTruthy();
+    // "With" column shows card ID, "Result" shows fusion result name
+    expect(screen.getByText("#999")).toBeTruthy();
+    expect(screen.getByText("Fusion Beast")).toBeTruthy();
+    expect(screen.getByText("2000")).toBeTruthy();
+  });
+
+  it("renders fusion card links as new-tab anchors", () => {
+    renderModal(50);
+    fireEvent.click(screen.getByText("Open"));
+    const link = screen.getByText("Baby Dragon").closest("a") as HTMLAnchorElement;
+    expect(link.target).toBe("_blank");
+    expect(link.href).toContain("#data/cards/1");
+  });
+
+  it("shows empty message when no fusions produce the card", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("No fusions produce this card.")).toBeTruthy();
+  });
+
+  it("shows empty message when card has no fusions as material", () => {
+    renderModal(50);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("This card has no fusions.")).toBeTruthy();
   });
 });

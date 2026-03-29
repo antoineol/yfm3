@@ -64,7 +64,7 @@ function AuthenticatedApp({ tab }: { tab: string }) {
           <GameDataErrorBanner />
           <DeckTabPanel />
 
-          <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-6 overflow-y-auto" value="duel">
+          <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-6 overflow-y-auto" value="duel">
             <TabOnboardingGate>
               <RequireReferenceData>
                 <HandFusionCalculator />
@@ -72,7 +72,7 @@ function AuthenticatedApp({ tab }: { tab: string }) {
             </TabOnboardingGate>
           </Tabs.Panel>
 
-          <Tabs.Panel className="flex-1 px-3 pt-2 pb-16 lg:pb-3 overflow-y-auto" value="data">
+          <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-3 overflow-y-auto" value="data">
             <RequireReferenceData>
               <DataPanel />
             </RequireReferenceData>
@@ -93,7 +93,7 @@ function DeckTabPanel() {
 
   return (
     <Tabs.Panel
-      className={`flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-16 lg:pb-3 xl:overflow-y-auto ${showOnboarding ? "flex" : "lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr]"}`}
+      className={`flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-3 xl:overflow-y-auto ${showOnboarding ? "flex" : "lg:grid lg:grid-cols-[5fr_4fr] xl:grid-cols-[5fr_4fr_4fr]"}`}
       value="deck"
     >
       <TabOnboardingGate>

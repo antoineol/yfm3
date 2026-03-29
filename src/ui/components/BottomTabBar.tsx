@@ -5,7 +5,7 @@ const tabClass =
 
 export function BottomTabBar() {
   return (
-    <Tabs.List className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex bg-bg-panel/95 backdrop-blur-sm border-t border-border-subtle pb-[env(safe-area-inset-bottom)]">
+    <Tabs.List className="lg:hidden shrink-0 flex bg-bg-panel/95 backdrop-blur-sm border-t border-border-subtle pb-[env(safe-area-inset-bottom)]">
       <Tabs.Tab
         className={tabClass}
         nativeButton={false}

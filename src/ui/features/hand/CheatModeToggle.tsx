@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 
@@ -13,6 +14,7 @@ export function CheatModeToggle() {
       cheatMode: next,
       ...(next && cheatView !== "opponent" ? { cheatView: "opponent" } : {}),
     });
+    toast(next ? "Cheat mode enabled" : "Cheat mode disabled");
   };
 
   return (

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
-import { MAX_COPIES } from "../../engine/types/constants.ts";
+import { MAX_CARD_ID, MAX_COPIES } from "../../engine/types/constants.ts";
 import { useOwnedCardTotals } from "../db/use-owned-card-totals.ts";
 import { formatRate } from "../lib/format.ts";
 import { useFusionTable } from "../lib/fusion-table-context.tsx";
@@ -13,7 +13,7 @@ export function CardDetailBody({ card, header }: { card: CardSpec; header: React
   return (
     <div className="flex flex-col sm:flex-row">
       {/* Card rendering (left / top on mobile) */}
-      <div className="flex flex-col items-center justify-center gap-2 p-4 sm:p-6 sm:border-r border-b sm:border-b-0 border-border-subtle bg-bg-deep/50">
+      <div className="flex flex-col items-center justify-center sm:justify-start gap-2 p-4 sm:p-6 sm:border-r border-b sm:border-b-0 border-border-subtle bg-bg-deep/50">
         <GameCard card={card} />
       </div>
 
@@ -89,6 +89,8 @@ function DetailPanel({ card }: { card: CardSpec }) {
       </div>
 
       <DroppedBySection cardId={card.id} />
+      <FusedBySection cardId={card.id} />
+      <FusesToSection cardId={card.id} />
     </div>
   );
 }
@@ -154,13 +156,14 @@ function DroppedBySection({ cardId }: { cardId: number }) {
       {drops.length === 0 ? (
         <p className="text-xs text-text-muted italic">No duelists drop this card.</p>
       ) : (
-        <div className="rounded-lg border border-border-subtle overflow-hidden max-h-48 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-bg-surface/80 backdrop-blur-sm text-text-muted uppercase tracking-wider text-[10px]">
+        <div className="rounded-lg border border-border-subtle overflow-hidden">
+          <table className="w-full table-fixed text-xs">
+            <thead>
+              <tr className="bg-bg-surface/80 text-text-muted uppercase tracking-wider text-[10px]">
                 <th className="text-left py-1.5 px-2.5 font-semibold">Duelist</th>
                 <SortableHeader
                   align="text-right"
+                  className="w-15"
                   dir={sort?.key === "saPow" ? sort.dir : undefined}
                   label="SA-POW"
                   onClick={() => handleSort("saPow")}
@@ -168,6 +171,7 @@ function DroppedBySection({ cardId }: { cardId: number }) {
                 />
                 <SortableHeader
                   align="text-right"
+                  className="w-12"
                   dir={sort?.key === "bcd" ? sort.dir : undefined}
                   label="BCD"
                   onClick={() => handleSort("bcd")}
@@ -175,6 +179,7 @@ function DroppedBySection({ cardId }: { cardId: number }) {
                 />
                 <SortableHeader
                   align="text-right"
+                  className="w-14"
                   dir={sort?.key === "saTec" ? sort.dir : undefined}
                   label="SA-TEC"
                   onClick={() => handleSort("saTec")}
@@ -188,7 +193,7 @@ function DroppedBySection({ cardId }: { cardId: number }) {
                   className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
                   key={d.duelistId}
                 >
-                  <td className="py-1.5 px-2.5">
+                  <td className="py-1.5 px-2.5 truncate">
                     <a
                       className="text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
                       href={`#data/duelists/${d.duelistId}`}
@@ -206,6 +211,181 @@ function DroppedBySection({ cardId }: { cardId: number }) {
                   </td>
                   <td className="py-1.5 px-2 text-right font-mono text-gold/90">
                     {formatRate(d.saTec)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Fused By Section ────────────────────────────────────────── */
+
+function FusedBySection({ cardId }: { cardId: number }) {
+  const { fusions, cardDb } = useFusionTable();
+
+  const fusedBy = useMemo(() => fusions.filter((f) => f.resultId === cardId), [fusions, cardId]);
+
+  function cardLink(id: number) {
+    const card = cardDb.cardsById.get(id);
+    return (
+      <a
+        className="block truncate text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
+        href={`${window.location.pathname}#data/cards/${id}`}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {card?.name ?? `#${id}`}
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">
+        Fused by
+      </span>
+      {fusedBy.length === 0 ? (
+        <p className="text-xs text-text-muted italic">No fusions produce this card.</p>
+      ) : (
+        <div className="rounded-lg border border-border-subtle overflow-hidden">
+          <table className="w-full table-fixed text-xs">
+            <thead>
+              <tr className="bg-bg-surface/80 text-text-muted uppercase tracking-wider text-[10px]">
+                <th className="text-left py-1.5 px-2.5 font-semibold w-1/2">Material 1</th>
+                <th className="text-left py-1.5 px-2.5 font-semibold w-1/2">Material 2</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fusedBy.map((f) => (
+                <tr
+                  className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
+                  key={f.material1Id * MAX_CARD_ID + f.material2Id}
+                >
+                  <td className="py-1.5 px-2.5 text-text-primary">{cardLink(f.material1Id)}</td>
+                  <td className="py-1.5 px-2.5 text-text-primary">{cardLink(f.material2Id)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Fuses To Section ───────────────────────────────────────── */
+
+interface FusesToRow {
+  otherMaterialId: number;
+  otherMaterialName: string;
+  resultId: number;
+  resultName: string;
+  resultAtk: number;
+  fusionKey: number;
+}
+
+type FusesToSortKey = "resultAtk";
+type FusesToSortState = { key: FusesToSortKey; dir: SortDir } | null;
+
+function toggleFusesToSort(prev: FusesToSortState, key: FusesToSortKey): FusesToSortState {
+  if (prev?.key !== key) return { key, dir: "desc" };
+  if (prev.dir === "desc") return { key, dir: "asc" };
+  return null;
+}
+
+function sortFusesTo(rows: FusesToRow[], sort: FusesToSortState): FusesToRow[] {
+  if (!sort) return rows;
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => dir * (a.resultAtk - b.resultAtk));
+}
+
+function FusesToSection({ cardId }: { cardId: number }) {
+  const { fusions, cardDb } = useFusionTable();
+
+  const fusesTo = useMemo(() => {
+    const rows: FusesToRow[] = [];
+    for (const f of fusions) {
+      if (f.material1Id === cardId || f.material2Id === cardId) {
+        const otherId = f.material1Id === cardId ? f.material2Id : f.material1Id;
+        const otherCard = cardDb.cardsById.get(otherId);
+        const resultCard = cardDb.cardsById.get(f.resultId);
+        rows.push({
+          otherMaterialId: otherId,
+          otherMaterialName: otherCard?.name ?? `#${otherId}`,
+          resultId: f.resultId,
+          resultName: resultCard?.name ?? `#${f.resultId}`,
+          resultAtk: f.resultAtk,
+          fusionKey: f.material1Id * MAX_CARD_ID + f.material2Id,
+        });
+      }
+    }
+    rows.sort((a, b) => b.resultAtk - a.resultAtk);
+    return rows;
+  }, [fusions, cardDb, cardId]);
+
+  const [sort, setSort] = useState<FusesToSortState>(null);
+  const handleSort = useCallback(
+    (key: FusesToSortKey) => setSort((prev) => toggleFusesToSort(prev, key)),
+    [],
+  );
+  const sortedRows = useMemo(() => sortFusesTo(fusesTo, sort), [fusesTo, sort]);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] text-text-muted uppercase tracking-wide font-bold">
+        Fuses to
+      </span>
+      {fusesTo.length === 0 ? (
+        <p className="text-xs text-text-muted italic">This card has no fusions.</p>
+      ) : (
+        <div className="rounded-lg border border-border-subtle overflow-hidden">
+          <table className="w-full table-fixed text-xs">
+            <thead>
+              <tr className="bg-bg-surface/80 text-text-muted uppercase tracking-wider text-[10px]">
+                <th className="w-12 py-1.5 px-2.5 font-semibold text-left">With</th>
+                <th className="text-left py-1.5 px-2.5 font-semibold">Result</th>
+                <SortableHeader
+                  align="text-right"
+                  className="w-14"
+                  dir={sort?.key === "resultAtk" ? sort.dir : undefined}
+                  label="ATK"
+                  onClick={() => handleSort("resultAtk")}
+                  px="px-2"
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.map((r) => (
+                <tr
+                  className="border-t border-border-subtle/40 transition-colors duration-100 hover:bg-gold/4 even:bg-bg-surface/20"
+                  key={r.fusionKey}
+                >
+                  <td className="py-1.5 px-2.5 font-mono text-text-muted">
+                    <a
+                      className="block truncate hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
+                      href={`${window.location.pathname}#data/cards/${String(r.otherMaterialId)}`}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      #{String(r.otherMaterialId)}
+                    </a>
+                  </td>
+                  <td className="py-1.5 px-2.5 text-gold">
+                    <a
+                      className="block truncate text-gold hover:text-gold-bright transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
+                      href={`${window.location.pathname}#data/cards/${String(r.resultId)}`}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {r.resultName}
+                    </a>
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold text-stat-atk whitespace-nowrap">
+                    {r.resultAtk}
                   </td>
                 </tr>
               ))}

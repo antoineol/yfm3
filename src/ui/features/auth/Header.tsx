@@ -21,6 +21,7 @@ const tabClass =
 
 export function Header() {
   const bridge = useBridge();
+  const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
   const { signOut } = useClerk();
   const [configOpen, setConfigOpen] = useState(false);
@@ -48,9 +49,9 @@ export function Header() {
   }, [updatePreferences]);
 
   return (
-    <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-3 py-1.5 lg:py-2 border-b border-border-subtle">
+    <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] flex justify-between items-center px-2 py-1.5 lg:py-2 border-b border-border-subtle">
       <div className="flex items-center gap-2 min-w-0">
-        <CheatModeToggle />
+        {bridgeAutoSync && <CheatModeToggle />}
         {bridge.inDuel ? (
           <DuelPhaseIndicator />
         ) : (
@@ -87,7 +88,7 @@ export function Header() {
         <Tabs.Indicator className="absolute bottom-0 left-0 h-0.75 rounded-full bg-gold transition-all duration-250 ease-out" />
       </Tabs.List>
 
-      <div className="flex items-center gap-3 justify-end">
+      <div className="flex items-center gap-2 justify-end">
         <BridgeToggle onOpenDialog={() => setUpdateOpen(true)} />
         <HeaderMenu
           onSettings={() => setConfigOpen(true)}
@@ -107,7 +108,6 @@ const menuItemClass =
   "w-full text-left px-3 py-2 text-sm text-text-secondary hover:text-text-primary data-highlighted:text-text-primary data-highlighted:bg-bg-hover transition-colors cursor-pointer";
 
 function BridgeToggle({ onOpenDialog }: { onOpenDialog: () => void }) {
-  const bridge = useBridge();
   const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
 
@@ -115,42 +115,8 @@ function BridgeToggle({ onOpenDialog }: { onOpenDialog: () => void }) {
     updatePreferences({ bridgeAutoSync: !bridgeAutoSync });
   }, [bridgeAutoSync, updatePreferences]);
 
-  const isReady = bridge.status === "connected" && bridge.detail === "ready";
-  const hasIssue = bridge.status === "connected" && bridge.detail !== "ready";
-
-  const statusClass = isReady
-    ? "bridge-status--connected"
-    : hasIssue
-      ? "bridge-status--issue"
-      : "bridge-status--connecting";
-
-  const statusLabel = isReady
-    ? "Synced"
-    : hasIssue
-      ? bridge.detail === "emulator_not_found"
-        ? "No emulator"
-        : bridge.detail === "no_shared_memory"
-          ? "Setup needed"
-          : bridge.detail === "waiting_for_game"
-            ? "No game"
-            : "Error"
-      : "Connecting";
-
-  const statusTitle = isReady
-    ? "Emulator connected and syncing"
-    : hasIssue
-      ? `Bridge connected — ${bridge.detail.replace(/_/g, " ")}`
-      : "Connecting to bridge…";
-
   return (
-    <div className="flex items-center gap-2.5">
-      {bridgeAutoSync && (
-        <span className={`bridge-status ${statusClass}`} title={statusTitle}>
-          <span className="bridge-status-dot" />
-          <span className="bridge-status-label hidden lg:inline">{statusLabel}</span>
-        </span>
-      )}
-
+    <>
       <button
         aria-label={bridgeAutoSync ? "Disable game sync" : "Enable game sync"}
         className={`bridge-switch ${bridgeAutoSync ? "bridge-switch--on" : ""}`}
@@ -164,7 +130,7 @@ function BridgeToggle({ onOpenDialog }: { onOpenDialog: () => void }) {
       </button>
 
       <UpdateButton onOpenDialog={onOpenDialog} />
-    </div>
+    </>
   );
 }
 
