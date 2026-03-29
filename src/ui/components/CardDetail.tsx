@@ -437,9 +437,11 @@ function EquippableBySection({ cardId }: { cardId: number }) {
     for (let equipId = 1; equipId < MAX_CARD_ID; equipId++) {
       if (!equipCompat[equipId * MAX_CARD_ID + cardId]) continue;
       const equipCard = cardDb.cardsById.get(equipId);
+      const name = equipCard?.name ?? `#${equipId}`;
+      if (isDummyCard(name)) continue;
       result.push({
         equipId,
-        equipName: equipCard?.name ?? `#${equipId}`,
+        equipName: name,
         bonus: equipId === megamorphId ? 1000 : 500,
       });
     }
@@ -532,20 +534,29 @@ function sortEquipsTo(rows: EquipsToRow[], sort: EquipsToSortState): EquipsToRow
 function EquipsToSection({ cardId }: { cardId: number }) {
   const { equipCompat, cardDb } = useFusionTable();
 
+  const totalMonsters = useMemo(
+    () => cardDb.cards.filter((c) => c.isMonster && !isDummyCard(c.name)).length,
+    [cardDb],
+  );
+
   const rows = useMemo(() => {
     const result: EquipsToRow[] = [];
     for (let monsterId = 1; monsterId < MAX_CARD_ID; monsterId++) {
       if (!equipCompat[cardId * MAX_CARD_ID + monsterId]) continue;
       const monsterCard = cardDb.cardsById.get(monsterId);
+      const name = monsterCard?.name ?? `#${monsterId}`;
+      if (isDummyCard(name)) continue;
       result.push({
         monsterId,
-        monsterName: monsterCard?.name ?? `#${monsterId}`,
+        monsterName: name,
         monsterAtk: monsterCard?.attack ?? 0,
       });
     }
     result.sort((a, b) => b.monsterAtk - a.monsterAtk);
     return result;
   }, [equipCompat, cardDb, cardId]);
+
+  const equipsAll = rows.length > 0 && rows.length >= totalMonsters;
 
   const [sort, setSort] = useState<EquipsToSortState>(null);
   const handleSort = useCallback(
@@ -561,6 +572,11 @@ function EquipsToSection({ cardId }: { cardId: number }) {
       </span>
       {rows.length === 0 ? (
         <p className="text-xs text-text-muted italic">No monsters can use this equip.</p>
+      ) : equipsAll ? (
+        <div className="rounded-lg border border-gold-dim/60 bg-gradient-to-r from-gold-dim/10 via-gold/8 to-gold-dim/10 px-3 py-2.5">
+          <span className="text-sm font-bold text-gold">All monsters</span>
+          <span className="text-xs text-text-muted ml-2">({totalMonsters} cards)</span>
+        </div>
       ) : (
         <div className="rounded-lg border border-border-subtle overflow-hidden">
           <table className="w-full table-fixed text-xs">
@@ -664,4 +680,10 @@ function formatKind(kind: string): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Placeholder cards in some mods have numeric-only names (e.g. "177"). */
+const NUMERIC_NAME_RE = /^\d+$/;
+function isDummyCard(name: string): boolean {
+  return NUMERIC_NAME_RE.test(name);
 }

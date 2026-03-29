@@ -82,6 +82,51 @@ describe("useResultEntries", () => {
     expect(card2Kept).toHaveLength(1);
   });
 
+  it("exposes grouped arrays and swapCount", () => {
+    // Current: [1, 2], Suggested: [1, 3] → 1=kept, 2=removed, 3=added
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    store.set(resultAtom, {
+      deck: [1, 3],
+      expectedAtk: 2700,
+      currentDeckScore: null,
+      improvement: null,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    expect(result.current).not.toBeNull();
+    const removed = result.current?.removed ?? [];
+    const added = result.current?.added ?? [];
+    const kept = result.current?.kept ?? [];
+    expect(removed).toHaveLength(1);
+    expect(removed[0]?.id).toBe(2);
+    expect(added).toHaveLength(1);
+    expect(added[0]?.id).toBe(3);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.id).toBe(1);
+    expect(result.current?.swapCount).toBe(1);
+  });
+
+  it("returns swapCount 0 when decks are identical", () => {
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
+    store.set(resultAtom, {
+      deck: [1, 2],
+      expectedAtk: 2500,
+      currentDeckScore: 2500,
+      improvement: 0,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    expect(result.current).not.toBeNull();
+    expect(result.current?.swapCount).toBe(0);
+    expect(result.current?.removed).toHaveLength(0);
+    expect(result.current?.added).toHaveLength(0);
+    expect(result.current?.kept).toHaveLength(2);
+  });
+
   it("tags entries with diffStatus: added, removed, kept", () => {
     // Current deck: [1, 2], Suggested: [1, 3] → 1=kept, 2=removed, 3=added
     mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);

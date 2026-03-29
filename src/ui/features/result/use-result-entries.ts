@@ -9,6 +9,10 @@ import { useCardDb } from "../../lib/card-db-context.tsx";
 
 export interface ResultData {
   entries: CardEntry[];
+  removed: CardEntry[];
+  added: CardEntry[];
+  kept: CardEntry[];
+  swapCount: number;
   result: OptimizeDeckParallelResult;
 }
 
@@ -23,8 +27,12 @@ export function useResultEntries(): ResultData | null {
   const currentCounts = deck ? countById(deck.map((d) => d.cardId)) : new Map<number, number>();
 
   const entries = buildDiffEntries(suggestedCounts, currentCounts, cardDb);
+  const removed = entries.filter((e) => e.diffStatus === "removed");
+  const added = entries.filter((e) => e.diffStatus === "added");
+  const kept = entries.filter((e) => e.diffStatus === "kept");
+  const swapCount = removed.length;
 
-  return { entries, result };
+  return { entries, removed, added, kept, swapCount, result };
 }
 
 /** Diff order: removed, added, kept. Within each group, by card id. */

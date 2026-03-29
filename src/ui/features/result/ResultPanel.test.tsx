@@ -97,8 +97,15 @@ describe("ResultPanel", () => {
   });
 
   it("renders suggested deck comparison when result is present", () => {
+    const added = [
+      { id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1, diffStatus: "added" as const },
+    ];
     mockResultHook.mockReturnValue({
-      entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
+      entries: added,
+      removed: [],
+      added,
+      kept: [],
+      swapCount: 1,
       result: baseResult,
     });
     renderPanel();
@@ -112,41 +119,88 @@ describe("ResultPanel", () => {
   it("shows improvement percentage in header when available", () => {
     mockResultHook.mockReturnValue({
       entries: [],
+      removed: [],
+      added: [],
+      kept: [],
+      swapCount: 0,
       result: { ...baseResult, currentDeckScore: 2000, improvement: 500 },
     });
     renderPanel();
     expect(screen.getByText("+25.0%")).toBeDefined();
   });
 
+  it("shows swap count in header when swaps exist", () => {
+    const removed = [
+      {
+        id: 2,
+        name: "Dark Magician",
+        atk: 2500,
+        def: 2100,
+        qty: 1,
+        diffStatus: "removed" as const,
+      },
+    ];
+    const added = [
+      { id: 3, name: "Red-Eyes", atk: 2400, def: 2000, qty: 1, diffStatus: "added" as const },
+    ];
+    mockResultHook.mockReturnValue({
+      entries: [...removed, ...added],
+      removed,
+      added,
+      kept: [],
+      swapCount: 1,
+      result: baseResult,
+    });
+    renderPanel();
+    expect(screen.getByText("1 swap")).toBeDefined();
+  });
+
+  it("does not show swap count when swapCount is 0", () => {
+    mockResultHook.mockReturnValue({
+      entries: [],
+      removed: [],
+      added: [],
+      kept: [],
+      swapCount: 0,
+      result: baseResult,
+    });
+    renderPanel();
+    expect(screen.queryByText(/swap/)).toBeNull();
+  });
+
   describe("auto-sync read-only mode", () => {
+    const readOnlyMockData = {
+      entries: [
+        { id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1, diffStatus: "kept" as const },
+      ],
+      removed: [],
+      added: [],
+      kept: [
+        { id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1, diffStatus: "kept" as const },
+      ],
+      swapCount: 0,
+      result: baseResult,
+    };
+
     beforeEach(() => {
       mockBridgeAutoSync.mockReturnValue(true);
     });
 
     it("hides Accept and Reject buttons", () => {
-      mockResultHook.mockReturnValue({
-        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-        result: baseResult,
-      });
+      mockResultHook.mockReturnValue(readOnlyMockData);
       renderPanel();
       expect(screen.queryByLabelText("Accept deck")).toBeNull();
       expect(screen.queryByLabelText("Reject")).toBeNull();
     });
 
     it("still shows Re-run button", () => {
-      mockResultHook.mockReturnValue({
-        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-        result: baseResult,
-      });
+      mockResultHook.mockReturnValue(readOnlyMockData);
       renderPanel();
       expect(screen.getByLabelText("Re-run")).toBeDefined();
     });
 
     it("still shows score", () => {
-      mockResultHook.mockReturnValue({
-        entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 1 }],
-        result: baseResult,
-      });
+      mockResultHook.mockReturnValue(readOnlyMockData);
       renderPanel();
       expect(screen.getByText("2500.0")).toBeDefined();
     });

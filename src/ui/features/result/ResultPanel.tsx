@@ -4,7 +4,7 @@ import { api } from "../../../../convex/_generated/api";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
-import { liveBestScoreAtom, resultAtom } from "../../lib/atoms.ts";
+import { currentDeckScoreAtom, liveBestScoreAtom, resultAtom } from "../../lib/atoms.ts";
 import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
 import { useOptimize } from "../optimize/use-optimize.ts";
 import { OptimizationProgress } from "./OptimizationProgress.tsx";
@@ -18,6 +18,7 @@ export function ResultPanel() {
   const acceptDeck = useAuthMutation(api.deck.acceptSuggestedDeck);
   const [accepting, setAccepting] = useState(false);
   const readOnly = useBridgeAutoSync();
+  const liveDeckScore = useAtomValue(currentDeckScoreAtom);
 
   function handleAccept() {
     if (!data) return;
@@ -50,11 +51,12 @@ export function ResultPanel() {
     );
   }
 
+  const currentScore = liveDeckScore ?? data.result.currentDeckScore;
+  const improvement =
+    currentScore != null && currentScore > 0 ? data.result.expectedAtk - currentScore : null;
   const improvementPct =
-    data.result.currentDeckScore != null &&
-    data.result.currentDeckScore > 0 &&
-    data.result.improvement != null
-      ? ((data.result.improvement / data.result.currentDeckScore) * 100).toFixed(1)
+    currentScore != null && currentScore > 0 && improvement != null
+      ? ((improvement / currentScore) * 100).toFixed(1)
       : null;
 
   return (
@@ -66,6 +68,7 @@ export function ResultPanel() {
         onOptimize={optimize}
         onReject={readOnly ? undefined : handleReject}
         score={data.result.expectedAtk}
+        swapCount={data.swapCount}
       />
       <SuggestedDeckComparison data={data} />
     </>
@@ -103,6 +106,7 @@ function ResultHeader({
   improvement,
   accepting,
   isOptimizing,
+  swapCount,
   onAccept,
   onReject,
   onOptimize,
@@ -112,6 +116,7 @@ function ResultHeader({
   improvement?: string | null;
   accepting?: boolean;
   isOptimizing?: boolean;
+  swapCount?: number;
   onAccept?: () => void;
   onReject?: () => void;
   onOptimize?: () => void;
@@ -147,6 +152,13 @@ function ResultHeader({
           <HeaderAction disabled={accepting} label="Re-run" onClick={onOptimize}>
             <RedoIcon />
           </HeaderAction>
+        )}
+
+        {/* Swap count */}
+        {swapCount != null && swapCount > 0 && (
+          <span className="text-sm lg:text-xs text-text-secondary">
+            {String(swapCount)} swap{swapCount !== 1 ? "s" : ""}
+          </span>
         )}
 
         {/* Score */}

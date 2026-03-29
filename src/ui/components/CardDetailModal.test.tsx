@@ -18,8 +18,8 @@ const testDuelists: RefDuelistCard[] = [
 ];
 
 const testFusions: RefFusion[] = [
-  // Baby Dragon (1) + Lonely Card (999) → Fusion Beast (50)
-  { material1Id: 1, material2Id: 999, resultId: 50, resultAtk: 2000 },
+  // Baby Dragon (1) + Lonely Card (100) → Fusion Beast (50)
+  { material1Id: 1, material2Id: 100, resultId: 50, resultAtk: 2000 },
 ];
 
 // Forward-declared; assigned after testDb is built below.
@@ -60,7 +60,7 @@ const testCard: CardSpec = {
 };
 
 const noDropCard: CardSpec = {
-  id: 999,
+  id: 100,
   name: "Lonely Card",
   kinds: ["Fiend"],
   isMonster: true,
@@ -97,12 +97,34 @@ const equipCard2: CardSpec = {
   defense: 0,
 };
 
+const universalEquipCard: CardSpec = {
+  id: 303,
+  name: "Megamorph",
+  kinds: [],
+  cardType: "Equip",
+  isMonster: false,
+  attack: 0,
+  defense: 0,
+};
+
+/** In-range monster so "equips all" tests can cover every monster in the DB */
+const extraMonster: CardSpec = {
+  id: 200,
+  name: "Celtic Guardian",
+  kinds: ["Warrior"],
+  isMonster: true,
+  attack: 1400,
+  defense: 1200,
+};
+
 const testDb = createCardDb();
 addCard(testDb, testCard);
 addCard(testDb, noDropCard);
 addCard(testDb, fusionResultCard);
 addCard(testDb, equipCard);
 addCard(testDb, equipCard2);
+addCard(testDb, universalEquipCard);
+addCard(testDb, extraMonster);
 
 const testEquipCompat = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
 // Legendary Sword (301) equips Baby Dragon (1) and Fusion Beast (50)
@@ -190,7 +212,7 @@ describe("CardDetailModal", () => {
   });
 
   it("shows empty message when no duelists drop the card", () => {
-    renderModal(999);
+    renderModal(100);
     fireEvent.click(screen.getByText("Open"));
     expect(screen.getByText("No duelists drop this card.")).toBeTruthy();
   });
@@ -281,7 +303,7 @@ describe("CardDetailModal", () => {
     fireEvent.click(screen.getByText("Open"));
     expect(screen.getByText("Fuses to")).toBeTruthy();
     // "With" column shows card ID, "Result" shows fusion result name
-    expect(screen.getByText("#999")).toBeTruthy();
+    expect(screen.getByText("#100")).toBeTruthy();
     expect(screen.getByText("Fusion Beast")).toBeTruthy();
     expect(screen.getByText("2000")).toBeTruthy();
   });
@@ -315,7 +337,7 @@ describe("CardDetailModal", () => {
   });
 
   it("shows empty equippable-by message when monster has no equips", () => {
-    renderModal(999); // Lonely Card has no equips (id also out of equip scan range)
+    renderModal(200); // Celtic Guardian has no equip compat entries
     fireEvent.click(screen.getByText("Open"));
     expect(screen.getByText("No equip cards for this monster.")).toBeTruthy();
   });
@@ -338,5 +360,21 @@ describe("CardDetailModal", () => {
     renderModal(1);
     fireEvent.click(screen.getByText("Open"));
     expect(screen.queryByText("Can equip")).toBeNull();
+  });
+
+  it("shows 'All monsters' label when equip covers every monster", () => {
+    // Temporarily make Megamorph (303) equip all 4 monsters
+    const monsterIds = [1, 50, 100, 200];
+    for (const id of monsterIds) testEquipCompat[303 * MAX_CARD_ID + id] = 1;
+    try {
+      renderModal(303);
+      fireEvent.click(screen.getByText("Open"));
+      expect(screen.getByText("All monsters")).toBeTruthy();
+      expect(screen.getByText("(4 cards)")).toBeTruthy();
+      // Should NOT show the table
+      expect(screen.queryByText("Baby Dragon")).toBeNull();
+    } finally {
+      for (const id of monsterIds) testEquipCompat[303 * MAX_CARD_ID + id] = 0;
+    }
   });
 });

@@ -1,8 +1,10 @@
+import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { countById } from "../../components/CardTable.tsx";
+import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
@@ -71,9 +73,13 @@ function ResultState({
   const removedRows = diffRows.filter((r) => r.type === "removed");
   const addedRows = diffRows.filter((r) => r.type === "added");
 
+  const liveDeckScore = useAtomValue(currentDeckScoreAtom);
+  const currentScore = liveDeckScore ?? result.currentDeckScore;
+  const improvement =
+    currentScore != null && currentScore > 0 ? result.expectedAtk - currentScore : null;
   const improvementPct =
-    result.currentDeckScore != null && result.currentDeckScore > 0 && result.improvement != null
-      ? ((result.improvement / result.currentDeckScore) * 100).toFixed(1)
+    currentScore != null && currentScore > 0 && improvement != null
+      ? ((improvement / currentScore) * 100).toFixed(1)
       : null;
 
   const changeCount = removedRows.length;
