@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../engine/data/game-db.ts";
 import type { RefDuelistCard, RefFusion } from "../../engine/reference/build-reference-table.ts";
+import { MAX_CARD_ID } from "../../engine/types/constants.ts";
 import { CardDbProvider } from "../lib/card-db-context.tsx";
 import { useCardDetail } from "../lib/card-detail-context.tsx";
 import type { FusionTableData } from "../lib/fusion-table-context.tsx";
@@ -23,7 +24,7 @@ const testFusions: RefFusion[] = [
 
 // Forward-declared; assigned after testDb is built below.
 // eslint-disable-next-line prefer-const -- assigned after testDb creation
-let mockFusionTableData: Pick<FusionTableData, "duelists" | "fusions" | "cardDb"> =
+let mockFusionTableData: Pick<FusionTableData, "duelists" | "fusions" | "cardDb" | "equipCompat"> =
   undefined as never;
 
 vi.mock("../lib/fusion-table-context.tsx", () => ({
@@ -76,12 +77,45 @@ const fusionResultCard: CardSpec = {
   defense: 1500,
 };
 
+const equipCard: CardSpec = {
+  id: 301,
+  name: "Legendary Sword",
+  kinds: [],
+  cardType: "Equip",
+  isMonster: false,
+  attack: 0,
+  defense: 0,
+};
+
+const equipCard2: CardSpec = {
+  id: 302,
+  name: "Beast Fangs",
+  kinds: [],
+  cardType: "Equip",
+  isMonster: false,
+  attack: 0,
+  defense: 0,
+};
+
 const testDb = createCardDb();
 addCard(testDb, testCard);
 addCard(testDb, noDropCard);
 addCard(testDb, fusionResultCard);
+addCard(testDb, equipCard);
+addCard(testDb, equipCard2);
 
-mockFusionTableData = { duelists: testDuelists, fusions: testFusions, cardDb: testDb };
+const testEquipCompat = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+// Legendary Sword (301) equips Baby Dragon (1) and Fusion Beast (50)
+testEquipCompat[301 * MAX_CARD_ID + 1] = 1;
+testEquipCompat[301 * MAX_CARD_ID + 50] = 1;
+// Beast Fangs (302) equips Baby Dragon (1)
+testEquipCompat[302 * MAX_CARD_ID + 1] = 1;
+mockFusionTableData = {
+  duelists: testDuelists,
+  fusions: testFusions,
+  cardDb: testDb,
+  equipCompat: testEquipCompat,
+};
 
 function OpenButton({ cardId }: { cardId: number }) {
   const { openCard } = useCardDetail();
@@ -270,5 +304,39 @@ describe("CardDetailModal", () => {
     renderModal(50);
     fireEvent.click(screen.getByText("Open"));
     expect(screen.getByText("This card has no fusions.")).toBeTruthy();
+  });
+
+  it("shows equippable-by section on monster cards with compatible equips", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Can be equipped by")).toBeTruthy();
+    expect(screen.getByText("Legendary Sword")).toBeTruthy();
+    expect(screen.getByText("Beast Fangs")).toBeTruthy();
+  });
+
+  it("shows empty equippable-by message when monster has no equips", () => {
+    renderModal(999); // Lonely Card has no equips (id also out of equip scan range)
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("No equip cards for this monster.")).toBeTruthy();
+  });
+
+  it("shows equips-to section on equip cards with compatible monsters", () => {
+    renderModal(301); // Legendary Sword
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.getByText("Can equip")).toBeTruthy();
+    expect(screen.getByText("Baby Dragon")).toBeTruthy();
+    expect(screen.getByText("Fusion Beast")).toBeTruthy();
+  });
+
+  it("does not show equippable-by section on equip cards", () => {
+    renderModal(301);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.queryByText("Can be equipped by")).toBeNull();
+  });
+
+  it("does not show equips-to section on monster cards", () => {
+    renderModal(1);
+    fireEvent.click(screen.getByText("Open"));
+    expect(screen.queryByText("Can equip")).toBeNull();
   });
 });
