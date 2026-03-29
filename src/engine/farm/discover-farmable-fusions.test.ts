@@ -91,15 +91,15 @@ beforeAll(() => {
 // Core behavior
 // ---------------------------------------------------------------------------
 describe("discoverFarmableFusions", () => {
-  it("returns empty when collection already owns all fusion materials", () => {
-    // Player owns all cards including droppables — nothing to farm
+  it("returns empty when collection has ≥3 copies of all fusion materials", () => {
+    // Player owns 3+ copies of all cards — nothing to farm
     const collection = new Map([
-      [1, 1],
-      [2, 1],
-      [3, 1],
-      [4, 1],
-      [5, 1],
-      [20, 1],
+      [1, 3],
+      [2, 3],
+      [3, 3],
+      [4, 3],
+      [5, 3],
+      [20, 3],
     ]);
     const result = discoverFarmableFusions(
       collection,
@@ -114,6 +114,35 @@ describe("discoverFarmableFusions", () => {
     );
     expect(result.fusions).toEqual([]);
     expect(result.duelistRanking).toEqual([]);
+  });
+
+  it("suggests farming cards with <3 copies in collection", () => {
+    // Player owns 1 copy of cards 1,2,3 and 3 copies of 20.
+    // Cards 2,3 are droppable and have <3 copies → still farmable materials.
+    // Card 20 has 3 copies → fully owned, not a farm target.
+    const collection = new Map([
+      [1, 1],
+      [2, 1],
+      [3, 2],
+      [20, 3],
+    ]);
+    const result = discoverFarmableFusions(
+      collection,
+      fusionTable,
+      cardAtk,
+      cardDb,
+      3,
+      0,
+      duelists,
+      fusions,
+      "pow",
+    );
+    // HighCard(20) should NOT appear (3 copies = fully owned)
+    const highCard = result.fusions.find((f) => f.resultCardId === 20 && f.depth === 0);
+    expect(highCard).toBeUndefined();
+    // But fusions using cards with <3 copies should still appear as farmable
+    const hasFarmable = result.fusions.some((f) => f.missingMaterials.length > 0);
+    expect(hasFarmable).toBe(true);
   });
 
   it("finds depth-0 standalone high-ATK droppable card", () => {
@@ -141,9 +170,9 @@ describe("discoverFarmableFusions", () => {
   });
 
   it("finds depth-1 fusion with one missing droppable material", () => {
-    // Player owns card 1 (Alpha). Card 2 (Beta) droppable by Heishin (saPow=80).
+    // Player owns 3x card 1 (Alpha). Card 2 (Beta) droppable by Heishin (saPow=80).
     // Fusion 1+2→10(1200). deckScore=1000.
-    const collection = new Map([[1, 1]]);
+    const collection = new Map([[1, 3]]);
     const result = discoverFarmableFusions(
       collection,
       fusionTable,
@@ -164,9 +193,9 @@ describe("discoverFarmableFusions", () => {
   });
 
   it("finds depth-2 chain fusion", () => {
-    // Player owns card 1 (Alpha). Cards 2, 3 droppable.
+    // Player owns 3x card 1 (Alpha). Cards 2, 3 droppable.
     // Chain: 1+2→10, 10+3→11(1800). deckScore=1500.
-    const collection = new Map([[1, 1]]);
+    const collection = new Map([[1, 3]]);
     const result = discoverFarmableFusions(
       collection,
       fusionTable,
@@ -253,12 +282,12 @@ describe("discoverFarmableFusions", () => {
   });
 
   it("deduplicates: same result via fewer missing materials preferred", () => {
-    // Player owns cards 1,2. Gamma (3) droppable by Simon.
+    // Player owns 3x cards 1,2. Gamma (3) droppable by Simon.
     // Fusion 2+3→13(1400) at depth 1: only 3 missing.
     // Fusion 1+2→10, but 10+3→11(1800) at depth 2: only 3 missing (1,2 owned).
     const collection = new Map([
-      [1, 1],
-      [2, 1],
+      [1, 3],
+      [2, 3],
     ]);
     const result = discoverFarmableFusions(
       collection,
@@ -326,7 +355,7 @@ describe("discoverFarmableFusions drop modes", () => {
   it("POW mode uses max(saPow, bcd) — includes both sources", () => {
     // Card 2: Heishin has saPow=80, bcd=0 → weight=80 in POW mode
     // Card 3: Simon has bcd=100 → weight=100 in POW mode
-    const collection = new Map([[1, 1]]);
+    const collection = new Map([[1, 3]]);
     const result = discoverFarmableFusions(
       collection,
       fusionTable,

@@ -112,12 +112,16 @@ function buildLookups(
     });
   }
 
+  // Cards with ≥3 copies are "fully owned" — no need to farm more.
   const collectionSet = new Set<number>();
+  // Cards with ≥1 copy are available as fusion materials.
+  const ownedPool = new Set<number>();
   for (const [cardId, count] of collection) {
-    if (count > 0) collectionSet.add(cardId);
+    if (count >= 3) collectionSet.add(cardId);
+    if (count > 0) ownedPool.add(cardId);
   }
 
-  const reachablePool = new Set(collectionSet);
+  const reachablePool = new Set(ownedPool);
   for (const cardId of droppableCards.keys()) {
     reachablePool.add(cardId);
   }

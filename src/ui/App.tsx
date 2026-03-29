@@ -96,7 +96,7 @@ function DeckTabPanel() {
           <DeckSubPanel value="result">
             <ResultPanel />
           </DeckSubPanel>
-          <DeckSubPanel className="lg:col-span-2 xl:col-span-1" value="farm">
+          <DeckSubPanel value="farm">
             <FarmPanelWrapper />
           </DeckSubPanel>
         </RequireReferenceData>
