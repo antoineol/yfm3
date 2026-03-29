@@ -92,7 +92,7 @@ export function findFusionChains(
     if (monster.source === "hand") {
       const key = `${String(monster.cardId)}+`;
       const existing = results.get(key);
-      if (!existing || existing.resultAtk < currentAtk) {
+      if (!existing || existing.resultAtk <= currentAtk) {
         results.set(key, {
           resultCardId: monster.cardId,
           resultAtk: currentAtk,
@@ -268,7 +268,15 @@ function recordResult(
   const card = cardDb.cardsById.get(resultId);
   const effectiveAtk = (card?.attack ?? 0) + equipBonusTotal;
   const existing = results.get(key);
-  if (existing && existing.resultAtk >= effectiveAtk) return;
+  if (existing) {
+    if (existing.resultAtk > effectiveAtk) return;
+    if (
+      existing.resultAtk === effectiveAtk &&
+      existing.materialCardIds.length + existing.fieldMaterialCardIds.length <=
+        materialCardIds.length + fieldMaterialCardIds.length
+    )
+      return;
+  }
 
   results.set(key, {
     resultCardId: resultId,
@@ -283,5 +291,8 @@ function recordResult(
 }
 
 function sortByAtkDesc(results: FusionChainResult[]): FusionChainResult[] {
-  return results.sort((a, b) => b.resultAtk - a.resultAtk);
+  return results.sort((a, b) => {
+    if (b.resultAtk !== a.resultAtk) return b.resultAtk - a.resultAtk;
+    return a.steps.length - b.steps.length;
+  });
 }

@@ -552,6 +552,63 @@ describe("findFusionChains with field cards", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dedup: prefer direct play and fewer materials
+// ---------------------------------------------------------------------------
+describe("findFusionChains prefers simpler plays", () => {
+  it("direct play wins over fusion producing the same card at equal ATK", () => {
+    // Hand has AlphaBeta(10) directly AND Alpha(1)+Beta(2) which fuse into AlphaBeta(10).
+    // The direct play should win (steps.length === 0).
+    const results = findFusionChains([1, 2, 10, 5], fusionTable, cardDb, 3);
+    const ab = results.find((r) => r.resultCardId === 10);
+    expect(ab).toBeDefined();
+    expect(ab?.steps).toHaveLength(0);
+    expect(ab?.materialCardIds).toEqual([10]);
+  });
+
+  it("shorter fusion wins over longer fusion for same result at equal ATK", () => {
+    // Setup: card 40 reachable via 1-step or 2-step fusion, same result ATK.
+    const db = createCardDb();
+    addTestCard(db, 70, "A", 500);
+    addTestCard(db, 71, "B", 600);
+    addTestCard(db, 72, "C", 700);
+    addTestCard(db, 73, "AB", 1000);
+    addTestCard(db, 74, "Target", 2000);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 70, 71, 73); // A+B → AB
+    setFusion(ft, 73, 72, 74); // AB+C → Target (2-step chain: 3 materials)
+    setFusion(ft, 71, 72, 74); // B+C → Target (1-step fusion: 2 materials)
+
+    const results = findFusionChains([70, 71, 72], ft, db, 3);
+    const target = results.find((r) => r.resultCardId === 74);
+    expect(target).toBeDefined();
+    expect(target?.steps).toHaveLength(1); // 1-step fusion preferred
+    expect(target?.materialCardIds.sort()).toEqual([71, 72]); // B+C, not A+B+C
+  });
+
+  it("sorts by steps ascending when ATK is equal across different cards", () => {
+    // Two result cards with the same ATK: one via direct play, one via fusion
+    const db = createCardDb();
+    addTestCard(db, 80, "M1", 400);
+    addTestCard(db, 81, "M2", 500);
+    addTestCard(db, 82, "FusionResult", 1000);
+    addTestCard(db, 83, "DirectCard", 1000); // same ATK as fusion result
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 80, 81, 82); // M1+M2 → FusionResult(1000)
+
+    const results = findFusionChains([80, 81, 83], ft, db, 3);
+    const idx1000 = results.filter((r) => r.resultAtk === 1000);
+    expect(idx1000).toHaveLength(2);
+    // Direct play (0 steps) should come before fusion (1 step)
+    expect(idx1000[0]?.steps).toHaveLength(0);
+    expect(idx1000[1]?.steps).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Raw (direct) plays
 // ---------------------------------------------------------------------------
 describe("findFusionChains raw plays", () => {
