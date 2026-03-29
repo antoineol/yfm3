@@ -1,3 +1,4 @@
+import { bridgeGameDataToReference, loadReferenceCsvs } from "../../ui/lib/load-reference-csvs.ts";
 import type { FarmDiscoveryResult } from "../farm/discover-farmable-fusions.ts";
 import { discoverFarmableFusions } from "../farm/discover-farmable-fusions.ts";
 import {
@@ -10,15 +11,10 @@ import type {
   SerializedFarmDiscoveryResult,
 } from "./messages.ts";
 
-// Dynamically import the CSV loader (works in worker context via fetch())
 async function loadReferenceData(msg: FarmWorkerInit): Promise<ReferenceTableData> {
   if (msg.gameData) {
-    // Bridge mode: convert from game data
-    const { bridgeGameDataToReference } = await import("../../ui/lib/load-reference-csvs.ts");
     return buildReferenceTableData(bridgeGameDataToReference(msg.gameData));
   }
-  // CSV mode: fetch from static assets
-  const { loadReferenceCsvs } = await import("../../ui/lib/load-reference-csvs.ts");
   return buildReferenceTableData(await loadReferenceCsvs(msg.modId));
 }
 
