@@ -44,7 +44,7 @@ export function CpuCheatBanner() {
           />
           <div className="fm-cheat-banner-body">
             <header className="fm-cheat-banner-header">
-              <span className="fm-cheat-banner-tag">Cheat Detected</span>
+              <span className="fm-cheat-banner-tag">Opponent cheat detected</span>
               <CloseButton label="Dismiss" onClick={() => void clearCpuSwaps()} size="sm" />
             </header>
             <ul className="fm-cheat-banner-list">
