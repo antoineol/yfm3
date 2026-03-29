@@ -1,6 +1,6 @@
 import { v, type Infer } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./authHelper";
+import { authArgs, resolveUserId } from "./authHelper";
 import { getUserMod } from "./modHelper";
 
 export const handSourceModeValidator = v.union(v.literal("all"), v.literal("deck"));
@@ -17,9 +17,9 @@ export const postDuelSuggestionValidator = v.object({
 });
 
 export const getUserModSettings = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const prefs = await ctx.db
       .query("userModSettings")
@@ -31,9 +31,9 @@ export const getUserModSettings = query({
 });
 
 export const getLastAddedCard = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const settings = await ctx.db
       .query("userModSettings")
@@ -55,13 +55,14 @@ export const getLastAddedCard = query({
 
 export const updateModSettings = mutation({
   args: {
+    ...authArgs,
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
     useEquipment: v.optional(v.boolean()),
     postDuelSuggestion: v.optional(v.union(postDuelSuggestionValidator, v.null())),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("userModSettings")
@@ -96,9 +97,9 @@ export const updateModSettings = mutation({
 });
 
 export const clearLastAddedCard = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const prefs = await ctx.db
       .query("userModSettings")
@@ -113,10 +114,11 @@ export const clearLastAddedCard = mutation({
 
 export const batchMigrateUserModSettings = mutation({
   args: {
+    ...authArgs,
     lastAddedCard: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("userModSettings")

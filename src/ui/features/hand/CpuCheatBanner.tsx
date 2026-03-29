@@ -1,9 +1,9 @@
-import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import type { CardId } from "../../../engine/data/card-model.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { CloseButton } from "../../components/CloseButton.tsx";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -20,7 +20,7 @@ export function CpuCheatBanner() {
   const { phase } = useBridge();
   const cpuSwaps = useCpuSwaps();
   const cheatMode = useCheatMode();
-  const clearCpuSwaps = useMutation(api.userSettings.clearCpuSwaps);
+  const clearCpuSwaps = useAuthMutation(api.userSettings.clearCpuSwaps);
 
   // Auto-dismiss when phase transitions to "opponent" (player's turn ends)
   const prevPhaseRef = useRef(phase);

@@ -1,8 +1,8 @@
-import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -13,7 +13,7 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
  * so no phase or reliability gating is needed — we sync on every change.
  */
 export function useAutoSyncCollection(bridge: EmulatorBridge) {
-  const syncFromBridge = useMutation(api.importExport.syncCollectionFromBridge);
+  const syncFromBridge = useAuthMutation(api.importExport.syncCollectionFromBridge);
   const lastCollectionKeyRef = useRef("");
   const lastDeckKeyRef = useRef("");
   const hasInitializedRef = useRef(false);

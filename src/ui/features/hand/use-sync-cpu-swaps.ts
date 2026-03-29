@@ -1,6 +1,6 @@
-import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 
 /**
@@ -10,8 +10,8 @@ import { useBridge } from "../../lib/bridge-context.tsx";
  */
 export function useSyncCpuSwaps() {
   const { cpuSwaps, inDuel } = useBridge();
-  const append = useMutation(api.userSettings.appendCpuSwaps);
-  const clear = useMutation(api.userSettings.clearCpuSwaps);
+  const append = useAuthMutation(api.userSettings.appendCpuSwaps);
+  const clear = useAuthMutation(api.userSettings.clearCpuSwaps);
 
   const syncedCountRef = useRef(0);
   const prevInDuelRef = useRef(inDuel);

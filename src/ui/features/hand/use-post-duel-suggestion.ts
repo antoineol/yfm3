@@ -1,4 +1,3 @@
-import { useMutation } from "convex/react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api.js";
@@ -6,6 +5,7 @@ import type { Collection } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import {
   useDeckSize,
   useFusionDepth,
@@ -69,7 +69,7 @@ export function usePostDuelSuggestion(
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
   const prefs = useUserModSettings();
-  const savePreferences = useMutation(api.userModSettings.updateModSettings);
+  const savePreferences = useAuthMutation(api.userModSettings.updateModSettings);
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;

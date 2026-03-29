@@ -1,7 +1,7 @@
-import { useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import type { HandCard } from "../../db/use-hand.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -27,8 +27,8 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
  * empty slots during the brief draw animation instead of old cards.
  */
 export function useAutoSyncHand(bridge: EmulatorBridge, currentHand: HandCard[]) {
-  const batchMigrateHand = useMutation(api.hand.batchMigrateHand);
-  const clearHand = useMutation(api.hand.clearHand);
+  const batchMigrateHand = useAuthMutation(api.hand.batchMigrateHand);
+  const clearHand = useAuthMutation(api.hand.clearHand);
   const prevInDuelRef = useRef(false);
   const modId = useSelectedMod();
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;

@@ -1,15 +1,21 @@
-import { useMutation } from "convex/react";
 import type { FunctionArgs } from "convex/server";
 import { api } from "../../../convex/_generated/api";
+import { useAuthMutation } from "../core/convex-hooks.ts";
 
-type UpdateModSettingsArgs = FunctionArgs<typeof api.userModSettings.updateModSettings>;
-type UpdateUserSettingsArgs = FunctionArgs<typeof api.userSettings.updateUserSettings>;
+type UpdateModSettingsArgs = Omit<
+  FunctionArgs<typeof api.userModSettings.updateModSettings>,
+  "anonymousId"
+>;
+type UpdateUserSettingsArgs = Omit<
+  FunctionArgs<typeof api.userSettings.updateUserSettings>,
+  "anonymousId"
+>;
 
 export type UpdatePreferencesArgs = UpdateModSettingsArgs & UpdateUserSettingsArgs;
 
 export function useUpdatePreferences() {
-  const mutateModSettings = useMutation(api.userModSettings.updateModSettings);
-  const mutateUserSettings = useMutation(api.userSettings.updateUserSettings);
+  const mutateModSettings = useAuthMutation(api.userModSettings.updateModSettings);
+  const mutateUserSettings = useAuthMutation(api.userSettings.updateUserSettings);
   return (values: UpdatePreferencesArgs) => {
     const { bridgeAutoSync, handSourceMode, cheatMode, cheatView, ...modValues } = values;
     const hasModValues = Object.values(modValues).some((v) => v !== undefined);

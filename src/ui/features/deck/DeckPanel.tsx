@@ -1,4 +1,3 @@
-import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { type CardEntry, CardTable } from "../../components/CardTable.tsx";
@@ -8,6 +7,7 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 import { DeckFusionList } from "./DeckFusionList.tsx";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
@@ -18,7 +18,7 @@ export function DeckPanel() {
   const data = useDeckEntries();
   const targetSize = useDeckSize();
   const readOnly = useBridgeAutoSync();
-  const removeOne = useMutation(api.deck.removeOneByCardId);
+  const removeOne = useAuthMutation(api.deck.removeOneByCardId);
   const score = useDeckScore(data?.deckCardIds ?? []);
 
   if (data === undefined) return <PanelLoadingState />;

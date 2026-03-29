@@ -1,6 +1,6 @@
-import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useAuthQuery } from "../core/convex-hooks.ts";
 
 export function useOwnedCardTotals() {
-  return useQuery(api.ownedCards.getOwnedCardTotals, {});
+  return useAuthQuery(api.ownedCards.getOwnedCardTotals);
 }

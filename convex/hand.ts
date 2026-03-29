@@ -1,15 +1,15 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
-import { requireAuth } from './authHelper';
+import { authArgs, resolveUserId } from './authHelper';
 import { getUserMod } from './modHelper';
 import { getOrderBetween } from './utils';
 
 const MAX_HAND_SIZE = 5;
 
 export const getHand = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     return ctx.db
       .query('hand')
@@ -20,10 +20,11 @@ export const getHand = query({
 
 export const addToHand = mutation({
   args: {
+    ...authArgs,
     cardId: v.number(),
   },
-  handler: async (ctx, { cardId }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { anonymousId, cardId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
     const currentHand = await ctx.db
       .query('hand')
@@ -40,10 +41,11 @@ export const addToHand = mutation({
 
 export const removeFromHand = mutation({
   args: {
+    ...authArgs,
     id: v.id('hand'),
   },
-  handler: async (ctx, { id }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { anonymousId, id }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) throw new Error('Deck card not found');
@@ -54,10 +56,11 @@ export const removeFromHand = mutation({
 
 export const removeMultipleFromHand = mutation({
   args: {
+    ...authArgs,
     ids: v.array(v.id('hand')),
   },
-  handler: async (ctx, { ids }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { anonymousId, ids }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const oldDocs = await Promise.all(ids.map(id => ctx.db.get(id)));
 
     for (const oldDoc of oldDocs) {
@@ -72,12 +75,13 @@ export const removeMultipleFromHand = mutation({
 
 export const moveHandCard = mutation({
   args: {
+    ...authArgs,
     copyId: v.string(),
     beforeCardCopyId: v.optional(v.string()), // Insert after this card
     afterCardCopyId: v.optional(v.string()), // Insert before this card
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     // Find the card to move
     const cardToMove = await ctx.db
@@ -122,9 +126,9 @@ export const moveHandCard = mutation({
 });
 
 export const clearHand = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const handCards = await ctx.db
       .query('hand')
@@ -143,6 +147,7 @@ export const clearHand = mutation({
 // Batch migration function for robust hand migration
 export const batchMigrateHand = mutation({
   args: {
+    ...authArgs,
     handData: v.array(
       v.object({
         cardId: v.number(),
@@ -152,7 +157,7 @@ export const batchMigrateHand = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const results = [];
 

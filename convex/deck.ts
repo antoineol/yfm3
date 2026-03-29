@@ -1,15 +1,15 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
-import { requireAuth } from './authHelper';
+import { authArgs, resolveUserId } from './authHelper';
 import { deckAggregate, deckAggregateKey } from './deckAggregate';
 import { getUserMod } from './modHelper';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
 export const getDeck = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
@@ -21,9 +21,9 @@ export const getDeck = query({
 });
 
 export const getDeckCardIds = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
@@ -36,9 +36,9 @@ export const getDeckCardIds = query({
 });
 
 export const getDeckCount = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const key = deckAggregateKey(userId, mod);
     const aggregateCount = await deckAggregate.count(ctx, {
@@ -67,9 +67,10 @@ export const getDeckItem = query({
 export const addToDeck = mutation({
   args: {
     cardId: v.number(),
+    ...authArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const { cardId } = args;
 
@@ -115,9 +116,10 @@ export const addToDeck = mutation({
 export const removeFromDeck = mutation({
   args: {
     id: v.id('deck'),
+    ...authArgs,
   },
-  handler: async (ctx, { id }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { id, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) throw new Error('Deck card not found');
@@ -129,9 +131,9 @@ export const removeFromDeck = mutation({
 
 // Ownership is guaranteed by the by_user_mod index filter (only queries current user's rows).
 export const removeOneByCardId = mutation({
-  args: { cardId: v.number() },
-  handler: async (ctx, { cardId }) => {
-    const userId = await requireAuth(ctx);
+  args: { cardId: v.number(), ...authArgs },
+  handler: async (ctx, { cardId, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
     const doc = await ctx.db
       .query('deck')
@@ -150,9 +152,10 @@ export const moveDeckCard = mutation({
   args: {
     id: v.id('deck'),
     newOrder: v.number(), // Target fractional order
+    ...authArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     // First, fetch the record to check ownership
     const deckCard = await ctx.db.get(args.id);
 
@@ -178,9 +181,10 @@ export const insertDeckCardBetween = mutation({
     id: v.id('deck'),
     beforeCardId: v.optional(v.id('deck')), // Insert after this card
     afterCardId: v.optional(v.id('deck')), // Insert before this card
+    ...authArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     // First, fetch the record to check ownership
     const deckCard = await ctx.db.get(args.id);
 
@@ -225,9 +229,9 @@ export const insertDeckCardBetween = mutation({
 });
 
 export const clearDeck = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const deckCards = await ctx.db
       .query('deck')
@@ -252,9 +256,10 @@ export const replaceDeck = mutation({
         copyId: v.string(),
       }),
     ),
+    ...authArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     // Clear existing deck first
     const deckCards = await ctx.db
@@ -300,9 +305,10 @@ export const batchMigrateDeck = mutation({
         order: v.number(), // Now using fractional order instead of position
       }),
     ),
+    ...authArgs,
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const results = [];
 
@@ -378,9 +384,10 @@ export const backfillDeckAggregate = internalMutation({
 export const acceptSuggestedDeck = mutation({
   args: {
     cardIds: v.array(v.number()),
+    ...authArgs,
   },
-  handler: async (ctx, { cardIds }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { cardIds, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
     const existingDeckCards = await ctx.db
       .query('deck')
@@ -411,9 +418,10 @@ export const applySuggestedSwap = mutation({
   args: {
     addCardId: v.number(),
     removeCardId: v.number(),
+    ...authArgs,
   },
-  handler: async (ctx, { addCardId, removeCardId }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { addCardId, removeCardId, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
 
     const [deckCards, collectionEntry] = await Promise.all([

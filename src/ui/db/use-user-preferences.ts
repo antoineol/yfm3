@@ -1,7 +1,7 @@
-import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts";
+import { useAuthQuery } from "../core/convex-hooks.ts";
 
 type UserSettings = Doc<"userSettings">;
 
@@ -10,7 +10,7 @@ export type HandSourceMode = NonNullable<UserSettings["handSourceMode"]>;
 export const DEFAULT_HAND_SOURCE_MODE: HandSourceMode = "all";
 
 export function useUserModSettings() {
-  return useQuery(api.userModSettings.getUserModSettings, {});
+  return useAuthQuery(api.userModSettings.getUserModSettings);
 }
 
 export function useDeckSize() {
@@ -31,7 +31,7 @@ export function useUseEquipment() {
 // ── Global settings (from userSettings table) ───────────────────────
 
 function useUserSettings() {
-  return useQuery(api.userSettings.getUserSettings, {});
+  return useAuthQuery(api.userSettings.getUserSettings);
 }
 
 export function useHandSourceMode(): HandSourceMode {

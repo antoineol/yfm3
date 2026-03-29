@@ -1,4 +1,3 @@
-import { useMutation } from "convex/react";
 import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
@@ -6,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Button } from "../../components/Button.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { manualSetupModalOpenAtom } from "../../lib/atoms.ts";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { DownloadLink } from "../bridge/setup-steps.tsx";
@@ -15,7 +15,7 @@ export function ManualSetupModal() {
   const [open, setOpen] = useAtom(manualSetupModalOpenAtom);
   const selectedMod = useSelectedMod();
   const setSelectedMod = useSetSelectedMod();
-  const importMutation = useMutation(api.importExport.importData);
+  const importMutation = useAuthMutation(api.importExport.importData);
   const [loadingSample, setLoadingSample] = useState(false);
 
   const handleSelectMod = useCallback(

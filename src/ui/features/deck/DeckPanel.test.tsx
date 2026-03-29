@@ -6,6 +6,7 @@ const mockRemoveOne = vi.fn();
 
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: false }),
   useMutation: (ref: string) => {
     if (ref === "removeOneByCardId") return mockRemoveOne;
     return vi.fn();

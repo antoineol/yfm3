@@ -1,12 +1,12 @@
 import { v } from "convex/values";
 import { mutation, type MutationCtx, query } from "./_generated/server";
-import { requireAuth } from "./authHelper";
+import { authArgs, resolveUserId } from "./authHelper";
 import { getUserMod } from "./modHelper";
 
 export const getOwnedCardsIndexedByCardId = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
@@ -24,9 +24,9 @@ export const getOwnedCardsIndexedByCardId = query({
 });
 
 export const getOwnedCardsWithoutDeck = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
@@ -58,9 +58,9 @@ export const getOwnedCardsWithoutDeck = query({
 });
 
 export const getOwnedCardIds = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
@@ -73,9 +73,9 @@ export const getOwnedCardIds = query({
 });
 
 export const getOwnedCardTotals = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const ownedCards = await ctx.db
       .query("ownedCards")
@@ -93,10 +93,11 @@ export const getOwnedCardTotals = query({
 
 export const removeOwnedCardEntry = mutation({
   args: {
+    ...authArgs,
     id: v.id("ownedCards"),
   },
-  handler: async (ctx, { id }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { id, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const oldDoc = await ctx.db.get(id);
 
     if (!oldDoc || oldDoc.userId !== userId) {
@@ -113,10 +114,11 @@ export const removeOwnedCardEntry = mutation({
 
 export const addOwnedCardEntry = mutation({
   args: {
+    ...authArgs,
     cardId: v.number(),
   },
-  handler: async (ctx, { cardId }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { cardId, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
     const doc = await ctx.db
       .query("ownedCards")
@@ -139,10 +141,11 @@ export const addOwnedCardEntry = mutation({
 
 export const addCard = mutation({
   args: {
+    ...authArgs,
     cardId: v.number(),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("ownedCards")
@@ -176,10 +179,11 @@ export const addCard = mutation({
 
 export const removeCard = mutation({
   args: {
+    ...authArgs,
     cardId: v.number(),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
     const existing = await ctx.db
       .query("ownedCards")

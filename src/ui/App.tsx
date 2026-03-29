@@ -1,14 +1,11 @@
 import { Tabs } from "@base-ui/react/tabs";
-import { useConvexAuth } from "convex/react";
 import { useAtomValue } from "jotai";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { CardDetailModal } from "./components/CardDetailModal.tsx";
-import { LoaderBlock } from "./components/Loader.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
 import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
 import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
-import { SignIn } from "./features/auth/SignIn.tsx";
 import { GameDataErrorBanner } from "./features/bridge/GameDataErrorBanner.tsx";
 import { ModMismatchBanner } from "./features/bridge/ModMismatchBanner.tsx";
 import { CollectionPanel } from "./features/collection/CollectionPanel.tsx";
@@ -35,21 +32,11 @@ function CardDetailModalWhenReady() {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const [tab] = useTabFromHash(TABS, "duel");
-
-  if (isLoading) {
-    return <LoaderBlock />;
-  }
-
-  if (!isAuthenticated) {
-    return <SignIn />;
-  }
-
-  return <AuthenticatedApp tab={tab} />;
+  return <MainApp tab={tab} />;
 }
 
-function AuthenticatedApp({ tab }: { tab: string }) {
+function MainApp({ tab }: { tab: string }) {
   const bridgeAutoSync = useBridgeAutoSync();
   const bridge = useEmulatorBridge(bridgeAutoSync);
 

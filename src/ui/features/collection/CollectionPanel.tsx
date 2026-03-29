@@ -1,4 +1,3 @@
-import { useMutation } from "convex/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { Button } from "../../components/Button.tsx";
@@ -11,6 +10,7 @@ import {
   PanelHeader,
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -27,9 +27,9 @@ export function CollectionPanel() {
   const data = useCollectionViewModel();
   const targetSize = useDeckSize();
   const readOnly = useBridgeAutoSync();
-  const addCard = useMutation(api.ownedCards.addCard);
-  const removeCard = useMutation(api.ownedCards.removeCard);
-  const addToDeck = useMutation(api.deck.addToDeck);
+  const addCard = useAuthMutation(api.ownedCards.addCard);
+  const removeCard = useAuthMutation(api.ownedCards.removeCard);
+  const addToDeck = useAuthMutation(api.deck.addToDeck);
   const updatePreferences = useUpdatePreferences();
   const entriesByCardId = data?.entriesByCardId;
   const deckFull = data !== undefined && data.deckLength >= targetSize;

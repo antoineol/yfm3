@@ -1,6 +1,6 @@
-import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -9,7 +9,7 @@ import { type ImportExportData, importExportSchema } from "./import-export-schem
 export function useImportExport() {
   const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
-  const importMutation = useMutation(api.importExport.importData);
+  const importMutation = useAuthMutation(api.importExport.importData);
   const modId = useSelectedMod();
 
   const isExportReady = ownedCardTotals !== undefined && deck !== undefined;

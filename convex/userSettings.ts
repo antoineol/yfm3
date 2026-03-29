@@ -1,14 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./authHelper";
+import { authArgs, resolveUserId } from "./authHelper";
 import { handSourceModeValidator } from "./userModSettings";
 
 const DEFAULT_MOD = "vanilla";
 
 export const getSelectedMod = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const settings = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -18,9 +18,9 @@ export const getSelectedMod = query({
 });
 
 export const getUserSettings = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     return await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -29,9 +29,9 @@ export const getUserSettings = query({
 });
 
 export const setSelectedMod = mutation({
-  args: { selectedMod: v.string() },
+  args: { ...authArgs, selectedMod: v.string() },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const existing = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -56,6 +56,7 @@ const cpuSwapValidator = v.object({
 
 export const updateUserSettings = mutation({
   args: {
+    ...authArgs,
     // null means "unset" (reset to undefined / never-chosen state)
     bridgeAutoSync: v.optional(v.union(v.boolean(), v.null())),
     handSourceMode: v.optional(handSourceModeValidator),
@@ -63,7 +64,7 @@ export const updateUserSettings = mutation({
     cheatView: v.optional(cheatViewValidator),
   },
   handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const existing = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -94,10 +95,10 @@ export const updateUserSettings = mutation({
 });
 
 export const appendCpuSwaps = mutation({
-  args: { swaps: v.array(cpuSwapValidator) },
+  args: { ...authArgs, swaps: v.array(cpuSwapValidator) },
   handler: async (ctx, args) => {
     if (args.swaps.length === 0) return;
-    const userId = await requireAuth(ctx);
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const settings = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -109,9 +110,9 @@ export const appendCpuSwaps = mutation({
 });
 
 export const clearCpuSwaps = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuth(ctx);
+  args: { ...authArgs },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.anonymousId);
     const settings = await ctx.db
       .query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))

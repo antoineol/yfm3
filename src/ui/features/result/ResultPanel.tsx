@@ -1,8 +1,8 @@
-import { useMutation } from "convex/react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { PanelHeader } from "../../components/panel-chrome.tsx";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { liveBestScoreAtom, resultAtom } from "../../lib/atoms.ts";
 import { OptimizeButton } from "../optimize/OptimizeButton.tsx";
@@ -15,7 +15,7 @@ export function ResultPanel() {
   const data = useResultEntries();
   const { isOptimizing, optimize, cancel } = useOptimize();
   const setResult = useSetAtom(resultAtom);
-  const acceptDeck = useMutation(api.deck.acceptSuggestedDeck);
+  const acceptDeck = useAuthMutation(api.deck.acceptSuggestedDeck);
   const [accepting, setAccepting] = useState(false);
   const readOnly = useBridgeAutoSync();
 

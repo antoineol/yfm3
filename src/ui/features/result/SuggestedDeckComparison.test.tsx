@@ -12,6 +12,7 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: false }),
 }));
 
 import { SuggestedDeckComparison } from "./SuggestedDeckComparison.tsx";

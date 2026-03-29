@@ -1,8 +1,8 @@
-import { useMutation } from "convex/react";
 import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
+import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -61,10 +61,10 @@ export function useLastAddedCardHint(): LastAddedCardHintModel | null {
     totalOwned,
   } = useLastAddedCollectionState();
   const [appliedSwap, setAppliedSwap] = useState<AppliedSwap | null>(null);
-  const addCard = useMutation(api.ownedCards.addCard);
-  const removeCard = useMutation(api.ownedCards.removeCard);
-  const clearHint = useMutation(api.userModSettings.clearLastAddedCard);
-  const applySuggestedSwap = useMutation(api.deck.applySuggestedSwap);
+  const addCard = useAuthMutation(api.ownedCards.addCard);
+  const removeCard = useAuthMutation(api.ownedCards.removeCard);
+  const clearHint = useAuthMutation(api.userModSettings.clearLastAddedCard);
+  const applySuggestedSwap = useAuthMutation(api.deck.applySuggestedSwap);
   const [applying, setApplying] = useState(false);
   const { loading, suggestion, clearSuggestion } = useDeckSwapSuggestion({
     addedCardId,

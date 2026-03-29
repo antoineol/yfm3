@@ -14,6 +14,7 @@ vi.mock("../optimize/use-optimize.ts", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: false }),
   useMutation: () => vi.fn(),
 }));
 

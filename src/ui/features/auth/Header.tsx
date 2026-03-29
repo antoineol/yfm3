@@ -1,6 +1,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
-import { useClerk } from "@clerk/clerk-react";
+import { SignInButton, useClerk } from "@clerk/clerk-react";
+import { useConvexAuth } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
@@ -24,6 +25,7 @@ export function Header() {
   const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
   const { signOut } = useClerk();
+  const { isAuthenticated } = useConvexAuth();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
@@ -91,6 +93,7 @@ export function Header() {
       <div className="flex items-center gap-2 justify-end">
         <BridgeToggle onOpenDialog={() => setUpdateOpen(true)} />
         <HeaderMenu
+          isAuthenticated={isAuthenticated}
           onSettings={() => setConfigOpen(true)}
           onSetupGuide={handleSetupGuide}
           onSignOut={() => void signOut()}
@@ -271,10 +274,12 @@ function DuelPhaseIndicator() {
 }
 
 function HeaderMenu({
+  isAuthenticated,
   onSetupGuide,
   onSettings,
   onSignOut,
 }: {
+  isAuthenticated: boolean;
   onSetupGuide: () => void;
   onSettings: () => void;
   onSignOut: () => void;
@@ -297,9 +302,15 @@ function HeaderMenu({
             <Menu.Item className={menuItemClass} onClick={onSettings}>
               Settings
             </Menu.Item>
-            <Menu.Item className={menuItemClass} onClick={onSignOut}>
-              Sign out
-            </Menu.Item>
+            {isAuthenticated ? (
+              <Menu.Item className={menuItemClass} onClick={onSignOut}>
+                Sign out
+              </Menu.Item>
+            ) : (
+              <SignInButton mode="modal">
+                <Menu.Item className={menuItemClass}>Sign in</Menu.Item>
+              </SignInButton>
+            )}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

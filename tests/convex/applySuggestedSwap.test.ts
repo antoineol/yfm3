@@ -1,9 +1,9 @@
 /* biome-ignore-all lint/style/useNamingConvention: Convex internals and document ids use _handler and _id. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockRequireAuth, mockAggregateDelete, mockAggregateInsert, mockGetUserMod } = vi.hoisted(
+const { mockResolveUserId, mockAggregateDelete, mockAggregateInsert, mockGetUserMod } = vi.hoisted(
   () => ({
-    mockRequireAuth: vi.fn(),
+    mockResolveUserId: vi.fn(),
     mockAggregateDelete: vi.fn(),
     mockAggregateInsert: vi.fn(),
     mockGetUserMod: vi.fn(),
@@ -11,7 +11,8 @@ const { mockRequireAuth, mockAggregateDelete, mockAggregateInsert, mockGetUserMo
 );
 
 vi.mock("../../convex/authHelper.ts", () => ({
-  requireAuth: mockRequireAuth,
+  authArgs: { anonymousId: { optional: true } },
+  resolveUserId: mockResolveUserId,
 }));
 
 vi.mock("../../convex/deckAggregate.ts", () => ({
@@ -32,7 +33,7 @@ const applySuggestedSwapHandler = (
   applySuggestedSwap as typeof applySuggestedSwap & {
     _handler: (
       ctx: ReturnType<typeof makeMutationCtx>,
-      args: { addCardId: number; removeCardId: number },
+      args: { addCardId: number; removeCardId: number; anonymousId?: string },
     ) => Promise<{ success: boolean }>;
   }
 )._handler;
@@ -40,7 +41,7 @@ const applySuggestedSwapHandler = (
 describe("applySuggestedSwap", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAuth.mockResolvedValue("user-1");
+    mockResolveUserId.mockResolvedValue("user-1");
     mockAggregateDelete.mockResolvedValue(undefined);
     mockAggregateInsert.mockResolvedValue(undefined);
     mockGetUserMod.mockResolvedValue("rp");

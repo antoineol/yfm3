@@ -1,7 +1,7 @@
-import { useMutation, useQuery } from "convex/react";
 import { useMemo } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { useAuthMutation, useAuthQuery } from "../core/convex-hooks.ts";
 
 export type HandCard = {
   docId: Id<"hand">;
@@ -9,7 +9,7 @@ export type HandCard = {
 };
 
 export function useHand(): HandCard[] | undefined {
-  const hand = useQuery(api.hand.getHand, {});
+  const hand = useAuthQuery(api.hand.getHand);
   return useMemo(
     () =>
       hand
@@ -21,9 +21,9 @@ export function useHand(): HandCard[] | undefined {
 }
 
 export function useHandMutations() {
-  const addToHand = useMutation(api.hand.addToHand);
-  const removeFromHand = useMutation(api.hand.removeFromHand);
-  const removeMultipleFromHand = useMutation(api.hand.removeMultipleFromHand);
-  const clearHand = useMutation(api.hand.clearHand);
+  const addToHand = useAuthMutation(api.hand.addToHand);
+  const removeFromHand = useAuthMutation(api.hand.removeFromHand);
+  const removeMultipleFromHand = useAuthMutation(api.hand.removeMultipleFromHand);
+  const clearHand = useAuthMutation(api.hand.clearHand);
   return { addToHand, removeFromHand, removeMultipleFromHand, clearHand };
 }

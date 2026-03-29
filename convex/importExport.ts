@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { requireAuth } from "./authHelper";
+import { authArgs, resolveUserId } from "./authHelper";
 import { deckAggregate } from "./deckAggregate";
 import { getUserMod } from "./modHelper";
 
@@ -8,9 +8,10 @@ export const importData = mutation({
   args: {
     collection: v.array(v.number()),
     deck: v.array(v.number()),
+    ...authArgs,
   },
-  handler: async (ctx, { collection, deck }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { collection, deck, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
 
     // Count collection copies per cardId
@@ -81,9 +82,10 @@ export const syncCollectionFromBridge = mutation({
     ownedCards: v.array(v.object({ cardId: v.number(), quantity: v.number() })),
     deck: v.array(v.number()),
     mod: v.string(),
+    ...authArgs,
   },
-  handler: async (ctx, { ownedCards, deck, mod }) => {
-    const userId = await requireAuth(ctx);
+  handler: async (ctx, { ownedCards, deck, mod, anonymousId }) => {
+    const userId = await resolveUserId(ctx, anonymousId);
 
     // Clear existing ownedCards for this mod
     const existingOwned = await ctx.db

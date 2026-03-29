@@ -35,6 +35,7 @@ vi.mock("../../components/CardAutocomplete.tsx", () => ({
 
 vi.mock("convex/react", () => ({
   useQuery: () => undefined,
+  useConvexAuth: () => ({ isLoading: false, isAuthenticated: false }),
   useMutation: (ref: string) => {
     if (ref === "addCard") return mockAddCard;
     if (ref === "removeCard") return mockRemoveCard;
