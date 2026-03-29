@@ -133,7 +133,7 @@ export function findFusionChains(
     (r) => r.materialCardIds.length > 0 || r.equipCardIds.length > 0,
   );
 
-  return sortByAtkDesc(filtered);
+  return pruneDominatedPlays(sortByAtkDesc(filtered));
 }
 
 /** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */
@@ -287,6 +287,26 @@ function recordResult(
     materialCardIds,
     fieldMaterialCardIds,
     equipCardIds,
+  });
+}
+
+/**
+ * Remove plays dominated by strictly better alternatives.
+ * A play is dominated if another play exists with the same result card and field
+ * origin, a strict superset of equips, and equal-or-higher ATK.
+ */
+function pruneDominatedPlays(results: FusionChainResult[]): FusionChainResult[] {
+  return results.filter((a) => {
+    const aIsField = a.fieldMaterialCardIds.length > 0;
+    return !results.some((b) => {
+      if (a === b) return false;
+      if (a.resultCardId !== b.resultCardId) return false;
+      if (aIsField !== b.fieldMaterialCardIds.length > 0) return false;
+      if (a.equipCardIds.length >= b.equipCardIds.length) return false;
+      if (a.resultAtk > b.resultAtk) return false;
+      const bEquipSet = new Set(b.equipCardIds);
+      return a.equipCardIds.every((eq) => bEquipSet.has(eq));
+    });
   });
 }
 

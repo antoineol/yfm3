@@ -64,7 +64,9 @@ export function FusionResultsList({
         // Skip extra field plays in the main list — they appear in the collapsed section
         if (extraFieldSet.has(r)) return null;
         return (
-          <Fragment key={`${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}>
+          <Fragment
+            key={`${r.fieldMaterialCardIds.length > 0 ? "f" : ""}${String(r.resultCardId)}+${r.equipCardIds.join(",")}`}
+          >
             <FusionResultRow handCards={handCards} onPlay={onPlayFusion ?? undefined} result={r} />
             {/* After the first field play, insert the collapsed extras */}
             {i === firstFieldIdx && extraFieldPlays.length > 0 && (

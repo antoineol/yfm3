@@ -661,3 +661,94 @@ describe("findFusionChains raw plays", () => {
     expect(rawAlphas).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Equip-subset pruning
+// ---------------------------------------------------------------------------
+describe("findFusionChains prunes dominated equip-subset plays", () => {
+  // Setup: Monster M can self-loop fuse with EquipB (M+B→M), consuming
+  // B as a material. DFS produces M+[A] (partial equip), direct play
+  // produces M+[A,B] (full equip). The partial play is dominated.
+  let pDb: CardDb;
+  let pFt: Int16Array;
+  let pEc: Uint8Array;
+
+  beforeAll(() => {
+    pDb = createCardDb();
+    addTestCard(pDb, 60, "Monster", 2000);
+    addCard(pDb, { id: 62, name: "EquipA", kinds: [], isMonster: false, attack: 0, defense: 0 });
+    addCard(pDb, { id: 63, name: "EquipB", kinds: [], isMonster: false, attack: 0, defense: 0 });
+    addTestCard(pDb, 64, "Filler", 300);
+
+    pFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    pFt.fill(FUSION_NONE);
+    setFusion(pFt, 60, 63, 60); // M + EquipB → M (self-loop consumes B)
+
+    pEc = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+    pEc[62 * MAX_CARD_ID + 60] = 1; // EquipA equips Monster
+    pEc[63 * MAX_CARD_ID + 60] = 1; // EquipB equips Monster
+  });
+
+  it("prunes hand play with subset equips", () => {
+    const results = findFusionChains([60, 62, 63, 64], pFt, pDb, 3, pEc);
+
+    // Full-equip play survives
+    const fullEquip = results.find((r) => r.resultCardId === 60 && r.equipCardIds.length === 2);
+    expect(fullEquip).toBeDefined();
+    expect(fullEquip?.resultAtk).toBe(3000); // 2000 + 500 + 500
+
+    // Single-equip play (from DFS self-loop) is pruned
+    const singleEquip = results.find((r) => r.resultCardId === 60 && r.equipCardIds.length === 1);
+    expect(singleEquip).toBeUndefined();
+  });
+
+  it("prunes raw play when equip play exists for same card", () => {
+    const results = findFusionChains([60, 62, 63, 64], pFt, pDb, 3, pEc);
+
+    // Raw Monster (equips=[]) is dominated by full-equip Monster (equips=[A,B])
+    const rawMonster = results.find(
+      (r) => r.resultCardId === 60 && r.equipCardIds.length === 0 && r.steps.length === 0,
+    );
+    expect(rawMonster).toBeUndefined();
+  });
+
+  it("prunes field play with subset equips", () => {
+    // Monster on field, EquipA+EquipB+Filler in hand
+    const results = findFusionChains([62, 63, 64], pFt, pDb, 3, pEc, [
+      { cardId: 60, atk: 2000, def: 0 },
+    ]);
+
+    // Full field equip survives
+    const fullFieldEquip = results.find(
+      (r) =>
+        r.resultCardId === 60 && r.fieldMaterialCardIds.length > 0 && r.equipCardIds.length === 2,
+    );
+    expect(fullFieldEquip).toBeDefined();
+    expect(fullFieldEquip?.resultAtk).toBe(3000);
+
+    // Partial field equip (from DFS self-loop) is pruned
+    const partialFieldEquip = results.find(
+      (r) =>
+        r.resultCardId === 60 && r.fieldMaterialCardIds.length > 0 && r.equipCardIds.length === 1,
+    );
+    expect(partialFieldEquip).toBeUndefined();
+  });
+
+  it("does not prune plays for different result cards", () => {
+    // Add a fusion M+A→NewCard so a different result exists
+    const ft2 = new Int16Array(pFt);
+    const db2 = createCardDb();
+    addTestCard(db2, 60, "Monster", 2000);
+    addCard(db2, { id: 62, name: "EquipA", kinds: [], isMonster: false, attack: 0, defense: 0 });
+    addCard(db2, { id: 63, name: "EquipB", kinds: [], isMonster: false, attack: 0, defense: 0 });
+    addTestCard(db2, 64, "Filler", 300);
+    addTestCard(db2, 66, "NewCard", 1800);
+    setFusion(ft2, 60, 62, 66); // M + EquipA → NewCard
+
+    const results = findFusionChains([60, 62, 63, 64], ft2, db2, 3, pEc);
+
+    // NewCard(66) should still appear even though Monster(60) has a higher-ATK play
+    const newCard = results.find((r) => r.resultCardId === 66);
+    expect(newCard).toBeDefined();
+  });
+});
