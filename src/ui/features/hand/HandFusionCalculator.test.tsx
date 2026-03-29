@@ -83,8 +83,12 @@ vi.mock("./HandDisplay.tsx", () => ({
   HandDisplay: () => <div data-testid="hand-display" />,
 }));
 
+const fusionResultsProps = vi.fn();
 vi.mock("./FusionResultsList.tsx", () => ({
-  FusionResultsList: () => <div data-testid="fusion-results" />,
+  FusionResultsList: (props: Record<string, unknown>) => {
+    fusionResultsProps(props);
+    return <div data-testid="fusion-results" />;
+  },
 }));
 
 vi.mock("./FieldDisplay.tsx", () => ({
@@ -267,5 +271,26 @@ describe("HandFusionCalculator", () => {
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
+  });
+
+  it("derives hand from bridge (not Convex) in synced mode", () => {
+    // useHand returns [] (Convex) but bridge.hand has [10, 20, 30]
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        inDuel: true,
+        hand: [10, 20, 30],
+        handReliable: true,
+        phase: "hand",
+      }),
+    );
+
+    render(<HandFusionCalculator />);
+
+    const lastCall = fusionResultsProps.mock.calls.at(-1)?.[0];
+    expect(lastCall).toBeDefined();
+    // handCards should come from bridge (3 cards), not Convex (empty)
+    expect(lastCall.handCards).toHaveLength(3);
+    expect(lastCall.handCards.map((c: { cardId: number }) => c.cardId)).toEqual([10, 20, 30]);
   });
 });

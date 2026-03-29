@@ -355,6 +355,18 @@ describe("findFusionChains with equip bonus", () => {
     expect(ids).not.toContain(62); // Power Sword (ATK 0, non-monster)
     expect(results.every((r) => r.equipCardIds.length === 0)).toBe(true);
   });
+
+  it("does not suggest equips absent from hand, even with compatible field monster", () => {
+    // Warrior(60) on field with existing equip boost (live ATK 2500).
+    // Hand has only Filler(64) — no equip cards.
+    // Power Sword(62) is compatible with Warrior but is NOT in the hand.
+    const results = findFusionChains([64], eqFusionTable, eqCardDb, 3, equipCompat, [
+      { cardId: 60, atk: 2500, def: 500 },
+    ]);
+    for (const r of results) {
+      expect(r.equipCardIds).toEqual([]);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

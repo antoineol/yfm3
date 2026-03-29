@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
 import { PanelLoadingState, SectionLabel } from "../../components/panel-chrome.tsx";
 import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useDeck } from "../../db/use-deck.ts";
-import { useHand, useHandMutations } from "../../db/use-hand.ts";
+import { type HandCard, useHand, useHandMutations } from "../../db/use-hand.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import {
   type HandSourceMode,
@@ -58,6 +58,19 @@ export function HandFusionCalculator() {
   const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
 
   const isSynced = bridge.status === "connected" && bridge.inDuel;
+
+  // In synced mode, derive hand directly from the bridge snapshot (same poll
+  // cycle as field) so that hand + field are always consistent.  Convex hand
+  // is still written for persistence but is NOT the rendering source here.
+  const bridgeHandCards: HandCard[] = useMemo(
+    () =>
+      bridge.hand.map((cardId, i) => ({
+        docId: `bridge-${String(i)}` as Id<"hand">,
+        cardId,
+      })),
+    [bridge.hand],
+  );
+  const effectiveHand = isSynced ? bridgeHandCards : hand;
 
   // ── Manual mode field (populated when user clicks "Play") ─────
   const [manualField, setManualField] = useState<FieldCard[]>([]);
@@ -148,7 +161,7 @@ export function HandFusionCalculator() {
     [sourceMode, updatePreferences, requestInputFocus],
   );
 
-  if (hand === undefined) return <PanelLoadingState />;
+  if (effectiveHand === undefined) return <PanelLoadingState />;
 
   const isWaitingForDuel = bridge.status === "connected" && !bridge.inDuel;
   const hasPostDuelContent =
@@ -207,12 +220,12 @@ export function HandFusionCalculator() {
               hand={{
                 children: (
                   <HandDisplay
-                    cards={hand}
+                    cards={effectiveHand}
                     drawing={bridge.phase === "draw"}
                     frozen={bridge.inDuel && !bridge.handReliable}
                   />
                 ),
-                count: hand.length,
+                count: effectiveHand.length,
                 maxCount: HAND_SIZE,
               }}
               onSwitchZone={animatedSetZone}
@@ -242,16 +255,16 @@ export function HandFusionCalculator() {
           )}
 
           {/* ── Manual mode: hand section ── */}
-          {!isSynced && !isWaitingForDuel && (
+          {!isSynced && !isWaitingForDuel && effectiveHand && (
             <section>
               <div className="flex items-center justify-between mb-2">
                 <SectionLabel>
                   Your Hand
                   <span className="text-text-muted font-body font-normal ml-1.5">
-                    ({String(hand.length)}/{String(HAND_SIZE)})
+                    ({String(effectiveHand.length)}/{String(HAND_SIZE)})
                   </span>
                 </SectionLabel>
-                {hand.length > 0 && (
+                {effectiveHand.length > 0 && (
                   <button
                     className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
                     onClick={() => {
@@ -265,7 +278,7 @@ export function HandFusionCalculator() {
                 )}
               </div>
               <HandDisplay
-                cards={hand}
+                cards={effectiveHand}
                 onRemove={(docId) => {
                   void removeFromHand({ id: docId });
                   requestInputFocus();
@@ -284,7 +297,7 @@ export function HandFusionCalculator() {
               )}
               <FusionResultsList
                 fieldCards={isSynced ? bridge.field : manualField}
-                handCards={hand}
+                handCards={effectiveHand}
                 onPlayFusion={isSynced ? undefined : handlePlayFusion}
               />
             </section>
