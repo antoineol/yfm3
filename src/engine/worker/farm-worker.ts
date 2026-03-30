@@ -6,6 +6,7 @@ import {
   type ReferenceTableData,
 } from "../reference/build-reference-table.ts";
 import type {
+  FarmWorkerError,
   FarmWorkerInit,
   FarmWorkerResult,
   SerializedFarmDiscoveryResult,
@@ -34,45 +35,53 @@ function serializeResult(result: FarmDiscoveryResult): SerializedFarmDiscoveryRe
 }
 
 self.onmessage = async (e: MessageEvent<FarmWorkerInit>) => {
-  const msg = e.data;
-  const ref = await loadReferenceData(msg);
+  try {
+    const msg = e.data;
+    const ref = await loadReferenceData(msg);
 
-  const collection = new Map<number, number>(
-    Object.entries(msg.collection).map(([id, qty]) => [Number(id), qty as number]),
-  );
+    const collection = new Map<number, number>(
+      Object.entries(msg.collection).map(([id, qty]) => [Number(id), qty as number]),
+    );
 
-  const unlockedSet = msg.unlockedDuelists ? new Set(msg.unlockedDuelists) : undefined;
+    const unlockedSet = msg.unlockedDuelists ? new Set(msg.unlockedDuelists) : undefined;
 
-  const pow = discoverFarmableFusions(
-    collection,
-    ref.fusionTable,
-    ref.cardAtk,
-    ref.cardDb,
-    msg.fusionDepth,
-    msg.deckScore,
-    ref.duelists,
-    ref.fusions,
-    "pow",
-    unlockedSet,
-  );
+    const pow = discoverFarmableFusions(
+      collection,
+      ref.fusionTable,
+      ref.cardAtk,
+      ref.cardDb,
+      msg.fusionDepth,
+      msg.deckScore,
+      ref.duelists,
+      ref.fusions,
+      "pow",
+      unlockedSet,
+    );
 
-  const tec = discoverFarmableFusions(
-    collection,
-    ref.fusionTable,
-    ref.cardAtk,
-    ref.cardDb,
-    msg.fusionDepth,
-    msg.deckScore,
-    ref.duelists,
-    ref.fusions,
-    "tec",
-    unlockedSet,
-  );
+    const tec = discoverFarmableFusions(
+      collection,
+      ref.fusionTable,
+      ref.cardAtk,
+      ref.cardDb,
+      msg.fusionDepth,
+      msg.deckScore,
+      ref.duelists,
+      ref.fusions,
+      "tec",
+      unlockedSet,
+    );
 
-  const result: FarmWorkerResult = {
-    type: "FARM_RESULT",
-    pow: serializeResult(pow),
-    tec: serializeResult(tec),
-  };
-  self.postMessage(result);
+    const result: FarmWorkerResult = {
+      type: "FARM_RESULT",
+      pow: serializeResult(pow),
+      tec: serializeResult(tec),
+    };
+    self.postMessage(result);
+  } catch (err) {
+    const error: FarmWorkerError = {
+      type: "FARM_ERROR",
+      message: err instanceof Error ? err.message : String(err),
+    };
+    self.postMessage(error);
+  }
 };

@@ -157,5 +157,11 @@ export type SerializedFarmableFusion = {
   dropSources: Record<string, Array<{ duelistId: number; duelistName: string; weight: number }>>;
 };
 
+/** Farm Worker → Main thread: computation failed. */
+export type FarmWorkerError = {
+  type: "FARM_ERROR";
+  message: string;
+};
+
 export type FarmWorkerMessage = FarmWorkerInit;
-export type FarmWorkerResponse = FarmWorkerResult;
+export type FarmWorkerResponse = FarmWorkerResult | FarmWorkerError;

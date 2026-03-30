@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DropMode } from "../../../engine/farm/discover-farmable-fusions.ts";
 import type {
   FarmWorkerResponse,
@@ -15,12 +15,13 @@ interface FarmCache {
   key: string;
 }
 
-export type FarmStatus = "idle" | "loading" | "done";
+export type FarmStatus = "idle" | "loading" | "done" | "error";
 
 export function useFarmDiscovery(deckScore: number | null): {
   pow: SerializedFarmDiscoveryResult | null;
   tec: SerializedFarmDiscoveryResult | null;
   status: FarmStatus;
+  errorMessage: string | null;
   compute: () => void;
   dropMode: DropMode;
   setDropMode: (dm: DropMode) => void;
@@ -33,6 +34,7 @@ export function useFarmDiscovery(deckScore: number | null): {
   const [dropMode, setDropMode] = useState<DropMode>("pow");
   const [cache, setCache] = useState<FarmCache | null>(null);
   const [status, setStatus] = useState<FarmStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Stable key derived from inputs — changes when cache should be invalidated.
   const unlockedDuelists = bridge.unlockedDuelists;
@@ -45,7 +47,26 @@ export function useFarmDiscovery(deckScore: number | null): {
 
   // If inputs changed since last computation, the cache is stale.
   const isCacheValid = cache !== null && cache.key === cacheKey;
-  const effectiveStatus = isCacheValid ? "done" : status === "loading" ? "loading" : "idle";
+
+  // Reset error state when inputs change so auto-trigger can retry.
+  const prevCacheKeyRef = useRef(cacheKey);
+  useEffect(() => {
+    if (prevCacheKeyRef.current !== cacheKey) {
+      prevCacheKeyRef.current = cacheKey;
+      if (status === "error") {
+        setStatus("idle");
+        setErrorMessage(null);
+      }
+    }
+  }, [cacheKey, status]);
+
+  const effectiveStatus = isCacheValid
+    ? "done"
+    : status === "loading"
+      ? "loading"
+      : status === "error"
+        ? "error"
+        : "idle";
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -57,6 +78,7 @@ export function useFarmDiscovery(deckScore: number | null): {
     workerRef.current?.terminate();
 
     setStatus("loading");
+    setErrorMessage(null);
 
     const worker = new Worker(new URL("../../../engine/worker/farm-worker.ts", import.meta.url), {
       type: "module",
@@ -66,15 +88,23 @@ export function useFarmDiscovery(deckScore: number | null): {
     const capturedKey = cacheKey;
 
     worker.onmessage = (e: MessageEvent<FarmWorkerResponse>) => {
-      setCache({ pow: e.data.pow, tec: e.data.tec, key: capturedKey });
-      setStatus("done");
+      if (e.data.type === "FARM_ERROR") {
+        console.error("Farm worker error:", e.data.message);
+        setErrorMessage(e.data.message);
+        setStatus("error");
+      } else {
+        setCache({ pow: e.data.pow, tec: e.data.tec, key: capturedKey });
+        setStatus("done");
+        setErrorMessage(null);
+      }
       workerRef.current = null;
       worker.terminate();
     };
 
     worker.onerror = (err) => {
       console.error("Farm worker error:", err);
-      setStatus("idle");
+      setErrorMessage("Worker crashed unexpectedly");
+      setStatus("error");
       workerRef.current = null;
       worker.terminate();
     };
@@ -103,6 +133,7 @@ export function useFarmDiscovery(deckScore: number | null): {
     pow: isCacheValid ? cache.pow : null,
     tec: isCacheValid ? cache.tec : null,
     status: effectiveStatus,
+    errorMessage,
     compute,
     dropMode,
     setDropMode,

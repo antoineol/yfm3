@@ -33,7 +33,8 @@ export function FarmPanelWrapper() {
 }
 
 function FarmPanel({ deckScore }: { deckScore: number | null }) {
-  const { pow, tec, status, compute, dropMode, setDropMode } = useFarmDiscovery(deckScore);
+  const { pow, tec, status, errorMessage, compute, dropMode, setDropMode } =
+    useFarmDiscovery(deckScore);
 
   // Trigger computation when the panel mounts (lazy) or when cache is invalidated.
   useEffect(() => {
@@ -54,7 +55,28 @@ function FarmPanel({ deckScore }: { deckScore: number | null }) {
     );
   }
 
-  if (status === "loading" || !result) {
+  if (status === "error") {
+    return (
+      <>
+        <PanelHeader title="Farm Targets" />
+        <PanelEmptyState
+          subtitle={errorMessage ?? "An unexpected error occurred"}
+          title="Failed to discover farm targets"
+        />
+        <div className="flex justify-center pb-4">
+          <button
+            className="text-xs text-gold-dim hover:text-gold cursor-pointer px-3 py-1"
+            onClick={compute}
+            type="button"
+          >
+            Retry
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (status === "loading") {
     return (
       <>
         <PanelHeader title="Farm Targets" />
@@ -62,6 +84,18 @@ function FarmPanel({ deckScore }: { deckScore: number | null }) {
           <div className="w-8 h-8 border-2 border-gold-dim border-t-gold rounded-full animate-spin-gold" />
           <p className="text-text-secondary text-sm">Discovering farm targets...</p>
         </div>
+      </>
+    );
+  }
+
+  if (!result) {
+    return (
+      <>
+        <PanelHeader title="Farm Targets" />
+        <PanelEmptyState
+          subtitle="Waiting for your collection to load"
+          title="Collection data required"
+        />
       </>
     );
   }
