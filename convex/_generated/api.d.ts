@@ -11,6 +11,7 @@
 import type * as authHelper from "../authHelper.js";
 import type * as deck from "../deck.js";
 import type * as deckAggregate from "../deckAggregate.js";
+import type * as diffHelpers from "../diffHelpers.js";
 import type * as hand from "../hand.js";
 import type * as importExport from "../importExport.js";
 import type * as migrations from "../migrations.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   authHelper: typeof authHelper;
   deck: typeof deck;
   deckAggregate: typeof deckAggregate;
+  diffHelpers: typeof diffHelpers;
   hand: typeof hand;
   importExport: typeof importExport;
   migrations: typeof migrations;

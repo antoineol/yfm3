@@ -16,6 +16,8 @@ export const runAll = migrations.runner([
   internal.migrations.backfillModOnHand,
   internal.migrations.backfillModOnUserModSettings,
   internal.migrations.ensureUserSettings,
+  internal.migrations.stripPostDuelSuggestion,
+  internal.migrations.stripCpuSwaps,
 ]);
 
 // ── Backfill mod field ──────────────────────────────────────────────
@@ -69,6 +71,30 @@ export const ensureUserSettings = migrations.define({
       .first();
     if (!existing) {
       await ctx.db.insert("userSettings", { userId: doc.userId, selectedMod: "rp" });
+    }
+  },
+});
+
+// ── Strip stale postDuelSuggestion from userModSettings ────────────────
+
+export const stripPostDuelSuggestion = migrations.define({
+  table: "userModSettings",
+  migrateOne: async (ctx, doc) => {
+    const raw = doc as Record<string, unknown>;
+    if ("postDuelSuggestion" in raw) {
+      await ctx.db.patch(doc._id, { postDuelSuggestion: undefined } as never);
+    }
+  },
+});
+
+// ── Strip stale cpuSwaps from userSettings ─────────────────────────────
+
+export const stripCpuSwaps = migrations.define({
+  table: "userSettings",
+  migrateOne: async (ctx, doc) => {
+    const raw = doc as Record<string, unknown>;
+    if ("cpuSwaps" in raw) {
+      await ctx.db.patch(doc._id, { cpuSwaps: undefined } as never);
     }
   },
 });
