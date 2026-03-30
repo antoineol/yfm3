@@ -1,19 +1,15 @@
 import { toast } from "sonner";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
+import { useCheatMode } from "../../db/use-user-preferences.ts";
 
 /** Compact Millennium Eye toggle for the header bar. */
 export function CheatModeToggle() {
   const active = useCheatMode();
-  const cheatView = useCheatView();
   const save = useUpdatePreferences();
 
   const handleToggle = () => {
     const next = !active;
-    save({
-      cheatMode: next,
-      ...(next && cheatView !== "opponent" ? { cheatView: "opponent" } : {}),
-    });
+    save({ cheatMode: next });
     toast(next ? "Cheat mode enabled" : "Cheat mode disabled");
   };
 
