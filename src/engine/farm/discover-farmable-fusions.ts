@@ -201,7 +201,13 @@ function findCandidates(
   }
 
   // Phase 3: Chain extension (depth 2..fusionDepth)
-  let currentLevel = depth1Candidates;
+  //
+  // Deduplicate candidates by resultId before each depth iteration.
+  // Multiple paths to the same intermediate card produce identical chaining
+  // opportunities (same fusionTable lookups). Without deduplication the
+  // candidate count grows combinatorially and OOMs at depth ≥ 3 with a
+  // full-size card pool (~600 reachable cards).
+  let currentLevel = deduplicateByResult(depth1Candidates);
   const poolArray = Array.from(reachablePool);
 
   for (let depth = 2; depth <= fusionDepth; depth++) {
@@ -238,7 +244,16 @@ function findCandidates(
       }
     }
 
-    currentLevel = nextLevel;
+    currentLevel = deduplicateByResult(nextLevel);
+  }
+
+  /** Keep one candidate per resultId — order-of-magnitude bound on level size. */
+  function deduplicateByResult(candidates: RawCandidate[]): RawCandidate[] {
+    const seen = new Map<number, RawCandidate>();
+    for (const c of candidates) {
+      if (!seen.has(c.resultId)) seen.set(c.resultId, c);
+    }
+    return [...seen.values()];
   }
 
   return sortCandidates(bestByKey);

@@ -398,6 +398,78 @@ describe("discoverFarmableFusions drop modes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Combinatorial safety
+// ---------------------------------------------------------------------------
+describe("discoverFarmableFusions combinatorial safety", () => {
+  it("handles a large pool at fusionDepth=3 without exploding", () => {
+    // Simulate a dense fusion table: 200 cards, many fusions.
+    // Without deduplication this would generate millions of candidates.
+    const bigDb = createCardDb();
+    const bigAtk = new Int16Array(MAX_CARD_ID);
+    const bigFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    bigFt.fill(FUSION_NONE);
+    const bigFusions: RefFusion[] = [];
+
+    const cardCount = 200;
+    for (let id = 1; id <= cardCount; id++) {
+      addCard(bigDb, {
+        id,
+        name: `C${id}`,
+        kinds: [],
+        isMonster: true,
+        attack: id * 10,
+        defense: 0,
+      });
+      bigAtk[id] = id * 10;
+    }
+
+    // Create a dense web of fusions: for every pair (a, a+1) → result a+50
+    // This creates many depth-1 candidates that share resultIds.
+    for (let a = 1; a <= 100; a++) {
+      const b = a + 1;
+      const r = Math.min(a + 50, cardCount);
+      bigFt[a * MAX_CARD_ID + b] = r;
+      bigFt[b * MAX_CARD_ID + a] = r;
+      bigFusions.push({ material1Id: a, material2Id: b, resultId: r, resultAtk: r * 10 });
+    }
+
+    // All cards droppable by one duelist
+    const bigDuelists: RefDuelistCard[] = [];
+    for (let id = 1; id <= cardCount; id++) {
+      bigDuelists.push({
+        duelistId: 1,
+        duelistName: "TestDuelist",
+        cardId: id,
+        deck: 0,
+        saPow: 100,
+        bcd: 0,
+        saTec: 0,
+      });
+    }
+
+    const collection = new Map<number, number>();
+
+    // This should complete in well under 1 second, not OOM.
+    const t0 = performance.now();
+    const result = discoverFarmableFusions(
+      collection,
+      bigFt,
+      bigAtk,
+      bigDb,
+      3,
+      0,
+      bigDuelists,
+      bigFusions,
+      "pow",
+    );
+    const elapsed = performance.now() - t0;
+
+    expect(result.fusions.length).toBeGreaterThan(0);
+    expect(elapsed).toBeLessThan(5000);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("discoverFarmableFusions edge cases", () => {
