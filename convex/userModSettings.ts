@@ -7,15 +7,6 @@ export const handSourceModeValidator = v.union(v.literal("all"), v.literal("deck
 
 export type HandSourceMode = Infer<typeof handSourceModeValidator>;
 
-export const postDuelSuggestionValidator = v.object({
-  deck: v.array(v.number()),
-  expectedAtk: v.number(),
-  currentDeckScore: v.union(v.number(), v.null()),
-  improvement: v.union(v.number(), v.null()),
-  elapsedMs: v.number(),
-  currentDeck: v.array(v.number()),
-});
-
 export const getUserModSettings = query({
   args: { ...authArgs },
   handler: async (ctx, args) => {
@@ -59,7 +50,6 @@ export const updateModSettings = mutation({
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
     useEquipment: v.optional(v.boolean()),
-    postDuelSuggestion: v.optional(v.union(postDuelSuggestionValidator, v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
@@ -74,9 +64,6 @@ export const updateModSettings = mutation({
     if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
     if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
     if (args.useEquipment !== undefined) patch.useEquipment = args.useEquipment;
-    if (args.postDuelSuggestion !== undefined) {
-      patch.postDuelSuggestion = args.postDuelSuggestion === null ? undefined : args.postDuelSuggestion;
-    }
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);

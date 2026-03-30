@@ -144,7 +144,10 @@ export const clearHand = mutation({
   },
 });
 
-// Batch migration function for robust hand migration
+/**
+ * Diff-based hand sync. Compares existing hand rows by copyId and only
+ * patches/inserts/deletes what actually changed, minimising writes.
+ */
 export const batchMigrateHand = mutation({
   args: {
     ...authArgs,
@@ -152,30 +155,44 @@ export const batchMigrateHand = mutation({
       v.object({
         cardId: v.number(),
         copyId: v.string(),
-        order: v.number(), // Now using fractional order instead of position
+        order: v.number(),
       }),
     ),
   },
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
-    const results = [];
 
-    // First, clear any existing hand data for this user to avoid duplicates
     const existingHand = await ctx.db
       .query('hand')
       .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
-    for (const item of existingHand) {
-      await ctx.db.delete(item._id);
-    }
+    const existingByCopyId = new Map(
+      existingHand
+        .filter((h) => h.copyId != null)
+        .map((h) => [h.copyId!, { _id: h._id, cardId: h.cardId, order: h.order }]),
+    );
 
-    // Now insert the new hand data (max 5 cards)
-    const handDataToInsert = args.handData.slice(0, 5); // Enforce max 5 cards
+    const handDataToSync = args.handData.slice(0, 5);
 
-    for (const item of handDataToInsert) {
-      try {
+    let patched = 0;
+    let inserted = 0;
+    let deleted = 0;
+
+    // Upsert incoming items
+    for (const item of handDataToSync) {
+      const existing = existingByCopyId.get(item.copyId);
+      if (existing) {
+        const diff: Record<string, unknown> = {};
+        if (existing.cardId !== item.cardId) diff.cardId = item.cardId;
+        if (existing.order !== item.order) diff.order = item.order;
+        if (Object.keys(diff).length > 0) {
+          await ctx.db.patch(existing._id, diff);
+          patched++;
+        }
+        existingByCopyId.delete(item.copyId);
+      } else {
         await ctx.db.insert('hand', {
           userId,
           cardId: item.cardId,
@@ -183,12 +200,23 @@ export const batchMigrateHand = mutation({
           order: item.order,
           mod,
         });
-        results.push({ copyId: item.copyId, action: 'created' });
-      } catch (error) {
-        results.push({ copyId: item.copyId, action: 'error', error: String(error) });
+        inserted++;
       }
     }
 
-    return { success: true, results, totalProcessed: handDataToInsert.length };
+    // Delete rows whose copyId is not in incoming set
+    for (const [, row] of existingByCopyId) {
+      await ctx.db.delete(row._id);
+      deleted++;
+    }
+    // Delete legacy rows without copyId
+    for (const row of existingHand) {
+      if (row.copyId == null) {
+        await ctx.db.delete(row._id);
+        deleted++;
+      }
+    }
+
+    return { success: true, totalProcessed: handDataToSync.length, patched, inserted, deleted };
   },
 });

@@ -104,9 +104,5 @@ export function useCheatView(): CheatView {
 }
 
 export function useCpuSwaps(): CpuSwap[] {
-  const autoSync = useBridgeAutoSync();
-  const localSwaps = useAtomValue(localCpuSwapsAtom);
-  const settings = useUserSettings();
-  if (autoSync) return localSwaps;
-  return (settings?.cpuSwaps as CpuSwap[] | undefined) ?? [];
+  return useAtomValue(localCpuSwapsAtom);
 }

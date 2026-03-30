@@ -104,7 +104,6 @@ export const migrateUserPreferencesTable = mutation({
           deckSize: doc.deckSize as number | undefined,
           fusionDepth: doc.fusionDepth as number | undefined,
           useEquipment: doc.useEquipment as boolean | undefined,
-          postDuelSuggestion: doc.postDuelSuggestion as undefined,
           createdAt: (doc.createdAt as number) ?? Date.now(),
           updatedAt: (doc.updatedAt as number) ?? Date.now(),
         });

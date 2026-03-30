@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
-import { handSourceModeValidator, postDuelSuggestionValidator } from './userModSettings';
+import { handSourceModeValidator } from './userModSettings';
 
 export default defineSchema({
   // User's owned cards - total copies owned regardless of deck assignment.
@@ -46,7 +46,6 @@ export default defineSchema({
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     useEquipment: v.optional(v.boolean()), // Consider equip boosts (+500/+1000) in deck optimization
-    postDuelSuggestion: v.optional(postDuelSuggestionValidator), // Persisted post-duel optimization result
     mod: v.string(),
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp
@@ -62,11 +61,5 @@ export default defineSchema({
     handSourceMode: v.optional(handSourceModeValidator),
     cheatMode: v.optional(v.boolean()), // Millennium Eye: reveal opponent's cards
     cheatView: v.optional(v.union(v.literal("player"), v.literal("opponent"))),
-    cpuSwaps: v.optional(v.array(v.object({
-      slotIndex: v.number(),
-      fromCardId: v.number(),
-      toCardId: v.number(),
-      timestamp: v.number(),
-    }))),
   }).index('by_user', ['userId']),
 });

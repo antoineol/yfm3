@@ -3,6 +3,7 @@ import { internal } from './_generated/api';
 import { internalMutation, mutation, query } from './_generated/server';
 import { authArgs, resolveUserId } from './authHelper';
 import { deckAggregate, deckAggregateKey } from './deckAggregate';
+import { applyDeckDiff } from './diffHelpers';
 import { getUserMod } from './modHelper';
 import { generateEvenlySpacedOrders, getOrderBetween } from './utils';
 
@@ -248,6 +249,11 @@ export const clearDeck = mutation({
   },
 });
 
+/**
+ * Replace the deck with a new set of cards.
+ * Uses diff-based approach for the card set (minimising writes), then
+ * assigns evenly-spaced fractional orders to all rows.
+ */
 export const replaceDeck = mutation({
   args: {
     newDeck: v.array(
@@ -261,48 +267,44 @@ export const replaceDeck = mutation({
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
-    // Clear existing deck first
+
+    // Diff by cardId counts to minimise inserts/deletes
+    const cardIds = args.newDeck.map((c) => c.cardId);
+    await applyDeckDiff(ctx, userId, mod, cardIds);
+
+    // Now re-read and assign copyId + evenly spaced orders
     const deckCards = await ctx.db
       .query('deck')
       .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
-    // Delete all deck cards for this user and update aggregate
-    for (const card of deckCards) {
-      await ctx.db.delete(card._id);
-      await deckAggregate.delete(ctx, card);
-    }
-
-    // Add new cards with evenly spaced fractional orders
-    const orders = generateEvenlySpacedOrders(args.newDeck.length);
-
-    for (let i = 0; i < args.newDeck.length; i++) {
-      const card = args.newDeck[i];
-      if (!card) throw new Error('Card is undefined');
-
-      const id = await ctx.db.insert('deck', {
-        userId,
-        cardId: card.cardId,
-        copyId: card.copyId,
-        order: orders[i] ?? 0.5,
-        mod,
-      });
-      const doc = await ctx.db.get(id);
-      if (doc) await deckAggregate.insert(ctx, doc);
+    const orders = generateEvenlySpacedOrders(deckCards.length);
+    for (let i = 0; i < deckCards.length; i++) {
+      const card = deckCards[i]!;
+      const newData = args.newDeck[i];
+      const patch: Record<string, unknown> = {};
+      if (newData && card.copyId !== newData.copyId) patch.copyId = newData.copyId;
+      if (card.order !== orders[i]) patch.order = orders[i];
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(card._id, patch);
+      }
     }
 
     return { success: true, deckSize: args.newDeck.length };
   },
 });
 
-// Batch migration function for robust deck migration
+/**
+ * Batch migrate deck data. Uses diff-based approach, then patches
+ * copyId/order on the resulting rows.
+ */
 export const batchMigrateDeck = mutation({
   args: {
     deckData: v.array(
       v.object({
         cardId: v.number(),
         copyId: v.string(),
-        order: v.number(), // Now using fractional order instead of position
+        order: v.number(),
       }),
     ),
     ...authArgs,
@@ -310,40 +312,30 @@ export const batchMigrateDeck = mutation({
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
     const mod = await getUserMod(ctx, userId);
-    const results = [];
 
-    // First, clear any existing deck data for this user to avoid duplicates
-    const existingDeck = await ctx.db
+    // Diff by cardId counts
+    const cardIds = args.deckData.map((d) => d.cardId);
+    await applyDeckDiff(ctx, userId, mod, cardIds);
+
+    // Re-read and patch copyId + order
+    const deckCards = await ctx.db
       .query('deck')
       .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
-    // Delete existing deck and update aggregate
-    for (const item of existingDeck) {
-      await ctx.db.delete(item._id);
-      await deckAggregate.delete(ctx, item);
-    }
-
-    // Now insert the new deck data
-    for (const item of args.deckData) {
-      try {
-        const id = await ctx.db.insert('deck', {
-          userId,
-          cardId: item.cardId,
-          copyId: item.copyId,
-          order: item.order,
-          mod,
-        });
-        const doc = await ctx.db.get(id);
-        if (doc) await deckAggregate.insert(ctx, doc);
-
-        results.push({ copyId: item.copyId, action: 'created' });
-      } catch (error) {
-        results.push({ copyId: item.copyId, action: 'error', error: String(error) });
+    for (let i = 0; i < deckCards.length; i++) {
+      const card = deckCards[i]!;
+      const data = args.deckData[i];
+      if (!data) continue;
+      const patch: Record<string, unknown> = {};
+      if (card.copyId !== data.copyId) patch.copyId = data.copyId;
+      if (card.order !== data.order) patch.order = data.order;
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(card._id, patch);
       }
     }
 
-    return { success: true, results, totalProcessed: args.deckData.length };
+    return { success: true, totalProcessed: args.deckData.length };
   },
 });
 
@@ -381,6 +373,10 @@ export const backfillDeckAggregate = internalMutation({
   },
 });
 
+/**
+ * Accept an optimized deck suggestion. Uses diff-based replacement so that
+ * unchanged cards stay in place and only the swaps are written.
+ */
 export const acceptSuggestedDeck = mutation({
   args: {
     cardIds: v.array(v.number()),
@@ -389,28 +385,7 @@ export const acceptSuggestedDeck = mutation({
   handler: async (ctx, { cardIds, anonymousId }) => {
     const userId = await resolveUserId(ctx, anonymousId);
     const mod = await getUserMod(ctx, userId);
-    const existingDeckCards = await ctx.db
-      .query('deck')
-      .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
-      .collect();
-
-    await Promise.all([
-      // Delete old deck cards
-      ...existingDeckCards.map(async card => {
-        await ctx.db.delete(card._id);
-        await deckAggregate.delete(ctx, card);
-      }),
-      // Add new deck cards
-      ...cardIds.map(async cardId => {
-        const id = await ctx.db.insert('deck', {
-          userId,
-          cardId,
-          mod,
-        });
-        const doc = await ctx.db.get(id);
-        if (doc) await deckAggregate.insert(ctx, doc);
-      }),
-    ]);
+    await applyDeckDiff(ctx, userId, mod, cardIds);
   },
 });
 

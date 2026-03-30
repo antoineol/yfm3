@@ -52,7 +52,7 @@ export function HandFusionCalculator() {
   const pendingFocusRef = useRef(false);
 
   // Auto-sync hand from bridge (always active, even when bar is hidden)
-  useAutoSyncHand(bridge, hand ?? []);
+  useAutoSyncHand(bridge);
   useSyncCpuSwaps();
   const deckCardIds = deck?.map((d) => d.cardId);
   const postDuel = usePostDuelSuggestion(bridge, deckCardIds);

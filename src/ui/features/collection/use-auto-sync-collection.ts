@@ -15,11 +15,36 @@ import { writeLocal } from "../../lib/local-store.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
+/** Fast numeric fingerprint for a Record<number, number>. */
+function collectionFingerprint(col: Record<number, number> | null): number {
+  if (!col) return 0;
+  let h = 0;
+  for (const k in col) {
+    const v = col[k] ?? 0;
+    h = ((h << 5) - h + Number(k) * 31 + v) | 0;
+  }
+  return h;
+}
+
+/** Fast numeric fingerprint for a number[]. */
+function deckFingerprint(deck: number[] | null): number {
+  if (!deck) return 0;
+  let h = 0;
+  for (let i = 0; i < deck.length; i++) {
+    const v = deck[i] ?? 0;
+    h = ((h << 5) - h + v * (i + 1)) | 0;
+  }
+  return h;
+}
+
+/** Debounce delay for manual-mode Convex sync (ms). */
+const SYNC_DEBOUNCE_MS = 1000;
+
 /**
  * Auto-syncs the emulator's collection and deck when data changes.
  *
  * In auto-sync mode, writes to local Jotai atoms + localStorage.
- * In manual mode, writes to Convex.
+ * In manual mode, writes to Convex (debounced, diff-based on server).
  *
  * Collection data is always valid in RAM (persists across all game screens),
  * so no phase or reliability gating is needed — we sync on every change.
@@ -29,13 +54,14 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const setBridgeCollection = useSetAtom(bridgeCollectionAtom);
   const setBridgeDeck = useSetAtom(bridgeDeckAtom);
   const syncFromBridge = useAuthMutation(api.importExport.syncCollectionFromBridge);
-  const lastCollectionKeyRef = useRef("");
-  const lastDeckKeyRef = useRef("");
+  const lastCollectionFpRef = useRef(0);
+  const lastDeckFpRef = useRef(0);
   const hasInitializedRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const modId = useSelectedMod();
 
-  const collectionKeyStr = bridge.collection ? JSON.stringify(bridge.collection) : "";
-  const deckKeyStr = bridge.deckDefinition ? bridge.deckDefinition.join(",") : "";
+  const collectionFp = collectionFingerprint(bridge.collection);
+  const deckFp = deckFingerprint(bridge.deckDefinition);
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
@@ -45,12 +71,12 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
     if (!bridge.collection || !bridge.deckDefinition) return;
     if (modMismatch) return;
 
-    const collectionChanged = collectionKeyStr !== lastCollectionKeyRef.current;
-    const deckChanged = deckKeyStr !== lastDeckKeyRef.current;
+    const collectionChanged = collectionFp !== lastCollectionFpRef.current;
+    const deckChanged = deckFp !== lastDeckFpRef.current;
     if (!collectionChanged && !deckChanged) return;
 
-    lastCollectionKeyRef.current = collectionKeyStr;
-    lastDeckKeyRef.current = deckKeyStr;
+    lastCollectionFpRef.current = collectionFp;
+    lastDeckFpRef.current = deckFp;
 
     if (autoSync) {
       // Write to local state + localStorage (no Convex)
@@ -77,31 +103,36 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
       return;
     }
 
-    // Manual mode: existing Convex sync path
+    // Manual mode: debounced Convex sync (mutations are diff-based on server)
+    clearTimeout(debounceRef.current);
+    // Capture current bridge data for the closure
     const ownedCards = Object.entries(bridge.collection).map(([id, qty]) => ({
       cardId: Number(id),
       quantity: qty,
     }));
+    const deckSnapshot = bridge.deckDefinition;
 
-    void syncFromBridge({ ownedCards, deck: bridge.deckDefinition, mod: modId }).then(() => {
-      if (!hasInitializedRef.current) {
-        hasInitializedRef.current = true;
-        return;
-      }
-      const label =
-        collectionChanged && deckChanged
-          ? "Collection & deck"
-          : collectionChanged
-            ? "Collection"
-            : "Deck";
-      toast.success(`${label} synced from emulator`);
-    });
+    debounceRef.current = setTimeout(() => {
+      void syncFromBridge({ ownedCards, deck: deckSnapshot, mod: modId }).then(() => {
+        if (!hasInitializedRef.current) {
+          hasInitializedRef.current = true;
+          return;
+        }
+        const label =
+          collectionChanged && deckChanged
+            ? "Collection & deck"
+            : collectionChanged
+              ? "Collection"
+              : "Deck";
+        toast.success(`${label} synced from emulator`);
+      });
+    }, SYNC_DEBOUNCE_MS);
   }, [
     bridge.status,
     bridge.collection,
     bridge.deckDefinition,
-    collectionKeyStr,
-    deckKeyStr,
+    collectionFp,
+    deckFp,
     syncFromBridge,
     modId,
     modMismatch,
@@ -109,4 +140,11 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
     setBridgeCollection,
     setBridgeDeck,
   ]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(debounceRef.current);
+    };
+  }, []);
 }

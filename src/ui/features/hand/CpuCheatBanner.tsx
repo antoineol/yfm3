@@ -1,11 +1,9 @@
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
-import { api } from "../../../../convex/_generated/api";
 import type { CardId } from "../../../engine/data/card-model.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { CloseButton } from "../../components/CloseButton.tsx";
-import { useAuthMutation } from "../../core/convex-hooks.ts";
-import { useBridgeAutoSync, useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
+import { useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { localCpuSwapsAtom } from "../../lib/bridge-snapshot-atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -22,17 +20,11 @@ export function CpuCheatBanner() {
   const { phase } = useBridge();
   const cpuSwaps = useCpuSwaps();
   const cheatMode = useCheatMode();
-  const autoSync = useBridgeAutoSync();
   const setLocalSwaps = useSetAtom(localCpuSwapsAtom);
-  const convexClear = useAuthMutation(api.userSettings.clearCpuSwaps);
 
   const clearCpuSwaps = useCallback(() => {
-    if (autoSync) {
-      setLocalSwaps([]);
-    } else {
-      void convexClear();
-    }
-  }, [autoSync, setLocalSwaps, convexClear]);
+    setLocalSwaps([]);
+  }, [setLocalSwaps]);
 
   // Auto-dismiss when phase transitions to "opponent" (player's turn ends)
   const prevPhaseRef = useRef(phase);

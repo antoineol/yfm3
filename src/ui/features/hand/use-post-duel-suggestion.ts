@@ -1,18 +1,10 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
-import { api } from "../../../../convex/_generated/api.js";
 import type { Collection } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
-import { useAuthMutation } from "../../core/convex-hooks.ts";
-import {
-  useBridgeAutoSync,
-  useDeckSize,
-  useFusionDepth,
-  useUseEquipment,
-  useUserModSettings,
-} from "../../db/use-user-preferences.ts";
+import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
@@ -70,28 +62,23 @@ export function usePostDuelSuggestion(
   const liveBestScore = useAtomValue(postDuelLiveBestScoreAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
 
-  const autoSync = useBridgeAutoSync();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
-  const prefs = useUserModSettings();
-  const savePreferences = useAuthMutation(api.userModSettings.updateModSettings);
 
-  // Persistence helper: localStorage in auto-sync, Convex in manual
+  // Post-duel suggestions are ephemeral — always persist to localStorage only.
+  // This avoids invalidating the getUserModSettings subscription (which feeds
+  // useDeckSize / useFusionDepth / useUseEquipment) on every duel cycle.
   const saveSuggestion = useCallback(
     (suggestion: LocalPostDuelSuggestion | null) => {
-      if (autoSync) {
-        if (suggestion) {
-          writeLocal(postDuelSuggestionKey(modId), suggestion);
-        } else {
-          removeLocal(postDuelSuggestionKey(modId));
-        }
+      if (suggestion) {
+        writeLocal(postDuelSuggestionKey(modId), suggestion);
       } else {
-        void savePreferences({ postDuelSuggestion: suggestion });
+        removeLocal(postDuelSuggestionKey(modId));
       }
     },
-    [autoSync, modId, savePreferences],
+    [modId],
   );
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
@@ -109,18 +96,9 @@ export function usePostDuelSuggestion(
   useEffect(() => {
     if (hydratedRef.current) return;
     if (state !== "idle") return;
+    hydratedRef.current = true;
 
-    // In auto-sync: hydrate from localStorage; manual: from Convex prefs
-    let saved: LocalPostDuelSuggestion | null | undefined;
-    if (autoSync) {
-      saved = readLocal<LocalPostDuelSuggestion>(postDuelSuggestionKey(modId));
-      hydratedRef.current = true;
-    } else {
-      if (prefs === undefined) return; // still loading
-      saved = prefs?.postDuelSuggestion;
-      hydratedRef.current = true;
-    }
-
+    const saved = readLocal<LocalPostDuelSuggestion>(postDuelSuggestionKey(modId));
     if (!saved) return;
 
     const hasImprovement = saved.improvement != null && saved.improvement > 0;
@@ -133,7 +111,7 @@ export function usePostDuelSuggestion(
     });
     setCurrentDeck(saved.currentDeck);
     setState(hasImprovement ? "result" : "no_change");
-  }, [state, prefs, autoSync, modId, setState, setResult, setCurrentDeck]);
+  }, [state, modId, setState, setResult, setCurrentDeck]);
 
   // ── Dismiss callback ───────────────────────────────────────────
   const dismiss = useCallback(() => {

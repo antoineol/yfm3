@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { authArgs, resolveUserId } from "./authHelper";
-import { deckAggregate } from "./deckAggregate";
+import { applyDeckDiff, applyOwnedCardsDiff } from "./diffHelpers";
 import { getUserMod } from "./modHelper";
 
 export const importData = mutation({
@@ -20,7 +20,7 @@ export const importData = mutation({
       collectionCounts.set(cardId, (collectionCounts.get(cardId) ?? 0) + 1);
     }
 
-    // Count deck copies per cardId and validate against collection
+    // Validate deck against collection
     const deckCounts = new Map<number, number>();
     for (const cardId of deck) {
       const count = (deckCounts.get(cardId) ?? 0) + 1;
@@ -33,36 +33,8 @@ export const importData = mutation({
       }
     }
 
-    // Clear existing ownedCards for this mod
-    const existingOwned = await ctx.db
-      .query("ownedCards")
-      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
-      .collect();
-    for (const card of existingOwned) {
-      await ctx.db.delete(card._id);
-    }
-
-    // Insert imported collection
-    for (const [cardId, quantity] of collectionCounts) {
-      await ctx.db.insert("ownedCards", { userId, cardId, quantity, mod });
-    }
-
-    // Clear existing deck for this mod (with aggregate)
-    const existingDeck = await ctx.db
-      .query("deck")
-      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
-      .collect();
-    for (const card of existingDeck) {
-      await ctx.db.delete(card._id);
-      await deckAggregate.delete(ctx, card);
-    }
-
-    // Insert imported deck
-    for (const cardId of deck) {
-      const id = await ctx.db.insert("deck", { userId, cardId, mod });
-      const doc = await ctx.db.get(id);
-      if (doc) await deckAggregate.insert(ctx, doc);
-    }
+    await applyOwnedCardsDiff(ctx, userId, mod, collectionCounts);
+    await applyDeckDiff(ctx, userId, mod, deck);
 
     return {
       collectionCount: collectionCounts.size,
@@ -73,9 +45,7 @@ export const importData = mutation({
 
 /**
  * Sync collection and deck from the emulator bridge.
- * Accepts pre-computed total owned quantities (trunk + deck) and the deck card IDs.
- * The caller passes the mod the bridge was reading from, so the data is written
- * to the correct mod even if the user switches mod mid-sync.
+ * Uses diff-based updates to minimise DB writes and subscription invalidations.
  */
 export const syncCollectionFromBridge = mutation({
   args: {
@@ -87,36 +57,13 @@ export const syncCollectionFromBridge = mutation({
   handler: async (ctx, { ownedCards, deck, mod, anonymousId }) => {
     const userId = await resolveUserId(ctx, anonymousId);
 
-    // Clear existing ownedCards for this mod
-    const existingOwned = await ctx.db
-      .query("ownedCards")
-      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
-      .collect();
-    for (const card of existingOwned) {
-      await ctx.db.delete(card._id);
-    }
-
-    // Insert owned cards
+    const target = new Map<number, number>();
     for (const { cardId, quantity } of ownedCards) {
-      await ctx.db.insert("ownedCards", { userId, cardId, quantity, mod });
+      target.set(cardId, quantity);
     }
 
-    // Clear existing deck for this mod (with aggregate)
-    const existingDeck = await ctx.db
-      .query("deck")
-      .withIndex("by_user_mod", (q) => q.eq("userId", userId).eq("mod", mod))
-      .collect();
-    for (const card of existingDeck) {
-      await ctx.db.delete(card._id);
-      await deckAggregate.delete(ctx, card);
-    }
-
-    // Insert deck
-    for (const cardId of deck) {
-      const id = await ctx.db.insert("deck", { userId, cardId, mod });
-      const doc = await ctx.db.get(id);
-      if (doc) await deckAggregate.insert(ctx, doc);
-    }
+    await applyOwnedCardsDiff(ctx, userId, mod, target);
+    await applyDeckDiff(ctx, userId, mod, deck);
 
     return {
       collectionCount: ownedCards.length,
