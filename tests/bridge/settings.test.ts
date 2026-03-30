@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { patchSettingsIni } from "../../bridge/settings.ts";
+import { getExePathForPid, patchSettingsIni } from "../../bridge/settings.ts";
 
 describe("patchSettingsIni", () => {
   it("returns patched: false when already enabled", () => {
@@ -81,5 +81,12 @@ describe("patchSettingsIni", () => {
     const hacksIdx = lines.indexOf("[Hacks]");
     const exportIdx = lines.indexOf("ExportSharedMemory = true");
     expect(exportIdx).toBeGreaterThan(hacksIdx);
+  });
+});
+
+describe("getExePathForPid", () => {
+  it("returns null for non-existent PID", () => {
+    const result = getExePathForPid(999999);
+    expect(result).toBeNull();
   });
 });

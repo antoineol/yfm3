@@ -11,7 +11,7 @@
 
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 // ── Pure INI patching ─────────────────────────────────────────────
 
@@ -74,13 +74,33 @@ export function patchSettingsIni(content: string): { patched: boolean; content: 
 // ── Path resolution ───────────────────────────────────────────────
 
 /**
+ * Resolve the executable path for a Windows process by PID.
+ */
+export function getExePathForPid(pid: number): string | null {
+  try {
+    return (
+      execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+        timeout: 5000,
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Locate the DuckStation data directory on disk.
  *
  * New DuckStation versions store data under the system Documents folder
  * (resolved via FOLDERID_Documents, which may be redirected — e.g. OneDrive).
  * Older versions used %LOCALAPPDATA%\DuckStation.
+ * Romstation (and other launchers) use portable mode — data lives next to the exe.
+ *
+ * @param pid  Optional running DuckStation PID, used for portable mode detection.
  */
-export function findDuckStationDataDir(): string | null {
+export function findDuckStationDataDir(pid?: number): string | null {
   // 1. New DuckStation: Documents\DuckStation
   const docsDir = getDocumentsPath();
   if (docsDir) {
@@ -95,14 +115,25 @@ export function findDuckStationDataDir(): string | null {
     if (existsSync(p)) return p;
   }
 
+  // 3. Portable mode: settings live next to the exe (portable.txt marker)
+  if (pid != null) {
+    const exePath = getExePathForPid(pid);
+    if (exePath) {
+      const exeDir = dirname(exePath);
+      if (existsSync(join(exeDir, "portable.txt"))) return exeDir;
+    }
+  }
+
   return null;
 }
 
 /**
  * Locate DuckStation's settings.ini on disk.
+ *
+ * @param pid  Optional running DuckStation PID, used for portable mode detection.
  */
-export function findSettingsPath(): string | null {
-  const dataDir = findDuckStationDataDir();
+export function findSettingsPath(pid?: number): string | null {
+  const dataDir = findDuckStationDataDir(pid);
   if (dataDir) {
     const p = join(dataDir, "settings.ini");
     if (existsSync(p)) return p;
@@ -130,13 +161,15 @@ function getDocumentsPath(): string | null {
 
 /**
  * Check and patch DuckStation settings to enable shared memory export.
+ *
+ * @param pid  Optional running DuckStation PID, used for portable mode detection.
  */
-export function ensureSharedMemoryEnabled(): {
+export function ensureSharedMemoryEnabled(pid?: number): {
   patched: boolean;
   enabled: boolean;
   error?: string;
 } {
-  const settingsPath = findSettingsPath();
+  const settingsPath = findSettingsPath(pid);
   if (!settingsPath) {
     return { patched: false, enabled: false, error: "DuckStation settings.ini not found" };
   }

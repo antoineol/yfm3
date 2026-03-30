@@ -36,7 +36,7 @@ import {
   readShuffledDeck,
   validateProfile,
 } from "./memory.ts";
-import { ensureSharedMemoryEnabled } from "./settings.ts";
+import { ensureSharedMemoryEnabled, getExePathForPid } from "./settings.ts";
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
 // In compiled Bun standalone, import.meta.dir is a virtual path (e.g. B:\~BUN\root\).
@@ -484,7 +484,7 @@ async function tryConnect(): Promise<boolean> {
     if (lastConnectStatus !== "no_emulator") {
       lastConnectStatus = "no_emulator";
       patchSettingsIfNeeded();
-      console.log("DuckStation not found. Waiting...");
+      console.log("Emulator not found. Waiting...");
     }
     broadcast(
       JSON.stringify({
@@ -508,7 +508,7 @@ async function tryConnect(): Promise<boolean> {
 
   if (lastConnectStatus !== "no_shared_memory") {
     lastConnectStatus = "no_shared_memory";
-    patchSettingsIfNeeded();
+    patchSettingsIfNeeded(pids[0]);
     console.log(
       `DuckStation found (PIDs: ${pids.join(", ")}) but shared memory not available. Waiting...`,
     );
@@ -549,6 +549,22 @@ async function forceReconnect(): Promise<void> {
   await tryConnect();
 }
 
+/** Extract the ROM path argument from a running DuckStation process's command line. */
+function getProcessRomArg(pid: number): string | null {
+  try {
+    const cmdLine = execSync(
+      `powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine"`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"], timeout: 5000 },
+    ).trim();
+    if (!cmdLine) return null;
+    // Command line format: "C:\...\duckstation.exe" "C:\...\game.bin"
+    const match = cmdLine.match(/\.exe"?\s+"?([^"]+\.(bin|cue|img|iso|chd))"?\s*$/i);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Restart DuckStation: kill gracefully, wait for exit, relaunch.
  *  Returns true on success, false on failure. */
 async function restartDuckStation(): Promise<boolean> {
@@ -557,23 +573,17 @@ async function restartDuckStation(): Promise<boolean> {
   const pid = mapping?.pid ?? pids[0];
   if (pid === undefined) return false;
 
-  // Get executable path before killing
-  let exePath: string | undefined;
-  try {
-    exePath = execSync(`powershell -NoProfile -Command "(Get-Process -Id ${pid}).Path"`, {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-      timeout: 5000,
-    }).trim();
-  } catch {
-    /* ignore */
-  }
+  // Get executable path and ROM arg before killing
+  const exePath = getExePathForPid(pid);
   if (!exePath) {
     console.error("restartDuckStation: could not determine executable path");
     return false;
   }
+  const romArg = getProcessRomArg(pid);
 
-  console.log(`Restarting DuckStation (PID ${pid}): ${exePath}`);
+  console.log(
+    `Restarting DuckStation (PID ${pid}): ${exePath}${romArg ? ` with ROM: ${romArg}` : ""}`,
+  );
 
   // Close shared memory mapping
   if (mapping) {
@@ -603,8 +613,12 @@ async function restartDuckStation(): Promise<boolean> {
     await new Promise((r) => setTimeout(r, 250));
   }
 
+  // Re-patch settings after exit — DuckStation may have written ExportSharedMemory=false on close
+  patchSettingsIfNeeded(pid);
+
   try {
-    spawn(exePath, [], { detached: true, stdio: "ignore" }).unref();
+    const args = romArg ? [romArg] : [];
+    spawn(exePath, args, { detached: true, stdio: "ignore" }).unref();
     return true;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -917,7 +931,7 @@ async function poll(): Promise<void> {
           gameDataRetryAt = null;
           try {
             const cardStats = readCardStats(mapping.view);
-            const data = acquireGameData(cardStats, serial, __dirname);
+            const data = acquireGameData(cardStats, serial, __dirname, mapping.pid);
             currentGameData = data;
             if (data) {
               gameDataRetries = 0;
@@ -989,8 +1003,8 @@ let lastPatchResult: { patched: boolean; enabled: boolean; error?: string } = {
   enabled: false,
 };
 
-function patchSettingsIfNeeded(): void {
-  const result = ensureSharedMemoryEnabled();
+function patchSettingsIfNeeded(pid?: number): void {
+  const result = ensureSharedMemoryEnabled(pid ?? mapping?.pid);
   lastPatchResult = result;
   if (result.patched) {
     console.log(

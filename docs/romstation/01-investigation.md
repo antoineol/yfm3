@@ -65,36 +65,31 @@ From the bridge UI, trigger "Restart DuckStation" (or call `restartDuckStation()
 > Fill in each section below during investigation. Use exact values — the implementation step depends on these.
 
 ### 1. Process name
-<!-- e.g., "duckstation-qt-x64-ReleaseLTCG.exe — matches existing filter" or "romstation-emu.exe — does NOT match" -->
 
-**Result:**
+**Result:** `duckstation-qt-x64-ReleaseLTCG.exe` (PID 6292) — matches existing `duckstation*` filter. No change needed.
 
 ### 2. Shared memory
-<!-- e.g., "Bridge connected on first try, hand detection works" or "PID found but shared memory unavailable" -->
 
-**Result:**
+**Result:** `ExportSharedMemory = false` in settings.ini. Bridge could not find settings.ini to auto-patch it (standalone paths don't exist). PID discovery works, but shared memory is not exported. Fixed by adding portable mode detection to `findDuckStationDataDir()`.
 
 ### 3. Settings.ini location
-<!-- e.g., "C:\Program Files\RomStation\emulators\duckstation-latest\settings.ini, portable mode (portable.txt present)" -->
 
-**Result:**
+**Result:** `C:\RomStation\app\emulators\downloads\DuckStation\files\DuckStation 0.1-8675 (x64)\settings.ini`
 
-**ExportSharedMemory present?**
+**ExportSharedMemory present?** Yes, but set to `false`.
 
-**portable.txt present?**
+**portable.txt present?** Yes (0-byte file next to the exe). DuckStation runs in portable mode.
 
 ### 4. Game directory / ROM path
-<!-- e.g., "CLI: duckstation.exe C:\...\game.cue — ROM passed as arg, gamelist not configured" -->
 
-**Result:**
+**Result:** ROM passed as CLI argument. RecursivePaths also configured.
 
-**Command line:**
+**Command line:** `"C:\RomStation\app\emulators\downloads\DuckStation\files\DuckStation 0.1-8675 (x64)\duckstation-qt-x64-ReleaseLTCG.exe" "C:\RomStation\app\cache\scripts\unpack\1\yu-gi-oh!_-_forbidden_memories - Copy.bin"`
 
-**RecursivePaths in settings.ini:**
+**RecursivePaths in settings.ini:** `C:\RomStation\app\cache\scripts\unpack`
 
-**ROM storage location:**
+**ROM storage location:** `C:\RomStation\app\cache\scripts\unpack\1\`
 
 ### 5. Restart behavior
-<!-- e.g., "DuckStation restarted fine, Romstation didn't interfere" or "Romstation showed error dialog after kill" -->
 
-**Result:**
+**Result:** Not tested live. Implementation updated to preserve ROM CLI arg when restarting, so DuckStation relaunches with the game loaded. Romstation reaction to child process kill is unknown — to be verified during live testing.

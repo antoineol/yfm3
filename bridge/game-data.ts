@@ -57,11 +57,13 @@ const CACHE_FILENAME = "game-data-cache.json";
  * @param cardStats  Snapshot of 2888-byte card stats from RAM
  * @param serial     Game serial from RAM (e.g. "SLES_039.48"), or null
  * @param cacheDir   Directory for the cache file
+ * @param pid        Optional running DuckStation PID, used for portable mode settings detection
  */
 export function acquireGameData(
   cardStats: Uint8Array,
   serial: string | null,
   cacheDir: string,
+  pid?: number,
 ): GameData | null {
   const gameDataHash = computeGameDataHash(cardStats);
   const cachePath = join(cacheDir, CACHE_FILENAME);
@@ -75,7 +77,7 @@ export function acquireGameData(
   console.log(`Game data cache miss (hash=${gameDataHash.slice(0, 12)}...)`);
 
   // Resolve .bin path(s) by scanning DuckStation's game directories
-  const cuePaths = findCueFiles();
+  const cuePaths = findCueFiles(pid);
   if (cuePaths.length === 0) {
     console.warn("No .cue files found in DuckStation game directories");
     return null;
@@ -152,8 +154,8 @@ function saveCache(cachePath: string, data: GameData): void {
  * Reads `[GameList] RecursivePaths` from settings.ini — the same dirs
  * DuckStation scans, so results always match what the UI shows.
  */
-function findCueFiles(): string[] {
-  const settingsPath = findSettingsPath();
+function findCueFiles(pid?: number): string[] {
+  const settingsPath = findSettingsPath(pid);
   if (!settingsPath) {
     console.warn("DuckStation settings.ini not found");
     return [];
