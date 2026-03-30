@@ -120,10 +120,18 @@ function portFree(): boolean {
 
 async function waitPortFree(): Promise<void> {
   for (let i = 0; i < 20; i++) {
-    if (portFree()) return;
+    if (portFree()) {
+      // Port reported free by netstat, but Windows TCP stack may still hold it
+      // briefly. Wait a beat before allowing the new process to bind.
+      await new Promise((r) => setTimeout(r, 500));
+      return;
+    }
     await new Promise((r) => setTimeout(r, 250));
   }
-  console.warn(`[watch] port ${PORT} still in use after 5s`);
+  // Port still held — force-kill whatever has it
+  console.warn(`[watch] port ${PORT} still in use after 5s — force-killing holder`);
+  killGhost();
+  await new Promise((r) => setTimeout(r, 1000));
 }
 
 async function restart(filename: string): Promise<void> {
