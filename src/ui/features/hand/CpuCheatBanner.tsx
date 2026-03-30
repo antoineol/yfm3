@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useSetAtom } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import type { CardId } from "../../../engine/data/card-model.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { CloseButton } from "../../components/CloseButton.tsx";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
-import { useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import { localCpuSwapsAtom } from "../../lib/bridge-snapshot-atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { artworkSrc } from "../../lib/format.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -13,20 +15,30 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 /**
  * Banner that appears when the CPU AI swaps cards in its hand.
  * Visible on both Player/Opponent tabs while cheat mode is enabled.
- * Auto-dismisses (clears Convex) when the player's turn starts.
+ * Auto-dismisses when the player's turn starts.
  * Manually dismissable via X button.
  */
 export function CpuCheatBanner() {
   const { phase } = useBridge();
   const cpuSwaps = useCpuSwaps();
   const cheatMode = useCheatMode();
-  const clearCpuSwaps = useAuthMutation(api.userSettings.clearCpuSwaps);
+  const autoSync = useBridgeAutoSync();
+  const setLocalSwaps = useSetAtom(localCpuSwapsAtom);
+  const convexClear = useAuthMutation(api.userSettings.clearCpuSwaps);
+
+  const clearCpuSwaps = useCallback(() => {
+    if (autoSync) {
+      setLocalSwaps([]);
+    } else {
+      void convexClear();
+    }
+  }, [autoSync, setLocalSwaps, convexClear]);
 
   // Auto-dismiss when phase transitions to "opponent" (player's turn ends)
   const prevPhaseRef = useRef(phase);
   useEffect(() => {
     if (prevPhaseRef.current !== "opponent" && phase === "opponent") {
-      void clearCpuSwaps();
+      clearCpuSwaps();
     }
     prevPhaseRef.current = phase;
   }, [phase, clearCpuSwaps]);
@@ -45,7 +57,7 @@ export function CpuCheatBanner() {
           <div className="fm-cheat-banner-body">
             <header className="fm-cheat-banner-header">
               <span className="fm-cheat-banner-tag">Opponent cheat detected</span>
-              <CloseButton label="Dismiss" onClick={() => void clearCpuSwaps()} size="sm" />
+              <CloseButton label="Dismiss" onClick={clearCpuSwaps} size="sm" />
             </header>
             <ul className="fm-cheat-banner-list">
               {cpuSwaps.map((swap) => (

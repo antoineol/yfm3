@@ -1,5 +1,7 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useAtomValue } from "jotai";
+import { useEffect } from "react";
+import { modIdForFingerprint } from "../engine/mods.ts";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { CardDetailModal } from "./components/CardDetailModal.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
@@ -20,8 +22,11 @@ import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabO
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { deckSubTabAtom } from "./lib/atoms.ts";
 import { BridgeProvider } from "./lib/bridge-context.tsx";
+import { useHydrateBridgeSnapshot } from "./lib/bridge-snapshot-atoms.ts";
 import { FusionTableProvider, useHasReferenceData } from "./lib/fusion-table-context.tsx";
+import { writeLocal } from "./lib/local-store.ts";
 import { useEmulatorBridge } from "./lib/use-emulator-bridge.ts";
+import { LOCAL_MOD_KEY, useSelectedMod } from "./lib/use-selected-mod.ts";
 import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "duel", "data"] as const;
@@ -40,8 +45,22 @@ export default function App() {
 function MainApp({ tab }: { tab: string }) {
   const bridgeAutoSync = useBridgeAutoSync();
   const bridge = useEmulatorBridge(bridgeAutoSync);
+  const modId = useSelectedMod();
 
+  useHydrateBridgeSnapshot(modId);
   useAutoSyncCollection(bridge);
+
+  // Auto-detect mod from bridge fingerprint in auto-sync mode.
+  // When the detected mod changes, persist to localStorage and reload
+  // so the app re-hydrates with the new mod's snapshot data.
+  useEffect(() => {
+    if (!bridgeAutoSync || !bridge.modFingerprint) return;
+    const detected = modIdForFingerprint(bridge.modFingerprint);
+    if (detected && detected !== modId) {
+      writeLocal(LOCAL_MOD_KEY, detected);
+      window.location.reload();
+    }
+  }, [bridgeAutoSync, bridge.modFingerprint, modId]);
 
   return (
     <BridgeProvider bridge={bridge}>

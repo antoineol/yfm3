@@ -1,36 +1,49 @@
+import { useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import { localCpuSwapsAtom } from "../../lib/bridge-snapshot-atoms.ts";
 
 /**
- * Syncs CPU swap detections from the bridge (in-memory) to Convex (persisted).
- * - Appends newly detected swaps as they arrive
- * - Clears persisted swaps when the duel ends
+ * Syncs CPU swap detections from the bridge to persistent storage.
+ * - Auto-sync mode: writes to Jotai atom (local-only)
+ * - Manual mode: appends to Convex (persisted)
  */
 export function useSyncCpuSwaps() {
+  const autoSync = useBridgeAutoSync();
   const { cpuSwaps, inDuel } = useBridge();
+  const setLocalSwaps = useSetAtom(localCpuSwapsAtom);
   const append = useAuthMutation(api.userSettings.appendCpuSwaps);
   const clear = useAuthMutation(api.userSettings.clearCpuSwaps);
 
   const syncedCountRef = useRef(0);
   const prevInDuelRef = useRef(inDuel);
 
-  // Append newly detected swaps to Convex
+  // Sync swap detections
   useEffect(() => {
     if (cpuSwaps.length > syncedCountRef.current) {
-      void append({ swaps: cpuSwaps.slice(syncedCountRef.current) });
+      if (autoSync) {
+        setLocalSwaps([...cpuSwaps]);
+      } else {
+        void append({ swaps: cpuSwaps.slice(syncedCountRef.current) });
+      }
       syncedCountRef.current = cpuSwaps.length;
     }
-  }, [cpuSwaps, append]);
+  }, [cpuSwaps, autoSync, append, setLocalSwaps]);
 
-  // Clear persisted swaps when duel ends
+  // Clear swaps when duel ends
   useEffect(() => {
     const wasInDuel = prevInDuelRef.current;
     prevInDuelRef.current = inDuel;
     if (wasInDuel && !inDuel) {
-      void clear();
+      if (autoSync) {
+        setLocalSwaps([]);
+      } else {
+        void clear();
+      }
       syncedCountRef.current = 0;
     }
-  }, [inDuel, clear]);
+  }, [inDuel, autoSync, clear, setLocalSwaps]);
 }

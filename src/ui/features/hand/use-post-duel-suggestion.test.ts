@@ -15,6 +15,7 @@ vi.mock("convex/react", () => ({
   useMutation: vi.fn(() => mockSavePreferences),
 }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
+  useBridgeAutoSync: vi.fn(() => false),
   useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),

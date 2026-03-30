@@ -18,6 +18,10 @@ function getOrCreateAnonymousId(): string {
   return id;
 }
 
+/**
+ * Provides anonymous identity for Convex queries.
+ * Only mounted inside ConvexProviderWithClerk (see main.tsx Providers).
+ */
 export function IdentityProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const anonymousId = useMemo(

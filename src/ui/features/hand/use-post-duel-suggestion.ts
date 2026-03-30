@@ -7,6 +7,7 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import {
+  useBridgeAutoSync,
   useDeckSize,
   useFusionDepth,
   useUseEquipment,
@@ -20,6 +21,11 @@ import {
   postDuelResultAtom,
   postDuelStateAtom,
 } from "../../lib/atoms.ts";
+import {
+  type LocalPostDuelSuggestion,
+  postDuelSuggestionKey,
+} from "../../lib/bridge-snapshot-atoms.ts";
+import { readLocal, removeLocal, writeLocal } from "../../lib/local-store.ts";
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -64,12 +70,29 @@ export function usePostDuelSuggestion(
   const liveBestScore = useAtomValue(postDuelLiveBestScoreAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
 
+  const autoSync = useBridgeAutoSync();
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
   const prefs = useUserModSettings();
   const savePreferences = useAuthMutation(api.userModSettings.updateModSettings);
+
+  // Persistence helper: localStorage in auto-sync, Convex in manual
+  const saveSuggestion = useCallback(
+    (suggestion: LocalPostDuelSuggestion | null) => {
+      if (autoSync) {
+        if (suggestion) {
+          writeLocal(postDuelSuggestionKey(modId), suggestion);
+        } else {
+          removeLocal(postDuelSuggestionKey(modId));
+        }
+      } else {
+        void savePreferences({ postDuelSuggestion: suggestion });
+      }
+    },
+    [autoSync, modId, savePreferences],
+  );
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
@@ -82,14 +105,22 @@ export function usePostDuelSuggestion(
   const pendingOptRef = useRef<{ collection: Record<number, number>; deck: number[] } | null>(null);
   const hydratedRef = useRef(false);
 
-  // ── Hydrate from Convex on mount ────────────────────────────────
+  // ── Hydrate from persisted state on mount ────────────────────────
   useEffect(() => {
     if (hydratedRef.current) return;
     if (state !== "idle") return;
-    if (prefs === undefined) return; // still loading
 
-    const saved = prefs?.postDuelSuggestion;
-    hydratedRef.current = true;
+    // In auto-sync: hydrate from localStorage; manual: from Convex prefs
+    let saved: LocalPostDuelSuggestion | null | undefined;
+    if (autoSync) {
+      saved = readLocal<LocalPostDuelSuggestion>(postDuelSuggestionKey(modId));
+      hydratedRef.current = true;
+    } else {
+      if (prefs === undefined) return; // still loading
+      saved = prefs?.postDuelSuggestion;
+      hydratedRef.current = true;
+    }
+
     if (!saved) return;
 
     const hasImprovement = saved.improvement != null && saved.improvement > 0;
@@ -102,7 +133,7 @@ export function usePostDuelSuggestion(
     });
     setCurrentDeck(saved.currentDeck);
     setState(hasImprovement ? "result" : "no_change");
-  }, [state, prefs, setState, setResult, setCurrentDeck]);
+  }, [state, prefs, autoSync, modId, setState, setResult, setCurrentDeck]);
 
   // ── Dismiss callback ───────────────────────────────────────────
   const dismiss = useCallback(() => {
@@ -116,8 +147,8 @@ export function usePostDuelSuggestion(
     preDuelCollectionRef.current = null;
     pendingOptRef.current = null;
     hasFiredRef.current = false;
-    void savePreferences({ postDuelSuggestion: null });
-  }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, savePreferences]);
+    saveSuggestion(null);
+  }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
 
   // ── State machine: track inDuel transitions ────────────────────
   useEffect(() => {
@@ -148,7 +179,7 @@ export function usePostDuelSuggestion(
       setProgress(0);
       setLiveBestScore(0);
       setState("duel_active");
-      void savePreferences({ postDuelSuggestion: null });
+      saveSuggestion(null);
     }
   }, [
     bridge.inDuel,
@@ -160,7 +191,7 @@ export function usePostDuelSuggestion(
     setCurrentDeck,
     setProgress,
     setLiveBestScore,
-    savePreferences,
+    saveSuggestion,
   ]);
 
   // ── State machine: collection changes during duel → optimize ───
@@ -239,15 +270,13 @@ export function usePostDuelSuggestion(
         const hasImprovement = res.improvement != null && res.improvement > 0;
         setResult(res);
         setState(hasImprovement ? "result" : "no_change");
-        void savePreferences({
-          postDuelSuggestion: {
-            deck: res.deck,
-            expectedAtk: res.expectedAtk,
-            currentDeckScore: res.currentDeckScore ?? null,
-            improvement: res.improvement ?? null,
-            elapsedMs: res.elapsedMs,
-            currentDeck: deckForOpt,
-          },
+        saveSuggestion({
+          deck: res.deck,
+          expectedAtk: res.expectedAtk,
+          currentDeckScore: res.currentDeckScore ?? null,
+          improvement: res.improvement ?? null,
+          elapsedMs: res.elapsedMs,
+          currentDeck: deckForOpt,
         });
       })
       .catch(() => {
@@ -277,12 +306,10 @@ export function usePostDuelSuggestion(
     setCurrentDeck,
     setProgress,
     setLiveBestScore,
-    savePreferences,
+    saveSuggestion,
   ]);
 
-  // ── React to Convex deck changes while showing result ─────────
-  // Convex subscriptions only fire on actual data changes, so no
-  // manual deduplication is needed (unlike bridge polling).
+  // ── React to deck changes while showing result ────────────────
   useEffect(() => {
     if (state !== "result" || !result || !deckCardIds) return;
 
@@ -295,18 +322,16 @@ export function usePostDuelSuggestion(
     // Deck changed but doesn't fully match suggestion — update diff
     if (!decksMatch(deckCardIds, currentDeck)) {
       setCurrentDeck(deckCardIds);
-      void savePreferences({
-        postDuelSuggestion: {
-          deck: result.deck,
-          expectedAtk: result.expectedAtk,
-          currentDeckScore: result.currentDeckScore ?? null,
-          improvement: result.improvement ?? null,
-          elapsedMs: result.elapsedMs,
-          currentDeck: deckCardIds,
-        },
+      saveSuggestion({
+        deck: result.deck,
+        expectedAtk: result.expectedAtk,
+        currentDeckScore: result.currentDeckScore ?? null,
+        improvement: result.improvement ?? null,
+        elapsedMs: result.elapsedMs,
+        currentDeck: deckCardIds,
       });
     }
-  }, [state, result, deckCardIds, currentDeck, dismiss, setCurrentDeck, savePreferences]);
+  }, [state, result, deckCardIds, currentDeck, dismiss, setCurrentDeck, saveSuggestion]);
 
   // ── Cleanup on unmount ─────────────────────────────────────────
   useEffect(() => {
