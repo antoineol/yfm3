@@ -17,6 +17,9 @@ interface FarmCache {
 
 export type FarmStatus = "idle" | "loading" | "done" | "error";
 
+/** Worker timeout — if no response within 60s, assume the worker is stuck. */
+const WORKER_TIMEOUT_MS = 60_000;
+
 export function useFarmDiscovery(deckScore: number | null): {
   pow: SerializedFarmDiscoveryResult | null;
   tec: SerializedFarmDiscoveryResult | null;
@@ -36,8 +39,13 @@ export function useFarmDiscovery(deckScore: number | null): {
   const [status, setStatus] = useState<FarmStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Stable key derived from inputs — changes when cache should be invalidated.
-  const unlockedDuelists = bridge.unlockedDuelists;
+  // Memoize unlockedDuelists by value so bridge polling doesn't invalidate
+  // the compute callback every ~50ms.
+  const unlockedDuelistsKey = bridge.unlockedDuelists ? bridge.unlockedDuelists.join(",") : "";
+  const unlockedDuelists = useMemo(
+    () => (unlockedDuelistsKey ? unlockedDuelistsKey.split(",").map(Number) : null),
+    [unlockedDuelistsKey],
+  );
 
   // Stable key derived from inputs — changes when cache should be invalidated.
   const cacheKey = useMemo(
@@ -60,7 +68,7 @@ export function useFarmDiscovery(deckScore: number | null): {
     }
   }, [cacheKey, status]);
 
-  const effectiveStatus = isCacheValid
+  const effectiveStatus: FarmStatus = isCacheValid
     ? "done"
     : status === "loading"
       ? "loading"
@@ -69,6 +77,18 @@ export function useFarmDiscovery(deckScore: number | null): {
         : "idle";
 
   const workerRef = useRef<Worker | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const failWorker = useCallback((msg: string) => {
+    console.error("Farm worker failed:", msg);
+    setErrorMessage(msg);
+    setStatus("error");
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+    }
+    clearTimeout(timeoutRef.current);
+  }, []);
 
   const compute = useCallback(() => {
     if (deckScore == null || !ownedTotals) return;
@@ -76,6 +96,7 @@ export function useFarmDiscovery(deckScore: number | null): {
 
     // Cancel any in-flight worker.
     workerRef.current?.terminate();
+    clearTimeout(timeoutRef.current);
 
     setStatus("loading");
     setErrorMessage(null);
@@ -87,26 +108,28 @@ export function useFarmDiscovery(deckScore: number | null): {
 
     const capturedKey = cacheKey;
 
+    // Timeout: if the worker doesn't respond, assume it's stuck.
+    timeoutRef.current = setTimeout(() => {
+      failWorker("Farm discovery timed out");
+    }, WORKER_TIMEOUT_MS);
+
     worker.onmessage = (e: MessageEvent<FarmWorkerResponse>) => {
+      clearTimeout(timeoutRef.current);
+
       if (e.data.type === "FARM_ERROR") {
-        console.error("Farm worker error:", e.data.message);
-        setErrorMessage(e.data.message);
-        setStatus("error");
-      } else {
-        setCache({ pow: e.data.pow, tec: e.data.tec, key: capturedKey });
-        setStatus("done");
-        setErrorMessage(null);
+        failWorker(e.data.message);
+        return;
       }
+
+      setCache({ pow: e.data.pow, tec: e.data.tec, key: capturedKey });
+      setStatus("done");
+      setErrorMessage(null);
       workerRef.current = null;
       worker.terminate();
     };
 
     worker.onerror = (err) => {
-      console.error("Farm worker error:", err);
-      setErrorMessage("Worker crashed unexpectedly");
-      setStatus("error");
-      workerRef.current = null;
-      worker.terminate();
+      failWorker(err.message || "Unknown worker error");
     };
 
     worker.postMessage({
@@ -127,6 +150,7 @@ export function useFarmDiscovery(deckScore: number | null): {
     unlockedDuelists,
     cacheKey,
     isCacheValid,
+    failWorker,
   ]);
 
   return {
