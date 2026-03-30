@@ -97,30 +97,45 @@ function stageUpdateInBackground(): void {
   );
 
   let stdout = "";
+  let settled = false;
   proc.stdout?.on("data", (chunk: Buffer) => {
     stdout += chunk.toString();
   });
 
-  proc.on("error", () => {
+  function settle(result: "update_staged" | "stage_noop", version?: string): void {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
     stagingInProgress = false;
-    broadcast(JSON.stringify({ type: "stage_noop" }));
-  });
+    if (result === "update_staged") {
+      updateStaged = true;
+      console.log(`Update staged: v${version} ready to install`);
+    }
+    broadcast(JSON.stringify({ type: result }));
+  }
+
+  // Kill the process if it takes longer than 30s (network hang, etc.)
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    console.warn("[update] staging timed out after 30s — aborting");
+    proc.kill();
+    settle("stage_noop");
+  }, 30_000);
+
+  proc.on("error", () => settle("stage_noop"));
 
   proc.on("exit", (code) => {
-    stagingInProgress = false;
     if (stdout.trim()) console.log(`[update] ${stdout.trim()}`);
     const pendingPkgPath = join(__dirname, "runtime.pending", "package.json");
     if (code === 0 && existsSync(pendingPkgPath)) {
       try {
         const pkg = JSON.parse(readFileSync(pendingPkgPath, "utf-8"));
-        updateStaged = true;
-        console.log(`Update staged: v${pkg.version} ready to install`);
-        broadcast(JSON.stringify({ type: "update_staged" }));
+        settle("update_staged", pkg.version);
       } catch {
-        broadcast(JSON.stringify({ type: "stage_noop" }));
+        settle("stage_noop");
       }
     } else {
-      broadcast(JSON.stringify({ type: "stage_noop" }));
+      settle("stage_noop");
     }
   });
 }
