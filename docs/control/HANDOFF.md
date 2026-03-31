@@ -1,6 +1,6 @@
 # Agent Game Control — Handoff Document
 
-> Context dump for continuing this work on another machine. Written 2026-03-31.
+> Updated 2026-03-31.
 
 ## Objective
 
@@ -9,81 +9,70 @@ Enable AI agents (LLMs) to control the PS1 game (Yu-Gi-Oh! Forbidden Memories, R
 ## What Was Built
 
 ### New Files
-- **`bridge/input.ts`** — PS1 button→VK code mapping, `keybd_event` + stealth focus approach (works but causes flicker). Reads key bindings from DuckStation's `settings.ini` at runtime. Exports `tapButton`, `holdButton`, `loadState`, `findMainWindowHandle`.
-- **`bridge/vigem.ts`** — Direct ViGEmBus driver communication via `DeviceIoControl` FFI. Creates virtual Xbox 360 controller. **NOT WORKING** — the IOCTL codes don't match this driver version (error 50 = NOT_SUPPORTED).
-- **`bridge/agent-client.ts`** — WebSocket client for agents: `tap()`, `hold()`, `loadState()`, `waitForPhase()`, `waitFor()`, `onStateChange()`. Tested with mock WebSocket (13 tests pass).
-- **`bridge/debug/vigem-helper.ps1`** — PowerShell script that uses the .NET `Nefarius.ViGEm.Client` NuGet package to create a virtual Xbox 360 controller. Reads commands from stdin (`tap a`, `press up`, `release up`, `wait 500`, `quit`). **THIS WORKS** — the .NET library handles driver version differences.
-- **`bridge/debug/game-interact.ps1`** — Single-shot interaction tool: send button(s), capture state + screenshot. Has screenshot issues (see below).
-- **`bridge/debug/play-duel.ts`** — Duel bot attempt (bun.exe script). Spawns vigem-helper as subprocess. Not fully working.
-- **`bridge/debug/play-duel.ps1`** — PowerShell duel bot. Blocks on WebSocket reads.
+- **`bridge/vigem-subprocess.ts`** — Persistent ViGEm helper subprocess manager. Spawns `vigem-helper.ps1` lazily on first input, keeps it alive to avoid 3s detection delay. Communicates via stdin/stdout. Auto-restarts on crash. 12 tests.
+- **`bridge/input.ts`** — PS1 button→VK code mapping, `keybd_event` + stealth focus. Reads key bindings from DuckStation's `settings.ini`. Now used only for `loadState()` (save state loading via hotkeys).
+- **`bridge/agent-client.ts`** — WebSocket client for agents: `tap()`, `hold()`, `interact()` (tap + wait for state change), `loadState()`, `waitForPhase()`, `waitFor()`, `onStateChange()`. 15 tests.
+- **`bridge/debug/vigem-helper.ps1`** — PowerShell script using .NET `Nefarius.ViGEm.Client` to create a virtual Xbox 360 controller. Reads commands from stdin. **Working.**
+- **`bridge/debug/game-interact.ps1`** — Single-shot interaction tool.
+- **`bridge/debug/play-duel.ts`** — Duel bot demo using vigem-helper subprocess.
 - **`bridge/debug/setup-vigem.ps1`** — One-command ViGEmBus installer + DuckStation XInput binding patcher.
+- **`tests/bridge/vigem-subprocess.test.ts`** — 12 tests for subprocess manager.
 - **`tests/bridge/settings-hotkeys.test.ts`** — 8 tests for `patchLoadStateHotkeys`.
-- **`tests/bridge/agent-client.test.ts`** — 13 tests for agent client.
-- **`docs/steps/agent-game-control.md`** — Architecture doc (partially outdated now).
+- **`tests/bridge/agent-client.test.ts`** — 15 tests for agent client (including `interact`).
+- **`docs/steps/agent-game-control.md`** — Architecture doc (updated).
 
 ### Modified Files
-- **`bridge/settings.ts`** — Added `patchLoadStateHotkeys()` and `ensureLoadStateHotkeys()` for binding F5–F12 → LoadGameState1–8.
-- **`bridge/serve.ts`** — Added `input` and `loadState` WebSocket message handlers. Imports from `input.ts`, tracks `dsHwnd`, calls `loadBindings()` on connect. Resets `dsHwnd` on disconnect.
+- **`bridge/settings.ts`** — Added `patchLoadStateHotkeys()` and `ensureLoadStateHotkeys()`.
+- **`bridge/serve.ts`** — Input commands use ViGEm subprocess (focus-free). LoadState still uses keyboard hotkeys. Destroys vigem subprocess on shutdown.
 - **`docs/PLAN.md`** — Added Agent Game Control entry.
+
+### Removed Files
+- **`bridge/vigem.ts`** — Dead code. Direct ViGEmBus IOCTL approach didn't work (ERROR_NOT_SUPPORTED). Replaced by vigem-subprocess.ts + vigem-helper.ps1.
 
 ## What Works
 
-### ViGEm Virtual Controller (via .NET)
-- ViGEmBus driver v1.22.0 is **installed and running** (`sc query ViGEmBus` → RUNNING).
-- The .NET library (`Nefarius.ViGEm.Client` NuGet, cached at `%TEMP%\ViGEmClient\lib\netstandard2.0\Nefarius.ViGEm.Client.dll`) **successfully creates virtual controllers**.
-- `vigem-helper.ps1` connects, sends button presses, and DuckStation receives them.
-- **Confirmed working**: sent Cross (A button) via ViGEm → game phase changed from 4 (HAND_SELECT) to 8 (FUSION_RESOLVE).
+### ViGEm Virtual Controller (Integrated)
+- ViGEmBus driver v1.22.0 is **installed and running**.
+- `bridge/serve.ts` now uses `vigem-subprocess.ts` which manages a **persistent** `vigem-helper.ps1` child process.
+- Subprocess is spawned lazily on first `{type: "input"}` WebSocket message.
+- 4s detection delay on first spawn only; subsequent inputs are immediate.
+- **Fully focus-free** — no window flicker, no keyboard stealing.
+- **Confirmed working**: sent Cross via ViGEm → game phase changed.
+
+### Agent Feedback Loop
+- `agent-client.ts` provides `interact(button)` — taps a button and waits for the game state to change, returning the new state. This is the core agent interaction pattern.
 
 ### DuckStation XInput Configuration
 - `[InputSources] XInput = true` is enabled.
-- Pad1 bindings use dual format: `Cross = Keyboard/X & XInput-0/A` (both keyboard and XInput work simultaneously).
+- Pad1 bindings use dual format: `Cross = Keyboard/X & XInput-0/A`.
 - User's keyboard controls still work alongside ViGEm.
 
 ### Bridge State Reading
-- Bridge WebSocket at `ws://localhost:3333` provides full duel state: phase, LP, hand, field, opponent field, deck, rank counters, etc.
-- Accessible from WSL2 via `bun.exe` (Windows Bun at `/mnt/c/Users/archi/.bun/bin/bun.exe`).
-- All 897 tests pass (`bun typecheck`, `bun lint`, `bun run test` all green).
+- Bridge WebSocket at `ws://localhost:3333` provides full duel state.
+- Accessible from WSL2 via `bun.exe`.
 
-## What Doesn't Work / Blockers
+## Known Limitations
 
-### 1. ViGEm Controller Detection Delay
-DuckStation needs **~3 seconds** after the ViGEm controller connects before it starts polling it. Each `vigem-helper.ps1` invocation creates a new controller → 3s startup tax every time. **Solution needed**: keep the controller alive persistently (long-running process, or integrate into the bridge).
+### 1. DuckStation Must Not Be Minimized
+XInput polling stops when DuckStation is minimized. Works fine when behind other windows.
 
-### 2. DuckStation Must Not Be Minimized
-XInput polling stops when DuckStation is minimized. It works fine when behind other windows — just not minimized to taskbar.
+### 2. Screenshots
+- For duels, screenshots aren't needed — bridge state gives full visibility.
+- If needed: use DuckStation's F10 hotkey or read VRAM from shared memory.
 
-### 3. Screenshots
-- `PrintWindow` returns black for GPU-rendered DuckStation content.
-- `CopyFromScreen` captures whatever is at the screen coordinates (wrong if DS is behind other windows).
-- **Best approach**: use DuckStation's built-in screenshot hotkey (F10 → saves to `screenshots/` folder), or read VRAM from shared memory.
-- For duels, screenshots aren't strictly needed — bridge state gives full visibility.
-
-### 4. `bridge/vigem.ts` (Direct IOCTL) Doesn't Work
-The installed ViGEmBus driver uses GUID `{96e42b22-f5e9-42f8-b043-ed0f932f014f}` (different from the documented `{96E42B22-...-7DE2}`). My IOCTL codes return ERROR_NOT_SUPPORTED (50). The .NET library works because it handles version differences internally. **Recommendation**: abandon the direct IOCTL approach, use the .NET library via a persistent PowerShell/C# helper process.
-
-### 5. Bridge Input Commands Use Old Approach
-`bridge/serve.ts` calls `input.ts` which uses `keybd_event` + stealth focus. This works but causes focus flicker. Should be replaced with ViGEm. The bridge needs a persistent ViGEm controller subprocess.
-
-## Architecture Recommendation
+## Architecture
 
 ```
 AI Agent (Claude)
-  ↓ calls game-interact tool
-  ↓
-Bridge WebSocket ← reads state (phase, LP, hand, field...)
-  +
-ViGEm Helper (persistent subprocess)
-  ↓ stdin commands: "tap cross", "wait 300"
-  ↓
-.NET ViGEmClient → ViGEmBus driver → virtual Xbox 360 controller
-  ↓
-DuckStation (XInput polling) → PS1 game
+  → WebSocket command: {type:"input", button:"cross"}
+  → Bridge Server (serve.ts)
+  → vigem-subprocess.ts (manages persistent child process)
+  → vigem-helper.ps1 stdin: "tap cross\n" → stdout: "ok\n"
+  → .NET ViGEmClient → ViGEmBus driver → virtual Xbox 360 controller
+  → DuckStation (XInput polling) → PS1 game
+  → RAM state updates → Bridge reads RAM (50ms poll)
+  → State broadcast back to agent via WebSocket
 ```
-
-The ViGEm helper should be a **long-running process** to avoid the 3s detection delay. Options:
-1. Integrate into bridge (spawn `vigem-helper.ps1` as child process, keep alive)
-2. Standalone daemon that the interact tool connects to
-3. Rewrite in C# as a compiled helper with named pipe or TCP
 
 ## Key Technical Details
 
@@ -128,13 +117,11 @@ wslpath -w /path                    # Convert WSL→Windows path
 
 ## Immediate Next Steps
 
-1. **Make ViGEm helper persistent** — integrate `vigem-helper.ps1` into the bridge as a long-lived subprocess. Bridge spawns it on first `input` command, keeps it alive, pipes commands via stdin. This eliminates the 3s delay per input.
+1. **Test on Windows** — Start DuckStation + bridge, verify that ViGEm input works end-to-end through the bridge. The subprocess should spawn on first input command and stay alive. Try: `wscat -c ws://localhost:3333` then send `{"type":"input","button":"cross"}`.
 
-2. **Build the interactive feedback loop** — a tool/script that: (a) sends one button press via the persistent helper, (b) waits ~300ms, (c) reads bridge state, (d) returns structured data to the agent. The agent decides what to do next.
+2. **Play a duel via agent** — Use `agent-client.ts` `interact()` loop to play through a duel interactively, verifying the full feedback loop works.
 
-3. **Test by finishing a duel** — use the feedback loop interactively (agent judgment, not a script) to verify everything works end-to-end.
-
-4. **Clean up** — remove dead code paths (direct IOCTL in vigem.ts, keybd_event in input.ts), update architecture doc, ensure tests pass.
+3. **Build an MCP tool or CLI** — Expose `interact` as a tool that an AI agent can call, returning structured game state (phase, hand, field, LP) for decision-making.
 
 ## Approaches Tried and Failed
 
@@ -144,6 +131,6 @@ wslpath -w /path                    # Convert WSL→Windows path
 | PostMessage to child windows | No effect — same reason |
 | SendInput / keybd_event without focus | Requires focused window, input goes to wrong app |
 | keybd_event + stealth focus (Alt trick) | **Works** but causes visible focus flicker on every input |
-| Direct IOCTL to ViGEmBus | ERROR_NOT_SUPPORTED — driver GUID/protocol differs from docs |
+| Direct IOCTL to ViGEmBus (`vigem.ts`) | ERROR_NOT_SUPPORTED — driver GUID/protocol differs from docs. **Deleted.** |
 | RAM pad buffer write | Couldn't find pad buffer — PS1 pad is I/O-mapped, not in 2MB RAM |
-| ViGEm via .NET NuGet | **Works** — the recommended approach |
+| ViGEm via .NET NuGet | **Works** — **now integrated into bridge** via persistent subprocess |

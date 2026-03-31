@@ -29,7 +29,6 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useCheatMode: vi.fn(() => false),
   useCheatView: vi.fn(() => "player"),
   useCpuSwaps: vi.fn(() => []),
-  useTargetRank: vi.fn(() => "S-POW"),
 }));
 
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";

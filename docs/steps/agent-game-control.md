@@ -11,26 +11,29 @@
 AI Agent (LLM tool use / script)
   → WebSocket command (e.g. {type:"input", button:"cross"})
   → Bridge Server (serve.ts)
-  → user32.dll PostMessage (simulates keypress to HWND, no focus needed)
-  → DuckStation (Qt event loop processes WM_KEYDOWN)
+  → vigem-subprocess.ts → vigem-helper.ps1 (persistent subprocess)
+  → .NET ViGEmClient → ViGEmBus driver → virtual Xbox 360 controller
+  → DuckStation (XInput polling, fully focus-free)
   → PS1 game (responds to controller input)
   → RAM state updates
   → Bridge reads RAM (50ms poll)
   → State broadcast back to agent via WebSocket
 ```
 
-### Input Method: PostMessage to DuckStation HWND
+### Input Method: ViGEm Virtual Controller (Focus-Free)
 
-**Primary:** `PostMessage(hwnd, WM_KEYDOWN/WM_KEYUP, vkCode, lParam)` via user32.dll FFI.
-No window focus required — key messages are posted directly to DuckStation's message queue.
+**Primary:** Virtual Xbox 360 controller via ViGEmBus driver + .NET ViGEmClient.
+Fully focus-free — DuckStation reads XInput regardless of which window is focused.
+The `vigem-helper.ps1` subprocess is spawned lazily on first input and kept alive
+to avoid the ~3s controller detection delay.
 
-**Fallback:** `SendInput` via user32.dll (requires `SetForegroundWindow` first).
-Used if PostMessage doesn't work with DuckStation's Qt input handling.
+**Fallback:** `keybd_event` via user32.dll (stealth focus approach) remains in
+`input.ts` but is no longer used by `serve.ts` for game inputs.
 
 ### Save State Loading: Hotkey Patching
 
 Patch DuckStation's `settings.ini` to bind `LoadGameState1`–`LoadGameState8` to
-specific virtual keys, then simulate those keys via PostMessage.
+specific virtual keys, then simulate those keys via keybd_event (stealth focus).
 
 **Save state creation is strictly blocked** — no SaveGameState bindings, no F2 key.
 
@@ -38,38 +41,44 @@ specific virtual keys, then simulate those keys via PostMessage.
 
 ## Modules
 
-### 1. `bridge/input.ts` — Input Infrastructure
+### 1. `bridge/vigem-subprocess.ts` — Persistent Virtual Controller
 
-- FFI bindings: `PostMessageW`, `SendInput`, `SetForegroundWindow`, `MapVirtualKeyW`
+- Spawns `bridge/debug/vigem-helper.ps1` as a long-lived subprocess
+- Communicates via stdin/stdout ("tap cross\n" → "ok\n")
+- Lazy spawn on first input command; auto-restarts on crash
+- 4s detection delay on fresh spawn (DuckStation needs time to detect controller)
+- `tap(button, holdMs?)`, `press(button)`, `release(button)`, `releaseAll()`
+
+### 2. `bridge/input.ts` — Keyboard Input (Save State Loading Only)
+
+- FFI bindings: `keybd_event`, `SetForegroundWindow` via user32.dll
 - HWND lookup via PowerShell `(Get-Process -Id $pid).MainWindowHandle`
-- PS1 button → VK code mapping (DuckStation default keyboard bindings)
-- lParam construction for WM_KEYDOWN / WM_KEYUP
-- `tapButton(hwnd, button, holdMs)`, `holdButton(hwnd, button, durationMs)`
-- Blocked key validation (prevent save-related keys)
+- PS1 button → VK code mapping (reads DuckStation settings.ini)
+- Used only for `loadState(hwnd, slot)` via hotkey simulation
+- Blocked key validation (F2 = save state explicitly blocked)
 
-### 2. `bridge/settings.ts` — Extended Hotkey Patching
+### 3. `bridge/settings.ts` — Extended Hotkey Patching
 
 Add `[Hotkeys] LoadGameState1 = Keyboard/F5` through `LoadGameState8 = Keyboard/F12`
 to settings.ini, alongside existing ExportSharedMemory patching.
 
-### 3. `bridge/serve.ts` — WebSocket Command Handlers
+### 4. `bridge/serve.ts` — WebSocket Command Handlers
 
-New message types:
-- `{type: "input", button: "cross", hold?: 100}` → tap/hold a PS1 button
-- `{type: "loadState", slot: 1}` → load save state by slot
-- `{type: "getState"}` → request current game state immediately
+Message types:
+- `{type: "input", button: "cross", hold?: 100}` → tap/hold via ViGEm (focus-free)
+- `{type: "loadState", slot: 1}` → load save state via keyboard hotkey
 
 Safety: reject any message that would trigger save operations.
 
-### 4. `bridge/agent-client.ts` — Agent Client Library
+### 5. `bridge/agent-client.ts` — Agent Client Library
 
 Standalone async client for AI agents:
 - `connect(url)` / `disconnect()`
 - `tap(button)` / `hold(button, ms)` — send controller input
+- `interact(button, timeout)` — tap + wait for state change (core feedback loop)
 - `loadState(slot)` — load save state
 - `waitForPhase(phase, timeout)` — wait until duel phase changes
 - `waitFor(predicate, timeout)` — wait until state matches condition
-- `getState()` — get current snapshot
 
 ---
 

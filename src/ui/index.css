@@ -1200,6 +1200,7 @@ input[type="number"] {
   border: 1px solid var(--color-border-accent);
   background: var(--color-bg-surface);
   box-shadow: 0 0 24px rgba(201, 168, 76, 0.06);
+  overflow: hidden;
   animation: fm-rank-enter 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -1228,7 +1229,7 @@ input[type="number"] {
 
 .fm-rank-segment {
   flex: 1;
-  opacity: 0.35;
+  opacity: 0.7;
   transition: opacity 200ms ease;
 }
 
@@ -1238,11 +1239,6 @@ input[type="number"] {
 
 .fm-rank-segment:last-child {
   border-radius: 0 2px 2px 0;
-}
-
-.fm-rank-segment--target {
-  opacity: 0.85;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .fm-rank-indicator {
@@ -1271,29 +1267,6 @@ input[type="number"] {
   font-weight: 700;
   line-height: 1;
   text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
-}
-
-/* ── Target select ────────── */
-
-.fm-rank-target-select {
-  appearance: none;
-  flex-shrink: 0;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-panel);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: border-color 200ms ease;
-}
-
-.fm-rank-target-select:hover {
-  border-color: var(--color-border-accent);
-}
-
-.fm-rank-target-select:focus-visible {
-  outline: 2px solid var(--color-gold-dim);
-  outline-offset: 1px;
 }
 
 /* ── Details toggle ────────── */
@@ -1335,20 +1308,15 @@ input[type="number"] {
 .fm-rank-factor-list {
   display: flex;
   flex-direction: column;
+  gap: 0;
   padding: 4px 12px 10px;
 }
 
 .fm-rank-factor {
   display: grid;
-  grid-template-columns: 100px 44px 40px 1fr;
+  grid-template-columns: 88px 1fr;
   align-items: center;
-  gap: 0 6px;
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(30, 42, 63, 0.5);
-}
-
-.fm-rank-factor:last-child {
-  border-bottom: none;
+  gap: 8px;
 }
 
 .fm-rank-factor--estimated {
@@ -1357,7 +1325,6 @@ input[type="number"] {
 
 .fm-rank-factor--victory {
   border-top: 1px solid var(--color-border-subtle);
-  border-bottom: none;
   margin-top: 2px;
   padding-top: 6px;
 }
@@ -1370,48 +1337,93 @@ input[type="number"] {
   min-width: 0;
 }
 
-.fm-rank-factor-count {
-  text-align: right;
-  color: var(--color-text-muted);
+.fm-rank-factor-victory-pts {
+  text-align: left;
 }
 
-.fm-rank-factor-points {
-  text-align: right;
-  font-weight: 600;
-}
+/* ── Zone gauge bar ────────── */
 
-.fm-rank-factor-bar {
+.fm-rank-zone-bar {
   position: relative;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-bg-deep);
-  overflow: hidden;
+  display: flex;
+  gap: 1px;
+  border-radius: 4px;
+  overflow: visible;
+  margin-top: 10px;
 }
 
-.fm-rank-factor-bar-fill {
+.fm-rank-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 3px;
+  min-width: 0;
+  transition: background-color 300ms ease;
+}
+
+.fm-rank-zone:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.fm-rank-zone:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.fm-rank-zone--active {
+  outline: 1.5px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -1.5px;
+  z-index: 1;
+  border-radius: 3px;
+}
+
+.fm-rank-zone-edge {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0.6;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.fm-rank-zone-points {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Cursor (overlaps top edge of bar with downward arrow) ────────── */
+
+.fm-rank-cursor {
   position: absolute;
-  top: 0;
-  height: 100%;
-  border-radius: 2px;
-  transition:
-    left 300ms ease,
-    width 300ms ease;
+  bottom: calc(100% - 4px);
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(10, 15, 25, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  transition: left 400ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fm-rank-factor-bar-fill.text-stat-up {
-  background: var(--color-stat-up);
-}
-
-.fm-rank-factor-bar-fill.text-stat-atk {
-  background: var(--color-stat-atk);
-}
-
-.fm-rank-factor-bar-fill.text-text-muted {
-  background: var(--color-text-muted);
-}
-
-.fm-rank-factor-bar-fill.text-text-secondary {
-  background: var(--color-text-secondary);
+.fm-rank-cursor::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.6);
 }
 
 /* ── Cheat Mode — Header Eye Button ─────────────────────────── *

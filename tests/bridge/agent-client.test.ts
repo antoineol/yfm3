@@ -231,4 +231,36 @@ describe("createAgentClient", () => {
     ws()._receive({ type: "gameData", cards: [] });
     expect(client.state).toBeNull();
   });
+
+  it("interact taps and waits for state change", async () => {
+    ws()._receive(makeState({ duelPhase: 0x04 }));
+
+    const interactPromise = client.interact("cross", 1000);
+
+    // Verify input command was sent
+    expect(ws().sent).toHaveLength(1);
+
+    // Simulate server acknowledging the tap
+    ws()._receive({ type: "input_result", success: true });
+
+    // Simulate state change after tap
+    setTimeout(() => {
+      ws()._receive(makeState({ duelPhase: 0x05 }));
+    }, 10);
+
+    const { result, state } = await interactPromise;
+    expect(result.success).toBe(true);
+    expect(state.duelPhase).toBe(0x05);
+  });
+
+  it("interact rejects on timeout if state doesn't change", async () => {
+    ws()._receive(makeState({ duelPhase: 0x04 }));
+
+    const interactPromise = client.interact("cross", 50);
+
+    // Acknowledge the tap but never send a state change
+    ws()._receive({ type: "input_result", success: true });
+
+    await expect(interactPromise).rejects.toThrow("timed out");
+  });
 });

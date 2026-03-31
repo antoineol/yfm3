@@ -73,7 +73,7 @@ for (const level of ["log", "info", "warn", "error", "debug"] as const) {
   };
 }
 
-const PORT = Number(process.env.BRIDGE_PORT || 3333);
+const PORT = Number(process.env.BRIDGE_PORT || 3333); // temp: ghost on 3333
 const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 50);
 
 // ── Collection/deck log file ──────────────────────────────────────
@@ -445,6 +445,7 @@ const server = Bun.serve({
           void forceReconnect();
         } else if (msg.type === "shutdown") {
           console.log("Received shutdown request from newer bridge — exiting");
+
           if (mapping) closeSharedMemory(mapping);
           server.stop();
           process.exit(0);
@@ -465,6 +466,8 @@ const server = Bun.serve({
           } else {
             stageUpdateInBackground();
           }
+        } else if (msg.type === "readMem") {
+          handleReadMem(ws, msg);
         } else if (msg.type === "input") {
           void handleInputMessage(ws, msg);
         } else if (msg.type === "loadState") {
@@ -509,9 +512,31 @@ function broadcast(json: string): void {
   }
 }
 
-// ── Input command handlers ───────────────────────────────────────
+// ── RAM read handler ────────────────────────────────────────────
 
 type BridgeWs = { send(data: string): void };
+
+function handleReadMem(ws: BridgeWs, msg: Record<string, unknown>): void {
+  if (!mapping) {
+    ws.send(JSON.stringify({ type: "readMem_result", error: "not connected" }));
+    return;
+  }
+  const offset = Number(msg.offset);
+  const length = Math.min(Number(msg.length) || 64, 4096);
+  if (!Number.isFinite(offset) || offset < 0) {
+    ws.send(JSON.stringify({ type: "readMem_result", error: "invalid offset" }));
+    return;
+  }
+  try {
+    const hex = readRawHex(mapping.view, offset, length);
+    ws.send(JSON.stringify({ type: "readMem_result", offset, length, hex }));
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "read failed";
+    ws.send(JSON.stringify({ type: "readMem_result", error: reason }));
+  }
+}
+
+// ── Input command handlers ───────────────────────────────────────
 
 function sendResult(ws: BridgeWs, type: string, ok: boolean, error?: string): void {
   try {
@@ -554,7 +579,7 @@ async function handleInputMessage(ws: BridgeWs, msg: Record<string, unknown>): P
   const holdMs = typeof msg.hold === "number" ? msg.hold : undefined;
   const ok =
     holdMs != null ? await holdButton(hwnd, button, holdMs) : await tapButton(hwnd, button);
-  sendResult(ws, "input_result", ok, ok ? undefined : "PostMessage failed");
+  sendResult(ws, "input_result", ok, ok ? undefined : "Input failed");
 }
 
 async function handleLoadStateMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {

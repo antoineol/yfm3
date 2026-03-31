@@ -5,17 +5,12 @@ import type {
   VictoryType,
 } from "../../../engine/ranking/rank-scoring.ts";
 import { computeRankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
-import type { TargetRank } from "../../../engine/ranking/rank-spectrum.ts";
-import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { useTargetRank } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
 export interface RankTrackerState {
   breakdown: RankBreakdown;
-  targetRank: TargetRank;
-  setTargetRank: (rank: TargetRank) => void;
   isPartial: boolean;
   isDuelActive: boolean;
   isDuelEnded: boolean;
@@ -55,8 +50,6 @@ const RANK_COUNTER_KEYS: readonly (keyof RankFactors)[] = [
 
 export function useRankTracker(): RankTrackerState {
   const bridge = useBridge();
-  const targetRank = useTargetRank();
-  const updatePreferences = useUpdatePreferences();
   const lastBreakdownRef = useRef<RankBreakdown | null>(null);
 
   const isDuelActive = bridge.inDuel;
@@ -105,11 +98,6 @@ export function useRankTracker(): RankTrackerState {
     }
   }, [breakdown, isDuelActive, isDuelEnded]);
 
-  const setTargetRank = useMemo(
-    () => (rank: TargetRank) => updatePreferences({ targetRank: rank }),
-    [updatePreferences],
-  );
-
   // During ended state, return the frozen breakdown if the current one
   // has reverted to default (no bridge data). Otherwise return the live one.
   const effectiveBreakdown =
@@ -119,8 +107,6 @@ export function useRankTracker(): RankTrackerState {
 
   return {
     breakdown: effectiveBreakdown,
-    targetRank,
-    setTargetRank,
     isPartial,
     isDuelActive,
     isDuelEnded,

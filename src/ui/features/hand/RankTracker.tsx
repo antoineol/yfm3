@@ -1,15 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
-import type { RankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
-import type { TargetRank } from "../../../engine/ranking/rank-spectrum.ts";
+import { useMemo, useState } from "react";
+import type {
+  FactorZone,
+  FactorZoneLayout,
+  RankBreakdown,
+} from "../../../engine/ranking/rank-scoring.ts";
+import {
+  getActiveZoneIndex,
+  getFactorZoneDefinitions,
+} from "../../../engine/ranking/rank-scoring.ts";
 import {
   SPECTRUM_SEGMENTS,
   scoreToColor,
   scoreToPosition,
-  scoreToSegmentIndex,
-  TARGET_RANK_OPTIONS,
-  targetRankToSegmentIndex,
 } from "../../../engine/ranking/rank-spectrum.ts";
 import { type RankTrackerState, useRankTracker } from "./use-rank-tracker.ts";
+
+// ── Constants ─────────────────────────────────────────────────────────
+
+const STORAGE_KEY = "fm-rank-details-open";
+
+/** Factor zone definitions are static — compute once at module level. */
+const ZONE_DEFINITIONS = getFactorZoneDefinitions();
 
 // ── Main component ────────────────────────────────────────────────────
 
@@ -39,34 +50,22 @@ function RankTrackerHeader({ tracker }: { tracker: RankTrackerState }) {
       >
         {label}
       </span>
-      <SpectrumBar breakdown={breakdown} targetRank={tracker.targetRank} />
-      <TargetRankSelect onChange={tracker.setTargetRank} value={tracker.targetRank} />
+      <SpectrumBar breakdown={breakdown} />
     </div>
   );
 }
 
 // ── Spectrum bar ──────────────────────────────────────────────────────
 
-function SpectrumBar({
-  breakdown,
-  targetRank,
-}: {
-  breakdown: RankBreakdown;
-  targetRank: TargetRank;
-}) {
+function SpectrumBar({ breakdown }: { breakdown: RankBreakdown }) {
   const position = scoreToPosition(breakdown.total);
-  const targetIdx = targetRankToSegmentIndex(targetRank);
   const scoreColor = scoreToColor(breakdown.total);
 
   return (
     <div className="fm-rank-bar">
-      <div className="flex w-full h-full rounded-sm overflow-hidden">
-        {SPECTRUM_SEGMENTS.map((seg, i) => (
-          <div
-            className={`fm-rank-segment ${i === targetIdx ? "fm-rank-segment--target" : ""}`}
-            key={seg.label}
-            style={{ backgroundColor: seg.color }}
-          />
+      <div className="flex w-full h-full rounded-sm overflow-hidden gap-px">
+        {SPECTRUM_SEGMENTS.map((seg) => (
+          <div className="fm-rank-segment" key={seg.label} style={{ backgroundColor: seg.color }} />
         ))}
       </div>
       <div
@@ -83,69 +82,42 @@ function SpectrumBar({
   );
 }
 
-// ── Target rank dropdown ──────────────────────────────────────────────
-
-function TargetRankSelect({
-  value,
-  onChange,
-}: {
-  value: TargetRank;
-  onChange: (rank: TargetRank) => void;
-}) {
-  return (
-    <select
-      className="fm-rank-target-select text-xs font-body"
-      onChange={(e) => onChange(e.target.value as TargetRank)}
-      value={value}
-    >
-      {TARGET_RANK_OPTIONS.map((opt) => (
-        <option key={opt} value={opt}>
-          {opt}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 // ── Expandable details ────────────────────────────────────────────────
 
 function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
-  const [open, setOpen] = useState(false);
-
-  // Collapse when a new duel starts
-  useEffect(() => {
-    if (tracker.isDuelActive) {
-      setOpen(false);
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch {
+      return false;
     }
-  }, [tracker.isDuelActive]);
+  });
 
-  const sortedFactors = useMemo(
-    () => buildSortedFactors(tracker.breakdown, tracker.isPartial),
+  const toggleOpen = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
+  const factors = useMemo(
+    () => buildFactorRows(tracker.breakdown, tracker.isPartial),
     [tracker.breakdown, tracker.isPartial],
   );
 
   const scoreColor = scoreToColor(tracker.breakdown.total);
   const rankLabel = tracker.breakdown.rank.label;
-  const segmentIdx = scoreToSegmentIndex(tracker.breakdown.total);
-  const targetIdx = targetRankToSegmentIndex(tracker.targetRank);
-  const inTarget = segmentIdx === targetIdx;
 
   return (
     <>
-      <button
-        className="fm-rank-details-toggle"
-        onClick={() => setOpen((prev) => !prev)}
-        type="button"
-      >
-        <span className="flex items-center gap-2">
-          <span className="font-display text-sm" style={{ color: scoreColor }}>
-            {rankLabel}
-          </span>
-          {inTarget && (
-            <span className="text-xs" style={{ color: "var(--color-stat-up)" }}>
-              on target
-            </span>
-          )}
+      <button className="fm-rank-details-toggle" onClick={toggleOpen} type="button">
+        <span className="font-display text-sm" style={{ color: scoreColor }}>
+          {rankLabel}
         </span>
         <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
           {open ? "Hide details" : "Show details"}
@@ -154,8 +126,8 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
       <div className={`fm-rank-details ${open ? "fm-rank-details--open" : ""}`}>
         <div className="fm-rank-details-inner">
           <div className="fm-rank-factor-list">
-            {sortedFactors.map((f) => (
-              <FactorRow factor={f} key={f.name} targetRank={tracker.targetRank} />
+            {factors.map((f, i) => (
+              <FactorZoneRow factor={f} key={f.name} zoneLayout={ZONE_DEFINITIONS[i]} />
             ))}
             <VictoryBonusRow bonus={tracker.breakdown.victoryBonus} />
           </div>
@@ -165,14 +137,13 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
   );
 }
 
-// ── Factor rows ───────────────────────────────────────────────────────
+// ── Factor zone rows ──────────────────────────────────────────────────
 
-interface SortedFactor {
+interface FactorRowData {
   name: string;
   rawValue: number;
   points: number;
-  minPoints: number;
-  maxPoints: number;
+  factorIndex: number;
   isEstimated: boolean;
 }
 
@@ -187,28 +158,48 @@ const PARTIAL_ESTIMATED_KEYS = new Set([
   "Traps",
 ]);
 
-function buildSortedFactors(breakdown: RankBreakdown, isPartial: boolean): SortedFactor[] {
-  return breakdown.factors
-    .map((f) => ({
-      ...f,
-      isEstimated: isPartial && PARTIAL_ESTIMATED_KEYS.has(f.name),
-    }))
-    .sort((a, b) => Math.abs(b.points) - Math.abs(a.points));
+function buildFactorRows(breakdown: RankBreakdown, isPartial: boolean): FactorRowData[] {
+  return breakdown.factors.map((f, i) => ({
+    name: f.name,
+    rawValue: f.rawValue,
+    points: f.points,
+    factorIndex: i,
+    isEstimated: isPartial && PARTIAL_ESTIMATED_KEYS.has(f.name),
+  }));
 }
 
-function FactorRow({ factor, targetRank }: { factor: SortedFactor; targetRank: TargetRank }) {
-  const colorClass = getFactorColorClass(factor.points, targetRank);
-  const barStyle = computeMiniBarStyle(factor);
+function FactorZoneRow({
+  factor,
+  zoneLayout,
+}: {
+  factor: FactorRowData;
+  zoneLayout: FactorZoneLayout | undefined;
+}) {
+  const activeIdx = getActiveZoneIndex(factor.factorIndex, factor.rawValue);
+  const zones = zoneLayout?.zones ?? [];
+  const cursorLeft = computeCursorPosition(activeIdx, factor.rawValue, zones);
 
   return (
     <div className={`fm-rank-factor ${factor.isEstimated ? "fm-rank-factor--estimated" : ""}`}>
       <span className="fm-rank-factor-name text-xs">{factor.name}</span>
-      <span className="fm-rank-factor-count text-xs font-mono tabular-nums">{factor.rawValue}</span>
-      <span className={`fm-rank-factor-points text-xs font-mono tabular-nums ${colorClass}`}>
-        {formatPoints(factor.points)}
-      </span>
-      <div className="fm-rank-factor-bar">
-        <div className={`fm-rank-factor-bar-fill ${colorClass}`} style={barStyle} />
+      <div className="fm-rank-zone-bar">
+        {zones.map((zone, i) => {
+          const isActive = i === activeIdx;
+          return (
+            <div
+              className={`fm-rank-zone ${isActive ? "fm-rank-zone--active" : ""}`}
+              key={zone.points}
+              style={getZoneStyle(zone.points, isActive)}
+            >
+              <span className="fm-rank-zone-edge">{zone.leftLabel}</span>
+              <span className="fm-rank-zone-points">{formatPoints(zone.points)}</span>
+              <span className="fm-rank-zone-edge">{zone.rightLabel}</span>
+            </div>
+          );
+        })}
+        <div className="fm-rank-cursor" style={{ left: `${String(cursorLeft)}%` }}>
+          {formatCursorValue(factor.rawValue, zoneLayout?.key)}
+        </div>
       </div>
     </div>
   );
@@ -218,13 +209,45 @@ function VictoryBonusRow({ bonus }: { bonus: number }) {
   return (
     <div className="fm-rank-factor fm-rank-factor--victory">
       <span className="fm-rank-factor-name text-xs">Win type</span>
-      <span className="fm-rank-factor-count text-xs font-mono" />
-      <span className="fm-rank-factor-points text-xs font-mono tabular-nums text-text-muted">
+      <span className="fm-rank-factor-victory-pts text-xs font-mono tabular-nums text-text-muted">
         {formatPoints(bonus)}
       </span>
-      <span className="fm-rank-factor-bar" />
     </div>
   );
+}
+
+// ── Cursor position ───────────────────────────────────────────────────
+
+/** Inset so the cursor never sits exactly at a zone boundary. */
+const ZONE_INSET = 0.1;
+
+function computeCursorPosition(activeIdx: number, rawValue: number, zones: FactorZone[]): number {
+  const zone = zones[activeIdx];
+  if (!zone || zones.length === 0) return 0;
+
+  const zoneWidth = 100 / zones.length;
+  let posInZone: number;
+
+  if (zone.rangeStart === zone.rangeEnd) {
+    posInZone = 0.5;
+  } else {
+    const raw = (rawValue - zone.rangeStart) / (zone.rangeEnd - zone.rangeStart);
+    posInZone = Math.max(0, Math.min(1, raw));
+  }
+
+  // Map [0,1] → [INSET, 1-INSET] so the cursor stays visibly inside its zone
+  posInZone = ZONE_INSET + posInZone * (1 - 2 * ZONE_INSET);
+
+  return (activeIdx + posInZone) * zoneWidth;
+}
+
+function formatCursorValue(rawValue: number, key: string | undefined): string {
+  if (key === "remainingLp" && rawValue >= 1000) {
+    return rawValue % 1000 === 0
+      ? `${String(rawValue / 1000)}k`
+      : `${(rawValue / 1000).toFixed(1)}k`;
+  }
+  return String(rawValue);
 }
 
 function formatPoints(pts: number): string {
@@ -232,46 +255,22 @@ function formatPoints(pts: number): string {
   return String(pts);
 }
 
-// ── Color logic ───────────────────────────────────────────────────────
+// ── Zone style (background alpha + adaptive text color) ──────────────
 
-function getFactorColorClass(points: number, targetRank: TargetRank): string {
-  if (points === 0) return "text-text-muted";
-
-  // BCD targets: no directional coloring
-  if (targetRank === "BCD") return "text-text-secondary";
-
-  // POW targets: higher score = better → positive = green, negative = red
-  const isPow = targetRank === "S-POW" || targetRank === "A-POW";
-  if (isPow) {
-    return points > 0 ? "text-stat-up" : "text-stat-atk";
-  }
-
-  // TEC targets: lower score = better → negative = green, positive = red (reversed)
-  return points < 0 ? "text-stat-up" : "text-stat-atk";
+function getZoneBaseRgb(points: number): [number, number, number] {
+  if (points > 0) return [232, 163, 76]; // warm (--color-rank-a-pow)
+  if (points < 0) return [90, 200, 232]; // cool (--color-rank-a-tec)
+  return [96, 85, 72]; // neutral (--color-rank-bcd)
 }
 
-// ── Mini bar computation ──────────────────────────────────────────────
+function getZoneStyle(points: number, isActive: boolean): React.CSSProperties {
+  const [r, g, b] = getZoneBaseRgb(points);
+  const bgAlpha = isActive ? 0.9 : 0.3;
+  const needsDarkText = isActive && points !== 0;
 
-function computeMiniBarStyle(factor: SortedFactor): React.CSSProperties {
-  const range = factor.maxPoints - factor.minPoints;
-  if (range === 0) return {};
-
-  const centerPct = ((0 - factor.minPoints) / range) * 100;
-  const valuePct = ((factor.points - factor.minPoints) / range) * 100;
-
-  if (factor.points >= 0) {
-    // Bar extends right from center
-    const widthPct = valuePct - centerPct;
-    return {
-      left: `${String(centerPct)}%`,
-      width: `${String(Math.abs(widthPct))}%`,
-    };
-  }
-
-  // Bar extends left from center
-  const widthPct = centerPct - valuePct;
   return {
-    left: `${String(valuePct)}%`,
-    width: `${String(Math.abs(widthPct))}%`,
+    backgroundColor: `rgba(${String(r)}, ${String(g)}, ${String(b)}, ${String(bgAlpha)})`,
+    color: needsDarkText ? "rgba(0, 0, 0, 0.9)" : "#fff",
+    textShadow: needsDarkText ? "none" : "0 1px 3px rgba(0, 0, 0, 0.8)",
   };
 }

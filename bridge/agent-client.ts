@@ -117,6 +117,15 @@ export interface AgentClient {
   /** Load a save state by slot (1–8). */
   loadState(slot: number): Promise<CommandResult>;
 
+  /**
+   * Tap a button and wait for the game state to change.
+   * Returns the new state after the change. This is the core agent feedback loop.
+   */
+  interact(
+    button: Ps1Button,
+    timeoutMs?: number,
+  ): Promise<{ result: CommandResult; state: AgentGameState }>;
+
   /** Wait until the duel phase matches. Rejects on timeout. */
   waitForPhase(phase: DuelPhase, timeoutMs?: number): Promise<AgentGameState>;
   /** Wait until a predicate is true on the game state. Rejects on timeout. */
@@ -246,6 +255,35 @@ export function createAgentClient(url = "ws://localhost:3333"): AgentClient {
 
     tap(button: Ps1Button): Promise<CommandResult> {
       return sendCommand("input", { button });
+    },
+
+    async interact(
+      button: Ps1Button,
+      timeoutMs = DEFAULT_TIMEOUT_MS,
+    ): Promise<{ result: CommandResult; state: AgentGameState }> {
+      const stateBefore = currentState ? JSON.stringify(currentState) : null;
+
+      // Start listening for a state change before tapping
+      const stateChanged = new Promise<AgentGameState>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          unsub();
+          reject(new Error(`interact timed out after ${timeoutMs}ms waiting for state change`));
+        }, timeoutMs);
+
+        const listener = (s: AgentGameState) => {
+          if (JSON.stringify(s) !== stateBefore) {
+            clearTimeout(timer);
+            unsub();
+            resolve(s);
+          }
+        };
+        listeners.add(listener);
+        const unsub = () => listeners.delete(listener);
+      });
+
+      const result = await client.tap(button);
+      const state = await stateChanged;
+      return { result, state };
     },
 
     hold(button: Ps1Button, ms: number): Promise<CommandResult> {

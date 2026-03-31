@@ -35,9 +35,13 @@ function startVigemHelper(): { tap: (btn: string) => Promise<void>; quit: () => 
   const scriptDir = dirname(import.meta.path);
   const scriptPath = join(scriptDir, "vigem-helper.ps1");
 
-  const proc = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath], {
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const proc = spawn(
+    "powershell.exe",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+    {
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
 
   proc.stderr.on("data", (d: Buffer) => process.stderr.write(`[vigem] ${d}`));
 
@@ -113,11 +117,12 @@ async function main() {
 
   for (let tick = 0; tick < 3000; tick++) {
     await sleep(200);
-    if (!state || state.duelPhase === null) continue;
+    const s = state as GameState | null;
+    if (!s || s.duelPhase === null) continue;
 
-    const phase = state.duelPhase;
-    const turn = state.turnIndicator ?? 0;
-    const lp = state.lp;
+    const phase = s.duelPhase;
+    const turn = s.turnIndicator ?? 0;
+    const lp = s.lp;
     const lpStr = lp ? `[LP ${lp[0]} vs ${lp[1]}]` : "";
 
     if (phase === lastPhase) {
