@@ -36,6 +36,14 @@ export interface OffsetProfile {
   cardsDealt: number;
   /** Absolute address of hand slot index array (u8[5], 0xFF = card left hand). */
   handSlots: number;
+  /**
+   * Rank counter base: 6 contiguous u8 counters starting here.
+   * [turns, effAttacks, defWins, faceDown, pureMagic, traps]
+   * Derived: fusionCounter-7 for NTSC-U (0x0E9FF1).
+   */
+  rankStatsBase: number;
+  /** Equip magic counter (u8), right after fusion counter. */
+  equipCounter: number;
 }
 
 export interface SharedMemoryMapping {
@@ -78,6 +86,12 @@ export interface GameState {
   cpuShuffledDeck: number[];
   /** Free-duel duelist unlock bitfield (raw bytes at 0x1D06F4). */
   duelistUnlock: number[];
+  /**
+   * 10 rank scoring counters, ordered to match the engine's RankFactors:
+   * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp]
+   * null when profile is unavailable.
+   */
+  rankCounters: number[] | null;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -127,6 +141,8 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   fusionCounter: 0x0e9ff8,
   cardsDealt: 0x0ea008, // lpP1+0x04 (NTSC-U has 2 LP copies before dealt)
   handSlots: 0x0ea00a, // lpP1+0x06
+  rankStatsBase: 0x0e9ff1, // fusionCounter-7: [turns, effAtk, defWin, faceDown, pureMagic, traps]
+  equipCounter: 0x0e9ff9, // fusionCounter+1
 };
 
 /**
@@ -158,6 +174,8 @@ export const PAL_PROFILE: OffsetProfile = {
   fusionCounter: 0x0eb27f, // lpP1-0x0B, uint8
   cardsDealt: 0x0eb290, // lpP1+0x06 (PAL has 3 LP copies before dealt)
   handSlots: 0x0eb292, // lpP1+0x08
+  rankStatsBase: 0x0eb278, // fusionCounter-7
+  equipCounter: 0x0eb280, // fusionCounter+1
 };
 
 /**
@@ -241,6 +259,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       fusionCounter,
       cardsDealt: DEFAULT_PROFILE.cardsDealt + d,
       handSlots: DEFAULT_PROFILE.handSlots + d,
+      rankStatsBase: DEFAULT_PROFILE.rankStatsBase + d,
+      equipCounter: DEFAULT_PROFILE.equipCounter + d,
     };
 
     // Quick validation: duel phase should be a recognized value (1–13) during a duel
@@ -300,6 +320,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
         fusionCounter: lpP1 - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter),
         cardsDealt: lpP1 + (PAL_PROFILE.cardsDealt - PAL_PROFILE.lpP1),
         handSlots: lpP1 + (PAL_PROFILE.handSlots - PAL_PROFILE.lpP1),
+        rankStatsBase: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.rankStatsBase),
+        equipCounter: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.equipCounter),
       };
     }
   } else {
@@ -413,6 +435,8 @@ export function buildProfileFromDiscovery(
     fusionCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter) : 0,
     cardsDealt: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.cardsDealt - DEFAULT_PROFILE.lpP1) : 0,
     handSlots: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.handSlots - DEFAULT_PROFILE.lpP1) : 0,
+    rankStatsBase: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.rankStatsBase) : 0,
+    equipCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.equipCounter) : 0,
   };
 }
 
@@ -567,6 +591,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentField,
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
+    rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
   };
 }
@@ -605,6 +630,38 @@ export function readShuffledDeck(view: DataView): number[] {
  */
 export function readCpuShuffledDeck(view: DataView): number[] {
   return readU16Array(view, CPU_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
+}
+
+/**
+ * Read the 10 rank scoring counters from RAM.
+ *
+ * The game stores duel stats in two groups:
+ * - 6 contiguous u8 at rankStatsBase: [turns, effAttacks, defWins, faceDown, pureMagic, traps]
+ * - fusionCounter (u8), equipCounter (u8): separate addresses
+ * - cardsDealt (u8), lpP1 (u16): in the LP block
+ *
+ * Returns them in the engine's RankFactors order:
+ * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp]
+ */
+function readRankCounters(view: DataView, profile: OffsetProfile): number[] {
+  const base = readU8Array(view, profile.rankStatsBase, 6); // turns, effAtk, defWin, faceDown, pureMagic, traps
+  const fusions = readU8(view, profile.fusionCounter);
+  const equips = readU8(view, profile.equipCounter);
+  const cardsDealt = readU8(view, profile.cardsDealt);
+  const lp = readU16(view, profile.lpP1);
+
+  return [
+    base[0] ?? 0, // turns
+    base[1] ?? 0, // effectiveAttacks
+    base[2] ?? 0, // defensiveWins
+    base[3] ?? 0, // faceDownPlays
+    fusions, // fusionsInitiated
+    equips, // equipMagicUsed
+    base[4] ?? 0, // pureMagicUsed
+    base[5] ?? 0, // trapsTriggered
+    40 - cardsDealt, // remainingCards (convert dealt→remaining)
+    lp, // remainingLp
+  ];
 }
 
 /**

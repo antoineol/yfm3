@@ -18,6 +18,17 @@ import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe
 import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
+import type { Hwnd } from "./input.ts";
+import {
+  areBindingsLoaded,
+  findMainWindowHandle,
+  holdButton,
+  isValidButton,
+  isValidSlot,
+  loadBindings,
+  loadState,
+  tapButton,
+} from "./input.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
 import {
   closeSharedMemory,
@@ -36,7 +47,7 @@ import {
   readShuffledDeck,
   validateProfile,
 } from "./memory.ts";
-import { ensureSharedMemoryEnabled, getExePathForPid } from "./settings.ts";
+import { ensureLoadStateHotkeys, ensureSharedMemoryEnabled, getExePathForPid } from "./settings.ts";
 
 // ── File logging (so Claude can read bridge/bridge.log) ─────────
 // In compiled Bun standalone, import.meta.dir is a virtual path (e.g. B:\~BUN\root\).
@@ -154,6 +165,10 @@ let reopenedAfterStale = false; // prevents repeated reopen attempts
 let lastConnectStatus = ""; // deduplicates tryConnect console logs
 let pidCheckCounter = 0;
 const PID_CHECK_INTERVAL = 40; // check PID every 40 polls (40 × 50ms = 2 seconds)
+
+// ── Input control state ─────────────────────────────────────────────
+let dsHwnd: Hwnd | null = null; // DuckStation main window handle
+let loadStateHotkeysReady = false; // set once settings.ini is patched
 
 // ── Game data (fusion/equip tables from disc image) ───────────────
 let currentGameData: GameData | null = null;
@@ -450,6 +465,10 @@ const server = Bun.serve({
           } else {
             stageUpdateInBackground();
           }
+        } else if (msg.type === "input") {
+          void handleInputMessage(ws, msg);
+        } else if (msg.type === "loadState") {
+          void handleLoadStateMessage(ws, msg);
         } else if (msg.type === "update_and_restart") {
           console.log("Received update-and-restart request from client");
           broadcast(JSON.stringify({ type: "update_restart_ack" }));
@@ -488,6 +507,83 @@ function broadcast(json: string): void {
       client.send(json);
     }
   }
+}
+
+// ── Input command handlers ───────────────────────────────────────
+
+type BridgeWs = { send(data: string): void };
+
+function sendResult(ws: BridgeWs, type: string, ok: boolean, error?: string): void {
+  try {
+    ws.send(JSON.stringify({ type, success: ok, ...(error ? { error } : {}) }));
+  } catch {
+    /* client may have disconnected */
+  }
+}
+
+/**
+ * Ensure the HWND is resolved for the current DuckStation process.
+ * Caches the result until the mapping changes.
+ */
+function ensureHwnd(): Hwnd | null {
+  if (dsHwnd) return dsHwnd;
+  if (!mapping) return null;
+  dsHwnd = findMainWindowHandle(mapping.pid);
+  if (dsHwnd) {
+    console.log(`Resolved DuckStation HWND: ${dsHwnd} (PID ${mapping.pid})`);
+    if (!areBindingsLoaded()) {
+      loadBindings(mapping.pid);
+    }
+  }
+  return dsHwnd;
+}
+
+async function handleInputMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {
+  const hwnd = ensureHwnd();
+  if (!hwnd) {
+    sendResult(ws, "input_result", false, "DuckStation window not found");
+    return;
+  }
+
+  const button = String(msg.button ?? "");
+  if (!isValidButton(button)) {
+    sendResult(ws, "input_result", false, `Invalid button: ${button}`);
+    return;
+  }
+
+  const holdMs = typeof msg.hold === "number" ? msg.hold : undefined;
+  const ok =
+    holdMs != null ? await holdButton(hwnd, button, holdMs) : await tapButton(hwnd, button);
+  sendResult(ws, "input_result", ok, ok ? undefined : "PostMessage failed");
+}
+
+async function handleLoadStateMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {
+  const hwnd = ensureHwnd();
+  if (!hwnd) {
+    sendResult(ws, "loadState_result", false, "DuckStation window not found");
+    return;
+  }
+
+  const slot = Number(msg.slot);
+  if (!isValidSlot(slot)) {
+    sendResult(ws, "loadState_result", false, `Invalid slot: ${msg.slot} (must be 1–8)`);
+    return;
+  }
+
+  if (!loadStateHotkeysReady) {
+    const result = ensureLoadStateHotkeys(mapping?.pid);
+    if (result.error) {
+      sendResult(ws, "loadState_result", false, `Hotkey setup failed: ${result.error}`);
+      return;
+    }
+    loadStateHotkeysReady = true;
+    if (result.patched) {
+      console.log("Patched DuckStation settings.ini with LoadGameState hotkeys");
+    }
+  }
+
+  const ok = await loadState(hwnd, slot);
+  sendResult(ws, "loadState_result", ok, ok ? undefined : "PostMessage failed");
 }
 
 // ── Connection to DuckStation ──────────────────────────────────────
@@ -558,6 +654,7 @@ async function forceReconnect(): Promise<void> {
   reopenedAfterStale = false;
   pidCheckCounter = 0;
   lastConnectStatus = "";
+  dsHwnd = null;
   resetProfile();
   resetGameData();
   resetPalProbe();
@@ -608,6 +705,7 @@ async function restartDuckStation(): Promise<boolean> {
       /* ignore */
     }
     mapping = null;
+    dsHwnd = null;
     lastJson = "";
     hadNonZeroData = false;
     reopenedAfterStale = false;
@@ -835,6 +933,7 @@ async function poll(): Promise<void> {
               /* ignore */
             }
             mapping = null;
+            dsHwnd = null;
             consecutiveZeroReads = 0;
             hadNonZeroData = false;
             reopenedAfterStale = false;
@@ -901,6 +1000,7 @@ async function poll(): Promise<void> {
               /* ignore */
             }
             mapping = null;
+            dsHwnd = null;
             consecutiveZeroReads = 0;
             hadNonZeroData = false;
             reopenedAfterStale = false;
@@ -991,6 +1091,7 @@ async function poll(): Promise<void> {
         /* ignore */
       }
       mapping = null;
+      dsHwnd = null;
       lastJson = "";
       hadNonZeroData = false;
       reopenedAfterStale = false;

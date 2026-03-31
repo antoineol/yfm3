@@ -28,7 +28,8 @@ export function useUpdatePreferences() {
   const mutateUserSettings = useAuthMutation(api.userSettings.updateUserSettings);
 
   return (values: UpdatePreferencesArgs) => {
-    const { bridgeAutoSync, handSourceMode, cheatMode, cheatView, ...modValues } = values;
+    const { bridgeAutoSync, handSourceMode, cheatMode, cheatView, targetRank, ...modValues } =
+      values;
 
     // Always persist bridgeAutoSync to localStorage (solves bootstrap problem)
     if (bridgeAutoSync !== undefined) {
@@ -44,6 +45,7 @@ export function useUpdatePreferences() {
       if (handSourceMode !== undefined) patch.handSourceMode = handSourceMode;
       if (cheatMode !== undefined) patch.cheatMode = cheatMode;
       if (cheatView !== undefined) patch.cheatView = cheatView;
+      if (targetRank !== undefined) patch.targetRank = targetRank as LocalSettings["targetRank"];
 
       if (Object.keys(patch).length > 0) {
         setLocalSettings((prev) => {
@@ -61,9 +63,10 @@ export function useUpdatePreferences() {
       bridgeAutoSync !== undefined ||
       handSourceMode !== undefined ||
       cheatMode !== undefined ||
-      cheatView !== undefined;
+      cheatView !== undefined ||
+      targetRank !== undefined;
     if (hasModValues) void mutateModSettings(modValues);
     if (hasGlobalValues)
-      void mutateUserSettings({ bridgeAutoSync, handSourceMode, cheatMode, cheatView });
+      void mutateUserSettings({ bridgeAutoSync, handSourceMode, cheatMode, cheatView, targetRank });
   };
 }

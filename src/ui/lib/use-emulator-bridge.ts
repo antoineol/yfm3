@@ -19,6 +19,8 @@ export type DuelStats = {
   fusions: number;
   terrain: number;
   duelistId: number;
+  /** Raw rank counter bytes from RAM (10 values matching scoring table order), null if unavailable. */
+  rankCounters: number[] | null;
 };
 
 // ── Raw bridge message types (internal) ──────────────────────────────
@@ -41,6 +43,8 @@ type RawBridgeState = {
   fusions: number | null;
   terrain: number | null;
   duelistId: number | null;
+  /** Raw rank counter bytes from RAM (10 values in scoring table order). */
+  rankCounters?: number[] | null;
   /** Hand slot indices (u8[5]): deal index or 0xFF = card left hand. Null if profile unavailable. */
   handSlots: number[] | null;
   // Universal fields — always available.
@@ -126,7 +130,12 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
   const field = filterFieldSlots(raw.field);
   const stats: DuelStats | null =
     raw.fusions != null
-      ? { fusions: raw.fusions, terrain: raw.terrain ?? 0, duelistId: raw.duelistId ?? 0 }
+      ? {
+          fusions: raw.fusions,
+          terrain: raw.terrain ?? 0,
+          duelistId: raw.duelistId ?? 0,
+          rankCounters: Array.isArray(raw.rankCounters) ? raw.rankCounters : null,
+        }
       : null;
 
   // Opponent data — same filtering logic as player (gracefully handle missing data from older bridges)

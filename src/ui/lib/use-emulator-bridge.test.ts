@@ -618,7 +618,7 @@ describe("interpretRawState", () => {
         makeRaw({ lp: [6000, 3000], fusions: 2, terrain: 4, duelistId: 12 }),
       );
       expect(result.lp).toEqual([6000, 3000]);
-      expect(result.stats).toEqual({ fusions: 2, terrain: 4, duelistId: 12 });
+      expect(result.stats).toEqual({ fusions: 2, terrain: 4, duelistId: 12, rankCounters: null });
     });
   });
 });

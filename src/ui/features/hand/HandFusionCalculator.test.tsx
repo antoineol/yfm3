@@ -29,6 +29,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useCheatMode: vi.fn(() => false),
   useCheatView: vi.fn(() => "player"),
   useCpuSwaps: vi.fn(() => []),
+  useTargetRank: vi.fn(() => "S-POW"),
 }));
 
 import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
@@ -173,7 +174,7 @@ describe("HandFusionCalculator", () => {
         phase: "hand",
         inDuel: true,
         lp: [9900, 9900],
-        stats: { fusions: 2, terrain: 0, duelistId: 1 },
+        stats: { fusions: 2, terrain: 0, duelistId: 1, rankCounters: null },
       }),
     );
 

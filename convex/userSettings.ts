@@ -55,6 +55,7 @@ export const updateUserSettings = mutation({
     handSourceMode: v.optional(handSourceModeValidator),
     cheatMode: v.optional(v.boolean()),
     cheatView: v.optional(cheatViewValidator),
+    targetRank: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
@@ -69,6 +70,7 @@ export const updateUserSettings = mutation({
       if (args.handSourceMode !== undefined) rest.handSourceMode = args.handSourceMode;
       if (args.cheatMode !== undefined) rest.cheatMode = args.cheatMode;
       if (args.cheatView !== undefined) rest.cheatView = args.cheatView;
+      if (args.targetRank !== undefined) rest.targetRank = args.targetRank;
       await ctx.db.replace(_id, rest);
       return;
     }
@@ -78,6 +80,7 @@ export const updateUserSettings = mutation({
     if (args.handSourceMode !== undefined) patch.handSourceMode = args.handSourceMode;
     if (args.cheatMode !== undefined) patch.cheatMode = args.cheatMode;
     if (args.cheatView !== undefined) patch.cheatView = args.cheatView;
+    if (args.targetRank !== undefined) patch.targetRank = args.targetRank;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);

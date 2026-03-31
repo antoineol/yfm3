@@ -1,5 +1,6 @@
 import { atom, useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
+import type { TargetRank } from "../../engine/ranking/rank-spectrum.ts";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts";
 import type { CheatView, HandSourceMode } from "../db/use-user-preferences.ts";
 import { readLocal, writeLocal } from "./local-store.ts";
@@ -25,6 +26,7 @@ export interface LocalSettings {
   handSourceMode: HandSourceMode;
   cheatMode: boolean;
   cheatView: CheatView;
+  targetRank: TargetRank;
 }
 
 const LOCAL_SETTINGS_DEFAULTS: LocalSettings = {
@@ -34,6 +36,7 @@ const LOCAL_SETTINGS_DEFAULTS: LocalSettings = {
   handSourceMode: "all",
   cheatMode: false,
   cheatView: "player",
+  targetRank: "S-POW",
 };
 
 function hydrateLocalSettings(): LocalSettings {
@@ -48,6 +51,8 @@ function hydrateLocalSettings(): LocalSettings {
       LOCAL_SETTINGS_DEFAULTS.handSourceMode,
     cheatMode: readLocal<boolean>("yfm_settings:cheatMode") ?? LOCAL_SETTINGS_DEFAULTS.cheatMode,
     cheatView: readLocal<CheatView>("yfm_settings:cheatView") ?? LOCAL_SETTINGS_DEFAULTS.cheatView,
+    targetRank:
+      readLocal<TargetRank>("yfm_settings:targetRank") ?? LOCAL_SETTINGS_DEFAULTS.targetRank,
   };
 }
 
@@ -61,6 +66,7 @@ export function persistLocalSettings(settings: LocalSettings): void {
   writeLocal("yfm_settings:handSourceMode", settings.handSourceMode);
   writeLocal("yfm_settings:cheatMode", settings.cheatMode);
   writeLocal("yfm_settings:cheatView", settings.cheatView);
+  writeLocal("yfm_settings:targetRank", settings.targetRank);
 }
 
 // ── CPU swap detections ─────────────────────────────────────────────

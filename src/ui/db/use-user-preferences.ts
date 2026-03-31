@@ -2,6 +2,7 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
+import type { TargetRank } from "../../engine/ranking/rank-spectrum.ts";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts";
 import { useAuthQuery } from "../core/convex-hooks.ts";
 import { getAutoSyncMode } from "../lib/auto-sync-mode.ts";
@@ -102,6 +103,18 @@ export function useCheatView(): CheatView {
   if (autoSync) return localSettings.cheatView ?? "player";
   return settings?.cheatView ?? "player";
 }
+
+// ── Rank tracker target ─────────────────────────────────────────────
+
+export function useTargetRank(): TargetRank {
+  const autoSync = useBridgeAutoSync();
+  const localSettings = useAtomValue(localSettingsAtom);
+  const settings = useUserSettings();
+  if (autoSync) return (localSettings.targetRank as TargetRank) ?? "S-POW";
+  return (settings?.targetRank as TargetRank) ?? "S-POW";
+}
+
+// ── CPU swap detections ─────────────────────────────────────────────
 
 export function useCpuSwaps(): CpuSwap[] {
   return useAtomValue(localCpuSwapsAtom);

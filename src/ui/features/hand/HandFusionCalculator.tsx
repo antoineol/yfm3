@@ -24,6 +24,7 @@ import { HandCardSelector } from "./HandCardSelector.tsx";
 import { HandDisplay } from "./HandDisplay.tsx";
 import { OpponentPanel } from "./OpponentPanel.tsx";
 import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
+import { RankTracker } from "./RankTracker.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
 import { useSyncCpuSwaps } from "./use-sync-cpu-swaps.ts";
@@ -175,6 +176,9 @@ export function HandFusionCalculator() {
 
       {/* ── Post-duel suggestion (shown even while inDuel is stale) ── */}
       {hasPostDuelContent && <PostDuelSuggestion suggestion={postDuel} />}
+
+      {/* ── Live rank tracker (synced duels only) ── */}
+      <RankTracker />
 
       {/* ── Waiting for duel / duel ended (only when no post-duel content) ── */}
       {isWaitingForDuel &&
