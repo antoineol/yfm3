@@ -27,7 +27,8 @@
     "bridge:bump": "cd bridge && npm version patch && npm install",
     "deploy": "convex deploy --cmd 'bun run build' --cmd-url-env-var-name VITE_CONVEX_URL && convex run migrations:runAll",
     "release:bridge": "TAG=bridge-v$(node -p \"require('./bridge/package.json').version\") && git tag $TAG && git push origin $TAG",
-    "prepare": "husky"
+    "prepare": "husky",
+    "loc": "find . -type f \\( -name '*.ts' -o -name '*.tsx' \\) -not -path '*/node_modules/*' -not -path './.git/*' -not -path './dist/*' | xargs wc -l | tail -1"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
