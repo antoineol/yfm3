@@ -1,17 +1,14 @@
 # Claude.md
 
-The role of this file is to describe common mistakes and confusion points that agents might encounter as they work in this project. If you ever encounter something in the project that surprises you, please alert the developer working with you and indicate that this is the case in the AgentMD file to help prevent future agents from having the same issue.
-
 ## Purpose
 
-This project is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remastered Perfected" mod. Given a player's card collection, it generates an optimal 40-card monster deck that maximizes the **expected value of the highest attack** achievable from a random 5-card opening hand, considering both direct card plays and fusion chains.
+Deck optimizer for "Yu-Gi-Oh! Forbidden Memories" (Remastered Perfected mod). Given a player's card collection, generates an optimal 40-card monster deck that maximizes the **expected value of the highest attack** from a random 5-card opening hand, considering direct plays and fusion chains.
 
-## Other files
+## Key files
 
-- README.md: scripts and usage instructions.
-- docs/PLAN.md: the high-level plan to implement this app.
-- docs/steps/*: the plan's implementation steps.
-- src/engine/data/*: imported from another project, provides a bunch of utils that will be useful.
+- `docs/PLAN.md`: implementation plan and current status.
+- `docs/steps/*`: detailed implementation steps.
+- `src/engine/data/*`: game data utilities (card DB, fusion tables, CSV loaders).
 
 ## How to work
 
@@ -33,5 +30,4 @@ Full principles: `docs/refact/principles.md`. Rationale and examples: `docs/refa
 
 - `bun typecheck`, `bun lint` and `bun run test` before completing tasks.
 - Cover all behavior changes by specs.
-- Adapt the plan, and current and next steps.
 - Never run `npx convex import --replace-all` — it wipes the entire deployment.
