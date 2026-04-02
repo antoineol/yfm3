@@ -94,14 +94,6 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 
 ---
 
-## Compliance Checklist
+## Step back
 
-Before completing any change, think through these honestly. If one is NO, decide whether the code is genuinely better that way — and if so, note why.
-
-1. Can every function/component be named as ONE verb + ONE noun?
-2. Does every function either compute OR orchestrate, never both?
-3. Does every component either render OR manage state, never both?
-4. Would a new developer understand each file's purpose from its name alone?
-5. Are there functions or files that feel too large? (Check against size thresholds.)
-6. Does `typecheck`, `lint`, and `test` pass?
-7. Is there dead code, `any` types, or unnecessary indirection?
+After making changes, pause and re-read what you wrote. Ask: if another agent opened this file tomorrow with no context, would the structure help or hinder them? That's the test — not whether rules were followed, but whether the code is genuinely easier to work with.

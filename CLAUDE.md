@@ -31,10 +31,7 @@ Full principles: `docs/refact/principles.md`. Rationale and examples: `docs/refa
 
 ## Rules
 
-You must always do below for all changes:
-
 - `bun typecheck`, `bun lint` and `bun run test` before completing tasks.
-- Write functions in reading order. If A calls B, write A then B.
 - Cover all behavior changes by specs.
 - Adapt the plan, and current and next steps.
 - Never run `npx convex import --replace-all` — it wipes the entire deployment.
