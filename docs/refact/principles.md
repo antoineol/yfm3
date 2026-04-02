@@ -34,7 +34,7 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 
 ## 4. React Components and Hooks
 
-- Components are leaf (renders UI from props) or container (composes children + manages state). Not both.
+- Components are leaf (renders UI from props) or container (composes children + manages state). Not both. Exception: tiny components with a couple of `useState` calls and no effects don't need splitting — the threshold is when state management or rendering becomes non-trivial.
 - One custom hook = one concern. A hook managing both a WebSocket AND state parsing is two hooks.
 - One effect per useEffect call. Each effect has one setup and one cleanup.
 - No prop drilling beyond 1 level. Use composition (children/render props) or context.
@@ -59,7 +59,7 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 
 ## 7. Imports and Dependencies
 
-- Direct imports to source files. No barrel exports (index.ts re-exports).
+- Direct imports to source files. No barrel exports (`index.ts` re-exports).
 - No dependency injection in frontend apps. Use `vi.mock` for testing.
 - No wrapper functions that just forward arguments to another function.
 - If a helper is used once, inline it. Extract only after 3+ uses.

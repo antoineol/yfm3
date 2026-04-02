@@ -81,7 +81,12 @@ function findEquips(handIds, fieldMonsterIds, equipTable) {
     for (let j = 0; j < handIds.length; j++) {
       if (i === j) continue;
       if (equipEntry.monsterIds.includes(handIds[j])) {
-        results.push({ equipId: handIds[i], equipIndex: i, monsterId: handIds[j], monsterIndex: j });
+        results.push({
+          equipId: handIds[i],
+          equipIndex: i,
+          monsterId: handIds[j],
+          monsterIndex: j,
+        });
       }
     }
   }
@@ -106,7 +111,11 @@ async function main() {
 
   console.log("=== CURRENT STATE ===");
   console.log("Hand:", handIds.map((id, i) => `[${i}]${name(id)}(${atk(id)})`).join("  "));
-  console.log("Field:", fieldIds.map((id) => `${name(id)}(${field.find((c) => c.cardId === id)?.atk})`).join(", ") || "empty");
+  console.log(
+    "Field:",
+    fieldIds.map((id) => `${name(id)}(${field.find((c) => c.cardId === id)?.atk})`).join(", ") ||
+      "empty",
+  );
   console.log("Opp:", oppField.map((c) => `${name(c.cardId)}(${c.atk})`).join(", ") || "empty");
   console.log();
 
@@ -144,7 +153,9 @@ async function main() {
   console.log("\n=== BEST PLAY ===");
   if (fusions.length > 0) {
     const best = fusions.sort((a, b) => atk(b.result) - atk(a.result))[0];
-    console.log(`Fuse: ${name(best.material1)} + ${name(best.material2)} → ${name(best.result)}(${atk(best.result)})`);
+    console.log(
+      `Fuse: ${name(best.material1)} + ${name(best.material2)} → ${name(best.result)}(${atk(best.result)})`,
+    );
     const oppMax = Math.max(0, ...oppField.map((c) => c.atk));
     if (atk(best.result) > oppMax) {
       console.log(`  → Beats opponent's strongest (${oppMax})`);

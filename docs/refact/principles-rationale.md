@@ -39,7 +39,7 @@ function processAndSaveResults(data: RawData[]): SavedResult[] {
 }
 
 // GOOD: separated
-function scoreAndFilter(data: RawData[]): ScoredResult[] {
+function filterPassingScores(data: RawData[]): ScoredResult[] {
   const scored = data.map(d => computeScore(d));
   return scored.filter(s => s.value > 0);
 }
@@ -114,7 +114,7 @@ function PlayerHand({ cards, selected, onSelect }: PlayerHandProps) {
 
 ### Rule
 
-| Unit | Hard ceiling |
+| Unit | Threshold |
 |---|---|
 | Function body | 40 lines |
 | File (excluding imports and type definitions) | 150 lines |
@@ -484,14 +484,14 @@ addCardToDeck(deckId, cardId);  // compile error
 
 ### Rule
 
-- Direct imports to source files. No barrel exports (`index.ts` that re-exports from multiple files).
+- Direct imports to source files. No barrel exports (`index.ts` re-exports).
 - No dependency injection in frontend applications. Use `vi.mock` for test isolation.
 - No wrapper functions that just forward arguments to another function.
 - If a helper function is used in only one place, inline it. Extract only after 3 or more uses.
 
 ### Why (for agents)
 
-Barrel exports are the single biggest obstacle to agent navigation. When an agent greps for where `FusionScorer` is defined, a barrel file creates a false positive that the agent must trace through. Barrel files also create circular dependency risks and make it impossible to determine actual dependency relationships from import statements.
+When an agent greps for where `FusionScorer` is defined, a barrel file creates a false positive that the agent must trace through. Barrel exports also create circular dependency risks and obscure actual dependency relationships.
 
 Direct imports mean: grep finds the real source on the first hit. The import path IS the file path. No indirection.
 
@@ -499,26 +499,11 @@ Wrapper functions that forward arguments create the same problem: the agent find
 
 ### Enforcement
 
-- **Barrel audit:** Search for `index.ts` files that contain only `export ... from` statements. Delete them and update imports to point directly.
+- **Barrel audit:** Search for `index.ts` files that contain `export ... from` statements. Delete them and update imports to point directly.
 - **Wrapper audit:** Search for functions whose body is a single `return otherFunction(...)` call with the same arguments. Inline or delete.
 - **Single-use helper audit:** For each non-exported function, count its call sites. If 1, consider inlining. If 2, keep but watch. If 3+, it justifies existence.
 
 ### Examples
-
-```typescript
-// BAD: barrel file (scoring/index.ts)
-export { computeHandScore } from "./hand-scorer.ts";
-export { computeFusionBonus } from "./fusion-scorer.ts";
-export { computeDeckValue } from "./deck-evaluator.ts";
-
-// Consumer:
-import { computeHandScore } from "../scoring";
-// Agent greps for computeHandScore, finds index.ts, must trace to hand-scorer.ts
-
-// GOOD: direct imports
-import { computeHandScore } from "../scoring/hand-scorer.ts";
-// Agent greps for computeHandScore, finds hand-scorer.ts directly
-```
 
 ```typescript
 // BAD: wrapper that adds nothing
@@ -532,8 +517,7 @@ function fetchCards(): Promise<Card[]> {
 
 ### Edge Cases
 
-- **Package entry points** (`src/index.ts` as the library's public API) are acceptable barrels because they define the public contract of a published package.
-- **Re-exporting types** from a third-party library with narrower typing is not a barrel -- it is an adapter, and it adds value.
+- **Re-exporting types** from a third-party library with narrower typing is an adapter, not a barrel — it adds value.
 - **DI is acceptable** in backend services where constructor injection enables genuine test isolation without module mocking. The rule is specifically about frontend React applications.
 
 ---
