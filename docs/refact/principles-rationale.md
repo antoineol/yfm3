@@ -267,14 +267,21 @@ function getDiscount(user: User, item: Item): number {
 
 ### Rule
 
+- **Self-contained by default:** Components own their state, compute their derived values, expose a minimal prop surface. Self-containment is the design goal; the rules below are mechanisms.
 - Components are **leaf** (renders UI from props, no useState/useEffect) or **container** (composes children, manages state/effects, minimal JSX). Not both.
-- One custom hook = one concern.
+- One custom hook = one concern. **God hook signal:** >3 state variables or >2 effects. Self-contained components decompose internally — the boundary is self-contained, the hooks inside are focused.
 - One useEffect = one effect. Each has one setup and one cleanup.
 - No prop drilling beyond 1 level. Use composition (children, render props) or context.
 - Event handlers are inline or named in the component body. Never in separate files.
-- Derived state: compute it. Never `useState` + `useEffect` to sync derived values. Use `useMemo` or compute directly in the render path.
+- **State colocation:** State lives at the lowest component that needs it.
+- **Derived state:** Compute it. Never `useState` + `useEffect` to sync derived values. Compute directly in render — memoization is automatic.
+- **Pure renders, not manual memoization:** Memoization is automatic. Do not add useMemo, useCallback, or React.memo. Write pure render functions instead.
+- **Re-render isolation:** Extract expensive subtrees that don't depend on changing state into sibling components. Structural benefit regardless of optimizer.
+- **Context granularity:** Split contexts by update frequency. Automatic memoization cannot optimize away context re-renders.
 
 ### Why (for agents)
+
+**Self-containment is the unifying principle.** State colocation, render purity, re-render isolation, and context granularity are all downstream of one architectural choice: does this component own its concerns or depend on external wiring? A component that owns its state doesn't need it hoisted. A component with few props has fewer cross-component dependencies. A component that doesn't read parent state is naturally isolated from parent re-renders. The specific rules below are failure-mode detectors — they catch the cases where self-containment was breached without the developer noticing. The one trap to avoid: self-contained at the component boundary does NOT mean cramming all logic into one god hook. The component is the self-contained unit; its internal hooks still decompose by concern.
 
 The leaf/container split is SRP applied to React. When an agent needs to change styling, it touches only leaf components. When it needs to change data flow, it touches only containers. Without this split, every visual change risks breaking state logic.
 
@@ -282,12 +289,26 @@ The "one effect per useEffect" rule is critical: when effects are combined, the 
 
 Derived state stored in useState + useEffect is the most common React bug source, and agents reliably fail to maintain the synchronization correctly. Computing derived values directly eliminates this entire category of bugs.
 
+**God hooks** are the React equivalent of a god class. A hook with 5 state variables and 3 effects is managing multiple concerns behind a single interface. The agent cannot modify one concern without risk of breaking the others, because the concerns share scope. The >3 state / >2 effect threshold is a practical detection heuristic — below it, the complexity is usually manageable; above it, concerns are almost always tangled. The fix is always the same: identify the distinct concerns, extract each into its own hook, compose them in the container.
+
+**State colocation** matters because hoisted state causes unnecessary re-renders and couples distant components. When state lives in a top-level provider but only one leaf reads it, every component in between re-renders on every state change. The agent's instinct is often to "play it safe" by lifting state high — this creates the performance and coupling problems the other rules try to solve. State should migrate upward only when a sibling genuinely needs it.
+
+**Pure renders replace manual memoization.** This project uses React Compiler, which automatically memoizes values, callbacks, and JSX elements. Manual useMemo, useCallback, and React.memo are unnecessary noise. What automatic memoization *requires* is pure render functions: no mutating variables from outer scopes, no side effects during render, no reading from refs during render. When a render cannot be proven pure, the optimizer bails out silently and the component loses all automatic optimization. The agent's job is "keep renders pure" — purity is a structural property the agent can verify; optimal memoization granularity is a runtime concern the optimizer handles.
+
+**Re-render isolation** remains valuable as architecture regardless of automatic optimization. A component only re-renders when its parent re-renders or its own state/context changes. By extracting an expensive subtree into a sibling, the subtree only re-renders when its own props change. Automatic memoization makes each individual re-render cheaper (by skipping memoized subexpressions), but it cannot eliminate the re-render itself — the component still runs. Small, focused components give the optimizer less work to analyze and more opportunities to skip entire subtrees.
+
+**Context granularity** is the one area automatic memoization cannot help. When a context value changes, every consumer re-renders — there is no mechanism to opt out. A single context providing `{ theme, locale, currentUser, liveGameState }` forces every consumer to re-render when the game state ticks — even components that only read the theme. Splitting into `ThemeContext` + `GameStateContext` lets React skip theme consumers during game ticks. This is a structural decision the agent must make; no amount of automatic optimization can fix a fat context.
+
 ### Enforcement
 
 - **Leaf/container audit:** For each component, check: does it have both `useState`/`useEffect` AND more than 10 lines of JSX return? If yes, split.
-- **Hook concern audit:** For each custom hook, describe its concern in ONE verb + ONE noun. If you need "and", split.
+- **Hook concern audit:** For each custom hook, describe its concern in ONE verb + ONE noun. If you need "and", split. Count state variables and effects as a mechanical check.
 - **Effect audit:** For each useEffect, verify it has exactly one purpose.
-- **Derived state audit:** Search for patterns where `useEffect` sets state based on other state or props. Replace with `useMemo` or direct computation.
+- **Derived state audit:** Search for patterns where `useEffect` sets state based on other state or props. Replace with direct computation in render.
+- **State colocation audit:** For each context provider or lifted state, verify that at least two children of the parent actually consume that state. If only one does, push the state down.
+- **Render purity audit:** Search for mutations of outer-scope variables during render, side effects during render (API calls, subscriptions, DOM manipulation), and ref reads during render. These break automatic memoization.
+- **Manual memoization audit:** Search for useMemo, useCallback, and React.memo. These are unnecessary — memoization is automatic. Remove them; they add noise and can conflict with the optimizer.
+- **Context scope audit:** For each context, list all values provided. If their update frequencies differ significantly, split the context.
 
 ### Examples
 
@@ -303,13 +324,9 @@ function FilteredList({ items, filter }: Props) {
   return <List items={filtered} />;
 }
 
-// GOOD: derived state computed directly
+// GOOD: derived state computed directly in render (compiler memoizes automatically)
 function FilteredList({ items, filter }: Props) {
-  const filtered = useMemo(
-    () => items.filter(i => i.name.includes(filter)),
-    [items, filter],
-  );
-
+  const filtered = items.filter(i => i.name.includes(filter));
   return <List items={filtered} />;
 }
 ```
@@ -341,11 +358,92 @@ useEffect(() => {
 }, []);
 ```
 
+```tsx
+// BAD: god hook — manages connection, parsing, and UI state
+function useGameDashboard(url: string) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [rawMessages, setRawMessages] = useState<string[]>([]);
+  const [parsedState, setParsedState] = useState<GameState | null>(null);
+  const [selectedTab, setSelectedTab] = useState<Tab>("overview");
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => { /* WebSocket connection */ }, [url]);
+  useEffect(() => { /* parse rawMessages into parsedState */ }, [rawMessages]);
+  useEffect(() => { /* auto-collapse on disconnect */ }, [isConnected]);
+
+  return { isConnected, parsedState, selectedTab, setSelectedTab, isExpanded, setIsExpanded };
+}
+
+// GOOD: split by concern, composed in container
+function useConnection(url: string) { /* WebSocket only */ }
+function useGameState(rawMessages: string[]) { /* parsing only */ }
+// UI state (selectedTab, isExpanded) stays as plain useState in the container
+```
+
+```tsx
+// BAD: impure render — mutates outer-scope variable, breaks compiler optimization
+let renderCount = 0;
+function Parent({ cards }: Props) {
+  renderCount++;  // side effect during render — compiler bails out
+  const sorted = cards.sort();  // mutates the props array!
+
+  return <CardGrid cards={sorted} />;
+}
+
+// GOOD: pure render — compiler can fully optimize
+function Parent({ cards }: Props) {
+  const sorted = [...cards].sort();  // new array, no mutation
+
+  return <CardGrid cards={sorted} />;
+}
+```
+
+```tsx
+// BAD: state hoisted too high — entire tree re-renders on hover
+function App() {
+  const [hoveredCard, setHoveredCard] = useState<CardId | null>(null);
+
+  return (
+    <Layout>
+      <Sidebar />           {/* re-renders on every hover change */}
+      <Header />             {/* re-renders on every hover change */}
+      <CardGrid onHover={setHoveredCard} />
+      <CardPreview cardId={hoveredCard} />
+    </Layout>
+  );
+}
+
+// GOOD: state colocated — only the components that need it re-render
+function CardArea() {
+  const [hoveredCard, setHoveredCard] = useState<CardId | null>(null);
+
+  return (
+    <>
+      <CardGrid onHover={setHoveredCard} />
+      <CardPreview cardId={hoveredCard} />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Layout>
+      <Sidebar />
+      <Header />
+      <CardArea />  {/* hover state is contained here */}
+    </Layout>
+  );
+}
+```
+
 ### Edge Cases
 
 - **Form components** with a few `useState` calls for controlled inputs and minimal JSX are exempt from the leaf/container split. The complexity threshold is: more than 3 state variables OR more than 1 effect.
 - **Contexts** that provide both state and dispatch are fine as one unit (this is the standard reducer pattern).
 - **Third-party hook wrappers** that combine multiple library hooks into one domain hook are acceptable when the library's API is the concern (e.g., `useQuery` + `useMutation` for one resource).
+- **Optimizer bail-outs** are silent — the component still works, just without automatic memoization. If performance degrades unexpectedly, check for impure renders. Common causes: mutating props/state, reading refs during render, calling non-idempotent functions during render.
+- **Third-party components** that rely on referential equality for their own internal optimizations (e.g., virtualized lists with `itemData`) may still benefit from manual memoization at the integration boundary. This is rare — verify before adding.
+- **Effect dependencies** still need stable references for correctness (not just performance). If an effect dep is a new object every render, the effect re-fires every render. Automatic memoization handles this, but impure code that breaks the optimizer will surface as infinite effect loops — the same symptom as missing useMemo, but the root cause is impurity.
 
 ---
 

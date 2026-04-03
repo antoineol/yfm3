@@ -12,7 +12,7 @@ Deck optimizer for "Yu-Gi-Oh! Forbidden Memories" (Remastered Perfected mod). Gi
 
 ## How to work
 
-**Use your judgment.** The principles and rules below exist because specific failure modes were observed. They are not rituals. Understand *why* each rule exists (rationale in `docs/refact/principles-rationale.md`), then apply the spirit — not just the letter. If a rule would produce worse code in a specific situation, say so and explain why. A clear 45-line function is better than two confused 25-line halves. Never split, rename, or restructure code just to hit a number.
+**Use your judgment.** The principles and rules below exist because specific failure modes were observed. They are not rituals. Understand *why* each rule exists, then apply the spirit — not just the letter. If a rule would produce worse code in a specific situation, say so and explain why. A clear 45-line function is better than two confused 25-line halves. Never split, rename, or restructure code just to hit a number.
 
 **Think before acting.** Before writing or modifying code, ask yourself: what is the ONE thing this unit does? If you can't answer clearly, stop and decompose first. This is where most mistakes happen — not in the implementation, but in the scoping.
 
@@ -24,7 +24,11 @@ All code — new and modified — must follow `docs/refact/principles.md`. Key r
 - **Size limits:** Functions: ~40 lines. Files: ~150 lines of logic. Args: 3. Props: 5. Nesting: 2 levels. These are targets that signal "check if this unit does too much" — not mechanical cut points.
 - **Refactor on touch:** When modifying a file for feature work, bring **touched functions** to principle compliance. Not the whole file — just what you touch. Refactor in a separate commit before the behavior change.
 
-Full principles: `docs/refact/principles.md`. Rationale and examples: `docs/refact/principles-rationale.md`.
+Full principles: `docs/refact/principles.md` (self-sufficient — no other file needed for coding work).
+
+## Maintaining the principles
+
+To update or iterate on the principles, consult `docs/refact/principles-rationale.md` — it is the source document with detailed rationale, enforcement heuristics, examples, and edge cases. `principles.md` is derived from it.
 
 ## Rules
 

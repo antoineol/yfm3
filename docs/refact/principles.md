@@ -1,6 +1,6 @@
 # Coding Principles for Agent-Efficient TypeScript + React
 
-Every principle below exists to prevent a specific failure mode. Understand the WHY (see `principles-rationale.md`) and use judgment. If following a rule mechanically would produce worse code, override it — but explain your reasoning. A clear 45-line function beats two confused 25-line fragments. Never restructure code just to satisfy a metric.
+Every principle below exists to prevent a specific failure mode. Understand the WHY and use judgment. If following a rule mechanically would produce worse code, override it — but explain your reasoning. A clear 45-line function beats two confused 25-line fragments. Never restructure code just to satisfy a metric.
 
 ---
 
@@ -34,12 +34,17 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 
 ## 4. React Components and Hooks
 
+- **Self-contained by default:** A component owns its state, computes its derived values, and exposes a minimal prop surface. Self-containment is the design goal — the rules below are mechanisms to achieve it. When a component is genuinely self-contained, colocation, render isolation, and referential stability follow naturally.
 - Components are leaf (renders UI from props) or container (composes children + manages state). Not both. Exception: tiny components with a couple of `useState` calls and no effects don't need splitting — the threshold is when state management or rendering becomes non-trivial.
-- One custom hook = one concern. A hook managing both a WebSocket AND state parsing is two hooks.
+- One custom hook = one concern. A hook managing both a WebSocket AND state parsing is two hooks. **God hook signal:** >3 state variables or >2 effects = almost certainly multiple concerns. Split by concern, compose in the container. Self-contained components decompose *internally* — the component boundary is self-contained, the hooks inside it are focused.
 - One effect per useEffect call. Each effect has one setup and one cleanup.
 - No prop drilling beyond 1 level. Use composition (children/render props) or context.
 - Event handlers: inline or named functions in the component body. Never in separate files.
-- Derived state: compute it. Never store computed values in useState + sync with useEffect. Use useMemo or compute in render.
+- **State colocation:** State lives at the lowest component that needs it. Don't hoist to a provider what a local useState handles. Lift only when siblings share the same state.
+- **Derived state:** Compute it. Never store computed values in useState + sync with useEffect. Compute directly in render — memoization is handled automatically.
+- **Pure renders, not manual memoization:** This project uses React Compiler — memoization is automatic. Do not add useMemo, useCallback, or React.memo. Instead, write pure render functions — no mutations of variables created outside the render scope, no side effects during render. Impure renders break automatic optimization silently.
+- **Re-render isolation:** Keep components that receive frequently-changing props small. Extract expensive subtrees that don't depend on the changing value into sibling components — small focused components are easier to reason about and give the optimizer more to work with.
+- **Context granularity:** Split contexts by update frequency. A context mixing rarely-changing config with frequently-changing state forces every consumer to re-render on every tick. Automatic memoization cannot optimize away context re-renders.
 
 ## 5. Naming
 
