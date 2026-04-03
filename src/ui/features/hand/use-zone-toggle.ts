@@ -2,7 +2,7 @@ import { useStore } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { openCardIdAtom } from "../../lib/atoms.ts";
-import type { DuelPhase } from "../../lib/use-emulator-bridge.ts";
+import type { DuelPhase } from "../../lib/bridge-state-interpreter.ts";
 
 export type FocusedZone = "hand" | "field";
 

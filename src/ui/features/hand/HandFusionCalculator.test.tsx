@@ -31,7 +31,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useCpuSwaps: vi.fn(() => []),
 }));
 
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 
 function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
   return {

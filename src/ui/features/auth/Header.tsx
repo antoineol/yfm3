@@ -10,7 +10,7 @@ import { Spinner } from "../../components/Loader.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
-import type { DuelPhase } from "../../lib/use-emulator-bridge.ts";
+import type { DuelPhase } from "../../lib/bridge-state-interpreter.ts";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 import { BridgeUpdateDialog } from "../bridge/BridgeUpdateDialog.tsx";
 import { BRIDGE_MIN_VERSION } from "../bridge/bridge-constants.ts";

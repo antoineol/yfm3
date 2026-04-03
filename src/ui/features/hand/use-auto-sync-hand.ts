@@ -3,7 +3,7 @@ import { api } from "../../../../convex/_generated/api";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**

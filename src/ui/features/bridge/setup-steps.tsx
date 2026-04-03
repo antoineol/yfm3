@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BridgeDetail } from "../../lib/use-emulator-bridge.ts";
+import type { BridgeDetail } from "../../lib/bridge-message-processor.ts";
 
 // ── Step state ───────────────────────────────────────────────────
 

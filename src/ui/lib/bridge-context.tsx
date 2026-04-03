@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { EmulatorBridge } from "./use-emulator-bridge.ts";
+import type { EmulatorBridge } from "./bridge-message-processor.ts";
 
 const BridgeContext = createContext<EmulatorBridge | null>(null);
 

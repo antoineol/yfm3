@@ -11,11 +11,11 @@ import { Button } from "../../components/Button.tsx";
 import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useFusionDepth } from "../../db/use-user-preferences.ts";
+import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { artworkSrc, formatCardId } from "../../lib/format.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
-import type { FieldCard } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 export function FusionResultsList({

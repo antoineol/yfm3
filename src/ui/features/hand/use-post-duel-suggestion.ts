@@ -13,12 +13,12 @@ import {
   postDuelResultAtom,
   postDuelStateAtom,
 } from "../../lib/atoms.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import {
   type LocalPostDuelSuggestion,
   postDuelSuggestionKey,
 } from "../../lib/bridge-snapshot-atoms.ts";
 import { readLocal, removeLocal, writeLocal } from "../../lib/local-store.ts";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /** Time budget for post-duel optimization (shorter than manual 15s). */

@@ -30,7 +30,7 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
 
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import { decksMatch, findNewCards, usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
 
 const mockOptimize = optimizeDeckParallel as ReturnType<typeof vi.fn>;

@@ -14,7 +14,7 @@ import {
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
-import type { DuelStats, FieldCard } from "../../lib/use-emulator-bridge.ts";
+import type { DuelStats, FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { CheatViewSwitch } from "./CheatViewSwitch.tsx";
 import { CpuCheatBanner } from "./CpuCheatBanner.tsx";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";

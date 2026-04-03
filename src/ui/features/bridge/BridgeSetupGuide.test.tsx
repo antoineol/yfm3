@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 
 const mockUpdatePreferences = vi.fn();
 

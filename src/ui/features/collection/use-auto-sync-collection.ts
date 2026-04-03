@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
+import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import {
   bridgeCollectionAtom,
   bridgeDeckAtom,
@@ -12,7 +13,6 @@ import {
   deckKey as deckStorageKey,
 } from "../../lib/bridge-snapshot-atoms.ts";
 import { writeLocal } from "../../lib/local-store.ts";
-import type { EmulatorBridge } from "../../lib/use-emulator-bridge.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /** Fast numeric fingerprint for a Record<number, number>. */

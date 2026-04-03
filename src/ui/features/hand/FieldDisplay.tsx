@@ -1,7 +1,7 @@
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { MiniGameCard } from "../../components/MiniGameCard.tsx";
+import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import type { FieldCard } from "../../lib/use-emulator-bridge.ts";
 
 const FIELD_SIZE = 5;
 
