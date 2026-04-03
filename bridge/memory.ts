@@ -540,6 +540,11 @@ export function openSharedMemory(pid: number, { quiet = false } = {}): SharedMem
   return { handle, viewPtr, view, pid };
 }
 
+/** Re-create the DataView from the existing mapped pointer (refreshes stale toArrayBuffer snapshots). */
+export function refreshView(m: SharedMemoryMapping): void {
+  m.view = new DataView(toArrayBuffer(m.viewPtr, 0, PS1_RAM_SIZE));
+}
+
 export function closeSharedMemory(mapping: SharedMemoryMapping): void {
   if (mapping.viewPtr) k32.UnmapViewOfFile(mapping.viewPtr);
   if (mapping.handle) k32.CloseHandle(mapping.handle);

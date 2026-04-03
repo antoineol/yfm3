@@ -45,6 +45,7 @@ import {
   readModFingerprint,
   readRawHex,
   readShuffledDeck,
+  refreshView,
   validateProfile,
 } from "./memory.ts";
 import { ensureLoadStateHotkeys, ensureSharedMemoryEnabled, getExePathForPid } from "./settings.ts";
@@ -160,6 +161,7 @@ let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
 let consecutiveZeroReads = 0;
 const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
+const VIEW_REFRESH_INTERVAL = 100; // refresh DataView every 100 polls (5s) when game never detected
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
 let lastConnectStatus = ""; // deduplicates tryConnect console logs
@@ -946,6 +948,13 @@ async function poll(): Promise<void> {
       if (!gameLoaded) {
         // ── Game not loaded or shared memory stale ─────────────────
         consecutiveZeroReads++;
+
+        // Periodically refresh the DataView when the game was never detected.
+        // toArrayBuffer may snapshot memory-mapped pages; refreshing picks up
+        // writes made by DuckStation after the initial mapping.
+        if (!hadNonZeroData && consecutiveZeroReads % VIEW_REFRESH_INTERVAL === 0) {
+          refreshView(mapping);
+        }
 
         if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && hadNonZeroData && !reopenedAfterStale) {
           const pids = await findDuckStationPids();
