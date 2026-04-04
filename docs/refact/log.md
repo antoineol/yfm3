@@ -15,3 +15,4 @@ Archive entries older than 100 lines to `log-archive.md`.
 2026-04-04 | FusionResultsList.tsx | split 448-line god file into 3 SRP modules
 2026-04-04 | DuelistsPanel.tsx | split 391-line god file into 3 SRP modules
 2026-04-04 | CardTable.tsx | extract data fns to card-entries.ts, dedup diff colors
+2026-04-04 | orchestrator.ts | extract SA worker pool + convergence to sa-worker-pool.ts

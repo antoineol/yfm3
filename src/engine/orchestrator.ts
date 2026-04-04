@@ -11,15 +11,8 @@ import {
   MAX_FUSION_DEPTH,
   NUM_HANDS,
 } from "./types/constants.ts";
-import type {
-  BridgeGameData,
-  ScorerInit,
-  ScorerResponse,
-  WorkerInit,
-  WorkerProgress,
-  WorkerResponse,
-  WorkerResult,
-} from "./worker/messages.ts";
+import type { BridgeGameData, ScorerInit, ScorerResponse } from "./worker/messages.ts";
+import { runSaWorkerPool } from "./worker/sa-worker-pool.ts";
 
 export interface OptimizeDeckParallelResult {
   deck: number[];
@@ -39,8 +32,6 @@ const MAX_WORKERS = 32;
 const MIN_CONVERGENCE_TIMEOUT = 3_000;
 /** Convergence timeout as a fraction of the SA time budget. */
 const CONVERGENCE_TIMEOUT_RATIO = 0.3;
-/** Minimum relative improvement to reset the convergence timer. */
-const CONVERGENCE_MIN_IMPROVEMENT = 0.001;
 /** PRNG seed used by the orchestrator for generating initial decks. */
 const SEED_STRATEGY_SEED = 42;
 
@@ -82,8 +73,7 @@ function scoreInWorker(
 /**
  * Run SA optimization across multiple Web Workers in parallel.
  *
- * Each worker initializes its own buffers and runs SA with a different seed
- * and a different initial deck (multi-start seeding).
+ * Each worker runs SA with a different seed and initial deck (multi-start).
  * The orchestrator picks the best result by sampled score and exact-scores it.
  *
  * @param collection  cardId → number of copies the player owns
@@ -125,9 +115,7 @@ export async function optimizeDeckParallel(
   }
 
   let totalCards = 0;
-  for (const count of collection.values()) {
-    totalCards += count;
-  }
+  for (const count of collection.values()) totalCards += count;
   if (totalCards < deckSize) {
     throw new Error(
       `Collection has only ${totalCards} total cards, but a deck requires ${deckSize}.`,
@@ -136,11 +124,8 @@ export async function optimizeDeckParallel(
 
   setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId });
 
-  // Serialize collection for worker transfer (workers receive plain objects)
   const collectionRecord: Record<number, number> = {};
-  for (const [id, qty] of collection) {
-    collectionRecord[id] = qty;
-  }
+  for (const [id, qty] of collection) collectionRecord[id] = qty;
 
   // 1. Resolve current-deck score: reuse pre-computed value or fire a worker
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
@@ -153,145 +138,39 @@ export async function optimizeDeckParallel(
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
   const numWorkers = Math.max(1, Math.min(cores - 1, MAX_WORKERS));
   const timeBudgetMs = timeLimit - EXACT_SCORING_RESERVE;
-
   const convergenceTimeout = Math.max(
     MIN_CONVERGENCE_TIMEOUT,
     timeBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
   );
-
-  // Number of sampled hands per worker — used to convert raw sum → approximate expected ATK
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[deckSize] ?? 0);
 
-  // Generate multi-start initial decks
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const initialDecks = generateInitialDecks(collectionRecord, numWorkers, rand);
 
-  const workers: Worker[] = [];
-  const promises: Promise<WorkerResult>[] = [];
-  const resolvers: Array<(result: WorkerResult) => void> = [];
-  const resolved: boolean[] = [];
-  const latestProgress: Array<WorkerProgress | null> = [];
-  // Per-worker convergence: each worker's timer resets only when it surpasses
-  // the global best (not its own previous best). This prevents random-start
-  // workers' catch-up improvements from delaying termination.
-  let globalBest = -Infinity;
-  let globalBestDeck: number[] = [];
-  const workerLastImprovedAt: number[] = [];
-
-  function terminateEarly() {
-    for (let j = 0; j < numWorkers; j++) {
-      if (!resolved[j]) {
-        resolved[j] = true;
-        const progress = latestProgress[j];
-        resolvers[j]?.({
-          type: "RESULT",
-          bestDeck: progress?.bestDeck ?? [],
-          bestScore: progress?.bestScore ?? -Infinity,
-          iterations: progress?.iterations ?? 0,
-        });
-      }
-      workers[j]?.terminate();
-    }
-  }
-
-  function allWorkersConverged(): boolean {
-    const now = performance.now();
-    for (let j = 0; j < numWorkers; j++) {
-      if (resolved[j]) continue;
-      // Worker hasn't reported yet — not converged
-      if (latestProgress[j] === null) return false;
-      if (now - (workerLastImprovedAt[j] ?? now) <= convergenceTimeout) return false;
-    }
-    return true;
-  }
-
-  for (let i = 0; i < numWorkers; i++) {
-    const worker = new Worker(new URL("./worker/sa-worker.ts", import.meta.url), {
-      type: "module",
-    });
-    workers.push(worker);
-    resolved.push(false);
-    latestProgress.push(null);
-    workerLastImprovedAt.push(performance.now());
-
-    const promise = new Promise<WorkerResult>((resolve, reject) => {
-      resolvers.push(resolve);
-      worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-        const msg = e.data;
-        if (msg.type === "RESULT") {
-          if (!resolved[i]) {
-            resolved[i] = true;
-            resolve(msg);
-          }
-        } else {
-          latestProgress[i] = msg;
-          // Hybrid convergence: a worker's timer resets only when it
-          // surpasses the global best, not its own previous best.
-          // This prevents random-start catch-up from delaying termination.
-          if (msg.bestScore > globalBest) {
-            const isSignificant =
-              globalBest <= 0 ||
-              (msg.bestScore - globalBest) / globalBest >= CONVERGENCE_MIN_IMPROVEMENT;
-            globalBest = msg.bestScore;
-            globalBestDeck = msg.bestDeck;
-            if (isSignificant) {
-              workerLastImprovedAt[i] = performance.now();
-            }
-          }
-          if (options?.onProgress) {
-            const elapsed = performance.now() - start;
-            const progress = Math.min(elapsed / timeBudgetMs, 1);
-            const approxExpectedAtk = numHands > 0 ? globalBest / numHands : 0;
-            options.onProgress(progress, approxExpectedAtk, globalBestDeck);
-          }
-          if (allWorkersConverged()) {
-            terminateEarly();
-          }
+  // 2. Run SA workers in parallel with convergence detection
+  const results = await runSaWorkerPool({
+    collectionRecord,
+    initialDecks,
+    timeBudgetMs,
+    convergenceTimeout,
+    modId,
+    gameData,
+    signal: options?.signal,
+    onProgress: options?.onProgress
+      ? (globalBest, globalBestDeck) => {
+          const elapsed = performance.now() - start;
+          const progress = Math.min(elapsed / timeBudgetMs, 1);
+          const approxExpectedAtk = numHands > 0 ? globalBest / numHands : 0;
+          options.onProgress?.(progress, approxExpectedAtk, globalBestDeck);
         }
-      };
-      worker.onerror = (e) => {
-        reject(new Error(`Worker ${i} error: ${e.message}`));
-      };
-    });
-    promises.push(promise);
-
-    const init: WorkerInit = {
-      type: "INIT",
-      collection: collectionRecord,
-      seed: i,
-      timeBudgetMs,
-      initialDeck: initialDecks[i],
-      config: getConfig(),
-      modId,
-      gameData,
-    };
-    worker.postMessage(init);
-  }
-
-  // Wire up abort signal to terminate all workers
-  if (options?.signal) {
-    options.signal.addEventListener(
-      "abort",
-      () => {
-        terminateEarly();
-      },
-      { once: true },
-    );
-  }
-
-  // 2. Wait for all SA workers to finish (or be resolved early via convergence)
-  const results = await Promise.all(promises);
-
-  // Terminate SA workers (they've already posted their results)
-  for (const w of workers) w.terminate();
+      : undefined,
+  });
 
   // 3. Pick best result by sampled score, then exact-score it
   let best = results[0];
   for (let i = 1; i < results.length; i++) {
     const r = results[i];
-    if (r && best && r.bestScore > best.bestScore) {
-      best = r;
-    }
+    if (r && best && r.bestScore > best.bestScore) best = r;
   }
 
   // 4. Exact-score best deck + await current deck score (both in parallel)
@@ -300,13 +179,11 @@ export async function optimizeDeckParallel(
     currentDeckPromise,
   ]);
 
-  const elapsedMs = performance.now() - start;
-
   return {
     deck: best?.bestDeck ?? [],
     expectedAtk,
     currentDeckScore,
     improvement: currentDeckScore != null ? expectedAtk - currentDeckScore : null,
-    elapsedMs,
+    elapsedMs: performance.now() - start,
   };
 }
