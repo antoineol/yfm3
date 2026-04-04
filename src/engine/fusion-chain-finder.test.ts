@@ -549,6 +549,45 @@ describe("findFusionChains with field cards", () => {
     expect(equipped?.resultAtk).toBe(3000); // 2500 (live) + 500 (new equip)
     expect(equipped?.resultDef).toBe(1000); // 500 (live) + 500 (new equip)
   });
+
+  it("field card fusion downgrade is excluded (result ATK < field live ATK)", () => {
+    // Alpha(1) on field with liveAtk=2000 (boosted), Beta(2) in hand
+    // Fusion: Alpha+Beta → AlphaBeta(10) at 1200 base ATK
+    // 1200 < 2000 → should NOT appear
+    const results = findFusionChains([2, 5], fusionTable, cardDb, 3, undefined, [
+      { cardId: 1, atk: 2000, def: 0 },
+    ]);
+    const ab = results.find((r) => r.resultCardId === 10 && r.fieldMaterialCardIds.length > 0);
+    expect(ab).toBeUndefined();
+  });
+
+  it("field card fusion upgrade is kept (result ATK > field live ATK)", () => {
+    // Alpha(1) on field with liveAtk=500 (base), Beta(2) in hand
+    // Fusion: Alpha+Beta → AlphaBeta(10) at 1200 base ATK
+    // 1200 > 500 → should appear
+    const results = findFusionChains([2, 5], fusionTable, cardDb, 3, undefined, [
+      { cardId: 1, atk: 500, def: 0 },
+    ]);
+    const ab = results.find((r) => r.resultCardId === 10 && r.fieldMaterialCardIds.length > 0);
+    expect(ab).toBeDefined();
+    expect(ab?.resultAtk).toBe(1200);
+  });
+
+  it("multi-step chain: intermediate downgrade skipped but final upgrade kept", () => {
+    // Alpha(1) on field with liveAtk=1500, Beta(2)+Gamma(3) in hand
+    // Step 1: Alpha(1)+Beta(2) → AlphaBeta(10) at 1200 → skipped (1200 < 1500)
+    // Step 2: AlphaBeta(10)+Gamma(3) → ABGamma(11) at 1800 → kept (1800 > 1500)
+    const results = findFusionChains([2, 3, 5], fusionTable, cardDb, 3, undefined, [
+      { cardId: 1, atk: 1500, def: 0 },
+    ]);
+    // Intermediate downgrade is not recorded
+    const ab = results.find((r) => r.resultCardId === 10 && r.fieldMaterialCardIds.length > 0);
+    expect(ab).toBeUndefined();
+    // Final upgrade IS recorded
+    const abg = results.find((r) => r.resultCardId === 11 && r.fieldMaterialCardIds.length > 0);
+    expect(abg).toBeDefined();
+    expect(abg?.resultAtk).toBe(1800);
+  });
 });
 
 // ---------------------------------------------------------------------------

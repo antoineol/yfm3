@@ -47,7 +47,7 @@ type TaggedCard = {
   liveDef?: number;
 };
 
-type ConsumedCard = { cardId: number; source: CardSource };
+type ConsumedCard = { cardId: number; source: CardSource; liveAtk?: number };
 
 /**
  * Find all achievable fusion chains from a hand of up to 5 cards,
@@ -210,8 +210,10 @@ function dfs(
 
       // Track which original cards are consumed
       const newConsumed = [...consumedCards];
-      if (m1.source !== "result") newConsumed.push({ cardId: m1.cardId, source: m1.source });
-      if (m2.source !== "result") newConsumed.push({ cardId: m2.cardId, source: m2.source });
+      if (m1.source !== "result")
+        newConsumed.push({ cardId: m1.cardId, source: m1.source, liveAtk: m1.liveAtk });
+      if (m2.source !== "result")
+        newConsumed.push({ cardId: m2.cardId, source: m2.source, liveAtk: m2.liveAtk });
 
       // Check equip bonuses from remaining hand cards
       let equips: number[] = [];
@@ -281,6 +283,15 @@ function recordResult(
   const card = cardDb.cardsById.get(resultId);
   const effectiveAtk =
     applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType) + equipBonusTotal;
+
+  // Skip fusions that sacrifice a field card with higher ATK than the result
+  for (const c of consumedCards) {
+    if (c.source === "field" && c.liveAtk != null) {
+      const consumedAtk = c.liveAtk + fieldBonus(terrain, cardDb.cardsById.get(c.cardId)?.cardType);
+      if (effectiveAtk <= consumedAtk) return;
+    }
+  }
+
   const existing = results.get(key);
   if (existing) {
     if (existing.resultAtk > effectiveAtk) return;
