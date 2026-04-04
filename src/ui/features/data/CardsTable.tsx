@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
-import type { CardEntry } from "../../components/CardTable.tsx";
 import { CardTable } from "../../components/CardTable.tsx";
+import type { CardEntry } from "../../components/card-entries.ts";
 
 interface CardsTableProps {
   cards: CardSpec[];

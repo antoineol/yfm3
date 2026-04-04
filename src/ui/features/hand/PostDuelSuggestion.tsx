@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { CardName } from "../../components/CardName.tsx";
-import { countById } from "../../components/CardTable.tsx";
+import { countById } from "../../components/card-entries.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";

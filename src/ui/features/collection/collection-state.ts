@@ -2,7 +2,7 @@ import { atom, useAtomValue, useSetAtom } from "jotai";
 import { selectAtom } from "jotai/utils";
 import { useLayoutEffect } from "react";
 import type { CardDb } from "../../../engine/data/game-db.ts";
-import { buildCardEntries, countById } from "../../components/CardTable.tsx";
+import { buildCardEntries, countById } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useLastAddedCard } from "../../db/use-last-added-card.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";

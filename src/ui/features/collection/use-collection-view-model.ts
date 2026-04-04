@@ -1,5 +1,5 @@
 import { MAX_COPIES } from "../../../engine/types/constants.ts";
-import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
+import { buildCardEntries, type CardEntry, countById } from "../../components/card-entries.ts";
 import { useCollectionViewModelFromState, useHydrateCollectionState } from "./collection-state.ts";
 
 export interface OwnedCardQuantities {

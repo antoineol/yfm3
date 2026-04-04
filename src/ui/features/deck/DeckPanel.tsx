@@ -1,6 +1,7 @@
 import { api } from "../../../../convex/_generated/api";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
-import { type CardEntry, CardTable } from "../../components/CardTable.tsx";
+import { CardTable } from "../../components/CardTable.tsx";
+import type { CardEntry } from "../../components/card-entries.ts";
 import {
   PanelBody,
   PanelEmptyState,

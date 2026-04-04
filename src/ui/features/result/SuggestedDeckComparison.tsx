@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { CardEntry } from "../../components/CardTable.tsx";
 import { CardTable } from "../../components/CardTable.tsx";
+import type { CardEntry } from "../../components/card-entries.ts";
 import { PanelBody } from "../../components/panel-chrome.tsx";
 import { DeckFusionList } from "../deck/DeckFusionList.tsx";
 import { ScoreExplanation } from "../deck/ScoreExplanation.tsx";

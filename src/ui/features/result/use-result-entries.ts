@@ -1,8 +1,8 @@
 import { useAtomValue } from "jotai";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
-import type { CardEntry, DiffStatus } from "../../components/CardTable.tsx";
-import { countById } from "../../components/CardTable.tsx";
+import type { CardEntry, DiffStatus } from "../../components/card-entries.ts";
+import { countById } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { resultAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";

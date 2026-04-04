@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { buildCardEntries, type CardEntry, countById } from "../../components/CardTable.tsx";
+import { buildCardEntries, type CardEntry, countById } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 

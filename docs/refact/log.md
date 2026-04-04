@@ -14,3 +14,4 @@ Archive entries older than 100 lines to `log-archive.md`.
 2026-04-04 | HandFusionCalculator.tsx | extract 3 hooks (cheat-view, manual-field, input-focus)
 2026-04-04 | FusionResultsList.tsx | split 448-line god file into 3 SRP modules
 2026-04-04 | DuelistsPanel.tsx | split 391-line god file into 3 SRP modules
+2026-04-04 | CardTable.tsx | extract data fns to card-entries.ts, dedup diff colors

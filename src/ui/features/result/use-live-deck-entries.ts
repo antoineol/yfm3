@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { useMemo } from "react";
-import { buildFlatEntries, type CardEntry } from "../../components/CardTable.tsx";
+import { buildFlatEntries, type CardEntry } from "../../components/card-entries.ts";
 import { liveBestDeckAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 

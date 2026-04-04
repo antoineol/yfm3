@@ -2,96 +2,66 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 
-import type { CardSpec } from "../../engine/data/card-model.ts";
-import type { CardDb } from "../../engine/data/game-db.ts";
 import { artworkSrc, formatCardId } from "../lib/format.ts";
 import { useIsDesktop } from "../lib/use-is-desktop.ts";
 import { useSelectedMod } from "../lib/use-selected-mod.ts";
 import { CardName } from "./CardName.tsx";
+import type { CardEntry, DiffStatus } from "./card-entries.ts";
 import type { SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
-export type SortKey = "id" | "atk";
-export type { SortState };
+type SortKey = "id" | "atk";
 
-export type DiffStatus = "added" | "removed" | "kept";
+/* ── Diff-status colors (shared by desktop & mobile) ── */
 
-export interface CardEntry {
-  id: number;
+interface DiffColors {
+  row: string;
+  id: string;
   name: string;
-  isMonster: boolean;
-  atk: number;
-  def: number;
-  qty: number;
-  kind1?: string;
-  kind2?: string;
-  kind3?: string;
-  color?: string;
-  diffStatus?: DiffStatus;
-  /** Copies available in collection (not in deck). */
-  collectionCount?: number;
-  /** Copies currently in deck. */
-  deckCount?: number;
-  /** Unique key for React when multiple rows share the same card id. */
-  rowKey?: string;
+  atk: string;
+  def: string;
+  qty: string;
 }
 
-export function buildCardEntries(
-  idQtyPairs: Iterable<[number, number]>,
-  cardDb: CardDb,
-): CardEntry[] {
-  const entries: CardEntry[] = [];
-  for (const [id, qty] of idQtyPairs) {
-    const card: CardSpec | undefined = cardDb.cardsById.get(id);
-    entries.push({
-      id,
-      name: card?.name ?? `#${id}`,
-      isMonster: card?.isMonster ?? true,
-      atk: card?.attack ?? 0,
-      def: card?.defense ?? 0,
-      qty,
-      kind1: card?.kinds[0],
-      kind2: card?.kinds[1],
-      kind3: card?.kinds[2],
-      color: card?.color,
-    });
-  }
-  return entries.sort((a, b) => b.atk - a.atk);
+const NEUTRAL: DiffColors = {
+  row: "",
+  id: "text-text-muted",
+  name: "text-text-primary",
+  atk: "text-stat-atk",
+  def: "text-stat-def",
+  qty: "text-gold",
+};
+
+const ADDED: DiffColors = {
+  row: " bg-green-950/20",
+  id: "text-green-400/70",
+  name: "text-green-400",
+  atk: "text-green-400",
+  def: "text-green-400/70",
+  qty: "text-green-400/70",
+};
+
+const REMOVED: DiffColors = {
+  row: " bg-red-950/20 opacity-60",
+  id: "text-red-400/70",
+  name: "text-red-400",
+  atk: "text-red-400",
+  def: "text-red-400/70",
+  qty: "text-red-400/70",
+};
+
+function diffColors(status: DiffStatus | undefined): DiffColors {
+  if (status === "added") return ADDED;
+  if (status === "removed") return REMOVED;
+  return NEUTRAL;
 }
 
-/** One CardEntry per element in `ids` (duplicates produce separate rows, each with qty 1). */
-export function buildFlatEntries(ids: number[], cardDb: CardDb): CardEntry[] {
-  const entries: CardEntry[] = [];
-  const seenCount = new Map<number, number>();
-  for (const id of ids) {
-    const idx = seenCount.get(id) ?? 0;
-    seenCount.set(id, idx + 1);
-    const card: CardSpec | undefined = cardDb.cardsById.get(id);
-    entries.push({
-      id,
-      name: card?.name ?? `#${id}`,
-      isMonster: card?.isMonster ?? true,
-      atk: card?.attack ?? 0,
-      def: card?.defense ?? 0,
-      qty: 1,
-      kind1: card?.kinds[0],
-      kind2: card?.kinds[1],
-      kind3: card?.kinds[2],
-      color: card?.color,
-      rowKey: `${id}-${idx}`,
-    });
-  }
-  return entries.sort((a, b) => b.atk - a.atk);
-}
-
-export function countById(ids: number[]): Map<number, number> {
-  const counts = new Map<number, number>();
-  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
-  return counts;
-}
+/* ── Sort config ── */
 
 const SORT_FIRST_DIRS: Record<SortKey, "asc" | "desc"> = { id: "asc", atk: "desc" };
 const cardSortGetters = { id: (e: CardEntry) => e.id, atk: (e: CardEntry) => e.atk };
+
+/* ── CardTable ── */
 
 export function CardTable<T extends CardEntry>({
   entries,
@@ -183,118 +153,104 @@ export function CardTable<T extends CardEntry>({
           </tr>
         </thead>
         <tbody ref={animateRef}>
-          {sorted.map((e) => {
-            const diff = e.diffStatus;
-            const rowDiff =
-              diff === "removed"
-                ? " bg-red-950/20 opacity-60"
-                : diff === "added"
-                  ? " bg-green-950/20"
-                  : "";
-            const idColor =
-              diff === "removed"
-                ? "text-red-400/70"
-                : diff === "added"
-                  ? "text-green-400/70"
-                  : "text-text-muted";
-            const nameColor =
-              diff === "removed"
-                ? "text-red-400"
-                : diff === "added"
-                  ? "text-green-400"
-                  : "text-text-primary";
-            const atkColor =
-              diff === "removed"
-                ? "text-red-400"
-                : diff === "added"
-                  ? "text-green-400"
-                  : "text-stat-atk";
-            const defColor =
-              diff === "removed"
-                ? "text-red-400/70"
-                : diff === "added"
-                  ? "text-green-400/70"
-                  : "text-stat-def";
-            const qtyColor =
-              diff === "removed"
-                ? "text-red-400/70"
-                : diff === "added"
-                  ? "text-green-400/70"
-                  : "text-gold";
-
-            return (
-              <tr
-                className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
-                  even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${rowDiff}`}
-                key={e.rowKey ?? e.id}
-              >
-                {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
-                <td className="py-0.5 px-1">
-                  <img
-                    alt=""
-                    className="w-7 h-6 object-cover rounded-[3px] border border-border-subtle/50"
-                    loading="lazy"
-                    src={artworkSrc(modId, e.id)}
-                  />
-                </td>
-                <td className={`py-0.5 px-1 font-mono text-xs ${idColor}`}>{formatCardId(e.id)}</td>
-                <td className={`py-0.5 px-1 ${nameColor}`}>
-                  <CardName cardId={e.id} className={nameColor} name={e.name} />
-                  {!hasCopyColumns && e.qty > 1 && (
-                    <span
-                      className={`${qtyColor} text-xs font-mono ml-1.5`}
-                    >{`\u00d7${e.qty}`}</span>
-                  )}
-                </td>
-                {showC && (
-                  <td
-                    className={`py-0.5 px-1 text-center font-mono text-xs ${e.collectionCount ? "text-text-secondary" : "text-text-muted/50"}`}
-                  >
-                    {e.collectionCount ?? 0}
-                  </td>
-                )}
-                {showD && (
-                  <td
-                    className={`py-0.5 px-1 text-center font-mono text-xs ${e.deckCount ? "text-text-secondary" : "text-text-muted/50"}`}
-                  >
-                    {e.deckCount ?? 0}
-                  </td>
-                )}
-                <td className={`py-0.5 px-2 text-left font-mono font-bold ${atkColor}`}>
-                  {e.isMonster ? e.atk : ""}
-                </td>
-                <td className={`py-0.5 px-2 text-left font-mono text-xs ${defColor}`}>
-                  {e.isMonster ? e.def : ""}
-                </td>
-                {showKinds && (
-                  <>
-                    <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
-                      {e.kind1}
-                    </td>
-                    <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
-                      {e.kind2}
-                    </td>
-                    <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">
-                      {e.kind3}
-                    </td>
-                    <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">
-                      {e.color}
-                    </td>
-                  </>
-                )}
-                {actions && (
-                  <td className="py-0.5 px-1 text-right whitespace-nowrap">{actions(e)}</td>
-                )}
-              </tr>
-            );
-          })}
+          {sorted.map((e) => (
+            <DesktopCardRow
+              actions={actions}
+              entry={e}
+              hasCopyColumns={hasCopyColumns}
+              key={e.rowKey ?? e.id}
+              leftActions={leftActions}
+              modId={modId}
+              showC={showC}
+              showD={showD}
+              showKinds={showKinds}
+            />
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
 
-/* ── Mobile card row ── */
+/* ── Desktop row ── */
+
+function DesktopCardRow<T extends CardEntry>({
+  entry: e,
+  leftActions,
+  actions,
+  hasCopyColumns,
+  showC,
+  showD,
+  showKinds,
+  modId,
+}: {
+  entry: T;
+  leftActions?: (entry: T) => ReactNode;
+  actions?: (entry: T) => ReactNode;
+  hasCopyColumns: boolean;
+  showC: boolean;
+  showD: boolean;
+  showKinds?: boolean;
+  modId: string;
+}) {
+  const c = diffColors(e.diffStatus);
+
+  return (
+    <tr
+      className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
+        even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${c.row}`}
+      key={e.rowKey ?? e.id}
+    >
+      {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
+      <td className="py-0.5 px-1">
+        <img
+          alt=""
+          className="w-7 h-6 object-cover rounded-[3px] border border-border-subtle/50"
+          loading="lazy"
+          src={artworkSrc(modId, e.id)}
+        />
+      </td>
+      <td className={`py-0.5 px-1 font-mono text-xs ${c.id}`}>{formatCardId(e.id)}</td>
+      <td className={`py-0.5 px-1 ${c.name}`}>
+        <CardName cardId={e.id} className={c.name} name={e.name} />
+        {!hasCopyColumns && e.qty > 1 && (
+          <span className={`${c.qty} text-xs font-mono ml-1.5`}>{`\u00d7${e.qty}`}</span>
+        )}
+      </td>
+      {showC && (
+        <td
+          className={`py-0.5 px-1 text-center font-mono text-xs ${e.collectionCount ? "text-text-secondary" : "text-text-muted/50"}`}
+        >
+          {e.collectionCount ?? 0}
+        </td>
+      )}
+      {showD && (
+        <td
+          className={`py-0.5 px-1 text-center font-mono text-xs ${e.deckCount ? "text-text-secondary" : "text-text-muted/50"}`}
+        >
+          {e.deckCount ?? 0}
+        </td>
+      )}
+      <td className={`py-0.5 px-2 text-left font-mono font-bold ${c.atk}`}>
+        {e.isMonster ? e.atk : ""}
+      </td>
+      <td className={`py-0.5 px-2 text-left font-mono text-xs ${c.def}`}>
+        {e.isMonster ? e.def : ""}
+      </td>
+      {showKinds && (
+        <>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">{e.kind1}</td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">{e.kind2}</td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">{e.kind3}</td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">{e.color}</td>
+        </>
+      )}
+      {actions && <td className="py-0.5 px-1 text-right whitespace-nowrap">{actions(e)}</td>}
+    </tr>
+  );
+}
+
+/* ── Mobile row ── */
 
 function MobileCardRow<T extends CardEntry>({
   entry: e,
@@ -313,33 +269,12 @@ function MobileCardRow<T extends CardEntry>({
   showD: boolean;
   modId: string;
 }) {
-  const diff = e.diffStatus;
-  const rowBg =
-    diff === "removed" ? "bg-red-950/20 opacity-60" : diff === "added" ? "bg-green-950/20" : "";
-  const nameColor =
-    diff === "removed" ? "text-red-400" : diff === "added" ? "text-green-400" : "text-text-primary";
-  const atkColor =
-    diff === "removed" ? "text-red-400" : diff === "added" ? "text-green-400" : "text-stat-atk";
-  const defColor =
-    diff === "removed"
-      ? "text-red-400/70"
-      : diff === "added"
-        ? "text-green-400/70"
-        : "text-stat-def";
-  const idColor =
-    diff === "removed"
-      ? "text-red-400/70"
-      : diff === "added"
-        ? "text-green-400/70"
-        : "text-text-muted";
-  const qtyColor =
-    diff === "removed" ? "text-red-400/70" : diff === "added" ? "text-green-400/70" : "text-gold";
-
+  const c = diffColors(e.diffStatus);
   const hasPills = showC || showD;
 
   return (
     <div
-      className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${rowBg} ${e.qty === 0 ? "opacity-40" : ""}`}
+      className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${c.row.trim()} ${e.qty === 0 ? "opacity-40" : ""}`}
     >
       <img
         alt=""
@@ -350,23 +285,23 @@ function MobileCardRow<T extends CardEntry>({
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         {/* Row 1: Name + stats */}
         <div className="flex items-baseline gap-3">
-          <span className={`flex-1 min-w-0 truncate flex text-[15px] ${nameColor}`}>
-            <CardName cardId={e.id} className={nameColor} name={e.name} />
+          <span className={`flex-1 min-w-0 truncate flex text-[15px] ${c.name}`}>
+            <CardName cardId={e.id} className={c.name} name={e.name} />
             {!hasCopyColumns && e.qty > 1 && (
-              <span className={`${qtyColor} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
+              <span className={`${c.qty} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
             )}
           </span>
           {e.isMonster && (
             <span className="shrink-0 flex items-baseline gap-1.5">
-              <span className={`font-mono font-bold text-base ${atkColor}`}>{e.atk}</span>
-              <span className={`font-mono text-xs ${defColor}`}>/ {e.def}</span>
+              <span className={`font-mono font-bold text-base ${c.atk}`}>{e.atk}</span>
+              <span className={`font-mono text-xs ${c.def}`}>/ {e.def}</span>
             </span>
           )}
         </div>
 
         {/* Row 2: Ownership pills + actions */}
         <div className="flex items-center gap-2">
-          <div className={`text-xs font-mono ${idColor}`}>#{formatCardId(e.id)}</div>
+          <div className={`text-xs font-mono ${c.id}`}>#{formatCardId(e.id)}</div>
           {hasPills && (
             <div className="flex items-center gap-1.5">
               {showC && (
