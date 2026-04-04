@@ -99,13 +99,13 @@ export function MiniGameCard({
             {card.isMonster ? (
               <div className="fm-mini-stats">
                 <span
-                  className={`fm-mini-stat-value fm-mini-stat-value--atk${atkOverride !== undefined ? " fm-mini-stat-value--boosted" : ""}`}
+                  className={`fm-mini-stat-value fm-mini-stat-value--atk${atkOverride !== undefined ? (atkOverride < card.attack ? " fm-mini-stat-value--weakened" : " fm-mini-stat-value--boosted") : ""}`}
                 >
                   {atkOverride ?? card.attack}
                 </span>
                 <span className="fm-mini-stat-sep">/</span>
                 <span
-                  className={`fm-mini-stat-value fm-mini-stat-value--def${defOverride !== undefined ? " fm-mini-stat-value--boosted" : ""}`}
+                  className={`fm-mini-stat-value fm-mini-stat-value--def${defOverride !== undefined ? (defOverride < card.defense ? " fm-mini-stat-value--weakened" : " fm-mini-stat-value--boosted") : ""}`}
                 >
                   {defOverride ?? card.defense}
                 </span>

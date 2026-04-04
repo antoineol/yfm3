@@ -63,6 +63,7 @@ export function HandFusionCalculator() {
   const { inputRef, requestInputFocus } = useHandInputFocus(hand?.length ?? 0);
 
   const isSynced = bridge.status === "connected" && bridge.inDuel;
+  const terrain = isSynced ? (bridge.stats?.terrain ?? 0) : 0;
   const showOpponent = cheatMode && cheatView === "opponent" && bridge.inDuel;
 
   // In synced mode, derive hand directly from the bridge snapshot (same poll
@@ -154,7 +155,7 @@ export function HandFusionCalculator() {
           {isSynced && (
             <ZoneArena
               field={{
-                children: <FieldDisplay cards={bridge.field} />,
+                children: <FieldDisplay cards={bridge.field} terrain={terrain} />,
                 count: bridge.field.length,
                 maxCount: 5,
               }}
@@ -165,6 +166,7 @@ export function HandFusionCalculator() {
                     cards={effectiveHand}
                     drawing={bridge.phase === "draw"}
                     frozen={bridge.inDuel && !bridge.handReliable}
+                    terrain={terrain}
                   />
                 ),
                 count: effectiveHand.length,
@@ -241,6 +243,7 @@ export function HandFusionCalculator() {
                 fieldCards={isSynced ? bridge.field : manualField}
                 handCards={effectiveHand}
                 onPlayFusion={isSynced ? undefined : handlePlayFusion}
+                terrain={terrain}
               />
             </section>
           )}

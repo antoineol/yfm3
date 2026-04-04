@@ -1,4 +1,5 @@
 import { getConfig } from "./config.ts";
+import { applyFieldBonus, fieldBonus } from "./data/field-bonus.ts";
 import type { CardDb } from "./data/game-db.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
@@ -64,6 +65,7 @@ export function findFusionChains(
   fusionDepth: number,
   equipCompat?: Uint8Array,
   fieldCards?: FieldCardInfo[],
+  terrain = 0,
 ): FusionChainResult[] {
   const tagged: TaggedCard[] = [
     ...handCardIds.map((cardId, i) => ({ cardId, originalIndex: i, source: "hand" as const })),
@@ -76,16 +78,24 @@ export function findFusionChains(
     })),
   ];
   const results = new Map<string, FusionChainResult>();
-  dfs(tagged, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat);
+  dfs(tagged, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat, terrain);
 
   // Direct plays: hand monsters played as-is, and equip boosts on hand/field monsters
   for (let i = 0; i < tagged.length; i++) {
     const monster = tagged[i];
     if (!monster) continue;
     const card = cardDb.cardsById.get(monster.cardId);
-    // For field cards, use live ATK (includes existing equip boosts); otherwise use DB base ATK
-    const currentAtk = monster.liveAtk ?? card?.attack ?? 0;
-    const currentDef = monster.liveDef ?? card?.defense ?? 0;
+    const fb = fieldBonus(terrain, card?.cardType);
+    // For field cards, use live ATK (includes existing equip boosts) + field bonus;
+    // otherwise use DB base ATK with field bonus applied.
+    const currentAtk =
+      monster.liveAtk != null
+        ? monster.liveAtk + fb
+        : applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType);
+    const currentDef =
+      monster.liveDef != null
+        ? monster.liveDef + fb
+        : applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType);
     if (currentAtk === 0) continue;
 
     // Raw play: hand monster with no fusion, no equip
@@ -164,7 +174,8 @@ function dfs(
   steps: FusionStep[],
   consumedCards: ConsumedCard[],
   results: Map<string, FusionChainResult>,
-  equipCompat?: Uint8Array,
+  equipCompat: Uint8Array | undefined,
+  terrain: number,
 ): void {
   for (let i = 0; i < hand.length - 1; i++) {
     for (let j = i + 1; j < hand.length; j++) {
@@ -209,7 +220,7 @@ function dfs(
         equips = findCompatibleEquips(hand, [i, j], resultId, equipCompat);
         bonus = equips.reduce((sum: number, eqId: number) => sum + equipBonus(eqId), 0);
       }
-      recordResult(resultId, newSteps, newConsumed, equips, bonus, cardDb, results);
+      recordResult(resultId, newSteps, newConsumed, equips, bonus, cardDb, results, terrain);
 
       // Recurse: fuse result with remaining hand cards
       const remaining = buildRemainingHand(hand, i, j, resultId);
@@ -224,6 +235,7 @@ function dfs(
           newConsumed,
           results,
           equipCompat,
+          terrain,
         );
       }
     }
@@ -258,6 +270,7 @@ function recordResult(
   equipBonusTotal: number,
   cardDb: CardDb,
   results: Map<string, FusionChainResult>,
+  terrain: number,
 ): void {
   const materialCardIds = consumedCards.filter((c) => c.source === "hand").map((c) => c.cardId);
   const fieldMaterialCardIds = consumedCards
@@ -266,7 +279,8 @@ function recordResult(
   const fieldPrefix = fieldMaterialCardIds.length > 0 ? "f" : "";
   const key = `${fieldPrefix}${String(resultId)}+${equipCardIds.join(",")}`;
   const card = cardDb.cardsById.get(resultId);
-  const effectiveAtk = (card?.attack ?? 0) + equipBonusTotal;
+  const effectiveAtk =
+    applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType) + equipBonusTotal;
   const existing = results.get(key);
   if (existing) {
     if (existing.resultAtk > effectiveAtk) return;
@@ -281,7 +295,7 @@ function recordResult(
   results.set(key, {
     resultCardId: resultId,
     resultAtk: effectiveAtk,
-    resultDef: (card?.defense ?? 0) + equipBonusTotal,
+    resultDef: applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType) + equipBonusTotal,
     resultName: card?.name ?? `Card #${resultId}`,
     steps,
     materialCardIds,

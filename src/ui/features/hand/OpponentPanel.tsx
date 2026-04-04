@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { cardFieldBonus } from "../../../engine/data/field-bonus.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
 import { MiniGameCard } from "../../components/MiniGameCard.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
@@ -23,6 +24,7 @@ export function OpponentPanel() {
 
   const opponentHand = bridge.opponentHand;
   const opponentField = bridge.opponentField;
+  const terrain = bridge.stats?.terrain ?? 0;
 
   // Fake HandCard objects — docIds are never accessed (no onPlayFusion).
   const fakeHandCards: HandCard[] = useMemo(
@@ -42,13 +44,13 @@ export function OpponentPanel() {
       {isSynced && (
         <ZoneArena
           field={{
-            children: <FieldDisplay cards={opponentField} />,
+            children: <FieldDisplay cards={opponentField} terrain={terrain} />,
             count: opponentField.length,
             maxCount: 5,
           }}
           focusedZone={focusedZone}
           hand={{
-            children: <OpponentCardGrid cardIds={opponentHand} />,
+            children: <OpponentCardGrid cardIds={opponentHand} terrain={terrain} />,
             count: opponentHand.length,
             maxCount: HAND_SIZE,
           }}
@@ -68,7 +70,7 @@ export function OpponentPanel() {
                 </span>
               </SectionLabel>
             </div>
-            <OpponentCardGrid cardIds={opponentHand} />
+            <OpponentCardGrid cardIds={opponentHand} terrain={terrain} />
           </section>
 
           {opponentField.length > 0 && (
@@ -81,7 +83,7 @@ export function OpponentPanel() {
                   </span>
                 </SectionLabel>
               </div>
-              <FieldDisplay cards={opponentField} />
+              <FieldDisplay cards={opponentField} terrain={terrain} />
             </section>
           )}
         </>
@@ -95,7 +97,11 @@ export function OpponentPanel() {
               <SectionLabel>Best Plays</SectionLabel>
             </div>
           )}
-          <FusionResultsList fieldCards={opponentField} handCards={fakeHandCards} />
+          <FusionResultsList
+            fieldCards={opponentField}
+            handCards={fakeHandCards}
+            terrain={terrain}
+          />
         </section>
       )}
     </>
@@ -104,7 +110,7 @@ export function OpponentPanel() {
 
 // ── Opponent card grid (no Convex docIds needed) ──────────────────
 
-function OpponentCardGrid({ cardIds }: { cardIds: number[] }) {
+function OpponentCardGrid({ cardIds, terrain = 0 }: { cardIds: number[]; terrain?: number }) {
   const { cardsById } = useCardDb();
   const slots = Array.from({ length: 5 }, (_, i) => cardIds[i] ?? null);
 
@@ -112,9 +118,10 @@ function OpponentCardGrid({ cardIds }: { cardIds: number[] }) {
     <ul aria-label="Opponent's hand" className="grid grid-cols-5 gap-2 sm:gap-3 list-none p-0 m-0">
       {slots.map((cardId, i) => {
         const card = cardId != null ? cardsById.get(cardId) : undefined;
+        const fb = card ? cardFieldBonus(card, terrain) : undefined;
         return card ? (
           <li key={`opp-${String(i)}-${String(cardId)}`}>
-            <MiniGameCard card={card} />
+            <MiniGameCard atkOverride={fb?.atk} card={card} defOverride={fb?.def} />
           </li>
         ) : (
           <li className="fm-mini-empty" key={`opp-empty-${String(i)}`}>

@@ -1,11 +1,12 @@
 import type { CardSpec } from "../../../engine/data/card-model.ts";
+import { fieldBonus } from "../../../engine/data/field-bonus.ts";
 import { MiniGameCard } from "../../components/MiniGameCard.tsx";
 import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 
 const FIELD_SIZE = 5;
 
-export function FieldDisplay({ cards }: { cards: FieldCard[] }) {
+export function FieldDisplay({ cards, terrain = 0 }: { cards: FieldCard[]; terrain?: number }) {
   const { cardsById } = useCardDb();
   const slots = Array.from({ length: FIELD_SIZE }, (_, i) => cards[i]);
 
@@ -17,7 +18,12 @@ export function FieldDisplay({ cards }: { cards: FieldCard[] }) {
       {slots.map((fc, i) => {
         const card = fc ? cardsById.get(fc.cardId) : undefined;
         return card && fc ? (
-          <FieldSlot card={card} fieldCard={fc} key={`field-${String(i)}-${String(fc.cardId)}`} />
+          <FieldSlot
+            card={card}
+            fieldCard={fc}
+            key={`field-${String(i)}-${String(fc.cardId)}`}
+            terrain={terrain}
+          />
         ) : (
           <EmptyFieldSlot index={i + 1} key={`field-empty-${String(i)}`} />
         );
@@ -26,15 +32,26 @@ export function FieldDisplay({ cards }: { cards: FieldCard[] }) {
   );
 }
 
-function FieldSlot({ card, fieldCard }: { card: CardSpec; fieldCard: FieldCard }) {
-  const atkBoosted = card.isMonster && fieldCard.atk !== card.attack;
-  const defBoosted = card.isMonster && fieldCard.def !== card.defense;
+function FieldSlot({
+  card,
+  fieldCard,
+  terrain = 0,
+}: {
+  card: CardSpec;
+  fieldCard: FieldCard;
+  terrain?: number;
+}) {
+  const fb = fieldBonus(terrain, card.cardType);
+  const displayAtk = fieldCard.atk + fb;
+  const displayDef = fieldCard.def + fb;
+  const atkChanged = card.isMonster && displayAtk !== card.attack;
+  const defChanged = card.isMonster && displayDef !== card.defense;
   return (
     <li>
       <MiniGameCard
-        atkOverride={atkBoosted ? fieldCard.atk : undefined}
+        atkOverride={atkChanged ? displayAtk : undefined}
         card={card}
-        defOverride={defBoosted ? fieldCard.def : undefined}
+        defOverride={defChanged ? displayDef : undefined}
       />
     </li>
   );

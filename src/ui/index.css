@@ -531,6 +531,9 @@ input[type="number"] {
 .fm-mini-stat-value--boosted {
   color: #1e6b2e;
 }
+.fm-mini-stat-value--weakened {
+  color: #a02020;
+}
 
 .fm-mini-stat-sep {
   font-size: 9px;

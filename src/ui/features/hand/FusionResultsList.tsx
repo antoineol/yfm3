@@ -22,10 +22,12 @@ export function FusionResultsList({
   handCards,
   fieldCards,
   onPlayFusion,
+  terrain = 0,
 }: {
   handCards: HandCard[];
   fieldCards?: FieldCard[];
   onPlayFusion?: (materialDocIds: Id<"hand">[], result: FusionChainResult) => void;
+  terrain?: number;
 }) {
   const { fusionTable, equipCompat } = useFusionTable();
   const cardDb = useCardDb();
@@ -35,9 +37,17 @@ export function FusionResultsList({
   const results = useMemo(
     () =>
       handCardIds.length >= 1
-        ? findFusionChains(handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards)
+        ? findFusionChains(
+            handCardIds,
+            fusionTable,
+            cardDb,
+            fusionDepth,
+            equipCompat,
+            fieldCards,
+            terrain,
+          )
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards],
+    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards, terrain],
   );
 
   if (handCardIds.length < 1) return null;
