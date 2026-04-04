@@ -1,7 +1,64 @@
 import { describe, expect, it } from "vitest";
-import { detectCpuSwaps } from "./detect-cpu-swaps.ts";
+
+import { accumulateCpuSwaps, detectCpuSwaps, type SwapSnapshot } from "./detect-cpu-swaps.ts";
 
 const NOW = 1000;
+
+describe("accumulateCpuSwaps", () => {
+  function snap(hand: number[], fieldCount = 0, inDuel = true): SwapSnapshot {
+    return { opponentHand: hand, opponentFieldCount: fieldCount, inDuel };
+  }
+
+  it("returns [] when duel ended", () => {
+    const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
+    const result = accumulateCpuSwaps(existing, snap([22]), snap([71], 0, false), "opponent", NOW);
+    expect(result).toEqual([]);
+  });
+
+  it("returns existing when not opponent's turn", () => {
+    const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
+    const result = accumulateCpuSwaps(existing, snap([22]), snap([71]), "hand", NOW);
+    expect(result).toBe(existing);
+  });
+
+  it("detects and appends new swaps", () => {
+    const result = accumulateCpuSwaps([], snap([22, 14]), snap([71, 14]), "opponent", NOW);
+    expect(result).toEqual([{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }]);
+  });
+
+  it("deduplicates same-direction swaps", () => {
+    const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
+    const result = accumulateCpuSwaps(
+      existing,
+      snap([22, 14]),
+      snap([71, 14]),
+      "opponent",
+      NOW + 50,
+    );
+    expect(result).toHaveLength(1);
+    expect(result).toBe(existing);
+  });
+
+  it("deduplicates reverse-direction swaps", () => {
+    const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
+    // Reverse: 71→22 at same slot
+    const result = accumulateCpuSwaps(
+      existing,
+      snap([71, 14]),
+      snap([22, 14]),
+      "opponent",
+      NOW + 50,
+    );
+    expect(result).toHaveLength(1);
+    expect(result).toBe(existing);
+  });
+
+  it("returns existing (by reference) when no new swaps detected", () => {
+    const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
+    const result = accumulateCpuSwaps(existing, snap([14, 67]), snap([14, 67]), "opponent", NOW);
+    expect(result).toBe(existing);
+  });
+});
 
 describe("detectCpuSwaps", () => {
   it("detects a card swap (same hand count, new card ID)", () => {

@@ -15,6 +15,60 @@ export type CpuSwap = {
   timestamp: number;
 };
 
+/** A snapshot of the opponent's board state needed for swap detection. */
+export type SwapSnapshot = {
+  opponentHand: number[];
+  opponentFieldCount: number;
+  inDuel: boolean;
+};
+
+/**
+ * High-level swap accumulator: detects new swaps between two snapshots,
+ * deduplicates against already-known swaps, and returns the next swap list.
+ *
+ * - Returns `[]` when the duel ended (clears history).
+ * - Returns `existing` unchanged when it's not the opponent's turn or no
+ *   new swaps are found.
+ */
+export function accumulateCpuSwaps(
+  existing: CpuSwap[],
+  prev: SwapSnapshot,
+  curr: SwapSnapshot,
+  effectivePhase: string,
+  now: number,
+): CpuSwap[] {
+  if (!curr.inDuel) return [];
+  if (effectivePhase !== "opponent") return existing;
+
+  const raw = detectCpuSwaps(
+    prev.opponentHand,
+    curr.opponentHand,
+    prev.opponentFieldCount,
+    curr.opponentFieldCount,
+    prev.inDuel,
+    curr.inDuel,
+    now,
+  );
+
+  if (raw.length === 0) return existing;
+
+  const unique = deduplicateSwaps(raw, existing);
+  return unique.length > 0 ? [...existing, ...unique] : existing;
+}
+
+/** Filter out swaps already present (same or reversed direction) in `existing`. */
+function deduplicateSwaps(newSwaps: CpuSwap[], existing: CpuSwap[]): CpuSwap[] {
+  return newSwaps.filter(
+    (s) =>
+      !existing.some(
+        (e) =>
+          e.slotIndex === s.slotIndex &&
+          ((e.fromCardId === s.fromCardId && e.toCardId === s.toCardId) ||
+            (e.fromCardId === s.toCardId && e.toCardId === s.fromCardId)),
+      ),
+  );
+}
+
 export function detectCpuSwaps(
   prevHand: number[],
   currHand: number[],
