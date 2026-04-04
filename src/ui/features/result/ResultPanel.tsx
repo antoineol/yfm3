@@ -51,12 +51,11 @@ export function ResultPanel() {
     );
   }
 
-  const currentScore = liveDeckScore ?? data.result.currentDeckScore;
-  const improvement =
-    currentScore != null && currentScore > 0 ? data.result.expectedAtk - currentScore : null;
+  // Only use live deck score for percentage — result.currentDeckScore is stale
+  // when the deck has changed since optimization ran.
   const improvementPct =
-    currentScore != null && currentScore > 0 && improvement != null
-      ? ((improvement / currentScore) * 100).toFixed(1)
+    liveDeckScore != null && liveDeckScore > 0
+      ? (((data.result.expectedAtk - liveDeckScore) / liveDeckScore) * 100).toFixed(1)
       : null;
 
   return (

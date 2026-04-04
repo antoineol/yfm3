@@ -74,12 +74,11 @@ function ResultState({
   const addedRows = diffRows.filter((r) => r.type === "added");
 
   const liveDeckScore = useAtomValue(currentDeckScoreAtom);
-  const currentScore = liveDeckScore ?? result.currentDeckScore;
-  const improvement =
-    currentScore != null && currentScore > 0 ? result.expectedAtk - currentScore : null;
+  // Only use live deck score for percentage — result.currentDeckScore is stale
+  // when the deck has changed since optimization ran.
   const improvementPct =
-    currentScore != null && currentScore > 0 && improvement != null
-      ? ((improvement / currentScore) * 100).toFixed(1)
+    liveDeckScore != null && liveDeckScore > 0
+      ? (((result.expectedAtk - liveDeckScore) / liveDeckScore) * 100).toFixed(1)
       : null;
 
   const changeCount = removedRows.length;
