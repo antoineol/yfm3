@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FusionStep } from "../../../engine/fusion-chain-finder.ts";
-import { extractMaterialLines } from "./FusionResultsList.tsx";
+import { extractMaterialLines } from "./FusionChainSteps.tsx";
 
 describe("extractMaterialLines", () => {
   it("returns two materials for a single-step fusion", () => {

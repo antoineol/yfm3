@@ -28,12 +28,19 @@ export type BridgeDuelist = {
   saTec: number[];
 };
 
-/** Game data received from the emulator bridge (all game tables from disc image). */
+/** Game data received from the emulator bridge (all game tables from disc image + RAM). */
 export type BridgeGameData = {
   cards: BridgeCard[];
   duelists: BridgeDuelist[];
   fusionTable: Array<{ material1: number; material2: number; result: number }>;
   equipTable: Array<{ equipId: number; monsterIds: number[] }>;
+  /**
+   * Field bonus table from RAM: 120 actual bonus values (e.g., 500, -500, 0).
+   * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
+   * Terrains 1–6 = Forest, Wasteland, Mountain, Sogen, Umi, Yami.
+   * null when not found in RAM.
+   */
+  fieldBonusTable?: number[] | null;
 };
 
 /** Main thread → Worker: initialize buffers and run SA. */

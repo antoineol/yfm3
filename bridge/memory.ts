@@ -705,6 +705,64 @@ export function readModFingerprint(view: DataView): string {
   return hex;
 }
 
+// ── Field bonus table ────────────────────────────────────────────
+// The game stores a 120-byte lookup table that maps (monsterType, terrain)
+// to an ATK/DEF bonus. Layout: 20 monster types × 6 non-Normal terrains,
+// stored in type-major order. Each signed byte is the bonus divided by 10
+// (e.g., 50 = +500, -50 = -500, 0 = neutral).
+//
+// Terrains 1–6 = Forest, Wasteland, Mountain, Sogen, Umi, Yami.
+// Index formula: type * 6 + (terrain - 1).
+//
+// The function at the call site does: return table[offset] * 10.
+
+const FIELD_BONUS_TABLE_SIZE = 120; // 20 types × 6 terrains
+const FIELD_BONUS_VALID_VALUES = new Set([0, 50, -50]);
+const FIELD_BONUS_MIN_NONZERO = 10; // at least 10 bonuses/maluses expected
+
+/**
+ * Scan the EXE code+data section in RAM for the field bonus table.
+ * Returns the RAM offset of the table, or null if not found.
+ *
+ * Signature: 120 contiguous signed bytes where every value is 0, 50, or -50,
+ * with at least 10 non-zero entries.
+ */
+export function scanFieldBonusTable(view: DataView): number | null {
+  // EXE occupies physical RAM 0x010000–0x1E0000
+  const scanStart = 0x010000;
+  const scanEnd = 0x1e0000 - FIELD_BONUS_TABLE_SIZE;
+
+  for (let off = scanStart; off < scanEnd; off++) {
+    let nonZero = 0;
+    let valid = true;
+
+    for (let i = 0; i < FIELD_BONUS_TABLE_SIZE; i++) {
+      const v = view.getInt8(off + i);
+      if (!FIELD_BONUS_VALID_VALUES.has(v)) {
+        valid = false;
+        break;
+      }
+      if (v !== 0) nonZero++;
+    }
+
+    if (valid && nonZero >= FIELD_BONUS_MIN_NONZERO) return off;
+  }
+  return null;
+}
+
+/**
+ * Read the field bonus table from a known RAM offset.
+ * Returns a flat array of 120 actual bonus values (e.g., 500, -500, 0),
+ * indexed as type * 6 + (terrain - 1).
+ */
+export function readFieldBonusTable(view: DataView, offset: number): number[] {
+  const table: number[] = [];
+  for (let i = 0; i < FIELD_BONUS_TABLE_SIZE; i++) {
+    table.push(view.getInt8(offset + i) * 10);
+  }
+  return table;
+}
+
 /**
  * Try to find the game's disc serial (e.g. "SLES_039.48") in PS1 RAM.
  *

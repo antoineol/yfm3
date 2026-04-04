@@ -1,22 +1,17 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Fragment, useMemo, useState } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import type { CardSpec } from "../../../engine/data/card-model.ts";
-import {
-  type FusionChainResult,
-  type FusionStep,
-  findFusionChains,
-} from "../../../engine/fusion-chain-finder.ts";
+import { type FusionChainResult, findFusionChains } from "../../../engine/fusion-chain-finder.ts";
 import { Button } from "../../components/Button.tsx";
 import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useFusionDepth } from "../../db/use-user-preferences.ts";
 import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { useOpenCard } from "../../lib/card-detail-context.tsx";
-import { artworkSrc, formatCardId } from "../../lib/format.ts";
+import { formatCardId } from "../../lib/format.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
-import { useSelectedMod } from "../../lib/use-selected-mod.ts";
+import { FusionCardThumb } from "./FusionCardThumb.tsx";
+import { FusionChainSteps } from "./FusionChainSteps.tsx";
 
 export function FusionResultsList({
   handCards,
@@ -233,199 +228,6 @@ function FieldBadge() {
       </svg>
       Field
     </span>
-  );
-}
-
-/** Tiny card thumbnail — full card replica at thumbnail scale, clickable to open detail. */
-function FusionCardThumb({ card }: { card: CardSpec }) {
-  const openCard = useOpenCard();
-  const modId = useSelectedMod();
-  const artSrc = artworkSrc(modId, card.id);
-  const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
-  const ct = card.cardType ?? "";
-  const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;
-
-  return (
-    <button
-      className="fm-fusion-thumb shrink-0 cursor-pointer"
-      onClick={() => openCard(card.id)}
-      style={
-        {
-          "--fm-lo": p.lo,
-          "--fm-mid": p.mid,
-          "--fm-hi": p.hi,
-          "--fm-border": p.border,
-          "--fm-text": p.text,
-        } as React.CSSProperties
-      }
-      type="button"
-    >
-      <div className="fm-mini-edge">
-        <div className="fm-mini-frame">
-          {/* Name band */}
-          <div className="fm-mini-name-band">
-            <span className="fm-mini-name-text">{card.name}</span>
-            {orbColor && (
-              <span
-                aria-label={card.attribute}
-                className="fm-mini-orb"
-                role="img"
-                style={{
-                  background: `radial-gradient(circle at 38% 32%, #fff8 10%, ${orbColor} 50%, ${orbColor}88 100%)`,
-                }}
-              />
-            )}
-          </div>
-
-          {/* Artwork */}
-          <div className="fm-mini-art-well">
-            <img alt={card.name} className="fm-mini-art-img" loading="lazy" src={artSrc} />
-          </div>
-
-          {/* ATK / DFD */}
-          {card.isMonster && (
-            <div className="fm-mini-stats">
-              <span className="fm-mini-stat-value fm-mini-stat-value--atk">{card.attack}</span>
-              <span className="fm-mini-stat-sep">/</span>
-              <span className="fm-mini-stat-value fm-mini-stat-value--def">{card.defense}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-const attributeOrb: Record<string, string> = {
-  Light: "#e8c840",
-  Dark: "#7848b0",
-  Fire: "#d04828",
-  Water: "#3868c8",
-  Earth: "#a08030",
-  Wind: "#48a048",
-};
-
-interface FramePalette {
-  lo: string;
-  mid: string;
-  hi: string;
-  border: string;
-  text: string;
-}
-
-const monsterPalette: FramePalette = {
-  lo: "#6a5020",
-  mid: "#b89838",
-  hi: "#d4b850",
-  border: "#8a7028",
-  text: "#2a1e0a",
-};
-
-const cardTypePalettes: Record<string, FramePalette> = {
-  Magic: { lo: "#1a5020", mid: "#308838", hi: "#50a858", border: "#246828", text: "#0a2a0e" },
-  Equip: { lo: "#1a5020", mid: "#308838", hi: "#50a858", border: "#246828", text: "#0a2a0e" },
-  Trap: { lo: "#802058", mid: "#c04888", hi: "#d868a8", border: "#a03070", text: "#2a0a1e" },
-  Ritual: { lo: "#183880", mid: "#2858c0", hi: "#4070e0", border: "#1e3090", text: "#0a0e2a" },
-};
-
-const STEP_NUMBERS = ["\u2460", "\u2461", "\u2462", "\u2463", "\u2464"];
-
-export type MaterialLine = {
-  cardId: number;
-  resultCardId?: number;
-  fromField?: boolean;
-};
-
-export function extractMaterialLines(
-  steps: FusionStep[],
-  fieldMaterialCardIds?: number[],
-): MaterialLine[] {
-  const fieldSet = fieldMaterialCardIds ? new Set(fieldMaterialCardIds) : undefined;
-  const lines: MaterialLine[] = [];
-
-  for (const [i, step] of steps.entries()) {
-    if (i === 0) {
-      lines.push({
-        cardId: step.material1CardId,
-        ...(fieldSet?.has(step.material1CardId) ? { fromField: true } : {}),
-      });
-      lines.push({ cardId: step.material2CardId, resultCardId: step.resultCardId });
-    } else {
-      const prev = steps[i - 1];
-      if (!prev) continue;
-      const newMaterialId =
-        step.material1CardId === prev.resultCardId ? step.material2CardId : step.material1CardId;
-      lines.push({ cardId: newMaterialId, resultCardId: step.resultCardId });
-    }
-  }
-
-  return lines;
-}
-
-function FusionChainSteps({
-  steps,
-  equipCardIds,
-  fieldMaterialCardIds,
-}: {
-  steps: FusionStep[];
-  equipCardIds: number[];
-  fieldMaterialCardIds: number[];
-}) {
-  const cardDb = useCardDb();
-  const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
-  const lines = extractMaterialLines(steps, fieldMaterialCardIds);
-  const stepCount = lines.length;
-  const isDirectPlay = steps.length === 0 && equipCardIds.length === 0;
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {isDirectPlay && (
-        <p className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5">
-          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
-            {STEP_NUMBERS[0]}
-          </span>
-          <span className="text-amber-400 text-xs font-semibold">Direct</span>
-        </p>
-      )}
-      {lines.map((line, i) => (
-        <p
-          className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5"
-          key={`${String(i)}-${String(line.cardId)}`}
-        >
-          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
-            {STEP_NUMBERS[i] ?? String(i + 1)}
-          </span>
-          {line.fromField && <span className="text-sky-400 text-xs font-semibold">Field</span>}
-          <CardName
-            cardId={line.cardId}
-            className="text-text-primary"
-            name={getName(line.cardId)}
-          />
-          {line.resultCardId !== undefined && (
-            <>
-              <span className="text-gold-dim mx-0.5">{"\u2192"}</span>
-              <CardName
-                cardId={line.resultCardId}
-                className="text-gold"
-                name={getName(line.resultCardId)}
-              />
-            </>
-          )}
-        </p>
-      ))}
-      {equipCardIds.map((eqId, i) => (
-        <p
-          className="text-xs text-text-secondary leading-relaxed flex items-baseline gap-1.5"
-          key={`eq-${String(eqId)}-${String(i)}`}
-        >
-          <span className="text-gold font-bold text-xs w-4 shrink-0 text-center select-none">
-            {STEP_NUMBERS[stepCount + i] ?? String(stepCount + i + 1)}
-          </span>
-          <span className="text-emerald-400 text-xs">Equip</span>
-          <CardName cardId={eqId} className="text-text-primary" name={getName(eqId)} />
-        </p>
-      ))}
-    </div>
   );
 }
 

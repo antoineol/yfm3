@@ -31,6 +31,13 @@ export interface GameData {
   duelists: DuelistData[];
   fusionTable: Fusion[];
   equipTable: EquipEntry[];
+  /**
+   * Field bonus table: 120 actual bonus values (e.g., 500, -500, 0).
+   * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
+   * Terrains 1–6 = Forest, Wasteland, Mountain, Sogen, Umi, Yami.
+   * null when not available (table not found in RAM or disc).
+   */
+  fieldBonusTable: number[] | null;
 }
 
 interface GameDataCache {
@@ -42,6 +49,7 @@ interface GameDataCache {
   duelists: DuelistData[];
   fusions: Array<{ m1: number; m2: number; r: number }>;
   equips: Array<{ e: number; m: number[] }>;
+  fieldBonus?: number[] | null;
 }
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -130,6 +138,7 @@ function restoreFromCache(cache: GameDataCache): GameData {
     duelists: cache.duelists,
     fusionTable: cache.fusions.map((f) => ({ material1: f.m1, material2: f.m2, result: f.r })),
     equipTable: cache.equips.map((e) => ({ equipId: e.e, monsterIds: e.m })),
+    fieldBonusTable: cache.fieldBonus ?? null,
   };
 }
 
@@ -143,6 +152,7 @@ function saveCache(cachePath: string, data: GameData): void {
     duelists: data.duelists,
     fusions: data.fusionTable.map((f) => ({ m1: f.material1, m2: f.material2, r: f.result })),
     equips: data.equipTable.map((e) => ({ e: e.equipId, m: e.monsterIds })),
+    fieldBonus: data.fieldBonusTable,
   };
   writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
 }
@@ -367,6 +377,7 @@ function extractFromBins(
       duelists,
       fusionTable: fusions,
       equipTable: equips,
+      fieldBonusTable: null, // populated from RAM by serve.ts
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

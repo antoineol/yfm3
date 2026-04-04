@@ -40,12 +40,14 @@ import {
   readCardStats,
   readCollection,
   readDeckDefinition,
+  readFieldBonusTable,
   readGameSerial,
   readGameState,
   readModFingerprint,
   readRawHex,
   readShuffledDeck,
   refreshView,
+  scanFieldBonusTable,
   validateProfile,
 } from "./memory.ts";
 import { ensureLoadStateHotkeys, ensureSharedMemoryEnabled, getExePathForPid } from "./settings.ts";
@@ -195,6 +197,7 @@ function buildGameDataMessage(data: GameData): string {
     duelists: data.duelists,
     fusionTable: data.fusionTable,
     equipTable: data.equipTable,
+    fieldBonusTable: data.fieldBonusTable,
   });
 }
 
@@ -1081,6 +1084,19 @@ async function poll(): Promise<void> {
           try {
             const cardStats = readCardStats(mapping.view);
             const data = acquireGameData(cardStats, serial, __dirname, mapping.pid);
+
+            // Read field bonus table directly from RAM (always available)
+            const fbOffset = scanFieldBonusTable(mapping.view);
+            const fieldBonus =
+              fbOffset !== null ? readFieldBonusTable(mapping.view, fbOffset) : null;
+            if (fbOffset !== null) {
+              console.log(`Field bonus table found at RAM 0x${fbOffset.toString(16)}`);
+            }
+
+            if (data) {
+              data.fieldBonusTable = fieldBonus;
+            }
+
             currentGameData = data;
             if (data) {
               gameDataRetries = 0;
