@@ -351,6 +351,40 @@ describe("usePostDuelSuggestion", () => {
     });
   });
 
+  it("triggers optimization when collection changes after inDuel goes false (DUEL_END/RESULTS)", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    // Enter duel with initial collection
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+
+    // Duel ends — inDuel goes false, collection changes (cards won during DUEL_END/RESULTS)
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(store.get(postDuelResultAtom)).toEqual(
+      expect.objectContaining({ expectedAtk: 2500, improvement: 500 }),
+    );
+  });
+
   it("does not trigger when collection does not change during duel", () => {
     const bridge = makeBridge({ inDuel: false });
     const { rerender } = renderHook(

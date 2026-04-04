@@ -54,7 +54,7 @@ export function useDuelCollectionTracker(
   // ── Detect collection changes during duel ─────────────────────
   useEffect(() => {
     if (hasFiredRef.current) return;
-    if (!bridge.inDuel || modMismatch) return;
+    if (modMismatch) return;
     if (!bridge.collection || !preDuelCollectionRef.current) return;
 
     const newCards = findNewCards(preDuelCollectionRef.current, bridge.collection);
@@ -70,7 +70,7 @@ export function useDuelCollectionTracker(
         deck: [...bridge.deckDefinition],
       });
     }
-  }, [bridge.inDuel, bridge.collection, bridge.deckDefinition, modMismatch]);
+  }, [bridge.collection, bridge.deckDefinition, modMismatch]);
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */
