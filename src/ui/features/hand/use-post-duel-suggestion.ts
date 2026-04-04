@@ -1,10 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useRef } from "react";
-import type { Collection } from "../../../engine/data/card-model.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
-import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
-import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
 import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
@@ -20,9 +17,11 @@ import {
 } from "../../lib/bridge-snapshot-atoms.ts";
 import { readLocal, removeLocal, writeLocal } from "../../lib/local-store.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
-
-/** Time budget for post-duel optimization (shorter than manual 15s). */
-const POST_DUEL_TIME_LIMIT = 10_000;
+import {
+  type CollectionSnapshot,
+  useDuelCollectionTracker,
+} from "./use-duel-collection-tracker.ts";
+import { useOptimizationRunner } from "./use-optimization-runner.ts";
 
 export interface PostDuelSuggestion {
   state: PostDuelState;
@@ -35,17 +34,12 @@ export interface PostDuelSuggestion {
 }
 
 /**
- * Detect when a duel is active and the collection changes (cards won),
- * then automatically run a full deck re-optimization and surface the result.
+ * Detect when a duel ends and the collection changes (cards won),
+ * then run a full deck re-optimization and surface the result.
  *
- * State machine:
- *   idle → duel_active → optimizing → result | no_change
- *
- * `inDuel` is true whenever the duel-phase byte is a recognized mid-duel
- * value (CLEANUP through POST_BATTLE). The game progresses to DUEL_END /
- * RESULTS at end-of-duel, so `inDuel` goes false reliably. We trigger on
- * collection change WHILE in duel_active (the game writes all 15 loot
- * cards atomically in a single RAM update).
+ * Composes:
+ * - useDuelCollectionTracker — bridge monitoring (duel transitions + collection changes)
+ * - useOptimizationRunner — worker lifecycle (abort, progress, result)
  */
 export function usePostDuelSuggestion(
   bridge: EmulatorBridge,
@@ -62,14 +56,8 @@ export function usePostDuelSuggestion(
   const liveBestScore = useAtomValue(postDuelLiveBestScoreAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
 
-  const deckSize = useDeckSize();
-  const fusionDepth = useFusionDepth();
-  const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
 
-  // Post-duel suggestions are ephemeral — always persist to localStorage only.
-  // This avoids invalidating the getUserModSettings subscription (which feeds
-  // useDeckSize / useFusionDepth / useUseEquipment) on every duel cycle.
   const saveSuggestion = useCallback(
     (suggestion: LocalPostDuelSuggestion | null) => {
       if (suggestion) {
@@ -84,15 +72,62 @@ export function usePostDuelSuggestion(
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
 
-  const wasInDuelRef = useRef(false);
-  const preDuelCollectionRef = useRef<Record<number, number> | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const hasFiredRef = useRef(false);
-  // Snapshot of bridge data captured when collection changes during duel.
-  const pendingOptRef = useRef<{ collection: Record<number, number>; deck: number[] } | null>(null);
-  const hydratedRef = useRef(false);
+  // Snapshot is managed here so tracker callbacks (called synchronously from
+  // effects) batch state updates with Jotai atom writes in a single render.
+  const [optimizationSnapshot, setOptimizationSnapshot] = useState<CollectionSnapshot | null>(null);
 
-  // ── Hydrate from persisted state on mount ────────────────────────
+  // ── Tracker callbacks ──────────────────────────────────────────
+  const handleDuelStart = useCallback(() => {
+    setOptimizationSnapshot(null);
+    setResult(null);
+    setCurrentDeck([]);
+    setProgress(0);
+    setLiveBestScore(0);
+    setState("duel_active");
+    saveSuggestion(null);
+  }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
+
+  const handleNewCards = useCallback(
+    (snapshot: CollectionSnapshot) => {
+      setOptimizationSnapshot(snapshot);
+      setCurrentDeck(snapshot.deck.filter((id) => id > 0));
+      setState("optimizing");
+    },
+    [setState, setCurrentDeck],
+  );
+
+  useDuelCollectionTracker(bridge, modMismatch, handleDuelStart, handleNewCards);
+
+  // ── Optimization callbacks ─────────────────────────────────────
+  const handleComplete = useCallback(
+    (res: OptimizeDeckParallelResult, deckForOpt: number[]) => {
+      const hasImprovement = res.improvement != null && res.improvement > 0;
+      setResult(res);
+      setState(hasImprovement ? "result" : "no_change");
+      saveSuggestion({
+        deck: res.deck,
+        expectedAtk: res.expectedAtk,
+        currentDeckScore: res.currentDeckScore ?? null,
+        improvement: res.improvement ?? null,
+        elapsedMs: res.elapsedMs,
+        currentDeck: deckForOpt,
+      });
+    },
+    [setState, setResult, saveSuggestion],
+  );
+
+  const handleError = useCallback(() => {
+    setState("idle");
+  }, [setState]);
+
+  const runner = useOptimizationRunner(
+    optimizationSnapshot,
+    { modId, gameData: bridge.gameData },
+    { onComplete: handleComplete, onError: handleError },
+  );
+
+  // ── Hydrate from persisted state on mount ────────────────────
+  const hydratedRef = useRef(false);
   useEffect(() => {
     if (hydratedRef.current) return;
     if (state !== "idle") return;
@@ -113,191 +148,27 @@ export function usePostDuelSuggestion(
     setState(hasImprovement ? "result" : "no_change");
   }, [state, modId, setState, setResult, setCurrentDeck]);
 
-  // ── Dismiss callback ───────────────────────────────────────────
+  // ── Dismiss ─────────────────────────────────────────────────────
   const dismiss = useCallback(() => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
+    runner.abort();
+    setOptimizationSnapshot(null);
     setResult(null);
     setCurrentDeck([]);
     setProgress(0);
     setLiveBestScore(0);
     setState("idle");
-    preDuelCollectionRef.current = null;
-    pendingOptRef.current = null;
-    hasFiredRef.current = false;
     saveSuggestion(null);
-  }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
-
-  // ── State machine: track inDuel transitions ────────────────────
-  useEffect(() => {
-    const isInDuel = bridge.inDuel;
-    const wasInDuel = wasInDuelRef.current;
-    wasInDuelRef.current = isInDuel;
-
-    // Diagnostic: log every inDuel change
-    if (isInDuel !== wasInDuel) {
-      console.log(
-        `[PostDuel] inDuel: ${String(wasInDuel)} → ${String(isInDuel)}, phase: ${bridge.phase}`,
-      );
-    }
-
-    // Transition: entering a duel (inDuel goes false→true)
-    if (modMismatch) return;
-    if (isInDuel && !wasInDuel) {
-      console.log(`[PostDuel] Duel started — phase: ${bridge.phase}`);
-      // Abort any running optimization from a previous duel
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = null;
-      pendingOptRef.current = null;
-
-      preDuelCollectionRef.current = bridge.collection ? { ...bridge.collection } : null;
-      hasFiredRef.current = false;
-      setResult(null);
-      setCurrentDeck([]);
-      setProgress(0);
-      setLiveBestScore(0);
-      setState("duel_active");
-      saveSuggestion(null);
-    }
-  }, [
-    bridge.inDuel,
-    bridge.phase,
-    bridge.collection,
-    modMismatch,
-    setState,
-    setResult,
-    setCurrentDeck,
-    setProgress,
-    setLiveBestScore,
-    saveSuggestion,
-  ]);
-
-  // ── State machine: collection changes during duel → optimize ───
-  // The game writes all 15 loot cards atomically. No debounce needed.
-  // We trigger only once per duel via hasFiredRef.
-  useEffect(() => {
-    if (state !== "duel_active") return;
-    if (hasFiredRef.current) return;
-    if (!bridge.collection || !preDuelCollectionRef.current) return;
-
-    const newCards = findNewCards(preDuelCollectionRef.current, bridge.collection);
-    if (newCards.length === 0) return;
-
-    console.log(
-      `[PostDuel] Collection changed during duel: ${String(newCards.length)} new card(s)`,
-    );
-    hasFiredRef.current = true;
-
-    // Snapshot data for optimization
-    if (bridge.collection && bridge.deckDefinition) {
-      pendingOptRef.current = {
-        collection: { ...bridge.collection },
-        deck: [...bridge.deckDefinition],
-      };
-    }
-
-    setState("optimizing");
-  }, [state, bridge.collection, bridge.deckDefinition, setState]);
-
-  // ── State machine: run optimization ────────────────────────────
-  useEffect(() => {
-    if (state !== "optimizing") return;
-    const snapshot = pendingOptRef.current;
-    if (!snapshot) {
-      setState("idle");
-      return;
-    }
-
-    // Verify we have enough cards for a deck
-    let totalCards = 0;
-    for (const count of Object.values(snapshot.collection)) {
-      totalCards += count;
-    }
-    if (totalCards < deckSize) {
-      setState("idle");
-      return;
-    }
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const col: Collection = new Map(
-      Object.entries(snapshot.collection).map(([id, qty]) => [Number(id), qty]),
-    );
-
-    const deckForOpt = snapshot.deck.filter((id) => id > 0);
-    setCurrentDeck(deckForOpt);
-
-    optimizeDeckParallel(col, {
-      timeLimit: POST_DUEL_TIME_LIMIT,
-      signal: controller.signal,
-      currentDeck: deckForOpt.length === deckSize ? deckForOpt : undefined,
-      deckSize,
-      fusionDepth,
-      useEquipment,
-      modId,
-      gameData: bridge.gameData ?? undefined,
-      onProgress: (p, bestScore) => {
-        setProgress(p);
-        setLiveBestScore(bestScore);
-      },
-    })
-      .then((res) => {
-        if (controller.signal.aborted) return;
-
-        const hasImprovement = res.improvement != null && res.improvement > 0;
-        setResult(res);
-        setState(hasImprovement ? "result" : "no_change");
-        saveSuggestion({
-          deck: res.deck,
-          expectedAtk: res.expectedAtk,
-          currentDeckScore: res.currentDeckScore ?? null,
-          improvement: res.improvement ?? null,
-          elapsedMs: res.elapsedMs,
-          currentDeck: deckForOpt,
-        });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setState("idle");
-        }
-      })
-      .finally(() => {
-        setProgress(0);
-        setLiveBestScore(0);
-        abortControllerRef.current = null;
-        pendingOptRef.current = null;
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [
-    state,
-    deckSize,
-    fusionDepth,
-    useEquipment,
-    modId,
-    bridge.gameData,
-    setState,
-    setResult,
-    setCurrentDeck,
-    setProgress,
-    setLiveBestScore,
-    saveSuggestion,
-  ]);
+  }, [runner, setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
 
   // ── React to deck changes while showing result ────────────────
   useEffect(() => {
     if (state !== "result" || !result || !deckCardIds) return;
 
     if (decksMatch(deckCardIds, result.deck)) {
-      // All suggestions applied — auto-dismiss
       dismiss();
       return;
     }
 
-    // Deck changed but doesn't fully match suggestion — update diff
     if (!decksMatch(deckCardIds, currentDeck)) {
       setCurrentDeck(deckCardIds);
       saveSuggestion({
@@ -310,13 +181,6 @@ export function usePostDuelSuggestion(
       });
     }
   }, [state, result, deckCardIds, currentDeck, dismiss, setCurrentDeck, saveSuggestion]);
-
-  // ── Cleanup on unmount ─────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, []);
 
   return { state, progress, liveBestScore, result, currentDeck, dismiss };
 }
@@ -333,20 +197,4 @@ export function decksMatch(a: number[], b: number[]): boolean {
     if (countsB.get(id) !== qty) return false;
   }
   return true;
-}
-
-/** Find card IDs whose quantity increased between two collection snapshots. */
-export function findNewCards(
-  before: Record<number, number>,
-  after: Record<number, number>,
-): number[] {
-  const newCards: number[] = [];
-  for (const [idStr, qty] of Object.entries(after)) {
-    const id = Number(idStr);
-    const prevQty = before[id] ?? 0;
-    if (qty > prevQty) {
-      newCards.push(id);
-    }
-  }
-  return newCards;
 }

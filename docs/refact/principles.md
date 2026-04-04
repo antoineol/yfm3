@@ -97,6 +97,16 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 - No `_unused` prefixes, no `// removed` comments, no re-exports of deleted types.
 - If it is not imported, it does not exist.
 
+## 12. Project Structure
+
+- **Group by feature, not by type.** A feature directory owns its components, hooks, atoms, types, and tests. Colocation is self-containment at the directory level.
+- **Placement follows ownership.** Used by one feature → inside that feature. Used by many but clearly owned by one → in the owning feature (others import the public surface). Used by 3+ features with no clear owner → `shared/`.
+- **`shared/` is earned, not default.** It holds cross-cutting contracts that no single feature owns. Not a dumping ground for uncategorized code.
+- **Cross-feature imports are allowed** for hooks, contexts, and types. Never for internal components or implementation details. Reaching into another feature's internals → extract to `shared/` or fix the boundary.
+- **Flat until painful.** No subdirectories within a feature until ~15 files.
+- **`components/`:** domain-free UI primitives (Button, Dialog). **`core/`:** bootstrap infra, consumed by app root only. **`shared/`:** domain-aware cross-cutting code. Three distinct roles.
+- **Migration is incremental.** Move files to their owning feature when you touch them for feature work, in a separate commit. Don't reorganize what you aren't working in.
+
 ---
 
 ## Step back

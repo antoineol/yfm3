@@ -851,3 +851,97 @@ function computeScore(hand: Card[]): number {
 - **TODO comments** with a clear action item are not dead code. `// TODO: handle the case where fusion table is empty` is a legitimate note. But `// TODO: remove this` means remove it now.
 - **Feature flags** that temporarily disable code are acceptable short-term. But code behind a permanently-off flag is dead code.
 - **Test fixtures** and mock data that are not currently referenced by any test should be deleted, not kept "in case we need them."
+
+---
+
+## 12. Project Structure
+
+### Rule
+
+- **Group by feature, not by type.** A feature directory owns its components, hooks, atoms, types, and tests. `features/deck/` contains the deck panel, its hooks, its atoms, its tests — not `hooks/use-deck.ts` + `components/DeckPanel.tsx` + `atoms/deck-atoms.ts` scattered across the tree.
+- **Colocation is self-containment at the directory level.** The same principle that makes a component own its state makes a feature own its files. If a file is only relevant to one feature, it lives inside that feature.
+- **Placement follows ownership, not consumer count.** Used by one feature → inside that feature. Used by many but clearly owned by one → in the owning feature, others import the public surface (a hook, a context consumer, a type). Used by 3+ features with no clear owner → `shared/`.
+- **`shared/` is earned.** It holds a small, curated set of cross-cutting contracts — not a staging area for code you haven't categorized yet. If you cannot name the 3+ unrelated features that need it, it doesn't belong there.
+- **Cross-feature imports target the public surface.** Features may import hooks, contexts, and types from other features. Never internal components or implementation details.
+- **Flat until painful.** No subdirectories within a feature until it exceeds ~15 files. Premature nesting obscures content and creates navigation overhead for no structural benefit.
+- **No barrel files.** (From §7.) Direct imports to the source file. The import path is the dependency graph.
+
+### Why (for agents)
+
+The agent's first task on any work item is orientation: which files do I need to read and possibly modify? Feature-grouped code answers this immediately — `features/deck/` contains everything about decks. Type-grouped code (`hooks/`, `components/`, `atoms/`) scatters a single concern across 3+ directories, forcing the agent to reconstruct relationships through import tracing. This orientation cost is paid on every task and compounds quickly.
+
+Colocation also bounds blast radius. When the agent modifies a hook in `features/deck/`, the likely impacted files are in the same directory. When it modifies `hooks/use-deck.ts`, the impacted components could be anywhere in the tree.
+
+`shared/` as an earned status prevents the gravitational pull toward "put it in shared because I'm not sure where it goes." This is exactly how `lib/` and `utils/` directories grow into grab-bags — they have no admission criteria, so everything drifts in. The ownership question ("which feature owns this?") is the admission check. When the answer is clear, the file belongs in that feature regardless of how many others consume it. When no feature owns it and it is genuinely cross-cutting, `shared/` is the right home.
+
+The flat-until-painful rule prevents premature nesting from hiding the actual size and complexity of a feature. A flat directory with 12 files tells the agent "this is a moderately complex feature" at a glance. The same 12 files nested into `components/`, `hooks/`, `state/` looks like a sophisticated module when it's not.
+
+### Enforcement
+
+- **Feature completeness audit:** For each feature directory, check that its hooks, state, and tests are co-located. A hook in `shared/` that is only consumed by one feature should move into that feature.
+- **`shared/` audit:** For each file in `shared/`, verify it is imported by 3+ feature directories with no single clear owner. Files that fail this check should move to the consuming or owning feature.
+- **Cross-feature depth audit:** When a feature imports from another feature, verify the import targets a top-level file — a hook, context, or type. Imports reaching into nested paths (`../other-feature/components/InternalThing.tsx`) signal a boundary violation.
+- **Flat structure audit:** Feature directories with subdirectories should have 15+ total files. Below that, flatten.
+
+### Examples
+
+```
+# BAD: type-grouped structure (concerns scattered across directories)
+src/ui/
+├── hooks/
+│   ├── use-deck.ts           ← deck concern
+│   ├── use-hand.ts           ← hand concern
+│   ├── use-bridge.ts         ← bridge concern
+├── components/
+│   ├── DeckPanel.tsx          ← deck concern
+│   ├── HandDisplay.tsx        ← hand concern
+│   ├── BridgeSetupGuide.tsx   ← bridge concern
+├── atoms/
+│   ├── deck-atoms.ts          ← deck concern
+│   ├── optimize-atoms.ts      ← optimize concern
+
+# GOOD: feature-grouped (colocated concerns)
+src/ui/
+├── shared/                    ← cross-cutting contracts only
+│   ├── format.ts
+│   ├── card-db-context.tsx
+├── components/                ← domain-free UI primitives
+│   ├── Button.tsx
+│   ├── Dialog.tsx
+├── features/
+│   ├── deck/
+│   │   ├── DeckPanel.tsx
+│   │   ├── deck-atoms.ts
+│   │   ├── use-deck.ts
+│   │   ├── use-deck-entries.ts
+│   │   ├── use-deck-score.ts
+│   ├── bridge/
+│   │   ├── bridge-context.tsx
+│   │   ├── bridge-message-processor.ts
+│   │   ├── use-emulator-bridge.ts
+│   │   ├── BridgeSetupGuide.tsx
+```
+
+```
+# BAD: shared/ as dumping ground
+shared/
+├── format.ts                  ← used by 5 features, no owner — fine here
+├── bridge-context.tsx         ← owned by bridge — move to features/bridge/
+├── use-deck-score.ts          ← only used by deck — move to features/deck/
+├── atoms.ts                   ← 30 atoms for 8 features — split and colocate
+
+# GOOD: shared/ is minimal and justified
+shared/
+├── format.ts                  ← used by 5 features, no single owner
+├── card-db-context.tsx        ← used by 6 features, no single owner
+├── local-store.ts             ← generic storage, no domain allegiance
+```
+
+### Edge Cases
+
+- **Contexts owned by a feature but consumed by many** (e.g., `BridgeContext` created in `features/bridge/` but consumed by `hand`, `collection`, etc.) stay in the owning feature. The consumer imports the hook (`useBridge`), not the context internals. This is a cross-feature import of a public surface — exactly like importing a library's exported API.
+- **Atoms written by one feature, read by another** (e.g., `isOptimizingAtom` written by `optimize/`, read by `result/`): the atom lives in the feature that writes it. Readers import the atom directly. The write-owner is the canonical owner.
+- **`components/`** (shared UI primitives like Button, Dialog, Input) is not `shared/`. Components are domain-free building blocks. `shared/` contains domain-aware cross-cutting code. They serve different purposes and coexist.
+- **`core/`** (bootstrap infra — Convex client, identity) is consumed only by the app root. It is not a feature and not shared infrastructure — it is wiring. Keep it separate and small.
+- **When a feature outgrows flat structure:** If a feature grows past ~20 files, first check if it actually contains two distinct concerns that should be separate features. If it is genuinely one cohesive concern, introduce subdirectories for the internal components while keeping hooks and domain logic at the feature root. Don't split a cohesive feature just to hit a file count target.
+- **Migration is incremental.** When touching a file in a legacy location for feature work, move it to its owning feature in a separate commit before the behavior change. Don't reorganize directories you aren't working in — that's churn with no immediate payoff.
