@@ -1,11 +1,11 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { useEffect, useRef } from "react";
-import type { CardSpec } from "../../engine/data/card-model.ts";
-import { useCardDb } from "../lib/card-db-context.tsx";
-import { useCardDetail } from "../lib/card-detail-context.tsx";
+import type { CardSpec } from "../../../engine/data/card-model.ts";
+import { CloseButton } from "../../components/CloseButton.tsx";
+import { IconButton } from "../../components/IconButton.tsx";
+import { useCardDb } from "../../lib/card-db-context.tsx";
+import { useCardDetail } from "../../lib/card-detail-context.tsx";
 import { CardDetailBody } from "./CardDetail.tsx";
-import { CloseButton } from "./CloseButton.tsx";
-import { IconButton } from "./IconButton.tsx";
 
 export function CardDetailModal() {
   const { cardId, closeCard } = useCardDetail();

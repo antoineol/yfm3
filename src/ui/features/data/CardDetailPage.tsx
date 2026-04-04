@@ -1,5 +1,5 @@
-import { CardDetailBody } from "../../components/CardDetail.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { CardDetailBody } from "./CardDetail.tsx";
 
 export function CardDetailPage({ cardId }: { cardId: number }) {
   const { cardsById } = useCardDb();

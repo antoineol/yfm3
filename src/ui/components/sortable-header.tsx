@@ -1,19 +1,25 @@
-export type SortKey = "id" | "atk";
 export type SortDir = "asc" | "desc";
-export type SortState = { key: SortKey; dir: SortDir } | null;
+export type SortState<K extends string = string> = { key: K; dir: SortDir } | null;
 
-export function toggleSort(prev: SortState, key: SortKey): SortState {
-  const firstDir = key === "atk" ? "desc" : "asc";
-  const secondDir = firstDir === "asc" ? "desc" : "asc";
+/**
+ * Cycle through: firstDir → opposite → null.
+ * Switches to firstDir when toggling a different column.
+ */
+export function toggleSort<K extends string>(
+  prev: SortState<K>,
+  key: K,
+  firstDir: SortDir = "desc",
+): SortState<K> {
+  const secondDir: SortDir = firstDir === "asc" ? "desc" : "asc";
   if (prev?.key !== key) return { key, dir: firstDir };
   if (prev.dir === firstDir) return { key, dir: secondDir };
   return null;
 }
 
-export function sortEntries<T>(
+export function sortEntries<T, K extends string>(
   entries: T[],
-  sort: SortState,
-  getters: { id: (e: T) => number; atk: (e: T) => number },
+  sort: SortState<K>,
+  getters: Record<K, (e: T) => number>,
 ): T[] {
   if (!sort) return entries;
   const dir = sort.dir === "asc" ? 1 : -1;

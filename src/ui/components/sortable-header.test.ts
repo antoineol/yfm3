@@ -2,27 +2,27 @@ import { describe, expect, it } from "vitest";
 import { sortEntries, toggleSort } from "./sortable-header.tsx";
 
 describe("toggleSort", () => {
-  it("defaults to asc for id", () => {
-    expect(toggleSort(null, "id")).toEqual({ key: "id", dir: "asc" });
-  });
-
-  it("defaults to desc for atk", () => {
+  it("defaults to desc as firstDir", () => {
     expect(toggleSort(null, "atk")).toEqual({ key: "atk", dir: "desc" });
   });
 
-  it("toggles id asc → desc → null", () => {
-    expect(toggleSort({ key: "id", dir: "asc" }, "id")).toEqual({ key: "id", dir: "desc" });
-    expect(toggleSort({ key: "id", dir: "desc" }, "id")).toBeNull();
+  it("respects explicit firstDir=asc", () => {
+    expect(toggleSort(null, "id", "asc")).toEqual({ key: "id", dir: "asc" });
   });
 
-  it("toggles atk desc → asc → null", () => {
+  it("cycles desc → asc → null (default firstDir)", () => {
     expect(toggleSort({ key: "atk", dir: "desc" }, "atk")).toEqual({ key: "atk", dir: "asc" });
     expect(toggleSort({ key: "atk", dir: "asc" }, "atk")).toBeNull();
   });
 
+  it("cycles asc → desc → null (firstDir=asc)", () => {
+    expect(toggleSort({ key: "id", dir: "asc" }, "id", "asc")).toEqual({ key: "id", dir: "desc" });
+    expect(toggleSort({ key: "id", dir: "desc" }, "id", "asc")).toBeNull();
+  });
+
   it("resets to firstDir when switching columns", () => {
     expect(toggleSort({ key: "id", dir: "asc" }, "atk")).toEqual({ key: "atk", dir: "desc" });
-    expect(toggleSort({ key: "atk", dir: "desc" }, "id")).toEqual({ key: "id", dir: "asc" });
+    expect(toggleSort({ key: "atk", dir: "desc" }, "id", "asc")).toEqual({ key: "id", dir: "asc" });
   });
 });
 

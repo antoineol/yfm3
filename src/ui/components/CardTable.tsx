@@ -8,10 +8,11 @@ import { artworkSrc, formatCardId } from "../lib/format.ts";
 import { useIsDesktop } from "../lib/use-is-desktop.ts";
 import { useSelectedMod } from "../lib/use-selected-mod.ts";
 import { CardName } from "./CardName.tsx";
-import type { SortKey, SortState } from "./sortable-header.tsx";
+import type { SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
-export type { SortKey, SortState };
+export type SortKey = "id" | "atk";
+export type { SortState };
 
 export type DiffStatus = "added" | "removed" | "kept";
 
@@ -89,6 +90,7 @@ export function countById(ids: number[]): Map<number, number> {
   return counts;
 }
 
+const SORT_FIRST_DIRS: Record<SortKey, "asc" | "desc"> = { id: "asc", atk: "desc" };
 const cardSortGetters = { id: (e: CardEntry) => e.id, atk: (e: CardEntry) => e.atk };
 
 export function CardTable<T extends CardEntry>({
@@ -110,7 +112,7 @@ export function CardTable<T extends CardEntry>({
   const [sort, setSort] = useState<SortState>(defaultSort ?? { key: "id", dir: "asc" });
 
   const handleSortChange = useCallback((key: SortKey) => {
-    setSort((prev) => toggleSort(prev, key));
+    setSort((prev) => toggleSort(prev, key, SORT_FIRST_DIRS[key]));
   }, []);
 
   const sorted = useMemo(() => sortEntries(entries, sort, cardSortGetters) as T[], [entries, sort]);
