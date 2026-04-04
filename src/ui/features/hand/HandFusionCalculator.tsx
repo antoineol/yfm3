@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { FusionChainResult } from "../../../engine/fusion-chain-finder.ts";
 import { HAND_SIZE } from "../../../engine/types/constants.ts";
@@ -14,7 +14,7 @@ import {
   useHandSourceMode,
 } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
-import type { DuelStats, FieldCard } from "../../lib/bridge-state-interpreter.ts";
+import type { DuelStats } from "../../lib/bridge-state-interpreter.ts";
 import { CheatViewSwitch } from "./CheatViewSwitch.tsx";
 import { CpuCheatBanner } from "./CpuCheatBanner.tsx";
 import { EmulatorBridgeBar } from "./EmulatorBridgeBar.tsx";
@@ -26,6 +26,9 @@ import { OpponentPanel } from "./OpponentPanel.tsx";
 import { PostDuelSuggestion } from "./PostDuelSuggestion.tsx";
 import { RankTracker } from "./RankTracker.tsx";
 import { useAutoSyncHand } from "./use-auto-sync-hand.ts";
+import { useCheatViewAutoSwitch } from "./use-cheat-view-auto-switch.ts";
+import { useHandInputFocus } from "./use-hand-input-focus.ts";
+import { useManualField } from "./use-manual-field.ts";
 import { usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
 import { useSyncCpuSwaps } from "./use-sync-cpu-swaps.ts";
 import { useZoneToggle } from "./use-zone-toggle.ts";
@@ -39,30 +42,31 @@ const SOURCE_OPTIONS: { value: HandSourceMode; label: string }[] = [
 /** Only phases where the player is actively deciding — show fusions here, hide everywhere else. */
 const SHOW_FUSIONS_PHASES = new Set(["hand", "draw"]);
 
-/** Phases that indicate it is the player's turn (not opponent, not transient). */
-const PLAYER_PHASES = new Set(["hand", "draw", "fusion", "field", "battle"]);
-
 export function HandFusionCalculator() {
   const bridge = useBridge();
   const hand = useHand();
   const deck = useDeck();
   const sourceMode = useHandSourceMode();
+  const cheatMode = useCheatMode();
+  const cheatView = useCheatView();
   const updatePreferences = useUpdatePreferences();
-  const { removeFromHand, removeMultipleFromHand, clearHand } = useHandMutations();
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const pendingFocusRef = useRef(false);
+  const { removeFromHand, clearHand } = useHandMutations();
 
-  // Auto-sync hand from bridge (always active, even when bar is hidden)
+  // Side-effect hooks
   useAutoSyncHand(bridge);
   useSyncCpuSwaps();
+  useCheatViewAutoSwitch();
+
   const deckCardIds = deck?.map((d) => d.cardId);
   const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
+  const { manualField, clearField, playFusion } = useManualField();
+  const { inputRef, requestInputFocus } = useHandInputFocus(hand?.length ?? 0);
 
   const isSynced = bridge.status === "connected" && bridge.inDuel;
+  const showOpponent = cheatMode && cheatView === "opponent" && bridge.inDuel;
 
   // In synced mode, derive hand directly from the bridge snapshot (same poll
-  // cycle as field) so that hand + field are always consistent.  Convex hand
-  // is still written for persistence but is NOT the rendering source here.
+  // cycle as field) so that hand + field are always consistent.
   const bridgeHandCards: HandCard[] = useMemo(
     () =>
       bridge.hand.map((cardId, i) => ({
@@ -73,84 +77,14 @@ export function HandFusionCalculator() {
   );
   const effectiveHand = isSynced ? bridgeHandCards : hand;
 
-  // ── Manual mode field (populated when user clicks "Play") ─────
-  const [manualField, setManualField] = useState<FieldCard[]>([]);
-
-  // ── Cheat mode (Millennium Eye) ─────────────────────────────
-  const cheatMode = useCheatMode();
-  const cheatView = useCheatView();
-  const showOpponent = cheatMode && cheatView === "opponent" && bridge.inDuel;
-
-  // Reset to player view when a new duel starts
-  const prevInDuelRef = useRef(bridge.inDuel);
-  useEffect(() => {
-    const wasInDuel = prevInDuelRef.current;
-    prevInDuelRef.current = bridge.inDuel;
-    if (!wasInDuel && bridge.inDuel && cheatView === "opponent") {
-      updatePreferences({ cheatView: "player" });
-    }
-  }, [bridge.inDuel, cheatView, updatePreferences]);
-
-  // Auto-switch player/opponent view to follow turn changes
-  const prevPhaseRef = useRef(bridge.phase);
-  useEffect(() => {
-    const prev = prevPhaseRef.current;
-    prevPhaseRef.current = bridge.phase;
-
-    if (!cheatMode || !bridge.inDuel) return;
-
-    if (prev !== "opponent" && bridge.phase === "opponent") {
-      if (cheatView !== "opponent") updatePreferences({ cheatView: "opponent" });
-    } else if (prev === "opponent" && PLAYER_PHASES.has(bridge.phase)) {
-      if (cheatView !== "player") updatePreferences({ cheatView: "player" });
-    }
-  }, [bridge.phase, bridge.inDuel, cheatMode, cheatView, updatePreferences]);
-
-  // ── Zone toggle (hand/field, synced mode only) ───────────────
-  const zonePhase = bridge.phase === "opponent" ? ("field" as const) : bridge.phase;
-  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, zonePhase);
-
-  // ── Manual mode input focus management ───────────────────────
-
-  const handLength = hand?.length ?? 0;
-  useEffect(() => {
-    if (handLength >= HAND_SIZE) {
-      inputRef.current?.blur();
-    } else if (pendingFocusRef.current) {
-      pendingFocusRef.current = false;
-      inputRef.current?.focus();
-    }
-  }, [handLength]);
-
-  const requestInputFocus = useCallback(() => {
-    inputRef.current?.focus();
-    pendingFocusRef.current = true;
-  }, []);
+  // ── Composed callbacks ─────────────────────────────────────────
 
   const handlePlayFusion = useCallback(
     (materialDocIds: Id<"hand">[], result: FusionChainResult) => {
-      if (materialDocIds.length > 0) {
-        void removeMultipleFromHand({ ids: materialDocIds });
-      }
-      // Remove consumed field cards
-      if (result.fieldMaterialCardIds.length > 0) {
-        setManualField((prev) => {
-          const next = [...prev];
-          for (const fieldCardId of result.fieldMaterialCardIds) {
-            const idx = next.findIndex((fc) => fc.cardId === fieldCardId);
-            if (idx >= 0) next.splice(idx, 1);
-          }
-          return next;
-        });
-      }
-      // Add fusion result to field
-      setManualField((prev) => [
-        ...prev,
-        { cardId: result.resultCardId, atk: result.resultAtk, def: result.resultDef },
-      ]);
+      playFusion(materialDocIds, result);
       requestInputFocus();
     },
-    [removeMultipleFromHand, requestInputFocus],
+    [playFusion, requestInputFocus],
   );
 
   const handleSourceModeChange = useCallback(
@@ -161,6 +95,10 @@ export function HandFusionCalculator() {
     },
     [sourceMode, updatePreferences, requestInputFocus],
   );
+
+  // ── Zone toggle (hand/field, synced mode only) ─────────────────
+  const zonePhase = bridge.phase === "opponent" ? ("field" as const) : bridge.phase;
+  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, zonePhase);
 
   if (effectiveHand === undefined) return <PanelLoadingState />;
 
@@ -248,7 +186,7 @@ export function HandFusionCalculator() {
                 </SectionLabel>
                 <button
                   className="text-xs text-text-muted hover:text-stat-atk transition-colors cursor-pointer py-2 px-3 -my-2 -mr-3 rounded-md"
-                  onClick={() => setManualField([])}
+                  onClick={clearField}
                   type="button"
                 >
                   Clear field
