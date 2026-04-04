@@ -1,18 +1,16 @@
 import { useMemo, useState } from "react";
-import type {
-  FactorZone,
-  FactorZoneLayout,
-  RankBreakdown,
-} from "../../../engine/ranking/rank-scoring.ts";
-import {
-  getActiveZoneIndex,
-  getFactorZoneDefinitions,
-} from "../../../engine/ranking/rank-scoring.ts";
+import type { RankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
 import {
   SPECTRUM_SEGMENTS,
   scoreToColor,
   scoreToPosition,
 } from "../../../engine/ranking/rank-spectrum.ts";
+import {
+  type FactorZone,
+  type FactorZoneLayout,
+  getActiveZoneIndex,
+  getFactorZoneDefinitions,
+} from "../../../engine/ranking/rank-zone-layout.ts";
 import { type RankTrackerState, useRankTracker } from "./use-rank-tracker.ts";
 
 // ── Constants ─────────────────────────────────────────────────────────
