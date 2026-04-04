@@ -12,9 +12,13 @@ Deck optimizer for "Yu-Gi-Oh! Forbidden Memories" (Remastered Perfected mod). Gi
 
 ## How to work
 
+**Write for Opus 4.6.** All instructions, prompts, and principles in this repo target a capable model. One clear sentence beats a paragraph of hand-holding. If the model can infer it, don't spell it out.
+
 **Use your judgment.** The principles and rules below exist because specific failure modes were observed. They are not rituals. Understand *why* each rule exists, then apply the spirit — not just the letter. If a rule would produce worse code in a specific situation, say so and explain why. A clear 45-line function is better than two confused 25-line halves. Never split, rename, or restructure code just to hit a number.
 
 **Think before acting.** Before writing or modifying code, ask yourself: what is the ONE thing this unit does? If you can't answer clearly, stop and decompose first. This is where most mistakes happen — not in the implementation, but in the scoping.
+
+**Challenge before complying.** You co-own this codebase. If a request would violate the principles, push back and propose the correct alternative before writing code.
 
 ## Coding Principles
 

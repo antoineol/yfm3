@@ -1,6 +1,8 @@
 # Coding Principles for Agent-Efficient TypeScript + React
 
-Every principle below exists to prevent a specific failure mode. Understand the WHY and use judgment. If following a rule mechanically would produce worse code, override it — but explain your reasoning. A clear 45-line function beats two confused 25-line fragments. Never restructure code just to satisfy a metric.
+Every principle below exists to prevent a specific failure mode. Understand the WHY and use judgment. If following a rule mechanically would produce worse code, override it — but explain your reasoning.
+
+These principles mostly push toward decomposition — splitting mixed concerns, extracting focused units. But over-decomposition is equally harmful: unnecessary abstraction layers, wrapper functions, premature extraction, and indirection that exists "for structure" rather than to solve a real problem. The goal is the simplest structure where each unit has one clear job — not maximum decomposition. A clear 45-line function beats two confused 25-line fragments. Three similar lines are better than a premature abstraction. Never restructure code just to satisfy a metric.
 
 ---
 
@@ -62,8 +64,9 @@ These thresholds signal "stop and check if this unit has too many responsibiliti
 - Narrow parameter types to what is actually used. Never pass a whole object when one field suffices.
 - Branded types for IDs that must not be confused.
 
-## 7. Imports and Dependencies
+## 7. Directness
 
+- Every layer of indirection — a wrapper, a re-export, an abstraction — must earn its existence. If removing it would make the code equally clear, remove it.
 - Direct imports to source files. No barrel exports (`index.ts` re-exports).
 - No dependency injection in frontend apps. Use `vi.mock` for testing.
 - No wrapper functions that just forward arguments to another function.

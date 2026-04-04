@@ -2,6 +2,8 @@
 
 Detailed reference for each principle. Each entry has: the hard rule, the agent-specific rationale, mechanical enforcement, concrete examples, and edge cases.
 
+**Two failure modes, not one.** These principles primarily guard against under-decomposition: god functions, mixed concerns, tangled state. But over-decomposition is equally damaging. Unnecessary abstraction layers add cognitive overhead on every read. Premature extraction creates indirection the reader must trace through for no clarity gain. Wrapper functions, adapter layers, and structural scaffolding that don't solve a real problem are noise — they spread logic across more files and more hops without making any single piece easier to understand. The goal is the simplest code structure where each unit has one clear responsibility — not the most decomposed one.
+
 ---
 
 ## 1. Single Responsibility
@@ -578,10 +580,11 @@ addCardToDeck(deckId, cardId);  // compile error
 
 ---
 
-## 7. Imports and Dependencies
+## 7. Directness
 
 ### Rule
 
+- Every layer of indirection — a wrapper, a re-export, an abstraction — must earn its existence. If removing a layer would make the code equally clear, remove it.
 - Direct imports to source files. No barrel exports (`index.ts` re-exports).
 - No dependency injection in frontend applications. Use `vi.mock` for test isolation.
 - No wrapper functions that just forward arguments to another function.
@@ -589,11 +592,9 @@ addCardToDeck(deckId, cardId);  // compile error
 
 ### Why (for agents)
 
-When an agent greps for where `FusionScorer` is defined, a barrel file creates a false positive that the agent must trace through. Barrel exports also create circular dependency risks and obscure actual dependency relationships.
+Every layer of indirection has a compounding cost. The reader must pause, jump to another location, rebuild context, then return. This cost is paid on every read — not once when the abstraction is introduced, but every time anyone touches the code path. Three layers deep and the reader is navigating the abstraction rather than understanding the logic.
 
-Direct imports mean: grep finds the real source on the first hit. The import path IS the file path. No indirection.
-
-Wrapper functions that forward arguments create the same problem: the agent finds the wrapper, then must trace through to the real implementation. One hop is one too many when multiplied across dozens of functions.
+The practical signals: barrel files create false positives when grepping. Wrapper functions that forward arguments force a trace-through to the real implementation. Single-use helpers scatter logic across two locations when one would be clearer. DI frameworks in frontend apps add a resolution layer between "what is called" and "what runs." Each of these is a hop that adds no clarity.
 
 ### Enforcement
 
