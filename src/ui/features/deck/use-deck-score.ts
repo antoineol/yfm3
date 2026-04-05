@@ -46,7 +46,9 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       return;
     }
 
-    setScore(null); // clear stale value while computing
+    // Keep previous score visible while recomputing (avoid null gap that hides
+    // dependent UI like the improvement %). The score is only nulled when the
+    // deck becomes invalid (not full-size / no collection) — see guard above.
 
     const worker = new Worker(new URL("../../../engine/worker/scorer-worker.ts", import.meta.url), {
       type: "module",

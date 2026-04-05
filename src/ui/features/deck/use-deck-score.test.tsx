@@ -162,6 +162,27 @@ describe("useDeckScore", () => {
     expect(store.get(currentDeckScoreAtom)).toBe(1500.5);
   });
 
+  it("retains previous score while recomputing for a new deck", () => {
+    const store = createStore();
+    const { rerender } = renderHook(({ ids }) => useDeckScore(ids), {
+      initialProps: { ids: [1, 2, 3, 4, 5] },
+      wrapper: makeWrapper(store),
+    });
+
+    // First computation completes
+    createdWorkers[0]?.respond(1500);
+    expect(store.get(currentDeckScoreAtom)).toBe(1500);
+
+    // Change deck — new worker spawns but old score persists
+    rerender({ ids: [1, 1, 1, 1, 2] });
+    expect(createdWorkers).toHaveLength(2);
+    expect(store.get(currentDeckScoreAtom)).toBe(1500);
+
+    // New worker completes — score updates
+    createdWorkers[1]?.respond(1800);
+    expect(store.get(currentDeckScoreAtom)).toBe(1800);
+  });
+
   it("does not update atom after cleanup (cancelled)", () => {
     const store = createStore();
     const { unmount } = renderHook(() => useDeckScore([1, 2, 3, 4, 5]), {
