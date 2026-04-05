@@ -67,6 +67,7 @@ const PHASE_CLEANUP = 0x02;
 const PHASE_DRAW = 0x03;
 const PHASE_HAND_SELECT = 0x04;
 const PHASE_FIELD = 0x05;
+const PHASE_FIELD_PLAY = 0x06; // terrain/field spell animation
 const PHASE_FUSION = 0x07;
 const PHASE_FUSION_RESOLVE = 0x08;
 const PHASE_BATTLE = 0x09;
@@ -146,6 +147,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       raw.duelPhase === PHASE_DRAW ||
       raw.duelPhase === PHASE_HAND_SELECT ||
       raw.duelPhase === PHASE_FIELD ||
+      raw.duelPhase === PHASE_FIELD_PLAY ||
       raw.duelPhase === PHASE_FUSION ||
       raw.duelPhase === PHASE_FUSION_RESOLVE ||
       raw.duelPhase === PHASE_BATTLE ||
@@ -291,7 +293,7 @@ function mapRawPhase(duelPhase: number): DuelPhase {
   if (duelPhase === PHASE_HAND_SELECT) return "hand";
   if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";
   if (duelPhase === PHASE_FUSION || duelPhase === PHASE_FUSION_RESOLVE) return "fusion";
-  if (duelPhase === PHASE_FIELD) return "field";
+  if (duelPhase === PHASE_FIELD || duelPhase === PHASE_FIELD_PLAY) return "field";
   if (duelPhase === PHASE_BATTLE) return "battle";
   return "other";
 }
@@ -303,7 +305,7 @@ function mapDuelPhase(duelPhase: number, isPlayerTurn: boolean): DuelPhase {
   if (duelPhase === PHASE_HAND_SELECT) return "hand";
   if (duelPhase === PHASE_DRAW || duelPhase === PHASE_CLEANUP) return "draw";
   if (duelPhase === PHASE_FUSION || duelPhase === PHASE_FUSION_RESOLVE) return "fusion";
-  if (duelPhase === PHASE_FIELD) return "field";
+  if (duelPhase === PHASE_FIELD || duelPhase === PHASE_FIELD_PLAY) return "field";
   if (duelPhase === PHASE_BATTLE) return "battle";
   return "other";
 }

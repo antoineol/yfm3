@@ -241,6 +241,19 @@ describe("interpretRawState", () => {
       expect(result.phase).toBe("field");
     });
 
+    it("maps phase 0x06 (field spell play) on player turn to 'field'", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0x06, turnIndicator: 0 }));
+      expect(result.phase).toBe("field");
+      expect(result.inDuel).toBe(true);
+    });
+
+    it("maps phase 0x06 on opponent turn to 'opponent'", () => {
+      const result = interpretRawState(makeRaw({ duelPhase: 0x06, turnIndicator: 1 }));
+      expect(result.phase).toBe("opponent");
+      expect(result.opponentPhase).toBe("field");
+      expect(result.inDuel).toBe(true);
+    });
+
     it("maps phase 0x09 on player turn to 'battle'", () => {
       const result = interpretRawState(makeRaw({ duelPhase: 0x09, turnIndicator: 0 }));
       expect(result.phase).toBe("battle");
