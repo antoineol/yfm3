@@ -51,11 +51,12 @@ export function ResultPanel() {
     );
   }
 
-  // Only use live deck score for percentage — result.currentDeckScore is stale
-  // when the deck has changed since optimization ran.
+  // Prefer live score (tracks deck changes); fall back to the score computed
+  // during optimization when the atom hasn't been populated yet.
+  const baselineScore = liveDeckScore ?? data.result.currentDeckScore;
   const improvementPct =
-    liveDeckScore != null && liveDeckScore > 0
-      ? (((data.result.expectedAtk - liveDeckScore) / liveDeckScore) * 100).toFixed(1)
+    baselineScore != null && baselineScore > 0
+      ? (((data.result.expectedAtk - baselineScore) / baselineScore) * 100).toFixed(1)
       : null;
 
   return (

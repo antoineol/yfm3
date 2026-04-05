@@ -130,7 +130,7 @@ describe("ResultPanel", () => {
     expect(screen.getByText("+25.0%")).toBeDefined();
   });
 
-  it("hides improvement percentage when live deck score is null", () => {
+  it("falls back to result.currentDeckScore when live deck score is null", () => {
     mockResultHook.mockReturnValue({
       entries: [],
       removed: [],
@@ -138,6 +138,19 @@ describe("ResultPanel", () => {
       kept: [],
       swapCount: 0,
       result: { ...baseResult, currentDeckScore: 2000, improvement: 500 },
+    });
+    renderPanel();
+    expect(screen.getByText("+25.0%")).toBeDefined();
+  });
+
+  it("hides improvement percentage when both scores are null", () => {
+    mockResultHook.mockReturnValue({
+      entries: [],
+      removed: [],
+      added: [],
+      kept: [],
+      swapCount: 0,
+      result: baseResult,
     });
     renderPanel();
     expect(screen.queryByText(/\+.*%/)).toBeNull();

@@ -74,11 +74,12 @@ function ResultState({
   const addedRows = diffRows.filter((r) => r.type === "added");
 
   const liveDeckScore = useAtomValue(currentDeckScoreAtom);
-  // Only use live deck score for percentage — result.currentDeckScore is stale
-  // when the deck has changed since optimization ran.
+  // Prefer live score (tracks deck changes); fall back to the score computed
+  // during optimization when the atom hasn't been populated yet.
+  const baselineScore = liveDeckScore ?? result.currentDeckScore;
   const improvementPct =
-    liveDeckScore != null && liveDeckScore > 0
-      ? (((result.expectedAtk - liveDeckScore) / liveDeckScore) * 100).toFixed(1)
+    baselineScore != null && baselineScore > 0
+      ? (((result.expectedAtk - baselineScore) / baselineScore) * 100).toFixed(1)
       : null;
 
   const changeCount = removedRows.length;
@@ -133,11 +134,13 @@ function DiffSection({
         {rows.map((row, i) => (
           <li className="fm-post-duel-diff-row" key={`${type}-${String(row.cardId)}-${String(i)}`}>
             <span className={`fm-post-duel-diff-icon ${colorClass}`}>{icon}</span>
-            <CardName
-              cardId={row.cardId}
-              className={`flex-1 min-w-0 text-sm ${colorClass}`}
-              name={`#${formatCardId(row.cardId)} ${row.card?.name ?? "?"}`}
-            />
+            <span className="min-w-0 flex-1 flex">
+              <CardName
+                cardId={row.cardId}
+                className={`text-sm ${colorClass}`}
+                name={`#${formatCardId(row.cardId)} ${row.card?.name ?? "?"}`}
+              />
+            </span>
             {row.card?.isMonster && (
               <span className={`font-mono text-xs ${colorClass} tabular-nums`}>
                 {row.card.attack}
