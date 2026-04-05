@@ -7,6 +7,7 @@ import { useIsDesktop } from "../lib/use-is-desktop.ts";
 import { useSelectedMod } from "../lib/use-selected-mod.ts";
 import { CardName } from "./CardName.tsx";
 import type { CardEntry, DiffStatus } from "./card-entries.ts";
+import { cardTypeBorderColor } from "./card-entries.ts";
 import type { SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
@@ -194,12 +195,14 @@ function DesktopCardRow<T extends CardEntry>({
   modId: string;
 }) {
   const c = diffColors(e.diffStatus);
+  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
 
   return (
     <tr
       className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
         even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${c.row}`}
       key={e.rowKey ?? e.id}
+      style={{ borderLeft: `3px solid ${borderColor}` }}
     >
       {leftActions && <td className="py-0.5 px-1 whitespace-nowrap">{leftActions(e)}</td>}
       <td className="py-0.5 px-1">
@@ -271,10 +274,12 @@ function MobileCardRow<T extends CardEntry>({
 }) {
   const c = diffColors(e.diffStatus);
   const hasPills = showC || showD;
+  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
 
   return (
     <div
       className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${c.row.trim()} ${e.qty === 0 ? "opacity-40" : ""}`}
+      style={{ borderLeft: `3px solid ${borderColor}` }}
     >
       <img
         alt=""

@@ -7,6 +7,7 @@ export interface CardEntry {
   id: number;
   name: string;
   isMonster: boolean;
+  cardType?: string;
   atk: number;
   def: number;
   qty: number;
@@ -34,6 +35,7 @@ export function buildCardEntries(
       id,
       name: card?.name ?? `#${id}`,
       isMonster: card?.isMonster ?? true,
+      cardType: card?.cardType,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty,
@@ -58,6 +60,7 @@ export function buildFlatEntries(ids: number[], cardDb: CardDb): CardEntry[] {
       id,
       name: card?.name ?? `#${id}`,
       isMonster: card?.isMonster ?? true,
+      cardType: card?.cardType,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty: 1,
@@ -75,4 +78,20 @@ export function countById(ids: number[]): Map<number, number> {
   const counts = new Map<number, number>();
   for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
   return counts;
+}
+
+/* ── Card-type border colors (matches GameCard frame palettes) ── */
+
+const typeBorderColors: Record<string, string> = {
+  Magic: "#308838",
+  Equip: "#308838",
+  Trap: "#c04888",
+  Ritual: "#2858c0",
+};
+const monsterBorderColor = "#b89838";
+
+export function cardTypeBorderColor(cardType?: string, isMonster?: boolean): string {
+  if (cardType && typeBorderColors[cardType]) return typeBorderColors[cardType];
+  if (isMonster !== false) return monsterBorderColor;
+  return monsterBorderColor;
 }

@@ -2,6 +2,7 @@ import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
 import { MAX_COPIES } from "../../../engine/types/constants.ts";
 import { CardName } from "../../components/CardName.tsx";
+import { cardTypeBorderColor } from "../../components/card-entries.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader } from "../../components/sortable-header.tsx";
@@ -92,10 +93,12 @@ export function DuelistCardTable({
                 const card = cardDb.cardsById.get(row.cardId);
                 const isMonster = card?.isMonster ?? true;
                 const needMore = showOwned && (ownedTotals[row.cardId] ?? 0) < MAX_COPIES;
+                const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
                 return (
                   <tr
-                    className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30 ${needMore ? "owned-need-row" : ""}`}
+                    className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
                     key={row.cardId}
+                    style={{ borderLeft: `3px solid ${borderColor}` }}
                   >
                     <td className="py-1.5 px-1 font-mono text-xs text-text-muted">
                       {formatCardId(row.cardId)}

@@ -61,9 +61,6 @@ body {
 }
 
 /* "Need more copies" indicators in duelist tables */
-.owned-need-row {
-  box-shadow: inset 1px 0 0 var(--color-text-need);
-}
 .owned-need {
   text-shadow: 0 0 6px rgba(232, 163, 76, 0.5);
 }
