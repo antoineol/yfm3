@@ -83,6 +83,7 @@ function scoreInWorker(
  * @param options.currentDeckScore  pre-computed exact expected ATK of the current deck (skips redundant scoring)
  * @param options.deckSize  number of cards in the optimized deck (default 40)
  * @param options.fusionDepth  max fusion chain depth (default 3)
+ * @param options.terrain  terrain ID for field power bonuses (0 = none, 1–6)
  */
 export async function optimizeDeckParallel(
   collection: Collection,
@@ -94,6 +95,7 @@ export async function optimizeDeckParallel(
     deckSize?: number;
     fusionDepth?: number;
     useEquipment?: boolean;
+    terrain?: number;
     modId?: ModId;
     gameData?: BridgeGameData;
     onProgress?: (progress: number, bestScore: number, bestDeck: number[]) => void;
@@ -103,6 +105,7 @@ export async function optimizeDeckParallel(
   const deckSize = options?.deckSize ?? DECK_SIZE;
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const useEquipment = options?.useEquipment ?? true;
+  const terrain = options?.terrain ?? 0;
   const modId = options?.modId ?? DEFAULT_MOD;
   const gameData = options?.gameData;
   const start = performance.now();
@@ -122,7 +125,7 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId });
+  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId, terrain });
 
   const collectionRecord: Record<number, number> = {};
   for (const [id, qty] of collection) collectionRecord[id] = qty;

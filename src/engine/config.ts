@@ -7,6 +7,8 @@ export interface EngineConfig {
   fusionDepth: number;
   useEquipment: boolean;
   megamorphId: number;
+  /** Terrain ID for field power bonuses (0 = none, 1–6 = Forest..Dark). */
+  terrain: number;
 }
 
 const defaults: Readonly<EngineConfig> = {
@@ -14,6 +16,7 @@ const defaults: Readonly<EngineConfig> = {
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
   megamorphId: MODS.rp.megamorphId,
+  terrain: 0,
 };
 
 const config: EngineConfig = { ...defaults };

@@ -5,7 +5,12 @@ import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.t
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import type { ModId } from "../../../engine/mods.ts";
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
-import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
+import {
+  useDeckSize,
+  useFusionDepth,
+  useTerrain,
+  useUseEquipment,
+} from "../../db/use-user-preferences.ts";
 import { postDuelLiveBestScoreAtom, postDuelProgressAtom } from "../../lib/atoms.ts";
 import type { CollectionSnapshot } from "./use-duel-collection-tracker.ts";
 
@@ -29,6 +34,7 @@ export function useOptimizationRunner(
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const terrain = useTerrain();
 
   const setProgress = useSetAtom(postDuelProgressAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
@@ -73,6 +79,7 @@ export function useOptimizationRunner(
       deckSize,
       fusionDepth,
       useEquipment,
+      terrain,
       modId: context.modId,
       gameData: context.gameData ?? undefined,
       onProgress: (p, bestScore) => {
@@ -103,6 +110,7 @@ export function useOptimizationRunner(
     deckSize,
     fusionDepth,
     useEquipment,
+    terrain,
     context.modId,
     context.gameData,
     setProgress,

@@ -69,6 +69,14 @@ export function useUseEquipment() {
   return prefs?.useEquipment ?? true;
 }
 
+export function useTerrain() {
+  const autoSync = useBridgeAutoSync();
+  const localSettings = useAtomValue(localSettingsAtom);
+  const prefs = useUserModSettings();
+  if (autoSync) return localSettings.terrain ?? 0;
+  return prefs?.terrain ?? 0;
+}
+
 // ── Global settings (from userSettings table or local atoms) ────────
 
 function useUserSettings() {

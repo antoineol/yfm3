@@ -42,6 +42,7 @@ export function useUpdatePreferences() {
       if (modValues.deckSize !== undefined) patch.deckSize = modValues.deckSize;
       if (modValues.fusionDepth !== undefined) patch.fusionDepth = modValues.fusionDepth;
       if (modValues.useEquipment !== undefined) patch.useEquipment = modValues.useEquipment;
+      if (modValues.terrain !== undefined) patch.terrain = modValues.terrain;
       if (handSourceMode !== undefined) patch.handSourceMode = handSourceMode;
       if (cheatMode !== undefined) patch.cheatMode = cheatMode;
       if (cheatView !== undefined) patch.cheatView = cheatView;

@@ -1,4 +1,6 @@
+import { getConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
+import { applyFieldBonus } from "./data/field-bonus.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
 import { loadGameData } from "./data/load-game-data.ts";
@@ -22,6 +24,12 @@ import { MAX_COPIES } from "./types/constants.ts";
 export function initializeBuffers(collection: Collection, rand: () => number): OptBuffers {
   const buf = createBuffers();
   const cards = loadGameData(buf);
+  const { terrain } = getConfig();
+  if (terrain > 0) {
+    for (const card of cards) {
+      buf.cardAtk[card.id] = applyFieldBonus(card.attack, terrain, card.cardType);
+    }
+  }
   for (const card of cards) {
     buf.availableCounts[card.id] = Math.min(collection.get(card.id) ?? 0, MAX_COPIES);
   }

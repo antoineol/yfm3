@@ -7,6 +7,7 @@ export const configSchema = z.object({
   deckSize: z.number().int().min(HAND_SIZE).max(DECK_SIZE),
   fusionDepth: z.number().int().min(1).max(MAX_FUSION_DEPTH),
   useEquipment: z.boolean(),
+  terrain: z.number().int().min(0).max(6),
 });
 
 export type ConfigFormValues = z.infer<typeof configSchema>;
@@ -16,7 +17,7 @@ export type ConfigFormValues = z.infer<typeof configSchema>;
 type MutationArgs = Required<
   Pick<
     FunctionArgs<typeof api.userModSettings.updateModSettings>,
-    "deckSize" | "fusionDepth" | "useEquipment"
+    "deckSize" | "fusionDepth" | "useEquipment" | "terrain"
   >
 >;
 type AssertEqual<T, U> = [T] extends [U] ? ([U] extends [T] ? true : never) : never;

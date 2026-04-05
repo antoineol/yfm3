@@ -1,4 +1,6 @@
+import { getConfig } from "./config.ts";
 import type { CardSpec, Collection } from "./data/card-model.ts";
+import { applyFieldBonus } from "./data/field-bonus.ts";
 import { buildReverseLookup, generateHandSlots } from "./data/hand-pool.ts";
 import { buildInitialDeck } from "./data/initial-deck.ts";
 import {
@@ -72,6 +74,12 @@ function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData
   } else {
     const csv = getCsvCache(modId);
     cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
+  }
+  const { terrain } = getConfig();
+  if (terrain > 0) {
+    for (const card of cards) {
+      buf.cardAtk[card.id] = applyFieldBonus(card.attack, terrain, card.cardType);
+    }
   }
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);

@@ -49,7 +49,7 @@ export function cardFieldBonus(
   };
 }
 
-const TERRAIN_NAMES: Record<number, string> = {
+export const TERRAIN_NAMES: Record<number, string> = {
   1: "Forest",
   2: "Wasteland",
   3: "Mountain",
@@ -57,6 +57,9 @@ const TERRAIN_NAMES: Record<number, string> = {
   5: "Sea",
   6: "Dark",
 };
+
+/** All valid terrain IDs (1–6). */
+export const TERRAIN_IDS = [1, 2, 3, 4, 5, 6] as const;
 
 /** Human-readable terrain name, or null for Normal (0) / unknown. */
 export function terrainName(terrain: number): string | null {

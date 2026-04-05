@@ -46,6 +46,7 @@ export default defineSchema({
     deckSize: v.optional(v.number()), // Optimizer deck size (default 40)
     fusionDepth: v.optional(v.number()), // Max fusion chain depth (default 3)
     useEquipment: v.optional(v.boolean()), // Consider equip boosts (+500/+1000) in deck optimization
+    terrain: v.optional(v.number()), // Field terrain ID for field power bonuses (0=none, 1–6)
     mod: v.string(),
     createdAt: v.number(), // Timestamp
     updatedAt: v.number(), // Timestamp

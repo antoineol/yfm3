@@ -4,7 +4,12 @@ import type { Collection } from "../../../engine/data/card-model.ts";
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
+import {
+  useDeckSize,
+  useFusionDepth,
+  useTerrain,
+  useUseEquipment,
+} from "../../db/use-user-preferences.ts";
 import {
   currentDeckScoreAtom,
   deckSubTabAtom,
@@ -31,6 +36,7 @@ export function useOptimize() {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const terrain = useTerrain();
   const modId = useSelectedMod();
   const bridge = useBridge();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -63,6 +69,7 @@ export function useOptimize() {
       deckSize,
       fusionDepth,
       useEquipment,
+      terrain,
       modId,
       gameData: bridge.gameData ?? undefined,
       signal: controller.signal,

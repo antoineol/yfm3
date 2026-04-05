@@ -62,7 +62,13 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
 
     return {
       addedCardId,
-      config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
+      config: {
+        deckSize,
+        fusionDepth,
+        useEquipment,
+        terrain: 0,
+        megamorphId: MODS[modId].megamorphId,
+      },
       currentDeckScore,
       deck: stableDeckCardIds,
     };

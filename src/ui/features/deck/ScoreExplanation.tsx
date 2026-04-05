@@ -44,6 +44,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
         deckSize,
         fusionDepth,
         useEquipment,
+        terrain: 0,
         megamorphId: MODS[modId].megamorphId,
       };
       const worker = new Worker(

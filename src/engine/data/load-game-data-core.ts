@@ -34,6 +34,7 @@ export function loadGameDataFromStrings(
       name: name || `Card #${id}`,
       attack: atk,
       defense: def,
+      cardType: type || undefined,
       kinds: [],
       isMonster: !nonMonsterTypes.has(type),
     });
@@ -84,6 +85,7 @@ export function loadGameDataWithBridgeTables(
       name: c.name || `Card #${c.id}`,
       attack: c.atk,
       defense: c.def,
+      cardType: c.type || undefined,
       kinds: [],
       isMonster: !nonMonsterTypes.has(c.type),
     });

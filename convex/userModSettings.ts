@@ -50,6 +50,7 @@ export const updateModSettings = mutation({
     deckSize: v.optional(v.number()),
     fusionDepth: v.optional(v.number()),
     useEquipment: v.optional(v.boolean()),
+    terrain: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await resolveUserId(ctx, args.anonymousId);
@@ -64,6 +65,7 @@ export const updateModSettings = mutation({
     if (args.deckSize !== undefined) patch.deckSize = args.deckSize;
     if (args.fusionDepth !== undefined) patch.fusionDepth = args.fusionDepth;
     if (args.useEquipment !== undefined) patch.useEquipment = args.useEquipment;
+    if (args.terrain !== undefined) patch.terrain = args.terrain;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);
@@ -77,6 +79,7 @@ export const updateModSettings = mutation({
       deckSize: args.deckSize,
       fusionDepth: args.fusionDepth,
       useEquipment: args.useEquipment,
+      terrain: args.terrain,
       createdAt: now,
       updatedAt: now,
     });
