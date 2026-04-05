@@ -35,7 +35,7 @@ vi.mock("../../lib/card-db-context.tsx", () => ({
 }));
 
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
-import { currentDeckScoreAtom, liveBestScoreAtom } from "../../lib/atoms.ts";
+import { liveBestScoreAtom } from "../../lib/atoms.ts";
 
 import { useOptimize } from "../optimize/use-optimize.ts";
 import { ResultPanel } from "./ResultPanel.tsx";
@@ -116,8 +116,7 @@ describe("ResultPanel", () => {
     expect(screen.getByLabelText("Re-run")).toBeDefined();
   });
 
-  it("shows improvement percentage in header when live deck score is available", () => {
-    store.set(currentDeckScoreAtom, 2000);
+  it("shows improvement percentage from result scores", () => {
     mockResultHook.mockReturnValue({
       entries: [],
       removed: [],
@@ -130,20 +129,7 @@ describe("ResultPanel", () => {
     expect(screen.getByText("+25.0%")).toBeDefined();
   });
 
-  it("falls back to result.currentDeckScore when live deck score is null", () => {
-    mockResultHook.mockReturnValue({
-      entries: [],
-      removed: [],
-      added: [],
-      kept: [],
-      swapCount: 0,
-      result: { ...baseResult, currentDeckScore: 2000, improvement: 500 },
-    });
-    renderPanel();
-    expect(screen.getByText("+25.0%")).toBeDefined();
-  });
-
-  it("hides improvement percentage when both scores are null", () => {
+  it("hides improvement percentage when currentDeckScore is null", () => {
     mockResultHook.mockReturnValue({
       entries: [],
       removed: [],

@@ -1,10 +1,8 @@
-import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { countById } from "../../components/card-entries.ts";
-import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
@@ -73,13 +71,11 @@ function ResultState({
   const removedRows = diffRows.filter((r) => r.type === "removed");
   const addedRows = diffRows.filter((r) => r.type === "added");
 
-  const liveDeckScore = useAtomValue(currentDeckScoreAtom);
-  // Prefer live score (tracks deck changes); fall back to the score computed
-  // during optimization when the atom hasn't been populated yet.
-  const baselineScore = liveDeckScore ?? result.currentDeckScore;
   const improvementPct =
-    baselineScore != null && baselineScore > 0
-      ? (((result.expectedAtk - baselineScore) / baselineScore) * 100).toFixed(1)
+    result.currentDeckScore != null && result.currentDeckScore > 0
+      ? (((result.expectedAtk - result.currentDeckScore) / result.currentDeckScore) * 100).toFixed(
+          1,
+        )
       : null;
 
   const changeCount = removedRows.length;
