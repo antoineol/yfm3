@@ -1,3 +1,4 @@
+import { applyFieldBonus } from "./data/field-bonus.ts";
 import type { CardDb } from "./data/game-db.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
@@ -24,11 +25,12 @@ export function findDeckFusions(
   fusionTable: Int16Array,
   cardDb: CardDb,
   fusionDepth: number,
+  terrain = 0,
 ): DeckFusion[] {
   const uniqueCards = [...new Set(deckCardIds)];
   const results = new Map<string, DeckFusion>();
 
-  exploreFusions(uniqueCards, fusionTable, cardDb, fusionDepth, results);
+  exploreFusions(uniqueCards, fusionTable, cardDb, fusionDepth, results, terrain);
 
   return sortAndGroup(Array.from(results.values()));
 }
@@ -39,6 +41,7 @@ function exploreFusions(
   cardDb: CardDb,
   fusionDepth: number,
   results: Map<string, DeckFusion>,
+  terrain: number,
 ): void {
   const deckSet = new Set(deckCards);
 
@@ -49,10 +52,20 @@ function exploreFusions(
       const resultId = fusionTable[a * MAX_CARD_ID + b] ?? FUSION_NONE;
       if (resultId === FUSION_NONE) continue;
 
-      recordDeckFusion(resultId, 2, [a, b], cardDb, results);
+      recordDeckFusion(resultId, 2, [a, b], cardDb, results, terrain);
 
       if (fusionDepth > 1) {
-        exploreChains(resultId, [a, b], deckSet, fusionTable, cardDb, fusionDepth, 1, results);
+        exploreChains(
+          resultId,
+          [a, b],
+          deckSet,
+          fusionTable,
+          cardDb,
+          fusionDepth,
+          1,
+          results,
+          terrain,
+        );
       }
     }
   }
@@ -67,6 +80,7 @@ function exploreChains(
   maxDepth: number,
   depth: number,
   results: Map<string, DeckFusion>,
+  terrain: number,
 ): void {
   const usedSet = new Set(materials);
 
@@ -77,7 +91,7 @@ function exploreChains(
     if (resultId === FUSION_NONE) continue;
 
     const newMaterials = [...materials, cardId];
-    recordDeckFusion(resultId, newMaterials.length, newMaterials, cardDb, results);
+    recordDeckFusion(resultId, newMaterials.length, newMaterials, cardDb, results, terrain);
 
     if (depth < maxDepth - 1) {
       exploreChains(
@@ -89,6 +103,7 @@ function exploreChains(
         maxDepth,
         depth + 1,
         results,
+        terrain,
       );
     }
   }
@@ -100,6 +115,7 @@ function recordDeckFusion(
   materials: number[],
   cardDb: CardDb,
   results: Map<string, DeckFusion>,
+  terrain: number,
 ): void {
   // Key by result + material count to separate 2-material vs 3-material routes
   const key = `${String(resultId)}_${String(materialCount)}`;
@@ -124,9 +140,10 @@ function recordDeckFusion(
   }
 
   const card = cardDb.cardsById.get(resultId);
+  const baseAtk = card?.attack ?? 0;
   results.set(key, {
     resultCardId: resultId,
-    resultAtk: card?.attack ?? 0,
+    resultAtk: terrain ? applyFieldBonus(baseAtk, terrain, card?.cardType) : baseAtk,
     resultName: card?.name ?? `Card #${String(resultId)}`,
     materialCount,
     materialPaths: [materials],

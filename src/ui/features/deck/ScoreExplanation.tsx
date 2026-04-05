@@ -5,7 +5,12 @@ import type { AtkBucket } from "../../../engine/score-explainer.ts";
 import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
+import {
+  useDeckSize,
+  useFusionDepth,
+  useTerrain,
+  useUseEquipment,
+} from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -19,20 +24,23 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
   const deckSize = useDeckSize();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
+  const terrain = useTerrain();
   const modId = useSelectedMod();
   const bridge = useBridge();
   const [state, setState] = useState<ExplainState>({ status: "idle" });
   const [expanded, setExpanded] = useState(false);
   const prevDeckRef = useRef(deckCardIds);
+  const prevTerrainRef = useRef(terrain);
 
-  // Reset when deck changes
+  // Reset when deck or terrain changes
   useEffect(() => {
-    if (prevDeckRef.current !== deckCardIds) {
+    if (prevDeckRef.current !== deckCardIds || prevTerrainRef.current !== terrain) {
       prevDeckRef.current = deckCardIds;
+      prevTerrainRef.current = terrain;
       setState({ status: "idle" });
       setExpanded(false);
     }
-  }, [deckCardIds]);
+  }, [deckCardIds, terrain]);
 
   const toggle = useCallback(() => {
     if (state.status === "idle") {
@@ -44,7 +52,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
         deckSize,
         fusionDepth,
         useEquipment,
-        terrain: 0,
+        terrain,
         megamorphId: MODS[modId].megamorphId,
       };
       const worker = new Worker(
@@ -84,6 +92,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
     deckSize,
     fusionDepth,
     useEquipment,
+    terrain,
     modId,
     bridge.gameData,
   ]);

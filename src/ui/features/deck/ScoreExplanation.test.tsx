@@ -11,6 +11,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useDeckSize: vi.fn(() => 5),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
+  useTerrain: vi.fn(() => 0),
 }));
 
 vi.mock("../../lib/use-selected-mod.ts", () => ({

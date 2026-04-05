@@ -180,6 +180,109 @@ describe("findDeckFusions with non-monster materials", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Field bonus
+// ---------------------------------------------------------------------------
+describe("findDeckFusions with terrain field bonus", () => {
+  let fbCardDb: CardDb;
+  let fbFusionTable: Int16Array;
+
+  beforeAll(() => {
+    fbCardDb = createCardDb();
+    // Dragon gets +500 on Mountain (terrain 3)
+    addCard(fbCardDb, {
+      id: 60,
+      name: "Fire Dragon",
+      kinds: [],
+      isMonster: true,
+      attack: 1800,
+      defense: 1000,
+      cardType: "Dragon",
+    });
+    addCard(fbCardDb, {
+      id: 61,
+      name: "Wind Bird",
+      kinds: [],
+      isMonster: true,
+      attack: 1200,
+      defense: 800,
+      cardType: "Winged Beast",
+    });
+    // Fusion result is also a Dragon → boosted on Mountain
+    addCard(fbCardDb, {
+      id: 62,
+      name: "Storm Dragon",
+      kinds: [],
+      isMonster: true,
+      attack: 2400,
+      defense: 1600,
+      cardType: "Dragon",
+    });
+
+    fbFusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    fbFusionTable.fill(FUSION_NONE);
+    setFusion(fbFusionTable, 60, 61, 62); // Fire Dragon + Wind Bird → Storm Dragon
+  });
+
+  it("applies field bonus to fusion result ATK", () => {
+    // Mountain (terrain 3) boosts Dragon +500
+    const results = findDeckFusions([60, 61], fbFusionTable, fbCardDb, 1, 3);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultAtk).toBe(2900); // 2400 + 500
+  });
+
+  it("returns base ATK when terrain is 0", () => {
+    const results = findDeckFusions([60, 61], fbFusionTable, fbCardDb, 1, 0);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultAtk).toBe(2400);
+  });
+
+  it("returns base ATK when terrain is omitted", () => {
+    const results = findDeckFusions([60, 61], fbFusionTable, fbCardDb, 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultAtk).toBe(2400);
+  });
+
+  it("applies field malus to weakened types", () => {
+    // Sea (terrain 5) weakens Machine -500
+    const machineDb = createCardDb();
+    addCard(machineDb, {
+      id: 70,
+      name: "Gear A",
+      kinds: [],
+      isMonster: true,
+      attack: 800,
+      defense: 600,
+      cardType: "Machine",
+    });
+    addCard(machineDb, {
+      id: 71,
+      name: "Gear B",
+      kinds: [],
+      isMonster: true,
+      attack: 900,
+      defense: 700,
+      cardType: "Machine",
+    });
+    addCard(machineDb, {
+      id: 72,
+      name: "Mega Machine",
+      kinds: [],
+      isMonster: true,
+      attack: 1600,
+      defense: 1200,
+      cardType: "Machine",
+    });
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 70, 71, 72);
+
+    const results = findDeckFusions([70, 71], ft, machineDb, 1, 5);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.resultAtk).toBe(1100); // 1600 - 500
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------
 describe("findDeckFusions edge cases", () => {

@@ -4,7 +4,7 @@ import type { CardId } from "../../../engine/data/card-model.ts";
 import { type DeckFusion, findDeckFusions } from "../../../engine/deck-fusion-finder.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
-import { useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useFusionDepth, useTerrain } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 
@@ -12,28 +12,31 @@ export function DeckFusionList({ deckCardIds }: { deckCardIds: number[] }) {
   const { fusionTable } = useFusionTable();
   const cardDb = useCardDb();
   const fusionDepth = useFusionDepth();
+  const terrain = useTerrain();
   const [fusions, setFusions] = useState<DeckFusion[] | null>(null);
   const [expanded, setExpanded] = useState(false);
   const prevDeckRef = useRef(deckCardIds);
+  const prevTerrainRef = useRef(terrain);
 
-  // Reset when deck changes
+  // Reset when deck or terrain changes
   useEffect(() => {
-    if (prevDeckRef.current !== deckCardIds) {
+    if (prevDeckRef.current !== deckCardIds || prevTerrainRef.current !== terrain) {
       prevDeckRef.current = deckCardIds;
+      prevTerrainRef.current = terrain;
       setFusions(null);
       setExpanded(false);
     }
-  }, [deckCardIds]);
+  }, [deckCardIds, terrain]);
 
   const toggle = useCallback(() => {
     if (fusions === null) {
-      const result = findDeckFusions(deckCardIds, fusionTable, cardDb, fusionDepth);
+      const result = findDeckFusions(deckCardIds, fusionTable, cardDb, fusionDepth, terrain);
       setFusions(result);
       setExpanded(true);
     } else {
       setExpanded((v) => !v);
     }
-  }, [deckCardIds, fusionTable, cardDb, fusionDepth, fusions]);
+  }, [deckCardIds, fusionTable, cardDb, fusionDepth, terrain, fusions]);
 
   return (
     <div className="flex flex-col gap-2">
