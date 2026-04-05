@@ -1207,11 +1207,22 @@ input[type="number"] {
   transition: border-radius 200ms ease;
 }
 
-/* Flatten bottom corners so the dropdown connects seamlessly */
+/* Flatten bottom corners so the dropdown connects seamlessly.
+   Also join the view-transition overlay so the dropdown stays above
+   zone-swap snapshots (which render in a top-layer overlay). */
 .fm-rank-tracker:has(.fm-rank-details--open) {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   border-bottom-color: var(--color-border-subtle);
+  view-transition-name: rank-overlay;
+}
+
+::view-transition-group(rank-overlay) {
+  z-index: 10;
+}
+::view-transition-old(rank-overlay),
+::view-transition-new(rank-overlay) {
+  animation: none;
 }
 
 @keyframes fm-rank-enter {
