@@ -2,9 +2,9 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 
-import { artworkSrc, formatCardId } from "../lib/format.ts";
+import { formatCardId } from "../lib/format.ts";
+import { useArtworkSrc } from "../lib/use-artwork-src.ts";
 import { useIsDesktop } from "../lib/use-is-desktop.ts";
-import { useSelectedMod } from "../lib/use-selected-mod.ts";
 import { CardName } from "./CardName.tsx";
 import type { CardEntry, DiffStatus } from "./card-entries.ts";
 import { cardTypeBorderColor } from "./card-entries.ts";
@@ -77,7 +77,7 @@ export function CardTable<T extends CardEntry>({
   defaultSort?: SortState;
   showKinds?: boolean;
 }) {
-  const modId = useSelectedMod();
+  const resolveArtwork = useArtworkSrc();
   const isDesktop = useIsDesktop();
   const [animateRef] = useAutoAnimate();
   const [sort, setSort] = useState<SortState>(defaultSort ?? { key: "id", dir: "asc" });
@@ -103,7 +103,7 @@ export function CardTable<T extends CardEntry>({
             hasCopyColumns={hasCopyColumns}
             key={e.rowKey ?? e.id}
             leftActions={leftActions}
-            modId={modId}
+            resolveArtwork={resolveArtwork}
             showC={showC}
             showD={showD}
           />
@@ -161,7 +161,7 @@ export function CardTable<T extends CardEntry>({
               hasCopyColumns={hasCopyColumns}
               key={e.rowKey ?? e.id}
               leftActions={leftActions}
-              modId={modId}
+              resolveArtwork={resolveArtwork}
               showC={showC}
               showD={showD}
               showKinds={showKinds}
@@ -183,7 +183,7 @@ function DesktopCardRow<T extends CardEntry>({
   showC,
   showD,
   showKinds,
-  modId,
+  resolveArtwork,
 }: {
   entry: T;
   leftActions?: (entry: T) => ReactNode;
@@ -192,7 +192,7 @@ function DesktopCardRow<T extends CardEntry>({
   showC: boolean;
   showD: boolean;
   showKinds?: boolean;
-  modId: string;
+  resolveArtwork: (cardId: number) => string;
 }) {
   const c = diffColors(e.diffStatus);
   const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
@@ -210,7 +210,7 @@ function DesktopCardRow<T extends CardEntry>({
           alt=""
           className="w-7 h-6 object-cover rounded-[3px] border border-border-subtle/50"
           loading="lazy"
-          src={artworkSrc(modId, e.id)}
+          src={resolveArtwork(e.id)}
         />
       </td>
       <td className={`py-0.5 px-1 font-mono text-xs ${c.id}`}>{formatCardId(e.id)}</td>
@@ -262,7 +262,7 @@ function MobileCardRow<T extends CardEntry>({
   hasCopyColumns,
   showC,
   showD,
-  modId,
+  resolveArtwork,
 }: {
   entry: T;
   leftActions?: (entry: T) => ReactNode;
@@ -270,7 +270,7 @@ function MobileCardRow<T extends CardEntry>({
   hasCopyColumns: boolean;
   showC: boolean;
   showD: boolean;
-  modId: string;
+  resolveArtwork: (cardId: number) => string;
 }) {
   const c = diffColors(e.diffStatus);
   const hasPills = showC || showD;
@@ -285,7 +285,7 @@ function MobileCardRow<T extends CardEntry>({
         alt=""
         className="w-9 h-8 object-cover rounded-[3px] border border-border-subtle/50 shrink-0"
         loading="lazy"
-        src={artworkSrc(modId, e.id)}
+        src={resolveArtwork(e.id)}
       />
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         {/* Row 1: Name + stats */}

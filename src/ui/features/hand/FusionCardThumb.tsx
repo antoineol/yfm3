@@ -1,7 +1,6 @@
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
-import { artworkSrc } from "../../lib/format.ts";
-import { useSelectedMod } from "../../lib/use-selected-mod.ts";
+import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
 
 interface FramePalette {
   lo: string;
@@ -38,8 +37,8 @@ const attributeOrb: Record<string, string> = {
 /** Tiny card thumbnail — full card replica at thumbnail scale, clickable to open detail. */
 export function FusionCardThumb({ card }: { card: CardSpec }) {
   const openCard = useOpenCard();
-  const modId = useSelectedMod();
-  const artSrc = artworkSrc(modId, card.id);
+  const resolveArtwork = useArtworkSrc();
+  const artSrc = resolveArtwork(card.id);
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const ct = card.cardType ?? "";
   const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;

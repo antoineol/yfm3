@@ -8,6 +8,11 @@ export function artworkSrc(modId: string, cardId: number): string {
   return `/images/artwork/${modId}/${formatCardId(cardId)}.webp`;
 }
 
+/** Artwork URL served by the local bridge (dynamic, from disc extraction). */
+export function bridgeArtworkSrc(cardId: number): string {
+  return `http://localhost:3333/artwork/${formatCardId(cardId)}.png`;
+}
+
 export const DROP_TOTAL = 2048;
 
 /** Format a raw drop weight (out of 2048) as a percentage string, or "—" for zero. */

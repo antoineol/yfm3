@@ -378,9 +378,38 @@ function probePort(port: number): Promise<"free" | "bridge" | "other"> {
 type BridgeWebSocket = Bun.ServerWebSocket;
 const clients = new Set<BridgeWebSocket>();
 
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+};
+
+function serveArtwork(pathname: string): Response {
+  const filename = pathname.replace("/artwork/", "");
+  if (!/^\d{3}\.png$/.test(filename) || !currentGameData) {
+    return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+  }
+  const hashPrefix = currentGameData.gameDataHash.slice(0, 12);
+  const filePath = join(__dirname, "artwork", hashPrefix, filename);
+  try {
+    const data = readFileSync(filePath);
+    return new Response(data, {
+      headers: { ...CORS_HEADERS, "Content-Type": "image/png", "Cache-Control": "public, max-age=3600" },
+    });
+  } catch {
+    return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+  }
+}
+
 const server = Bun.serve({
   port: PORT,
   fetch(req, server) {
+    const url = new URL(req.url);
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/artwork/")) {
+      return serveArtwork(url.pathname);
+    }
     if (server.upgrade(req)) return undefined;
     return new Response("WebSocket upgrade required", { status: 426 });
   },

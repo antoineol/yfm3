@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -198,6 +198,11 @@ describe("acquireGameData cache round-trip", () => {
       equips: [{ e: 600, m: [1, 2, 3] }],
     };
     writeFileSync(join(tmpDir, "game-data-cache.json"), JSON.stringify(cache));
+
+    // Artwork cache dir must exist for cache hit (keyed by hash prefix)
+    const artDir = join(tmpDir, "artwork", hash.slice(0, 12));
+    mkdirSync(artDir, { recursive: true });
+    writeFileSync(join(artDir, "001.png"), Buffer.alloc(0));
 
     const result = acquireGameData(stats, "SLES_039.48", tmpDir);
     expect(result).not.toBeNull();

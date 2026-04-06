@@ -1,7 +1,9 @@
 // ---------------------------------------------------------------------------
-// Card artwork extraction (sharp dependency isolated here)
+// Card artwork extraction
 // ---------------------------------------------------------------------------
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { encodePng } from "./encode-png.ts";
 import { byte } from "./iso9660.ts";
 import { NUM_CARDS } from "./types.ts";
 
@@ -28,7 +30,7 @@ function rgb555toRGBA(val: number, transparent: boolean): [number, number, numbe
   return [r, g, b, 255];
 }
 
-function extractFullCardImage(waMrg: Buffer, blockSize: number, cardIndex: number): Buffer {
+export function extractFullCardImage(waMrg: Buffer, blockSize: number, cardIndex: number): Buffer {
   const blockStart = FULL_IMG_START + cardIndex * blockSize;
   const rgba = Buffer.alloc(FULL_IMG_PIXELS * 4);
 
@@ -45,6 +47,16 @@ function extractFullCardImage(waMrg: Buffer, blockSize: number, cardIndex: numbe
   return rgba;
 }
 
+/** Extract all card artwork as PNG files (no native deps). */
+export function extractAllArtworkAsPng(waMrg: Buffer, artBlockSize: number, artDir: string): void {
+  mkdirSync(artDir, { recursive: true });
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const rgba = extractFullCardImage(waMrg, artBlockSize, i);
+    const png = encodePng(rgba, FULL_IMG_WIDTH, FULL_IMG_HEIGHT);
+    writeFileSync(`${artDir}/${String(i + 1).padStart(3, "0")}.png`, png);
+  }
+}
+
 /** Extract all card artwork as webp files to the given directory.
  *  Requires `sharp` — pass as parameter to keep the dependency isolated. */
 export async function extractAllArtwork(
@@ -54,7 +66,6 @@ export async function extractAllArtwork(
   // biome-ignore lint/suspicious/noExplicitAny: sharp loaded lazily by caller
   sharp: any,
 ): Promise<void> {
-  const { mkdirSync } = await import("node:fs");
   mkdirSync(artDir, { recursive: true });
 
   const promises: Promise<void>[] = [];

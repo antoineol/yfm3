@@ -7,8 +7,7 @@ import { useCheatMode, useCpuSwaps } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { localCpuSwapsAtom } from "../../lib/bridge-snapshot-atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
-import { artworkSrc } from "../../lib/format.ts";
-import { useSelectedMod } from "../../lib/use-selected-mod.ts";
+import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
 
 /**
  * Banner that appears when the CPU AI swaps cards in its hand.
@@ -69,7 +68,7 @@ function SwapEntry({
   swap: { fromCardId: number; toCardId: number; slotIndex: number; timestamp: number };
 }) {
   const { cardsById } = useCardDb();
-  const modId = useSelectedMod();
+  const resolveArtwork = useArtworkSrc();
   const from = cardsById.get(swap.fromCardId);
   const to = cardsById.get(swap.toCardId);
 
@@ -79,13 +78,13 @@ function SwapEntry({
         <img
           alt={from?.name ?? `#${String(swap.fromCardId)}`}
           className="fm-cheat-banner-thumb"
-          src={artworkSrc(modId, swap.fromCardId)}
+          src={resolveArtwork(swap.fromCardId)}
         />
         <span className="fm-cheat-banner-arrow" />
         <img
           alt={to?.name ?? `#${String(swap.toCardId)}`}
           className="fm-cheat-banner-thumb"
-          src={artworkSrc(modId, swap.toCardId)}
+          src={resolveArtwork(swap.toCardId)}
         />
         <span className="fm-cheat-banner-text">
           <CardName

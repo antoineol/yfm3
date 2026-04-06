@@ -28,3 +28,4 @@ dist-ssr
 /gamedata
 .cache
 bridge/game-data-cache.json
+bridge/artwork/

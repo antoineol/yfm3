@@ -18,3 +18,8 @@ export function useBridge(): EmulatorBridge {
   if (!ctx) throw new Error("useBridge must be used within a BridgeProvider");
   return ctx;
 }
+
+/** Like useBridge but returns null outside a BridgeProvider (for optional consumers). */
+export function useBridgeOptional(): EmulatorBridge | null {
+  return useContext(BridgeContext);
+}

@@ -17,6 +17,7 @@ import { extractCards } from "../scripts/extract/extract-cards.ts";
 import { extractDuelists } from "../scripts/extract/extract-duelists.ts";
 import { extractEquips } from "../scripts/extract/extract-equips.ts";
 import { extractFusions } from "../scripts/extract/extract-fusions.ts";
+import { extractAllArtworkAsPng } from "../scripts/extract/extract-images.ts";
 import { langIdxForSerial, loadDiscData } from "../scripts/extract/index.ts";
 import type { CardStats, DuelistData, EquipEntry, Fusion } from "../scripts/extract/types.ts";
 import { findSettingsPath } from "./settings.ts";
@@ -76,9 +77,11 @@ export function acquireGameData(
   const gameDataHash = computeGameDataHash(cardStats);
   const cachePath = join(cacheDir, CACHE_FILENAME);
 
-  // Check disk cache
+  // Check disk cache (require artwork dir to exist — otherwise re-extract)
+  const hashPrefix = gameDataHash.slice(0, 12);
+  const artworkDir = join(cacheDir, "artwork", hashPrefix);
   const cached = loadCache(cachePath);
-  if (cached && cached.gameDataHash === gameDataHash) {
+  if (cached && cached.gameDataHash === gameDataHash && existsSync(join(artworkDir, "001.png"))) {
     console.log(`Game data cache hit (hash=${gameDataHash.slice(0, 12)}...)`);
     return restoreFromCache(cached);
   }
@@ -93,7 +96,9 @@ export function acquireGameData(
 
   const allBins = cuesToBins(cuePaths);
   const data =
-    allBins.length > 0 ? extractFromBins(allBins, gameDataHash, cardStats, serial) : null;
+    allBins.length > 0
+      ? extractFromBins(allBins, gameDataHash, cardStats, serial, artworkDir)
+      : null;
 
   if (data) {
     saveCache(cachePath, data);
@@ -303,6 +308,7 @@ function extractFromBins(
   gameDataHash: string,
   cardStats: Uint8Array,
   ramSerial?: string | null,
+  artworkDir?: string,
 ): GameData | null {
   type Match = {
     binPath: string;
@@ -368,6 +374,11 @@ function extractFromBins(
     const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
     const fusions = extractFusions(waMrg, waMrgLayout);
     const equips = extractEquips(waMrg, waMrgLayout);
+
+    if (artworkDir) {
+      extractAllArtworkAsPng(waMrg, waMrgLayout.artworkBlockSize, artworkDir);
+      console.log(`Extracted ${cards.length} artwork PNGs to ${artworkDir}`);
+    }
 
     return {
       gameDataHash,
