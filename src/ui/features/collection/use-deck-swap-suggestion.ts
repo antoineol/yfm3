@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MODS } from "../../../engine/mods.ts";
+import { getMegamorphId } from "../../../engine/mods.ts";
 import type {
   DeckSwapSuggestion,
   FindBestDeckSwapSuggestionOptions,
@@ -67,7 +67,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
         fusionDepth,
         useEquipment,
         terrain: 0,
-        megamorphId: MODS[modId].megamorphId,
+        megamorphId: getMegamorphId(modId),
       },
       currentDeckScore,
       deck: stableDeckCardIds,

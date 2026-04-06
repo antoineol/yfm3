@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
-import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { isKnownModId, modIdForFingerprint } from "../../../engine/mods.ts";
 import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
@@ -70,7 +70,9 @@ export function usePostDuelSuggestion(
   );
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
-  const modMismatch = detectedMod !== null && detectedMod !== modId;
+  const unknownBeforeSwitch =
+    detectedMod === null && bridge.modFingerprint != null && isKnownModId(modId);
+  const modMismatch = (detectedMod !== null && detectedMod !== modId) || unknownBeforeSwitch;
 
   // Snapshot is managed here so tracker callbacks (called synchronously from
   // effects) batch state updates with Jotai atom writes in a single render.

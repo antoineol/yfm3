@@ -393,7 +393,11 @@ function serveArtwork(pathname: string): Response {
   try {
     const data = readFileSync(filePath);
     return new Response(data, {
-      headers: { ...CORS_HEADERS, "Content-Type": "image/png", "Cache-Control": "public, max-age=3600" },
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=3600",
+      },
     });
   } catch {
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EngineConfig } from "../../../engine/config.ts";
-import { MODS } from "../../../engine/mods.ts";
+import { getMegamorphId } from "../../../engine/mods.ts";
 import type { AtkBucket } from "../../../engine/score-explainer.ts";
 import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
@@ -53,7 +53,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
         fusionDepth,
         useEquipment,
         terrain,
-        megamorphId: MODS[modId].megamorphId,
+        megamorphId: getMegamorphId(modId),
       };
       const worker = new Worker(
         new URL("../../../engine/worker/explainer-worker.ts", import.meta.url),

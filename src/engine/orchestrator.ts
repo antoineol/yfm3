@@ -1,6 +1,6 @@
 import { getConfig, setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
-import { DEFAULT_MOD, MODS, type ModId } from "./mods.ts";
+import { DEFAULT_MOD, getMegamorphId, type ModId } from "./mods.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { generateInitialDecks } from "./optimizer/seed-strategies.ts";
 import {
@@ -125,7 +125,7 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId, terrain });
+  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: getMegamorphId(modId), terrain });
 
   const collectionRecord: Record<number, number> = {};
   for (const [id, qty] of collection) collectionRecord[id] = qty;

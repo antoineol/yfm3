@@ -2,7 +2,7 @@ import { useAtom } from "jotai";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
-import { MODS, type ModId } from "../../../engine/mods.ts";
+import { isKnownModId, type KnownModId, MODS } from "../../../engine/mods.ts";
 import { Button } from "../../components/Button.tsx";
 import { Dialog } from "../../components/Dialog.tsx";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
@@ -19,7 +19,7 @@ export function ManualSetupModal() {
   const [loadingSample, setLoadingSample] = useState(false);
 
   const handleSelectMod = useCallback(
-    (mod: ModId) => void setSelectedMod({ selectedMod: mod }),
+    (mod: KnownModId) => void setSelectedMod({ selectedMod: mod }),
     [setSelectedMod],
   );
 
@@ -47,7 +47,7 @@ export function ManualSetupModal() {
     }
   }, [importMutation, setOpen]);
 
-  const mod = MODS[selectedMod];
+  const mod = isKnownModId(selectedMod) ? MODS[selectedMod] : MODS.vanilla;
 
   return (
     <Dialog onClose={handleClose} open={open} title="Setup guide">
@@ -83,8 +83,8 @@ function VersionSelector({
   selectedMod,
   onSelectMod,
 }: {
-  selectedMod: ModId;
-  onSelectMod: (mod: ModId) => void;
+  selectedMod: string;
+  onSelectMod: (mod: KnownModId) => void;
 }) {
   const mods = Object.values(MODS);
 

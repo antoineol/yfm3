@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { MODS } from "../../../engine/mods.ts";
+import { getMegamorphId } from "../../../engine/mods.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "../../components/sortable-header.tsx";
@@ -24,7 +24,7 @@ const NUMERIC_NAME_RE = /^\d+$/;
 export function EquippableBySection({ cardId }: { cardId: number }) {
   const { equipCompat, cardDb } = useFusionTable();
   const modId = useSelectedMod();
-  const megamorphId = MODS[modId].megamorphId;
+  const megamorphId = getMegamorphId(modId);
 
   const rows = useMemo(() => {
     const result: EquippableByRow[] = [];

@@ -3,7 +3,7 @@ import { Tabs } from "@base-ui/react/tabs";
 import { SignInButton, useClerk } from "@clerk/clerk-react";
 import { useConvexAuth } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MODS, type ModId } from "../../../engine/mods.ts";
+import { type KnownModId, MODS } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import { Spinner } from "../../components/Loader.tsx";
@@ -224,7 +224,7 @@ function ModSelector() {
   return (
     <select
       className="min-w-0 bg-bg-panel border border-border-subtle rounded px-1.5 py-0.5 text-xs font-display text-text-secondary hover:text-text-primary cursor-pointer focus:outline-none focus:border-border-accent truncate"
-      onChange={(e) => void setSelectedMod({ selectedMod: e.target.value as ModId })}
+      onChange={(e) => void setSelectedMod({ selectedMod: e.target.value as KnownModId })}
       value={selectedMod}
     >
       {modEntries.map((mod) => (

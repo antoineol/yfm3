@@ -2,7 +2,7 @@ import { useSetAtom } from "jotai";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../convex/_generated/api";
-import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { isKnownModId, modIdForFingerprint } from "../../../engine/mods.ts";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
@@ -64,7 +64,9 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const deckFp = deckFingerprint(bridge.deckDefinition);
 
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
-  const modMismatch = detectedMod !== null && detectedMod !== modId;
+  const unknownBeforeSwitch =
+    detectedMod === null && bridge.modFingerprint != null && isKnownModId(modId);
+  const modMismatch = (detectedMod !== null && detectedMod !== modId) || unknownBeforeSwitch;
 
   useEffect(() => {
     if (bridge.status !== "connected") return;

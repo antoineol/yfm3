@@ -1,4 +1,5 @@
 import { MODS, modIdForFingerprint } from "../../../engine/mods.ts";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -10,12 +11,15 @@ export function ModMismatchBanner() {
   const bridge = useBridge();
   const selectedMod = useSelectedMod();
   const setSelectedMod = useSetSelectedMod();
+  const autoSync = useBridgeAutoSync();
 
   if (!bridge.modFingerprint) return null;
 
   const detectedMod = modIdForFingerprint(bridge.modFingerprint);
 
   if (detectedMod === null) {
+    // In autosync mode, unknown mods work via synthetic IDs — no warning needed
+    if (autoSync) return null;
     return (
       <div className="mx-3 mt-2 flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-950/30 border border-yellow-900/40">
         <span className="inline-block size-2.5 rounded-full shrink-0 bg-yellow-400" />

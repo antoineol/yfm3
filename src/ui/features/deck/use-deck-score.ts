@@ -1,6 +1,6 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
-import { MODS } from "../../../engine/mods.ts";
+import { getMegamorphId } from "../../../engine/mods.ts";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
@@ -72,7 +72,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       type: "SCORE",
       collection: ownedCardTotals,
       deck: deckCardIds,
-      config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
+      config: { deckSize, fusionDepth, useEquipment, megamorphId: getMegamorphId(modId) },
       modId,
       gameData: bridge.gameData ?? undefined,
     });

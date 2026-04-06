@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
-import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { isKnownModId, modIdForFingerprint } from "../../../engine/mods.ts";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
@@ -24,7 +24,9 @@ export function useAutoSyncHand(bridge: EmulatorBridge) {
   const lastHandRef = useRef<number[]>([]);
   const modId = useSelectedMod();
   const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
-  const modMismatch = detectedMod !== null && detectedMod !== modId;
+  const unknownBeforeSwitch =
+    detectedMod === null && bridge.modFingerprint != null && isKnownModId(modId);
+  const modMismatch = (detectedMod !== null && detectedMod !== modId) || unknownBeforeSwitch;
 
   // Track the latest hand during the duel so we can persist it at duel end
   useEffect(() => {

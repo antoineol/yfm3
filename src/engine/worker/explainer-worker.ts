@@ -8,7 +8,7 @@ import type { ExplainerInit, ExplainerResult } from "./messages.ts";
 self.onmessage = async (e: MessageEvent<ExplainerInit>) => {
   const { collection, deck, config, modId, gameData } = e.data;
   setConfig(config);
-  await ensureCsvLoaded(modId);
+  await ensureCsvLoaded(modId, !!gameData);
 
   const collectionMap = new Map(
     Object.entries(collection).map(([id, qty]) => [Number(id), qty as number]),

@@ -16,7 +16,7 @@ self.onmessage = async (
   }>,
 ) => {
   const { requestId, options, modId, gameData } = event.data;
-  await ensureCsvLoaded(modId);
+  await ensureCsvLoaded(modId, !!gameData);
   self.postMessage({
     requestId,
     suggestion: findBestDeckSwapSuggestion(options, modId, gameData) as DeckSwapSuggestion | null,

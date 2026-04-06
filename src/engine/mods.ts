@@ -1,9 +1,12 @@
-/** Identifier for a game mod/version. */
-export type ModId = "rp" | "vanilla";
+/** Known mod identifiers (manual mode, UI dropdowns, CSV paths). */
+export type KnownModId = "rp" | "vanilla";
+
+/** Mod identifier — known mods or synthetic IDs for unknown mods in autosync. */
+export type ModId = KnownModId | (string & {});
 
 /** Metadata for a game mod/version. */
 export interface ModConfig {
-  id: ModId;
+  id: KnownModId;
   name: string;
   megamorphId: number;
   /** First 16 bytes of the card stats table at PS1 RAM 0x1D4244, hex-encoded. */
@@ -13,7 +16,7 @@ export interface ModConfig {
 }
 
 /** Registry of all supported mods. */
-export const MODS: Record<ModId, ModConfig> = {
+export const MODS: Record<KnownModId, ModConfig> = {
   vanilla: {
     id: "vanilla",
     name: "Original",
@@ -41,10 +44,26 @@ export const EXTRA_GAME_VARIANTS: readonly { name: string; gameDownloadUrl: stri
 ];
 
 /** Default mod when none is selected. */
-export const DEFAULT_MOD: ModId = "vanilla";
+export const DEFAULT_MOD: KnownModId = "vanilla";
+
+/** Check if a mod ID is a known, registered mod. */
+export function isKnownModId(value: string): value is KnownModId {
+  return value in MODS;
+}
+
+/** Create a synthetic mod ID from a bridge fingerprint (for unknown mods). */
+export function syntheticModId(fingerprint: string): string {
+  return `mod-${fingerprint.slice(0, 12)}`;
+}
+
+/** Get megamorphId for a mod. Returns 657 (default) for unknown mods. */
+export function getMegamorphId(modId: ModId): number {
+  if (isKnownModId(modId)) return MODS[modId].megamorphId;
+  return 657;
+}
 
 /** Find the mod that matches a RAM fingerprint, or null if unknown. */
-export function modIdForFingerprint(fingerprint: string): ModId | null {
+export function modIdForFingerprint(fingerprint: string): KnownModId | null {
   for (const mod of Object.values(MODS)) {
     if (mod.fingerprint === fingerprint) return mod.id;
   }

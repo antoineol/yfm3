@@ -1,7 +1,7 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { modIdForFingerprint } from "../engine/mods.ts";
+import { modIdForFingerprint, syntheticModId } from "../engine/mods.ts";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
 import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
@@ -55,9 +55,10 @@ function MainApp({ tab }: { tab: string }) {
   // so the app re-hydrates with the new mod's snapshot data.
   useEffect(() => {
     if (!bridgeAutoSync || !bridge.modFingerprint) return;
-    const detected = modIdForFingerprint(bridge.modFingerprint);
-    if (detected && detected !== modId) {
-      writeLocal(LOCAL_MOD_KEY, detected);
+    const effectiveModId =
+      modIdForFingerprint(bridge.modFingerprint) ?? syntheticModId(bridge.modFingerprint);
+    if (effectiveModId !== modId) {
+      writeLocal(LOCAL_MOD_KEY, effectiveModId);
       window.location.reload();
     }
   }, [bridgeAutoSync, bridge.modFingerprint, modId]);

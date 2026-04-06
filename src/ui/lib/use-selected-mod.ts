@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { api } from "../../../convex/_generated/api";
-import { DEFAULT_MOD, MODS, type ModId } from "../../engine/mods.ts";
+import { DEFAULT_MOD, isKnownModId, type ModId } from "../../engine/mods.ts";
 import { useAuthMutation, useAuthQuery } from "../core/convex-hooks.ts";
 import { useBridgeAutoSync } from "../db/use-user-preferences.ts";
 import { readLocal, writeLocal } from "./local-store.ts";
@@ -16,8 +16,8 @@ export function useSelectedMod(): ModId {
     () => (readLocal<string>(LOCAL_MOD_KEY) as ModId) ?? DEFAULT_MOD,
   );
 
-  if (autoSync) return isValidModId(localMod) ? localMod : DEFAULT_MOD;
-  return isValidModId(convexMod) ? convexMod : DEFAULT_MOD;
+  if (autoSync) return localMod || DEFAULT_MOD;
+  return isKnownModId(convexMod ?? "") ? (convexMod as string) : DEFAULT_MOD;
 }
 
 /** Returns a mutation to change the selected mod. */
@@ -31,8 +31,4 @@ export function useSetSelectedMod() {
   }, []);
 
   return autoSync ? localSetMod : convexSetMod;
-}
-
-function isValidModId(value: string | undefined): value is ModId {
-  return typeof value === "string" && value in MODS;
 }

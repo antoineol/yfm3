@@ -16,8 +16,13 @@ import type { BridgeGameData } from "./worker/messages.ts";
 type CsvCache = { cards: string; fusions: string; equips: string };
 const csvCache = new Map<ModId, CsvCache>();
 
-/** Fetch CSV game data for a mod. Safe to call multiple times — only fetches once per mod. */
-export async function ensureCsvLoaded(modId: ModId = DEFAULT_MOD): Promise<void> {
+/** Fetch CSV game data for a mod. Safe to call multiple times — only fetches once per mod.
+ *  When bridge gameData is available, CSVs are unnecessary — skip the fetch. */
+export async function ensureCsvLoaded(
+  modId: ModId = DEFAULT_MOD,
+  hasGameData = false,
+): Promise<void> {
+  if (hasGameData) return;
   if (csvCache.has(modId)) return;
   const [cards, fusions, equips] = await Promise.all([
     fetch(`/data/${modId}/cards.csv`).then((r) => r.text()),
