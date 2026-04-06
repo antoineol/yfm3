@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { RankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
 import {
+  SEGMENT_WIDTHS,
   SPECTRUM_SEGMENTS,
   scoreToColor,
   scoreToPosition,
@@ -62,8 +63,12 @@ function SpectrumBar({ breakdown }: { breakdown: RankBreakdown }) {
   return (
     <div className="fm-rank-bar">
       <div className="flex w-full h-full rounded-sm overflow-hidden gap-px">
-        {SPECTRUM_SEGMENTS.map((seg) => (
-          <div className="fm-rank-segment" key={seg.label} style={{ backgroundColor: seg.color }} />
+        {SPECTRUM_SEGMENTS.map((seg, i) => (
+          <div
+            className="fm-rank-segment"
+            key={seg.label}
+            style={{ backgroundColor: seg.color, flex: SEGMENT_WIDTHS[i] }}
+          />
         ))}
       </div>
       <div

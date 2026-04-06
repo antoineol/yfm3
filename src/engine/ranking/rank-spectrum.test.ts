@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isInTargetZone,
+  SEGMENT_WIDTHS,
   SPECTRUM_SEGMENTS,
   scoreToColor,
   scoreToPosition,
@@ -10,53 +11,35 @@ import {
 } from "./rank-spectrum.ts";
 
 // ---------------------------------------------------------------------------
-// scoreToPosition
+// scoreToPosition — linear mapping: position = (score + 10) / 120
 // ---------------------------------------------------------------------------
 
 describe("scoreToPosition", () => {
-  it("score -10 → 0.0 (left edge of S-TEC)", () => {
+  it("score -10 → 0.0 (left edge)", () => {
     expect(scoreToPosition(-10)).toBeCloseTo(0.0, 5);
   });
 
-  it("score 9 → ~0.2 (top of S-TEC)", () => {
-    expect(scoreToPosition(9)).toBeCloseTo(0.2, 5);
+  it("score 10 → 1/6 (S-TEC / A-TEC boundary)", () => {
+    expect(scoreToPosition(10)).toBeCloseTo(20 / 120, 5);
   });
 
-  it("score 10 → 0.2 (bottom of A-TEC)", () => {
-    expect(scoreToPosition(10)).toBeCloseTo(0.2, 5);
-  });
-
-  it("score 19 → ~0.4 (top of A-TEC)", () => {
-    expect(scoreToPosition(19)).toBeCloseTo(0.4, 5);
-  });
-
-  it("score 20 → 0.4 (bottom of BCD)", () => {
-    expect(scoreToPosition(20)).toBeCloseTo(0.4, 5);
+  it("score 20 → 0.25 (A-TEC / BCD boundary)", () => {
+    expect(scoreToPosition(20)).toBeCloseTo(30 / 120, 5);
   });
 
   it("score 50 → 0.5 (middle of BCD)", () => {
-    // BCD range: 20-79, midpoint = 49.5 → t = (50-20)/59 ≈ 0.508
-    // position = 0.4 + 0.508 * 0.2 ≈ 0.5017
-    expect(scoreToPosition(50)).toBeCloseTo(0.5, 1);
+    expect(scoreToPosition(50)).toBeCloseTo(60 / 120, 5);
   });
 
-  it("score 79 → ~0.6 (top of BCD)", () => {
-    expect(scoreToPosition(79)).toBeCloseTo(0.6, 1);
+  it("score 80 → 0.75 (BCD / A-POW boundary)", () => {
+    expect(scoreToPosition(80)).toBeCloseTo(90 / 120, 5);
   });
 
-  it("score 80 → 0.6 (bottom of A-POW)", () => {
-    expect(scoreToPosition(80)).toBeCloseTo(0.6, 5);
+  it("score 90 → 5/6 (A-POW / S-POW boundary)", () => {
+    expect(scoreToPosition(90)).toBeCloseTo(100 / 120, 5);
   });
 
-  it("score 89 → ~0.8 (top of A-POW)", () => {
-    expect(scoreToPosition(89)).toBeCloseTo(0.8, 5);
-  });
-
-  it("score 90 → 0.8 (bottom of S-POW)", () => {
-    expect(scoreToPosition(90)).toBeCloseTo(0.8, 5);
-  });
-
-  it("score 110 → 1.0 (right edge of S-POW)", () => {
+  it("score 110 → 1.0 (right edge)", () => {
     expect(scoreToPosition(110)).toBeCloseTo(1.0, 5);
   });
 
@@ -85,6 +68,22 @@ describe("scoreToPosition", () => {
       expect(pos).toBeGreaterThanOrEqual(0);
       expect(pos).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SEGMENT_WIDTHS
+// ---------------------------------------------------------------------------
+
+describe("SEGMENT_WIDTHS", () => {
+  it("has 5 entries summing to 1", () => {
+    expect(SEGMENT_WIDTHS).toHaveLength(5);
+    const sum = SEGMENT_WIDTHS.reduce((a, b) => a + b, 0);
+    expect(sum).toBeCloseTo(1.0, 10);
+  });
+
+  it("BCD is the widest segment (50%)", () => {
+    expect(SEGMENT_WIDTHS[2]).toBeCloseTo(0.5, 5);
   });
 });
 

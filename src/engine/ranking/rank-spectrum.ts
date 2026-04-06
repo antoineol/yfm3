@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // Rank spectrum bar positioning utilities
 //
-// Maps rank scores to visual positions on a 5-segment equal-width bar.
-// Each segment occupies 20% of the bar, regardless of its score range width.
+// Maps rank scores to visual positions on a linear bar.
+// Each segment's width is proportional to its score range.
 // ---------------------------------------------------------------------------
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -39,45 +39,31 @@ export const TARGET_RANK_OPTIONS: readonly TargetRank[] = [
 ];
 
 /**
- * Visual bounds for edge segments with infinite score ranges.
- * - S-TEC: uses visual range [-10, 9]
- * - S-POW: uses visual range [90, 110]
+ * Continuous boundary points for the linear bar.
+ * The full visual range is [VISUAL_MIN, VISUAL_MAX].
+ * Each segment spans from SEGMENT_BOUNDARIES[i] to SEGMENT_BOUNDARIES[i+1].
  */
-const VISUAL_BOUNDS: readonly [number, number][] = [
-  [-10, 9], // S-TEC
-  [10, 19], // A-TEC
-  [20, 79], // BCD
-  [80, 89], // A-POW
-  [90, 110], // S-POW
-];
+const VISUAL_MIN = -10;
+const VISUAL_MAX = 110;
+const VISUAL_RANGE = VISUAL_MAX - VISUAL_MIN; // 120
 
-/** Width of each segment on the 0–1 bar. */
-const SEGMENT_WIDTH = 0.2;
+const SEGMENT_BOUNDARIES = [VISUAL_MIN, 10, 20, 80, 90, VISUAL_MAX] as const;
+
+/** Proportional width of each segment on the 0–1 bar (sums to 1). */
+export const SEGMENT_WIDTHS: readonly number[] = SEGMENT_BOUNDARIES.slice(1).map((end, i) => {
+  const start = SEGMENT_BOUNDARIES[i] ?? VISUAL_MIN;
+  return (end - start) / VISUAL_RANGE;
+});
 
 // ── Public API (reading order: callers before callees) ───────────────────
 
 /**
- * Map a score to a 0–1 position on the 5-segment equal-width bar.
- * Each segment occupies 20% of the bar (0.2). Within a segment, the
- * position is linearly interpolated between the segment's score range.
- *
- * For edge segments (S-TEC and S-POW) which have infinite bounds,
- * we use reasonable visual bounds for interpolation:
- * - S-TEC: uses visual range [-10, 9] (scores below -10 clamp to left edge)
- * - S-POW: uses visual range [90, 110] (scores above 110 clamp to right edge)
- *
- * Returns: clamped to [0, 1].
+ * Map a score to a 0–1 position on the linear spectrum bar.
+ * Segment widths are proportional to their score ranges.
+ * Scores outside [VISUAL_MIN, VISUAL_MAX] are clamped.
  */
 export function scoreToPosition(score: number): number {
-  const segIdx = scoreToSegmentIndex(score);
-  const bounds = VISUAL_BOUNDS[segIdx];
-  if (!bounds) return 0;
-  const [lo, hi] = bounds;
-  const range = hi - lo;
-  const t = range === 0 ? 0.5 : (score - lo) / range;
-  const clamped = Math.max(0, Math.min(1, t));
-  const position = segIdx * SEGMENT_WIDTH + clamped * SEGMENT_WIDTH;
-  return Math.max(0, Math.min(1, position));
+  return Math.max(0, Math.min(1, (score - VISUAL_MIN) / VISUAL_RANGE));
 }
 
 /**
