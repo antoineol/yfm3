@@ -20,7 +20,7 @@ export function ZoneArena({
     focusedZone === "hand" ? (["hand", "field"] as const) : (["field", "hand"] as const);
 
   return (
-    <div className="fm-zone-arena">
+    <div className="fm-zone-arena -mb-10">
       {zones.map((zone) => (
         <div className="fm-zone-slot" key={zone} style={{ viewTransitionName: `${zone}-zone` }}>
           <ZonePanel
