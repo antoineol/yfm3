@@ -11,7 +11,18 @@ export type AttackValue = number;
 export type Collection = ReadonlyMap<CardId, number>;
 
 // The immutable definition of a card
-export const nonMonsterTypes = new Set(["Magic", "Equip", "Trap", "Ritual"]);
+export const nonMonsterTypes = new Set([
+  // English (RP mod)
+  "Magic",
+  "Equip",
+  "Trap",
+  "Ritual",
+  // French (vanilla / original game)
+  "Magie",
+  "Équipement",
+  "Piège",
+  "Rituel",
+]);
 
 export interface CardSpec {
   id: CardId;

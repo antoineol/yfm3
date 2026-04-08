@@ -7,8 +7,11 @@ import { readLocal, writeLocal } from "./local-store.ts";
 
 export const LOCAL_MOD_KEY = "yfm_settings:selectedMod";
 
-/** Read the user's currently selected mod. Falls back to DEFAULT_MOD while loading. */
-export function useSelectedMod(): ModId {
+/**
+ * Internal: returns undefined while the Convex mod query is still loading.
+ * In autoSync mode (localStorage), returns synchronously — never undefined.
+ */
+function useRawSelectedMod(): ModId | undefined {
   const autoSync = useBridgeAutoSync();
   const convexMod = useAuthQuery(api.userSettings.getSelectedMod, autoSync ? "skip" : undefined);
 
@@ -17,7 +20,19 @@ export function useSelectedMod(): ModId {
   );
 
   if (autoSync) return isValidModId(localMod) ? localMod : DEFAULT_MOD;
+  // convexMod is undefined while auth or query is loading — don't fall back to default yet
+  if (convexMod === undefined) return undefined;
   return isValidModId(convexMod) ? convexMod : DEFAULT_MOD;
+}
+
+/** Read the user's currently selected mod. Falls back to DEFAULT_MOD while loading. */
+export function useSelectedMod(): ModId {
+  return useRawSelectedMod() ?? DEFAULT_MOD;
+}
+
+/** Like useSelectedMod, but returns undefined while the Convex query is still loading. */
+export function useSelectedModSettled(): ModId | undefined {
+  return useRawSelectedMod();
 }
 
 /** Returns a mutation to change the selected mod. */

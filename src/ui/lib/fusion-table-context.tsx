@@ -3,10 +3,11 @@ import {
   buildReferenceTableData,
   type ReferenceTableData,
 } from "../../engine/reference/build-reference-table.ts";
+import { useBridgeAutoSync } from "../db/use-user-preferences.ts";
 import { useBridge } from "./bridge-context.tsx";
 import { CardDbProvider } from "./card-db-context.tsx";
 import { bridgeGameDataToReference, loadReferenceCsvs } from "./load-reference-csvs.ts";
-import { useSelectedMod } from "./use-selected-mod.ts";
+import { useSelectedModSettled } from "./use-selected-mod.ts";
 
 export type FusionTableData = ReferenceTableData;
 
@@ -14,19 +15,30 @@ const FusionTableContext = createContext<FusionTableData | null>(null);
 
 export function FusionTableProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<FusionTableData | null>(null);
-  const selectedMod = useSelectedMod();
+  const autoSync = useBridgeAutoSync();
+  const selectedMod = useSelectedModSettled();
   const bridge = useBridge();
 
   useEffect(() => {
-    // Bridge mode: use game data from emulator (no CSV)
-    if (bridge.gameData) {
-      setData(buildReferenceTableData(bridgeGameDataToReference(bridge.gameData)));
+    // Bridge/auto-sync mode: all data comes from the emulator, never from CSV.
+    // Wait for bridge.gameData — don't fall back to CSV while the bridge connects.
+    if (autoSync) {
+      if (bridge.gameData) {
+        setData(buildReferenceTableData(bridgeGameDataToReference(bridge.gameData)));
+      }
       return;
     }
-    // Manual mode: load from CSV
+    // Manual mode: load from CSV once the Convex mod preference has settled.
+    if (selectedMod === undefined) return;
     setData(null);
-    void loadReferenceCsvs(selectedMod).then((rows) => setData(buildReferenceTableData(rows)));
-  }, [selectedMod, bridge.gameData]);
+    let cancelled = false;
+    void loadReferenceCsvs(selectedMod).then((rows) => {
+      if (!cancelled) setData(buildReferenceTableData(rows));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [autoSync, selectedMod, bridge.gameData]);
 
   return (
     <FusionTableContext.Provider value={data}>
