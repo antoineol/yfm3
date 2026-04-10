@@ -37,7 +37,7 @@ export function extractFullCardImage(waMrg: Buffer, blockSize: number, cardIndex
   for (let p = 0; p < FULL_IMG_PIXELS; p++) {
     const idx = byte(waMrg, blockStart + p);
     const colorVal = waMrg.readUInt16LE(blockStart + FULL_IMG_CLUT_OFFSET + idx * 2);
-    const [r, g, b, a] = rgb555toRGBA(colorVal, colorVal === 0);
+    const [r, g, b, a] = rgb555toRGBA(colorVal, false);
     rgba[p * 4] = r;
     rgba[p * 4 + 1] = g;
     rgba[p * 4 + 2] = b;
