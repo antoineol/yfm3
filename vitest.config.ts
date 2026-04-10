@@ -13,6 +13,7 @@ export default defineConfig({
       "src/**/*.test.ts",
       "src/**/*.test.tsx",
       "scripts/**/*.test.ts",
+      "bridge/**/*.test.ts",
     ],
     exclude: ["**/*.integration.test.ts"],
   },

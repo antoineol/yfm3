@@ -17,11 +17,11 @@ import {
   extractAllCsvs,
   langIdxForSerial,
   loadDiscData,
-} from "./extract/index.ts";
+} from "../bridge/extract/index.ts";
 
 // Re-export public API for verify-game-data.ts and tests
-export { extractAllCsvs, langIdxForSerial, loadDiscData } from "./extract/index.ts";
-export { CHAR_TABLE, decodeTblString, PAL_CHAR_TABLE } from "./extract/text-decoding.ts";
+export { extractAllCsvs, langIdxForSerial, loadDiscData } from "../bridge/extract/index.ts";
+export { CHAR_TABLE, decodeTblString, PAL_CHAR_TABLE } from "../bridge/extract/text-decoding.ts";
 
 async function main() {
   const args = process.argv.slice(2);

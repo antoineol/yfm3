@@ -10,16 +10,16 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { detectAttributeMapping, detectExeLayout } from "../scripts/extract/detect-exe.ts";
-import { detectWaMrgLayout } from "../scripts/extract/detect-wamrg.ts";
-import { findAllWaMrgTextBlocks } from "../scripts/extract/detect-wamrg-text.ts";
-import { extractCards } from "../scripts/extract/extract-cards.ts";
-import { extractDuelists } from "../scripts/extract/extract-duelists.ts";
-import { extractEquips } from "../scripts/extract/extract-equips.ts";
-import { extractFusions } from "../scripts/extract/extract-fusions.ts";
-import { extractAllArtworkAsPng } from "../scripts/extract/extract-images.ts";
-import { langIdxForSerial, loadDiscData } from "../scripts/extract/index.ts";
-import type { CardStats, DuelistData, EquipEntry, Fusion } from "../scripts/extract/types.ts";
+import { detectAttributeMapping, detectExeLayout } from "./extract/detect-exe.ts";
+import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
+import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
+import { extractCards } from "./extract/extract-cards.ts";
+import { extractDuelists } from "./extract/extract-duelists.ts";
+import { extractEquips } from "./extract/extract-equips.ts";
+import { extractFusions } from "./extract/extract-fusions.ts";
+import { extractAllArtworkAsPng } from "./extract/extract-images.ts";
+import { langIdxForSerial, loadDiscData } from "./extract/index.ts";
+import type { CardStats, DuelistData, EquipEntry, Fusion } from "./extract/types.ts";
 import { findSettingsPath } from "./settings.ts";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -78,8 +78,10 @@ export function acquireGameData(
   const cachePath = join(cacheDir, CACHE_FILENAME);
 
   // Check disk cache (require artwork dir to exist — otherwise re-extract)
+  // Bump artworkVersion when extraction logic changes to invalidate cached PNGs.
+  const artworkVersion = 2;
   const hashPrefix = gameDataHash.slice(0, 12);
-  const artworkDir = join(cacheDir, "artwork", hashPrefix);
+  const artworkDir = join(cacheDir, "artwork", `${hashPrefix}_v${artworkVersion}`);
   const cached = loadCache(cachePath);
   if (cached && cached.gameDataHash === gameDataHash && existsSync(join(artworkDir, "001.png"))) {
     console.log(`Game data cache hit (hash=${gameDataHash.slice(0, 12)}...)`);
@@ -315,7 +317,7 @@ function extractFromBins(
     slus: Buffer;
     waMrg: Buffer;
     discSerial: string;
-    exeLayout: import("../scripts/extract/types.ts").ExeLayout;
+    exeLayout: import("./extract/types.ts").ExeLayout;
   };
   const matches: Match[] = [];
   for (const binPath of binPaths) {
