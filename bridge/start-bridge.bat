@@ -20,8 +20,10 @@ echo.
 :bridge_loop
 
 :: ── Auto-update check ──────────────────────────────────────────
+:: Copy update.ps1 outside runtime\ so it can rename that directory.
 echo  Checking for updates...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0runtime\update.ps1" "%~dp0"
+copy /Y "%~dp0runtime\update.ps1" "%~dp0_update.ps1" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_update.ps1" "%~dp0"
 echo.
 echo  Starting bridge...
 echo.

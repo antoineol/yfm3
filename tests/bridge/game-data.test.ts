@@ -200,7 +200,7 @@ describe("acquireGameData cache round-trip", () => {
     writeFileSync(join(tmpDir, "game-data-cache.json"), JSON.stringify(cache));
 
     // Artwork cache dir must exist for cache hit (keyed by hash prefix)
-    const artDir = join(tmpDir, "artwork", `${hash.slice(0, 12)}_v2`);
+    const artDir = join(tmpDir, "artwork", hash.slice(0, 12));
     mkdirSync(artDir, { recursive: true });
     writeFileSync(join(artDir, "001.png"), Buffer.alloc(0));
 

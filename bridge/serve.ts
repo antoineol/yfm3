@@ -388,9 +388,8 @@ function serveArtwork(pathname: string): Response {
   if (!/^\d{3}\.png$/.test(filename) || !currentGameData) {
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });
   }
-  const artworkVersion = 2;
   const hashPrefix = currentGameData.gameDataHash.slice(0, 12);
-  const filePath = join(__dirname, "artwork", `${hashPrefix}_v${artworkVersion}`, filename);
+  const filePath = join(__dirname, "artwork", hashPrefix, filename);
   try {
     const data = readFileSync(filePath);
     return new Response(data, {

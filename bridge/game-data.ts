@@ -78,10 +78,8 @@ export function acquireGameData(
   const cachePath = join(cacheDir, CACHE_FILENAME);
 
   // Check disk cache (require artwork dir to exist — otherwise re-extract)
-  // Bump artworkVersion when extraction logic changes to invalidate cached PNGs.
-  const artworkVersion = 2;
   const hashPrefix = gameDataHash.slice(0, 12);
-  const artworkDir = join(cacheDir, "artwork", `${hashPrefix}_v${artworkVersion}`);
+  const artworkDir = join(cacheDir, "artwork", hashPrefix);
   const cached = loadCache(cachePath);
   if (cached && cached.gameDataHash === gameDataHash && existsSync(join(artworkDir, "001.png"))) {
     console.log(`Game data cache hit (hash=${gameDataHash.slice(0, 12)}...)`);
