@@ -197,6 +197,7 @@ function buildGameDataMessage(data: GameData): string {
     duelists: data.duelists,
     fusionTable: data.fusionTable,
     equipTable: data.equipTable,
+    equipBonuses: data.equipBonuses,
     fieldBonusTable: data.fieldBonusTable,
   });
 }

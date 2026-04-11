@@ -344,6 +344,7 @@ describe("processBridgeMessage", () => {
         duelists: [2],
         fusionTable: [3],
         equipTable: [4],
+        equipBonuses: null,
         fieldBonusTable: null,
       });
       expect(s.gameDataError).toBeNull();

@@ -168,7 +168,9 @@ export function usePostDuelSuggestion(
   useEffect(() => {
     if (state !== "result" || !result || !deckCardIds) return;
 
-    if (decksMatch(deckCardIds, result.deck)) {
+    // result.deck is scoring-only (may be shorter than the full 40-card deck).
+    // Auto-dismiss when the full deck contains every scoring card the optimizer picked.
+    if (scoringDeckApplied(deckCardIds, result.deck)) {
       dismiss();
       return;
     }
@@ -199,6 +201,22 @@ export function decksMatch(a: number[], b: number[]): boolean {
   if (countsA.size !== countsB.size) return false;
   for (const [id, qty] of countsA) {
     if (countsB.get(id) !== qty) return false;
+  }
+  return true;
+}
+
+/**
+ * Check whether `fullDeck` contains every card from `scoringDeck`
+ * (with sufficient counts). Handles the case where `scoringDeck`
+ * is shorter than `fullDeck` because it excludes utility slots.
+ */
+export function scoringDeckApplied(fullDeck: number[], scoringDeck: number[]): boolean {
+  const fullCounts = new Map<number, number>();
+  for (const id of fullDeck) fullCounts.set(id, (fullCounts.get(id) ?? 0) + 1);
+  const scoringCounts = new Map<number, number>();
+  for (const id of scoringDeck) scoringCounts.set(id, (scoringCounts.get(id) ?? 0) + 1);
+  for (const [id, qty] of scoringCounts) {
+    if ((fullCounts.get(id) ?? 0) < qty) return false;
   }
   return true;
 }

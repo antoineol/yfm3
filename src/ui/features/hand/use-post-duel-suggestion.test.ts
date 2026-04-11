@@ -33,7 +33,11 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import { findNewCards } from "./use-duel-collection-tracker.ts";
-import { decksMatch, usePostDuelSuggestion } from "./use-post-duel-suggestion.ts";
+import {
+  decksMatch,
+  scoringDeckApplied,
+  usePostDuelSuggestion,
+} from "./use-post-duel-suggestion.ts";
 
 const mockOptimize = optimizeDeckParallel as ReturnType<typeof vi.fn>;
 
@@ -535,6 +539,58 @@ describe("usePostDuelSuggestion", () => {
     expect(store.get(postDuelResultAtom)).toBeNull();
   });
 
+  it("auto-dismisses when scoring deck is shorter than full deck but all scoring cards applied", async () => {
+    // Optimizer returns 35 scoring cards; full deck has 40
+    const scoringDeck = Array.from({ length: 35 }, (_, i) => i + 10);
+    mockOptimize.mockResolvedValue({
+      deck: scoringDeck,
+      expectedAtk: 2500,
+      currentDeckScore: 2000,
+      improvement: 500,
+      elapsedMs: 100,
+    });
+
+    const bridge = makeBridge({ inDuel: false });
+    const initialProps: { b: EmulatorBridge; d: number[] | undefined } = {
+      b: bridge,
+      d: undefined,
+    };
+    const { rerender } = renderHook(
+      ({ b, d }: { b: EmulatorBridge; d: number[] | undefined }) => usePostDuelSuggestion(b, d),
+      { wrapper: makeWrapper(store), initialProps },
+    );
+
+    // Reach result state
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+      d: undefined,
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+      d: undefined,
+    });
+    await act(() => Promise.resolve());
+    expect(store.get(postDuelStateAtom)).toBe("result");
+
+    // Full 40-card deck containing all 35 scoring cards + 5 utility cards
+    const fullDeck = [...scoringDeck, 100, 101, 102, 103, 104];
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+      d: fullDeck,
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("idle");
+    expect(store.get(postDuelResultAtom)).toBeNull();
+  });
+
   it("updates currentDeck when Convex deck partially matches suggestion", async () => {
     const suggestedDeck = [5, 6, 7, ...Array.from({ length: 37 }, (_, i) => i + 8)];
     mockOptimize.mockResolvedValue({
@@ -625,6 +681,29 @@ describe("usePostDuelSuggestion", () => {
     });
 
     expect(store.get(postDuelStateAtom)).toBe("result");
+  });
+});
+
+describe("scoringDeckApplied", () => {
+  it("returns true when full deck contains all scoring cards", () => {
+    expect(scoringDeckApplied([1, 2, 3, 4, 5], [1, 2, 3])).toBe(true);
+  });
+
+  it("returns true when decks are identical", () => {
+    expect(scoringDeckApplied([1, 2, 3], [1, 2, 3])).toBe(true);
+  });
+
+  it("returns false when a scoring card is missing", () => {
+    expect(scoringDeckApplied([1, 2, 4, 5], [1, 2, 3])).toBe(false);
+  });
+
+  it("respects duplicate counts", () => {
+    expect(scoringDeckApplied([1, 1, 2], [1, 1])).toBe(true);
+    expect(scoringDeckApplied([1, 2, 3], [1, 1])).toBe(false);
+  });
+
+  it("returns true for empty scoring deck", () => {
+    expect(scoringDeckApplied([1, 2], [])).toBe(true);
   });
 });
 

@@ -67,7 +67,9 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
         fusionDepth,
         useEquipment,
         terrain: 0,
-        megamorphId: MODS[modId].megamorphId,
+        megamorphId: bridge.gameData?.equipBonuses?.megamorphId ?? MODS[modId].megamorphId,
+        equipBonus: bridge.gameData?.equipBonuses?.equipBonus ?? 500,
+        megamorphBonus: bridge.gameData?.equipBonuses?.megamorphBonus ?? 1000,
       },
       currentDeckScore,
       deck: stableDeckCardIds,
@@ -81,6 +83,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     useEquipment,
     stableDeckCardIds,
     modId,
+    bridge.gameData?.equipBonuses,
   ]);
 
   useEffect(() => {

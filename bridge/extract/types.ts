@@ -27,6 +27,15 @@ export interface ExeLayout {
   gsNamesTable: number;
 }
 
+export interface EquipBonusConfig {
+  /** ATK bonus for standard equip cards. */
+  equipBonus: number;
+  /** Card ID of Megamorph (or equivalent). */
+  megamorphId: number;
+  /** ATK bonus for the Megamorph card. */
+  megamorphBonus: number;
+}
+
 export interface WaMrgLayout {
   fusionTable: number;
   equipTable: number;

@@ -125,7 +125,16 @@ export async function optimizeDeckParallel(
     );
   }
 
-  setConfig({ deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId, terrain });
+  const eb = gameData?.equipBonuses;
+  setConfig({
+    deckSize,
+    fusionDepth,
+    useEquipment,
+    megamorphId: eb?.megamorphId ?? MODS[modId].megamorphId,
+    equipBonus: eb?.equipBonus ?? 500,
+    megamorphBonus: eb?.megamorphBonus ?? 1000,
+    terrain,
+  });
 
   const collectionRecord: Record<number, number> = {};
   for (const [id, qty] of collection) collectionRecord[id] = qty;

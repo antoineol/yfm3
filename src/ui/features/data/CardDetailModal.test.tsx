@@ -41,6 +41,11 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: () => "rp",
 }));
 
+vi.mock("../../lib/bridge-context.tsx", () => ({
+  useBridge: () => ({ gameData: null }),
+  useBridgeOptional: () => null,
+}));
+
 afterEach(cleanup);
 
 const testCard: CardSpec = {

@@ -5,7 +5,7 @@
 import { detectTextOffsetsByDeltas, detectTextTables } from "./detect-exe-text.ts";
 import { byte } from "./iso9660.ts";
 import { isTblString } from "./text-decoding.ts";
-import type { ExeLayout, PsxExeHeader } from "./types.ts";
+import type { EquipBonusConfig, ExeLayout, PsxExeHeader } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
 
 export function detectExeLayout(exe: Buffer): ExeLayout {
@@ -112,6 +112,46 @@ export function detectAttributeMapping(
     return { 0: "", 1: "Light", 2: "Dark", 3: "Water", 4: "Fire", 5: "Earth", 6: "Wind" };
   }
   return { 0: "Light", 1: "Dark", 2: "Earth", 3: "Water", 4: "Fire", 5: "Wind" };
+}
+
+// ---------------------------------------------------------------------------
+// Equip bonus detection (MIPS immediates at known SLUS offsets)
+// ---------------------------------------------------------------------------
+
+/** Known SLUS file offsets for equip bonus MIPS instructions.
+ *  Source: yfm-equip-editor (jmncamilo/yfm-equip-editor). */
+const EQUIP_BONUS_OFFSET = 0xaff8;
+const MEGAMORPH_ID_OFFSET = 0xb018;
+const MEGAMORPH_BONUS_OFFSET = 0xb020;
+
+/** Read the equip bonus values from the SLUS executable.
+ *  Returns null if the instructions at the known offsets aren't the expected pattern. */
+export function detectEquipBonuses(exe: Buffer): EquipBonusConfig | null {
+  if (exe.length < MEGAMORPH_BONUS_OFFSET + 4) return null;
+  const stdInstr = exe.readUInt32LE(EQUIP_BONUS_OFFSET);
+  const idInstr = exe.readUInt32LE(MEGAMORPH_ID_OFFSET);
+  const mmInstr = exe.readUInt32LE(MEGAMORPH_BONUS_OFFSET);
+  if (
+    !isMipsLoadImmediate(stdInstr) ||
+    !isMipsLoadImmediate(idInstr) ||
+    !isMipsLoadImmediate(mmInstr)
+  )
+    return null;
+  return {
+    equipBonus: mipsImmediate(stdInstr),
+    megamorphId: mipsImmediate(idInstr),
+    megamorphBonus: mipsImmediate(mmInstr),
+  };
+}
+
+/** Check that a uint32 is a MIPS `addiu $rt, $zero, imm` instruction (opcode 9, rs=0). */
+function isMipsLoadImmediate(instr: number): boolean {
+  return instr >>> 26 === 9 && ((instr >> 21) & 0x1f) === 0;
+}
+
+/** Extract the unsigned 16-bit immediate from a MIPS I-type instruction. */
+function mipsImmediate(instr: number): number {
+  return instr & 0xffff;
 }
 
 /** Parse the PS-X EXE header from the start of a PS1 executable file.

@@ -4,8 +4,8 @@ import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID, MAX_FUSION_DEPTH } from "../types/constants.ts";
 import type { IScorer } from "../types/interfaces.ts";
 
-function equipBonus(equipId: number, megamorphId: number): number {
-  return equipId === megamorphId ? 1000 : 500;
+function equipBonus(equipId: number, mmId: number, mmBonus: number, stdBonus: number): number {
+  return equipId === mmId ? mmBonus : stdBonus;
 }
 
 /**
@@ -36,6 +36,8 @@ export class FusionScorer implements IScorer {
     const cfg = getConfig();
     const maxLevel = cfg.fusionDepth;
     const mmId = cfg.megamorphId;
+    const mmBonus = cfg.megamorphBonus;
+    const stdBonus = cfg.equipBonus;
 
     // Copy hand into level 0
     for (let i = 0; i < 5; i++) {
@@ -51,13 +53,13 @@ export class FusionScorer implements IScorer {
         if (j === i) continue;
         const eqId = sb[j] ?? 0;
         if (ec[eqId * MAX_CARD_ID + id]) {
-          effective += equipBonus(eqId, mmId);
+          effective += equipBonus(eqId, mmId, mmBonus, stdBonus);
         }
       }
       if (effective > maxAtk) maxAtk = effective;
     }
 
-    maxAtk = this.dfs(sb, ft, atk, ec, 0, 5, maxAtk, maxLevel, mmId);
+    maxAtk = this.dfs(sb, ft, atk, ec, 0, 5, maxAtk, maxLevel, mmId, mmBonus, stdBonus);
     return maxAtk;
   }
 
@@ -71,6 +73,8 @@ export class FusionScorer implements IScorer {
     maxAtk: number,
     maxLevel: number,
     mmId: number,
+    mmBonus: number,
+    stdBonus: number,
   ): number {
     const base = level * 5;
 
@@ -93,7 +97,7 @@ export class FusionScorer implements IScorer {
           if (k === i || k === j) continue;
           const eqId = sb[base + k] ?? 0;
           if (ec[eqId * MAX_CARD_ID + result]) {
-            effective += equipBonus(eqId, mmId);
+            effective += equipBonus(eqId, mmId, mmBonus, stdBonus);
           }
         }
         if (effective > maxAtk) maxAtk = effective;
@@ -112,7 +116,19 @@ export class FusionScorer implements IScorer {
         }
         sb[nextBase + write] = result;
 
-        maxAtk = this.dfs(sb, ft, atk, ec, level + 1, newHandSize, maxAtk, maxLevel, mmId);
+        maxAtk = this.dfs(
+          sb,
+          ft,
+          atk,
+          ec,
+          level + 1,
+          newHandSize,
+          maxAtk,
+          maxLevel,
+          mmId,
+          mmBonus,
+          stdBonus,
+        );
       }
     }
 

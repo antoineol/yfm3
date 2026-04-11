@@ -205,6 +205,7 @@ export function processBridgeMessage(
           duelists: m.duelists,
           fusionTable: m.fusionTable,
           equipTable: m.equipTable,
+          equipBonuses: m.equipBonuses ?? null,
           fieldBonusTable: m.fieldBonusTable ?? null,
         } as BridgeGameData,
         gameDataError: null,

@@ -48,12 +48,15 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
       setState({ status: "loading" });
       setExpanded(true);
 
+      const eb = bridge.gameData?.equipBonuses;
       const config: EngineConfig = {
         deckSize,
         fusionDepth,
         useEquipment,
         terrain,
-        megamorphId: MODS[modId].megamorphId,
+        megamorphId: eb?.megamorphId ?? MODS[modId].megamorphId,
+        equipBonus: eb?.equipBonus ?? 500,
+        megamorphBonus: eb?.megamorphBonus ?? 1000,
       };
       const worker = new Worker(
         new URL("../../../engine/worker/explainer-worker.ts", import.meta.url),

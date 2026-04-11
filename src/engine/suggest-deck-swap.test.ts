@@ -78,7 +78,15 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        config: { useEquipment: true, megamorphId: 657, deckSize: 5, fusionDepth: 3, terrain: 0 },
+        config: {
+          useEquipment: true,
+          megamorphId: 657,
+          equipBonus: 500,
+          megamorphBonus: 1000,
+          deckSize: 5,
+          fusionDepth: 3,
+          terrain: 0,
+        },
         deck: [1, 1, 2, 3, 4],
       }),
     ).toEqual({ removedCardId: 4, improvement: 14 });
@@ -88,7 +96,15 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        config: { useEquipment: true, megamorphId: 657, deckSize: 3, fusionDepth: 3, terrain: 0 },
+        config: {
+          useEquipment: true,
+          megamorphId: 657,
+          equipBonus: 500,
+          megamorphBonus: 1000,
+          deckSize: 3,
+          fusionDepth: 3,
+          terrain: 0,
+        },
         deck: [1, 1],
       }),
     ).toBeNull();
@@ -108,7 +124,15 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        config: { useEquipment: true, megamorphId: 657, deckSize: 6, fusionDepth: 3, terrain: 0 },
+        config: {
+          useEquipment: true,
+          megamorphId: 657,
+          equipBonus: 500,
+          megamorphBonus: 1000,
+          deckSize: 6,
+          fusionDepth: 3,
+          terrain: 0,
+        },
         deck: [1, 7, 2, 3, 4, 6],
       }),
     ).toEqual({ removedCardId: 4, improvement: 25 });
@@ -120,7 +144,15 @@ describe("findBestDeckSwapSuggestion", () => {
     expect(
       findBestDeckSwapSuggestion({
         addedCardId: 5,
-        config: { useEquipment: true, megamorphId: 657, deckSize: 2, fusionDepth: 3, terrain: 0 },
+        config: {
+          useEquipment: true,
+          megamorphId: 657,
+          equipBonus: 500,
+          megamorphBonus: 1000,
+          deckSize: 2,
+          fusionDepth: 3,
+          terrain: 0,
+        },
         deck: [1, 2],
       }),
     ).toBeNull();
@@ -129,7 +161,15 @@ describe("findBestDeckSwapSuggestion", () => {
   it("reuses a provided current deck score", () => {
     findBestDeckSwapSuggestion({
       addedCardId: 5,
-      config: { useEquipment: true, megamorphId: 657, deckSize: 5, fusionDepth: 3, terrain: 0 },
+      config: {
+        useEquipment: true,
+        megamorphId: 657,
+        equipBonus: 500,
+        megamorphBonus: 1000,
+        deckSize: 5,
+        fusionDepth: 3,
+        terrain: 0,
+      },
       currentDeckScore: 18,
       deck: [1, 1, 2, 3, 4],
     });

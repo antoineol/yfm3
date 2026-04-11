@@ -76,7 +76,15 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       type: "SCORE",
       collection: ownedCardTotals,
       deck: deckCardIds,
-      config: { deckSize, fusionDepth, useEquipment, megamorphId: MODS[modId].megamorphId },
+      config: {
+        deckSize,
+        fusionDepth,
+        useEquipment,
+        megamorphId: bridge.gameData?.equipBonuses?.megamorphId ?? MODS[modId].megamorphId,
+        equipBonus: bridge.gameData?.equipBonuses?.equipBonus ?? 500,
+        megamorphBonus: bridge.gameData?.equipBonuses?.megamorphBonus ?? 1000,
+        terrain: 0,
+      },
       modId,
       gameData: bridge.gameData ?? undefined,
     });

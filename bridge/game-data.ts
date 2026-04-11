@@ -10,7 +10,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { detectAttributeMapping, detectExeLayout } from "./extract/detect-exe.ts";
+import {
+  detectAttributeMapping,
+  detectEquipBonuses,
+  detectExeLayout,
+} from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
 import { extractCards } from "./extract/extract-cards.ts";
@@ -19,7 +23,13 @@ import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
 import { extractAllArtworkAsPng } from "./extract/extract-images.ts";
 import { langIdxForSerial, loadDiscData } from "./extract/index.ts";
-import type { CardStats, DuelistData, EquipEntry, Fusion } from "./extract/types.ts";
+import type {
+  CardStats,
+  DuelistData,
+  EquipBonusConfig,
+  EquipEntry,
+  Fusion,
+} from "./extract/types.ts";
 import { findSettingsPath } from "./settings.ts";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -32,6 +42,8 @@ export interface GameData {
   duelists: DuelistData[];
   fusionTable: Fusion[];
   equipTable: EquipEntry[];
+  /** Equip bonus values read from the EXE, or null if detection failed. */
+  equipBonuses: EquipBonusConfig | null;
   /**
    * Field bonus table: 120 actual bonus values (e.g., 500, -500, 0).
    * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
@@ -50,6 +62,7 @@ interface GameDataCache {
   duelists: DuelistData[];
   fusions: Array<{ m1: number; m2: number; r: number }>;
   equips: Array<{ e: number; m: number[] }>;
+  equipBonuses?: EquipBonusConfig | null;
   fieldBonus?: number[] | null;
 }
 
@@ -140,6 +153,7 @@ function restoreFromCache(cache: GameDataCache): GameData {
     duelists: cache.duelists,
     fusionTable: cache.fusions.map((f) => ({ material1: f.m1, material2: f.m2, result: f.r })),
     equipTable: cache.equips.map((e) => ({ equipId: e.e, monsterIds: e.m })),
+    equipBonuses: cache.equipBonuses ?? null,
     fieldBonusTable: cache.fieldBonus ?? null,
   };
 }
@@ -154,6 +168,7 @@ function saveCache(cachePath: string, data: GameData): void {
     duelists: data.duelists,
     fusions: data.fusionTable.map((f) => ({ m1: f.material1, m2: f.material2, r: f.result })),
     equips: data.equipTable.map((e) => ({ e: e.equipId, m: e.monsterIds })),
+    equipBonuses: data.equipBonuses,
     fieldBonus: data.fieldBonusTable,
   };
   writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
@@ -376,6 +391,7 @@ function extractFromDiscs(
     const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
     const fusions = extractFusions(waMrg, waMrgLayout);
     const equips = extractEquips(waMrg, waMrgLayout);
+    const equipBonuses = detectEquipBonuses(slus);
 
     if (artworkDir) {
       extractAllArtworkAsPng(waMrg, waMrgLayout.artworkBlockSize, artworkDir);
@@ -390,6 +406,7 @@ function extractFromDiscs(
       duelists,
       fusionTable: fusions,
       equipTable: equips,
+      equipBonuses,
       fieldBonusTable: null, // populated from RAM by serve.ts
     };
   } catch (err: unknown) {

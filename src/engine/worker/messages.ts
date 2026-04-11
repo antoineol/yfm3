@@ -34,6 +34,8 @@ export type BridgeGameData = {
   duelists: BridgeDuelist[];
   fusionTable: Array<{ material1: number; material2: number; result: number }>;
   equipTable: Array<{ equipId: number; monsterIds: number[] }>;
+  /** Equip bonus values from the EXE (standard bonus, Megamorph ID + bonus). */
+  equipBonuses?: { equipBonus: number; megamorphId: number; megamorphBonus: number } | null;
   /**
    * Field bonus table from RAM: 120 actual bonus values (e.g., 500, -500, 0).
    * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).

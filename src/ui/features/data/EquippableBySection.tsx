@@ -3,6 +3,7 @@ import { MODS } from "../../../engine/mods.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "../../components/sortable-header.tsx";
+import { useBridge } from "../../lib/bridge-context.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 
@@ -24,7 +25,11 @@ const NUMERIC_NAME_RE = /^\d+$/;
 export function EquippableBySection({ cardId }: { cardId: number }) {
   const { equipCompat, cardDb } = useFusionTable();
   const modId = useSelectedMod();
-  const megamorphId = MODS[modId].megamorphId;
+  const bridge = useBridge();
+  const eb = bridge.gameData?.equipBonuses;
+  const megamorphId = eb?.megamorphId ?? MODS[modId].megamorphId;
+  const stdBonus = eb?.equipBonus ?? 500;
+  const mmBonus = eb?.megamorphBonus ?? 1000;
 
   const rows = useMemo(() => {
     const result: EquippableByRow[] = [];
@@ -36,12 +41,12 @@ export function EquippableBySection({ cardId }: { cardId: number }) {
       result.push({
         equipId,
         equipName: name,
-        bonus: equipId === megamorphId ? 1000 : 500,
+        bonus: equipId === megamorphId ? mmBonus : stdBonus,
       });
     }
     result.sort((a, b) => b.bonus - a.bonus || a.equipName.localeCompare(b.equipName));
     return result;
-  }, [equipCompat, cardDb, cardId, megamorphId]);
+  }, [equipCompat, cardDb, cardId, megamorphId, stdBonus, mmBonus]);
 
   const [sort, setSort] = useState<SortState<EquippableBySortKey>>(null);
   const handleSort = useCallback(

@@ -7,6 +7,10 @@ export interface EngineConfig {
   fusionDepth: number;
   useEquipment: boolean;
   megamorphId: number;
+  /** ATK bonus for standard equip cards (default 500). */
+  equipBonus: number;
+  /** ATK bonus for Megamorph specifically (default 1000). */
+  megamorphBonus: number;
   /** Terrain ID for field power bonuses (0 = none, 1–6 = Forest..Dark). */
   terrain: number;
 }
@@ -16,6 +20,8 @@ const defaults: Readonly<EngineConfig> = {
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
   megamorphId: MODS.rp.megamorphId,
+  equipBonus: 500,
+  megamorphBonus: 1000,
   terrain: 0,
 };
 
