@@ -18,6 +18,9 @@ self.onmessage = async (e: MessageEvent<ExplainerInit>) => {
   for (let i = 0; i < deck.length; i++) {
     buf.deck[i] = deck[i] ?? 0;
   }
+  for (let i = deck.length; i < buf.deck.length; i++) {
+    buf.deck[i] = 0;
+  }
 
   const scorer = new FusionScorer();
   const explanation = explainScore(buf, scorer);

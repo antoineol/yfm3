@@ -7,6 +7,7 @@ const { mockExactScore } = vi.hoisted(() => ({
 
 vi.mock("./initialize-buffers-browser.ts", async () => {
   const { getConfig } = await import("./config.ts");
+  const { DECK_SIZE } = await import("./types/constants.ts");
 
   return {
     initializeSuggestionBuffersBrowser: () => {
@@ -15,14 +16,15 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
         fusionTable: new Int16Array(0),
         cardAtk: new Int16Array(16),
         equipCompat: new Uint8Array(0),
-        deck: new Int16Array(deckSize),
+        deck: new Int16Array(DECK_SIZE),
         cardCounts: new Uint8Array(16),
         availableCounts: new Uint8Array(16),
         handSlots: new Uint8Array(0),
         handScores: new Int16Array(0),
         affectedHandIds: new Uint16Array(0),
-        affectedHandOffsets: new Uint32Array(deckSize),
-        affectedHandCounts: new Uint16Array(deckSize),
+        affectedHandOffsets: new Uint32Array(DECK_SIZE),
+        affectedHandCounts: new Uint16Array(DECK_SIZE),
+        scoringSlots: deckSize,
       };
     },
   };

@@ -15,7 +15,7 @@ export function buildInitialDeck(buf: OptBuffers, cards: readonly CardSpec[]): v
 
   // Pass 1: respect MAX_COPIES to prefer diversity
   for (const card of sorted) {
-    if (deckIdx >= buf.deck.length) break;
+    if (deckIdx >= buf.scoringSlots) break;
     const count = buf.cardCounts[card.id] ?? 0;
     const availableCopies = buf.availableCounts[card.id] ?? 0;
     if (count < MAX_COPIES && count < availableCopies) {
@@ -26,10 +26,10 @@ export function buildInitialDeck(buf: OptBuffers, cards: readonly CardSpec[]): v
   }
 
   // Pass 2+: if deck not full, relax MAX_COPIES and keep adding
-  while (deckIdx < buf.deck.length) {
+  while (deckIdx < buf.scoringSlots) {
     let added = false;
     for (const card of sorted) {
-      if (deckIdx >= buf.deck.length) break;
+      if (deckIdx >= buf.scoringSlots) break;
       const count = buf.cardCounts[card.id] ?? 0;
       const availableCopies = buf.availableCounts[card.id] ?? 0;
       if (count < availableCopies) {

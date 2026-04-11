@@ -52,7 +52,7 @@ export class SAOptimizer implements IOptimizer {
     onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
   ): number {
     const rand = mulberry32(this.seed);
-    const tabu = createTabuList(buf.deck.length);
+    const tabu = createTabuList(buf.scoringSlots);
     const selector = createBiasedSelector();
     const bestDeck = new Int16Array(buf.deck.length);
 
@@ -88,8 +88,8 @@ export class SAOptimizer implements IOptimizer {
           onProgress(bestScore, bestDeck);
         }
       }
-      // 1. Pick a random slot and a biased replacement card
-      const slot = (rand() * buf.deck.length) | 0;
+      // 1. Pick a random scoring slot and a biased replacement card
+      const slot = (rand() * buf.scoringSlots) | 0;
       const oldCard = buf.deck[slot] ?? 0;
       const newCard = selector.selectCandidate(buf, oldCard, rand);
       if (newCard === -1) {
@@ -175,7 +175,7 @@ function calibrateTemp(
   let samples = 0;
 
   for (let i = 0; i < CALIBRATION_SWAPS; i++) {
-    const slot = (rand() * buf.deck.length) | 0;
+    const slot = (rand() * buf.scoringSlots) | 0;
     const oldCard = buf.deck[slot] ?? 0;
     const newCard = selector.selectCandidate(buf, oldCard, rand);
     if (newCard === -1) continue;

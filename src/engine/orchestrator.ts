@@ -145,7 +145,7 @@ export async function optimizeDeckParallel(
     MIN_CONVERGENCE_TIMEOUT,
     timeBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
   );
-  const numHands = Math.min(NUM_HANDS, CHOOSE_5[deckSize] ?? 0);
+  const numHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
 
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const initialDecks = generateInitialDecks(collectionRecord, numWorkers, rand);

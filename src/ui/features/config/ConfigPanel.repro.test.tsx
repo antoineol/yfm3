@@ -73,7 +73,7 @@ describe("ConfigPanel save", () => {
 
   it("saves on deck size change", async () => {
     renderPanel();
-    const input = screen.getByLabelText("Deck size");
+    const input = screen.getByLabelText("Scoring cards");
     fireEvent.change(input, { target: { value: "30" } });
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
     expect(mockSave).toHaveBeenCalledWith(expect.objectContaining({ deckSize: 30 }));
@@ -81,7 +81,7 @@ describe("ConfigPanel save", () => {
 
   it("saves on second deck size change", async () => {
     renderPanel();
-    const input = screen.getByLabelText("Deck size");
+    const input = screen.getByLabelText("Scoring cards");
 
     fireEvent.change(input, { target: { value: "30" } });
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
@@ -99,7 +99,7 @@ describe("ConfigPanel save", () => {
 
   it("does not save invalid deck size", async () => {
     renderPanel();
-    const input = screen.getByLabelText("Deck size");
+    const input = screen.getByLabelText("Scoring cards");
     fireEvent.change(input, { target: { value: "999" } });
     await new Promise((r) => setTimeout(r, 50));
     expect(mockSave).not.toHaveBeenCalled();

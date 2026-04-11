@@ -52,7 +52,7 @@ export function ConfigPanel({ onClose }: ConfigPanelProps) {
     <>
       <Form form={form}>
         <div className="grid grid-cols-2 gap-4">
-          <ConfigInput disabled={isOptimizing} label="Deck size" name="deckSize" />
+          <ConfigInput disabled={isOptimizing} label="Scoring cards" name="deckSize" />
           <ConfigInput disabled={isOptimizing} label="Fusion depth" name="fusionDepth" />
         </div>
         <ConfigCheckbox

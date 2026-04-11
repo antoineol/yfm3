@@ -42,6 +42,7 @@ function makeBuffers(deckCardIds: number[]): OptBuffers {
     affectedHandIds: new Uint16Array(numHands * 5),
     affectedHandOffsets: new Uint32Array(deckSize),
     affectedHandCounts: new Uint16Array(deckSize),
+    scoringSlots: deckSize,
   };
 }
 

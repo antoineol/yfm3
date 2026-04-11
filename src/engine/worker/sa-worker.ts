@@ -38,7 +38,7 @@ self.onmessage = async (e: MessageEvent<WorkerInit>) => {
     const progress: WorkerProgress = {
       type: "PROGRESS",
       bestScore: score,
-      bestDeck: Array.from(deck),
+      bestDeck: Array.from(deck.subarray(0, buf.scoringSlots)),
       iterations: optimizer.iterations,
     };
     self.postMessage(progress);
@@ -46,7 +46,7 @@ self.onmessage = async (e: MessageEvent<WorkerInit>) => {
 
   const result: WorkerResult = {
     type: "RESULT",
-    bestDeck: Array.from(buf.deck),
+    bestDeck: Array.from(buf.deck.subarray(0, buf.scoringSlots)),
     bestScore,
     iterations: optimizer.iterations,
   };

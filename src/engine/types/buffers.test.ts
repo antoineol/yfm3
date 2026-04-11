@@ -20,13 +20,14 @@ describe("OptBuffers", () => {
     expect(b.affectedHandCounts.length).toBe(DECK_SIZE);
   });
 
-  it("sizes scale with custom deck size", () => {
+  it("physical deck is always 40 but scoringSlots reflects config", () => {
     setConfig({ deckSize: 20 });
     const b = createBuffers();
-    const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[20] ?? 0);
-    expect(b.deck.length).toBe(20);
-    expect(b.affectedHandOffsets.length).toBe(20);
-    expect(b.affectedHandCounts.length).toBe(20);
+    const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
+    expect(b.deck.length).toBe(DECK_SIZE);
+    expect(b.scoringSlots).toBe(20);
+    expect(b.affectedHandOffsets.length).toBe(DECK_SIZE);
+    expect(b.affectedHandCounts.length).toBe(DECK_SIZE);
     expect(b.handScores.length).toBe(expectedHands);
     expect(b.handSlots.length).toBe(expectedHands * HAND_SIZE);
     expect(b.affectedHandIds.length).toBe(expectedHands * HAND_SIZE);
@@ -35,12 +36,13 @@ describe("OptBuffers", () => {
     expect(b.cardAtk.length).toBe(MAX_CARD_ID);
   });
 
-  it("caps numHands at C(deckSize,5) for small decks", () => {
+  it("numHands always uses C(40,5) regardless of scoringSlots", () => {
     setConfig({ deckSize: 5 });
     const b = createBuffers();
-    // C(5,5) = 1 → only 1 hand possible
-    expect(b.handScores.length).toBe(1);
-    expect(b.handSlots.length).toBe(HAND_SIZE);
-    expect(b.deck.length).toBe(5);
+    const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
+    expect(b.handScores.length).toBe(expectedHands);
+    expect(b.handSlots.length).toBe(expectedHands * HAND_SIZE);
+    expect(b.deck.length).toBe(DECK_SIZE);
+    expect(b.scoringSlots).toBe(5);
   });
 });

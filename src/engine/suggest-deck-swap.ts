@@ -56,6 +56,9 @@ export function findBestDeckSwapSuggestion(
     buf.deck[i] = cardId;
     buf.cardCounts[cardId] = (buf.cardCounts[cardId] ?? 0) + 1;
   }
+  for (let i = deck.length; i < buf.deck.length; i++) {
+    buf.deck[i] = 0;
+  }
 
   const scorer = new FusionScorer();
   computeInitialScores(buf, scorer);
@@ -87,7 +90,7 @@ function rankCandidates(
   const deltaEvaluator = new DeltaEvaluator();
   const rankedByRemoved = new Map<number, RankedCandidate>();
 
-  for (let slotIndex = 0; slotIndex < buf.deck.length; slotIndex++) {
+  for (let slotIndex = 0; slotIndex < buf.scoringSlots; slotIndex++) {
     const removedCardId = buf.deck[slotIndex] ?? 0;
     if (removedCardId === addedCardId) continue;
 

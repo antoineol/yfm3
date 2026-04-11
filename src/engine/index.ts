@@ -86,7 +86,7 @@ export function optimizeDeck(
   const elapsedMs = performance.now() - start;
 
   return {
-    deck: Array.from(buf.deck),
+    deck: Array.from(buf.deck.subarray(0, buf.scoringSlots)),
     expectedAtk,
     initialScore,
     improvement: expectedAtk - initialScore,
