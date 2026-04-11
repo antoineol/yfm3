@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { useEffect } from "react";
 import { MODS } from "../../../engine/mods.ts";
+import { DECK_SIZE } from "../../../engine/types/constants.ts";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
@@ -39,8 +40,11 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     // Skip if already scored for this exact deck (survives tab-switch remounts)
     if (key === lastCompletedKey) return;
 
-    // Only score full-size decks with a loaded collection
-    if (deckCardIds.length < deckSize || !ownedCardTotals) {
+    // Only score full-size decks with a loaded collection.
+    // Accept both deckSize (scoring slots) and DECK_SIZE (full deck with utility
+    // cards) so scoring works when preserveUtilityCards is enabled.
+    const validLength = deckCardIds.length === deckSize || deckCardIds.length === DECK_SIZE;
+    if (!validLength || !ownedCardTotals) {
       setScore(null);
       lastCompletedKey = "";
       return;
