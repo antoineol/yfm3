@@ -15,7 +15,7 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
   let levelAttr = -1;
   const tableBytes = NUM_CARDS * 4;
 
-  const searchStart = Math.floor(exe.length / 2) & ~3;
+  const searchStart = PSX_EXE_HEADER_SIZE;
   for (let addr = searchStart; addr <= exe.length - tableBytes; addr += 4) {
     if (!isCardStatsCandidate(exe, addr)) continue;
 
