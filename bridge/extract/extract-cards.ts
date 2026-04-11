@@ -186,7 +186,7 @@ function extractNameTable(
 ): Record<number, string> {
   if (offset !== -1) {
     const names = extractWaMrgStrings(exe, offset, count, CHAR_TABLE);
-    if (names.length === count && names[0] !== "" && names[0] === names[0]?.trim()) {
+    if (names.length === count && names.every((n) => n && n === n.trim() && !n.includes("{"))) {
       const result: Record<number, string> = {};
       for (let i = 0; i < names.length; i++) result[i] = names[i] as string;
       return result;

@@ -181,7 +181,7 @@ function isValidLevelAttrTable(exe: Buffer, addr: number, cardStatsAddr: number)
   let nonMonsterCount = 0;
   for (let i = 0; i < NUM_CARDS; i++) {
     const b = byte(exe, addr + i);
-    if ((b & 0xf) > 12 || ((b >> 4) & 0xf) > 7) return false;
+    if ((b & 0xf) > 12) return false;
     if ((b & 0xf) > 0) nonZeroLevels++;
     const raw = exe.readUInt32LE(cardStatsAddr + i * 4);
     const type = (raw >> 26) & 0x1f;
