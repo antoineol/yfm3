@@ -50,21 +50,94 @@ export function loadDiscData(discPath: string): {
   const rootData = readSectors(bin, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE), fmt);
   const rootFiles = parseDirectory(rootData, rootSize);
 
-  const exeEntry = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
-  if (!exeEntry) {
+  const { exeEntry, serial } = findExe(bin, rootFiles, fmt);
+
+  return {
+    slus: readIsoFile(bin, exeEntry, fmt),
+    waMrg: findWaMrg(bin, rootFiles, fmt),
+    serial,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// EXE & WA_MRG resolution (supports non-standard disc layouts)
+// ---------------------------------------------------------------------------
+
+/** Standard PS1 serial filename regex (e.g. "SLUS_014.11"). */
+const SERIAL_RE = /^S[CL][A-Z]{2}_\d/;
+
+/**
+ * Find the PS1 executable on a disc image.
+ * Tries standard serial-named files first, then falls back to parsing
+ * SYSTEM.CNF's BOOT entry (handles mods with renamed executables).
+ */
+function findExe(
+  bin: Buffer,
+  rootFiles: ReturnType<typeof parseDirectory>,
+  fmt: ReturnType<typeof detectDiscFormat>,
+): { exeEntry: (typeof rootFiles)[number]; serial: string } {
+  const standard = rootFiles.find((f) => SERIAL_RE.test(f.name));
+  if (standard) return { exeEntry: standard, serial: standard.name.replace(/;.*$/, "") };
+
+  const cnfEntry = rootFiles.find((f) => f.name === "SYSTEM.CNF");
+  if (!cnfEntry) {
     throw new Error(
       `No PS1 executable found in disc image (files: ${rootFiles.map((f) => f.name).join(", ")})`,
     );
   }
+  const cnfData = readIsoFile(bin, cnfEntry, fmt);
+  const bootName = parseBootExeName(cnfData.toString("ascii"));
+  if (!bootName) {
+    throw new Error("Could not parse BOOT entry from SYSTEM.CNF");
+  }
+  const exeEntry = rootFiles.find((f) => f.name === bootName);
+  if (!exeEntry) {
+    throw new Error(`Boot executable '${bootName}' not found on disc`);
+  }
+  return { exeEntry, serial: bootName };
+}
 
-  // Strip ISO 9660 version suffix (";1") to get the bare serial
-  const serial = exeEntry.name.replace(/;.*$/, "");
+/** Extract the executable filename from a SYSTEM.CNF BOOT line. */
+export function parseBootExeName(cnf: string): string | null {
+  const match = cnf.match(/BOOT\s*=\s*cdrom:\\?(.+)/i);
+  if (!match?.[1]) return null;
+  return match[1].trim().replace(/;.*$/, "");
+}
 
-  return {
-    slus: readIsoFile(bin, exeEntry, fmt),
-    waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG", fmt),
-    serial,
-  };
+/**
+ * Find WA_MRG.MRG data on a disc image.
+ * Tries the standard path (DATA/WA_MRG.MRG) first, then scans root-level
+ * subdirectories for a file with valid WA_MRG layout (handles mods that
+ * reorganize the disc structure).
+ */
+function findWaMrg(
+  bin: Buffer,
+  rootFiles: ReturnType<typeof parseDirectory>,
+  fmt: ReturnType<typeof detectDiscFormat>,
+): Buffer {
+  try {
+    return findFile(bin, rootFiles, "DATA/WA_MRG.MRG", fmt);
+  } catch {
+    // Fallback: scan subdirectories for a WA_MRG-compatible file
+  }
+
+  for (const dir of rootFiles) {
+    if (!dir.isDir) continue;
+    const dirData = readSectors(bin, dir.sector, Math.ceil(dir.size / SECTOR_DATA_SIZE), fmt);
+    const files = parseDirectory(dirData, dir.size);
+    for (const f of files) {
+      if (f.isDir || f.size < 10_000_000) continue;
+      try {
+        const data = readIsoFile(bin, f, fmt);
+        detectWaMrgLayout(data);
+        return data;
+      } catch {
+        // not WA_MRG-compatible, try next file
+      }
+    }
+  }
+
+  throw new Error("WA_MRG.MRG not found in disc image");
 }
 
 // ---------------------------------------------------------------------------
