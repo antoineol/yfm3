@@ -17,7 +17,7 @@ export function SuggestedDeckComparison({ data }: { data: ResultData }) {
         <>
           {removed.length > 0 && (
             <DiffSection
-              colorClass="text-red-400"
+              colorClass="text-stat-atk"
               defaultExpanded
               entries={removed}
               icon={"\u2212"}

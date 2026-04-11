@@ -43,12 +43,12 @@ const ADDED: DiffColors = {
 };
 
 const REMOVED: DiffColors = {
-  row: " bg-red-950/20 opacity-60",
-  id: "text-red-400/70",
-  name: "text-red-400",
-  atk: "text-red-400",
-  def: "text-red-400/70",
-  qty: "text-red-400/70",
+  row: " bg-red-950/20",
+  id: "text-stat-atk/70",
+  name: "text-stat-atk",
+  atk: "text-stat-atk",
+  def: "text-stat-atk/70",
+  qty: "text-stat-atk/70",
 };
 
 function diffColors(status: DiffStatus | undefined): DiffColors {
