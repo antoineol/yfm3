@@ -134,7 +134,7 @@ export async function optimizeDeckParallel(
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
   if (options?.currentDeckScore != null) {
     currentDeckPromise = Promise.resolve(options.currentDeckScore);
-  } else if (options?.currentDeck && options.currentDeck.length === deckSize) {
+  } else if (options?.currentDeck && options.currentDeck.length >= deckSize) {
     currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, modId, gameData);
   }
 

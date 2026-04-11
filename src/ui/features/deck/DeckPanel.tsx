@@ -1,4 +1,5 @@
 import { api } from "../../../../convex/_generated/api";
+import { DECK_SIZE } from "../../../engine/types/constants.ts";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardTable } from "../../components/CardTable.tsx";
 import type { CardEntry } from "../../components/card-entries.ts";
@@ -17,7 +18,7 @@ import { useDeckScore } from "./use-deck-score.ts";
 
 export function DeckPanel() {
   const data = useDeckEntries();
-  const targetSize = useDeckSize();
+  const deckSize = useDeckSize();
   const readOnly = useBridgeAutoSync();
   const removeOne = useAuthMutation(api.deck.removeOneByCardId);
   const score = useDeckScore(data?.deckCardIds ?? []);
@@ -38,6 +39,7 @@ export function DeckPanel() {
     );
   }
 
+  const targetSize = readOnly ? DECK_SIZE : deckSize;
   const sizeOk = deckLength === targetSize;
 
   function renderLeftActions(entry: CardEntry) {

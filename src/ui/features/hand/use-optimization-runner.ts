@@ -75,7 +75,7 @@ export function useOptimizationRunner(
     optimizeDeckParallel(col, {
       timeLimit: POST_DUEL_TIME_LIMIT,
       signal: controller.signal,
-      currentDeck: deckForOpt.length === deckSize ? deckForOpt : undefined,
+      currentDeck: deckForOpt.length >= deckSize ? deckForOpt : undefined,
       deckSize,
       fusionDepth,
       useEquipment,

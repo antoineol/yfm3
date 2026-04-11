@@ -40,7 +40,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     if (key === lastCompletedKey) return;
 
     // Only score full-size decks with a loaded collection
-    if (deckCardIds.length !== deckSize || !ownedCardTotals) {
+    if (deckCardIds.length < deckSize || !ownedCardTotals) {
       setScore(null);
       lastCompletedKey = "";
       return;

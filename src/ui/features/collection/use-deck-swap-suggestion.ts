@@ -55,7 +55,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       addedCardId === null ||
       addedCardAvailableCopies === null ||
       addedCardAvailableCopies <= 0 ||
-      stableDeckCardIds.length !== deckSize
+      stableDeckCardIds.length < deckSize
     ) {
       return null;
     }

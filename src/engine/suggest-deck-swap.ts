@@ -42,7 +42,7 @@ export function findBestDeckSwapSuggestion(
   gameData?: BridgeGameData,
 ): DeckSwapSuggestion | null {
   const { addedCardId, config, currentDeckScore, deck } = options;
-  if (deck.length !== config.deckSize) {
+  if (deck.length < config.deckSize) {
     return null;
   }
 
