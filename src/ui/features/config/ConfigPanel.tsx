@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
@@ -9,12 +9,15 @@ import { Input } from "../../components/Input.tsx";
 import { Select } from "../../components/Select.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import {
+  useBridgeAutoSync,
   useDeckSize,
   useFusionDepth,
+  usePreserveUtilityCards,
   useTerrain,
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
+import { localSettingsAtom, persistLocalSettings } from "../../lib/bridge-snapshot-atoms.ts";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 import { ImportExportButtons } from "./ImportExportButtons.tsx";
 
@@ -24,6 +27,7 @@ interface ConfigPanelProps {
 
 export function ConfigPanel({ onClose }: ConfigPanelProps) {
   const isOptimizing = useAtomValue(isOptimizingAtom);
+  const autoSync = useBridgeAutoSync();
   const save = useUpdatePreferences();
 
   const form = useForm<ConfigFormValues>({
@@ -52,9 +56,14 @@ export function ConfigPanel({ onClose }: ConfigPanelProps) {
     <>
       <Form form={form}>
         <div className="grid grid-cols-2 gap-4">
-          <ConfigInput disabled={isOptimizing} label="Scoring cards" name="deckSize" />
+          {autoSync ? (
+            <ScoringCardsReadonly />
+          ) : (
+            <ConfigInput disabled={isOptimizing} label="Scoring cards" name="deckSize" />
+          )}
           <ConfigInput disabled={isOptimizing} label="Fusion depth" name="fusionDepth" />
         </div>
+        {autoSync && <PreserveUtilityCheckbox disabled={isOptimizing} />}
         <ConfigCheckbox
           disabled={isOptimizing}
           label="Use equipment"
@@ -132,6 +141,52 @@ function FieldError({ name }: { name: keyof ConfigFormValues }) {
   const error = errors[name];
   if (!error) return null;
   return <span className="text-[11px] text-stat-atk">{error.message ?? "Invalid value"}</span>;
+}
+
+function ScoringCardsReadonly() {
+  const deckSize = useDeckSize();
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs text-text-secondary uppercase tracking-wide">Scoring cards</span>
+      <Input className="text-center font-mono" disabled readOnly type="number" value={deckSize} />
+    </label>
+  );
+}
+
+function PreserveUtilityCheckbox({ disabled }: { disabled: boolean }) {
+  const preserve = usePreserveUtilityCards();
+  const setLocalSettings = useSetAtom(localSettingsAtom);
+
+  function handleChange() {
+    setLocalSettings((prev) => {
+      const next = { ...prev, preserveUtilityCards: !prev.preserveUtilityCards };
+      persistLocalSettings(next);
+      return next;
+    });
+    toast.success("Settings saved");
+  }
+
+  return (
+    <div>
+      <label className="flex items-start gap-2.5 mt-3 cursor-pointer select-none">
+        <input
+          checked={preserve}
+          className="mt-0.5 accent-gold"
+          disabled={disabled}
+          onChange={handleChange}
+          type="checkbox"
+        />
+        <span className="flex flex-col gap-0.5">
+          <span className="text-xs text-text-secondary uppercase tracking-wide">
+            Preserve magic/trap cards
+          </span>
+          <span className="text-[11px] text-text-muted leading-tight">
+            Keep utility cards in deck, optimize only monsters and equips
+          </span>
+        </span>
+      </label>
+    </div>
+  );
 }
 
 function TerrainSelect({ disabled }: { disabled: boolean }) {

@@ -4,13 +4,16 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { TargetRank } from "../../engine/ranking/rank-spectrum.ts";
 import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts";
+import { countUtilityCards } from "../components/card-entries.ts";
 import { useAuthQuery } from "../core/convex-hooks.ts";
 import { getAutoSyncMode } from "../lib/auto-sync-mode.ts";
 import {
+  bridgeDeckAtom,
   type CpuSwap,
   localCpuSwapsAtom,
   localSettingsAtom,
 } from "../lib/bridge-snapshot-atoms.ts";
+import { useCardDb } from "../lib/card-db-context.tsx";
 
 type UserSettings = Doc<"userSettings">;
 
@@ -49,8 +52,22 @@ export function useDeckSize() {
   const autoSync = useBridgeAutoSync();
   const localSettings = useAtomValue(localSettingsAtom);
   const prefs = useUserModSettings();
-  if (autoSync) return localSettings.deckSize ?? DECK_SIZE;
+  const bridgeDeck = useAtomValue(bridgeDeckAtom);
+  const cardDb = useCardDb();
+  if (autoSync) {
+    const preserve = localSettings.preserveUtilityCards ?? true;
+    if (preserve && bridgeDeck) {
+      const filtered = bridgeDeck.filter((id) => id > 0);
+      return DECK_SIZE - countUtilityCards(filtered, cardDb.cardsById);
+    }
+    return localSettings.deckSize ?? DECK_SIZE;
+  }
   return prefs?.deckSize ?? DECK_SIZE;
+}
+
+export function usePreserveUtilityCards(): boolean {
+  const localSettings = useAtomValue(localSettingsAtom);
+  return localSettings.preserveUtilityCards ?? true;
 }
 
 export function useFusionDepth() {

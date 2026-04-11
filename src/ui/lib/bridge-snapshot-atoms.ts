@@ -24,6 +24,7 @@ export interface LocalSettings {
   fusionDepth: number;
   useEquipment: boolean;
   terrain: number;
+  preserveUtilityCards: boolean;
   handSourceMode: HandSourceMode;
   cheatMode: boolean;
   cheatView: CheatView;
@@ -35,6 +36,7 @@ const LOCAL_SETTINGS_DEFAULTS: LocalSettings = {
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
   terrain: 0,
+  preserveUtilityCards: true,
   handSourceMode: "all",
   cheatMode: false,
   cheatView: "player",
@@ -49,6 +51,9 @@ function hydrateLocalSettings(): LocalSettings {
     useEquipment:
       readLocal<boolean>("yfm_settings:useEquipment") ?? LOCAL_SETTINGS_DEFAULTS.useEquipment,
     terrain: readLocal<number>("yfm_settings:terrain") ?? LOCAL_SETTINGS_DEFAULTS.terrain,
+    preserveUtilityCards:
+      readLocal<boolean>("yfm_settings:preserveUtilityCards") ??
+      LOCAL_SETTINGS_DEFAULTS.preserveUtilityCards,
     handSourceMode:
       readLocal<HandSourceMode>("yfm_settings:handSourceMode") ??
       LOCAL_SETTINGS_DEFAULTS.handSourceMode,
@@ -67,6 +72,7 @@ export function persistLocalSettings(settings: LocalSettings): void {
   writeLocal("yfm_settings:fusionDepth", settings.fusionDepth);
   writeLocal("yfm_settings:useEquipment", settings.useEquipment);
   writeLocal("yfm_settings:terrain", settings.terrain);
+  writeLocal("yfm_settings:preserveUtilityCards", settings.preserveUtilityCards);
   writeLocal("yfm_settings:handSourceMode", settings.handSourceMode);
   writeLocal("yfm_settings:cheatMode", settings.cheatMode);
   writeLocal("yfm_settings:cheatView", settings.cheatView);

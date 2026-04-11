@@ -15,6 +15,7 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useBridgeAutoSync: vi.fn(() => false),
   useBridgeAutoSyncSetting: vi.fn(() => false),
   useDeckSize: vi.fn(() => 40),
+  usePreserveUtilityCards: vi.fn(() => true),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
   useTerrain: vi.fn(() => 0),

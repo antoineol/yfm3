@@ -83,6 +83,23 @@ export function countById(ids: number[]): Map<number, number> {
 
 const equipTypes = new Set(["Equip", "Équipement"]);
 
+function isUtilityCard(card: CardSpec): boolean {
+  return !card.isMonster && !equipTypes.has(card.cardType ?? "");
+}
+
+/** Count Magic/Trap/Ritual cards in a deck (non-monster, non-equip). */
+export function countUtilityCards(
+  deckIds: number[],
+  cardsById: ReadonlyMap<number, CardSpec>,
+): number {
+  let count = 0;
+  for (const id of deckIds) {
+    const card = cardsById.get(id);
+    if (card && isUtilityCard(card)) count++;
+  }
+  return count;
+}
+
 /**
  * Pad a scoring-only deck with utility cards (Magic/Trap/Ritual) from the
  * current deck so the result is a full 40-card deck. This prevents the diff
@@ -104,7 +121,7 @@ export function padWithUtilityCards(
   for (const [id, curQty] of currentCounts) {
     if (utilityCards.length >= utilitySlots) break;
     const card = cardsById.get(id);
-    if (!card || card.isMonster || equipTypes.has(card.cardType ?? "")) continue;
+    if (!card || !isUtilityCard(card)) continue;
     const surplus = curQty - (scoringCounts.get(id) ?? 0);
     for (let i = 0; i < surplus && utilityCards.length < utilitySlots; i++) {
       utilityCards.push(id);
