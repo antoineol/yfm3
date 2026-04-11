@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { CardName } from "../../components/CardName.tsx";
-import { countById } from "../../components/card-entries.ts";
+import { countById, padWithUtilityCards } from "../../components/card-entries.ts";
+import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
@@ -63,10 +64,15 @@ function ResultState({
   onDismiss: () => void;
 }) {
   const { cardsById } = useCardDb();
+  const deckSize = useDeckSize();
 
+  const paddedDeck = useMemo(
+    () => padWithUtilityCards(result.deck, currentDeck, cardsById, deckSize),
+    [result.deck, currentDeck, cardsById, deckSize],
+  );
   const diffRows = useMemo(
-    () => buildPostDuelDiff(currentDeck, result.deck, cardsById),
-    [currentDeck, result.deck, cardsById],
+    () => buildPostDuelDiff(currentDeck, paddedDeck, cardsById),
+    [currentDeck, paddedDeck, cardsById],
   );
   const removedRows = diffRows.filter((r) => r.type === "removed");
   const addedRows = diffRows.filter((r) => r.type === "added");

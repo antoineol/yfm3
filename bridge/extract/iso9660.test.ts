@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { byte, parseDirectory, readSector, readSectors, SECTOR_DATA_SIZE } from "./iso9660.ts";
+import {
+  byte,
+  detectDiscFormat,
+  MODE1_2048,
+  MODE2_2352,
+  parseDirectory,
+  readSector,
+  readSectors,
+  SECTOR_DATA_SIZE,
+} from "./iso9660.ts";
 
 const SECTOR_SIZE = 2352;
 const SECTOR_DATA_OFFSET = 24;
@@ -185,5 +194,68 @@ describe("parseDirectory", () => {
     const dirData = Buffer.alloc(SECTOR_DATA_SIZE);
     const files = parseDirectory(dirData, SECTOR_DATA_SIZE);
     expect(files).toEqual([]);
+  });
+});
+
+describe("detectDiscFormat", () => {
+  /** Build a minimal disc with a PVD containing "CD001" at sector 16. */
+  function makeDiscWithPvd(fmt: { sectorSize: number; dataOffset: number }): Buffer {
+    const minSize = 17 * fmt.sectorSize + fmt.dataOffset + SECTOR_DATA_SIZE;
+    const buf = Buffer.alloc(minSize);
+    // Write "CD001" at PVD offset + 1 (ISO 9660 standard)
+    const pvdStart = 16 * fmt.sectorSize + fmt.dataOffset;
+    buf.write("CD001", pvdStart + 1, "ascii");
+    return buf;
+  }
+
+  it("detects MODE2/2352 format", () => {
+    const disc = makeDiscWithPvd(MODE2_2352);
+    expect(detectDiscFormat(disc)).toEqual(MODE2_2352);
+  });
+
+  it("detects MODE1/2048 format", () => {
+    const disc = makeDiscWithPvd(MODE1_2048);
+    expect(detectDiscFormat(disc)).toEqual(MODE1_2048);
+  });
+
+  it("throws for unrecognized format", () => {
+    const disc = Buffer.alloc(100_000);
+    expect(() => detectDiscFormat(disc)).toThrow("Cannot detect disc format");
+  });
+});
+
+describe("readSector with MODE1/2048", () => {
+  /** Build a MODE1/2048 disc from raw 2048-byte sectors. */
+  function makeIsoDisc(sectors: Buffer[]): Buffer {
+    return Buffer.concat(
+      sectors.map((s) => {
+        const sec = Buffer.alloc(SECTOR_DATA_SIZE);
+        s.copy(sec);
+        return sec;
+      }),
+    );
+  }
+
+  it("reads sectors from a MODE1/2048 disc", () => {
+    const data0 = Buffer.alloc(SECTOR_DATA_SIZE, 0xaa);
+    const data1 = Buffer.alloc(SECTOR_DATA_SIZE, 0xbb);
+    const disc = makeIsoDisc([data0, data1]);
+
+    const result = readSector(disc, 0, MODE1_2048);
+    expect(result[0]).toBe(0xaa);
+
+    const result1 = readSector(disc, 1, MODE1_2048);
+    expect(result1[0]).toBe(0xbb);
+  });
+
+  it("readSectors concatenates MODE1/2048 sectors", () => {
+    const data0 = Buffer.alloc(SECTOR_DATA_SIZE, 0x11);
+    const data1 = Buffer.alloc(SECTOR_DATA_SIZE, 0x22);
+    const disc = makeIsoDisc([data0, data1]);
+
+    const result = readSectors(disc, 0, 2, MODE1_2048);
+    expect(result.length).toBe(2 * SECTOR_DATA_SIZE);
+    expect(result[0]).toBe(0x11);
+    expect(result[SECTOR_DATA_SIZE]).toBe(0x22);
   });
 });

@@ -63,7 +63,10 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const collectionFp = collectionFingerprint(bridge.collection);
   const deckFp = deckFingerprint(bridge.deckDefinition);
 
-  const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
+  // In autosync mode all game data is read dynamically — fingerprint/mismatch is meaningless.
+  // In manual mode, block sync when the detected mod doesn't match the selected one.
+  const detectedMod =
+    !autoSync && bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
 
   useEffect(() => {

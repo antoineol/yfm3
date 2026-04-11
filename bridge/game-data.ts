@@ -87,18 +87,15 @@ export function acquireGameData(
   }
   console.log(`Game data cache miss (hash=${gameDataHash.slice(0, 12)}...)`);
 
-  // Resolve .bin path(s) by scanning DuckStation's game directories
-  const cuePaths = findCueFiles(pid);
-  if (cuePaths.length === 0) {
-    console.warn("No .cue files found in DuckStation game directories");
+  // Resolve disc image paths by scanning DuckStation's game directories
+  const { cuePaths, isoPaths } = findDiscImages(pid);
+  const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
+  if (discPaths.length === 0) {
+    console.warn("No disc images found in DuckStation game directories");
     return null;
   }
 
-  const allBins = cuesToBins(cuePaths);
-  const data =
-    allBins.length > 0
-      ? extractFromBins(allBins, gameDataHash, cardStats, serial, artworkDir)
-      : null;
+  const data = extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
 
   if (data) {
     saveCache(cachePath, data);
@@ -108,7 +105,7 @@ export function acquireGameData(
     return data;
   }
 
-  console.warn("No matching .bin found in DuckStation gamelist");
+  console.warn("No matching disc image found in DuckStation gamelist");
   return null;
 }
 
@@ -165,25 +162,27 @@ function saveCache(cachePath: string, data: GameData): void {
 // ── .cue file discovery ──────────────────────────────────────────
 
 /**
- * Find all .cue files by scanning DuckStation's configured game directories.
+ * Find all disc images by scanning DuckStation's configured game directories.
  * Reads `[GameList] RecursivePaths` from settings.ini — the same dirs
  * DuckStation scans, so results always match what the UI shows.
+ * Returns .cue paths (to be resolved to .bin) and .iso paths (used directly).
  */
-function findCueFiles(pid?: number): string[] {
+function findDiscImages(pid?: number): { cuePaths: string[]; isoPaths: string[] } {
   const settingsPath = findSettingsPath(pid);
   if (!settingsPath) {
     console.warn("DuckStation settings.ini not found");
-    return [];
+    return { cuePaths: [], isoPaths: [] };
   }
   const content = readFileSync(settingsPath, "utf-8");
   const gameDirs = parseGameDirs(content);
   if (gameDirs.length === 0) {
     console.warn("No game directories in DuckStation settings.ini");
-    return [];
+    return { cuePaths: [], isoPaths: [] };
   }
   const cues: string[] = [];
-  for (const dir of gameDirs) scanForCueFiles(dir, cues, 0);
-  return cues;
+  const isos: string[] = [];
+  for (const dir of gameDirs) scanForDiscImages(dir, cues, isos, 0);
+  return { cuePaths: cues, isoPaths: isos };
 }
 
 /**
@@ -210,7 +209,7 @@ export function parseGameDirs(iniContent: string): string[] {
 }
 
 const MAX_SCAN_DEPTH = 5;
-function scanForCueFiles(dir: string, out: string[], depth: number): void {
+function scanForDiscImages(dir: string, cues: string[], isos: string[], depth: number): void {
   if (depth > MAX_SCAN_DEPTH || !existsSync(dir)) return;
   let entries: string[];
   try {
@@ -219,13 +218,16 @@ function scanForCueFiles(dir: string, out: string[], depth: number): void {
     return;
   }
   for (const name of entries) {
+    const lower = name.toLowerCase();
     const full = join(dir, name);
-    if (name.toLowerCase().endsWith(".cue")) {
-      out.push(full);
+    if (lower.endsWith(".cue")) {
+      cues.push(full);
+    } else if (lower.endsWith(".iso")) {
+      isos.push(full);
     } else {
       try {
         const stat = readdirSync(full); // throws if not a directory
-        if (stat) scanForCueFiles(full, out, depth + 1);
+        if (stat) scanForDiscImages(full, cues, isos, depth + 1);
       } catch {
         // not a directory, skip
       }
@@ -299,12 +301,12 @@ function findSerialInExe(slus: Buffer): string | null {
 // ── Extraction ────────────────────────────────────────────────────
 
 /**
- * Try each .bin candidate, disambiguate by card stats hash, and extract
- * all game data from the best match. Prefers the disc whose EXE serial
- * matches the RAM serial (handles mods with custom gamelist serials).
+ * Try each disc image candidate (.bin or .iso), disambiguate by card stats
+ * hash, and extract all game data from the best match. Prefers the disc whose
+ * EXE serial matches the RAM serial (handles mods with custom gamelist serials).
  */
-function extractFromBins(
-  binPaths: string[],
+function extractFromDiscs(
+  discPaths: string[],
   gameDataHash: string,
   cardStats: Uint8Array,
   ramSerial?: string | null,
@@ -318,7 +320,7 @@ function extractFromBins(
     exeLayout: import("./extract/types.ts").ExeLayout;
   };
   const matches: Match[] = [];
-  for (const binPath of binPaths) {
+  for (const binPath of discPaths) {
     try {
       const { slus, waMrg, serial: discSerial } = loadDiscData(binPath);
       const exeLayout = detectExeLayout(slus);

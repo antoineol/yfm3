@@ -17,44 +17,30 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
 
   const searchStart = Math.floor(exe.length / 2) & ~3;
   for (let addr = searchStart; addr <= exe.length - tableBytes; addr += 4) {
-    let quick = true;
-    for (let i = 0; i < 5; i++) {
-      const raw = exe.readUInt32LE(addr + i * 4);
-      if (!isValidCardStat(raw) || (raw & 0x3ffff) === 0) {
-        quick = false;
-        break;
-      }
-    }
-    if (!quick) continue;
-
-    let allValid = true;
-    let monsterWithStats = 0;
-    let nonMonsterZeroStats = 0;
-    for (let i = 0; i < NUM_CARDS; i++) {
-      const raw = exe.readUInt32LE(addr + i * 4);
-      if (!isValidCardStat(raw)) {
-        allValid = false;
-        break;
-      }
-      const type = (raw >> 26) & 0x1f;
-      const atk = raw & 0x1ff;
-      const def = (raw >> 9) & 0x1ff;
-      if (type < 20 && (atk > 0 || def > 0)) monsterWithStats++;
-      if (type >= 20 && atk === 0 && def === 0) nonMonsterZeroStats++;
-    }
-    if (!allValid || monsterWithStats < 200 || nonMonsterZeroStats < 50) continue;
+    if (!isCardStatsCandidate(exe, addr)) continue;
 
     const la = findLevelAttrNear(exe, addr);
-    if (la === -1) continue;
-
-    cardStats = addr;
-    levelAttr = la;
-    break;
+    if (la !== -1) {
+      // Strong match: card stats + nearby level/attr table
+      cardStats = addr;
+      levelAttr = la;
+      break;
+    }
+    // Card stats found but no nearby level/attr — accept as fallback
+    if (cardStats === -1) cardStats = addr;
   }
   if (cardStats === -1) throw new Error("Could not locate card stats table in executable");
-  if (levelAttr === -1) throw new Error("Could not locate level/attribute table in executable");
 
-  let text = detectTextTables(exe, cardStats, levelAttr);
+  let text =
+    levelAttr >= 0
+      ? detectTextTables(exe, cardStats, levelAttr)
+      : {
+          nameOffsetTable: -1,
+          textPoolBase: -1,
+          descOffsetTable: -1,
+          descTextPoolBase: -1,
+          duelistNames: -1,
+        };
   if (text.nameOffsetTable === -1) {
     text = detectTextOffsetsByDeltas(exe, cardStats);
   }
@@ -160,6 +146,28 @@ function isValidCardStat(raw: number): boolean {
     ((raw >> 22) & 0xf) <= 10 &&
     ((raw >> 18) & 0xf) <= 10
   );
+}
+
+/** Validate a card stats table candidate: all 722 entries valid, enough monsters
+ *  with stats and non-monsters with zero stats. */
+function isCardStatsCandidate(exe: Buffer, addr: number): boolean {
+  // Quick-reject: first 5 entries must be valid monsters
+  for (let i = 0; i < 5; i++) {
+    const raw = exe.readUInt32LE(addr + i * 4);
+    if (!isValidCardStat(raw) || (raw & 0x3ffff) === 0) return false;
+  }
+  let monsterWithStats = 0;
+  let nonMonsterZeroStats = 0;
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const raw = exe.readUInt32LE(addr + i * 4);
+    if (!isValidCardStat(raw)) return false;
+    const type = (raw >> 26) & 0x1f;
+    const atk = raw & 0x1ff;
+    const def = (raw >> 9) & 0x1ff;
+    if (type < 20 && (atk > 0 || def > 0)) monsterWithStats++;
+    if (type >= 20 && atk === 0 && def === 0) nonMonsterZeroStats++;
+  }
+  return monsterWithStats >= 200 && nonMonsterZeroStats >= 50;
 }
 
 /** Check if addr is a valid level/attr table, cross-validated with card stats.

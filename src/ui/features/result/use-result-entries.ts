@@ -2,8 +2,9 @@ import { useAtomValue } from "jotai";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import type { CardEntry, DiffStatus } from "../../components/card-entries.ts";
-import { countById } from "../../components/card-entries.ts";
+import { countById, padWithUtilityCards } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
+import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { resultAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 
@@ -21,10 +22,14 @@ export function useResultEntries(): ResultData | null {
   const cardDb = useCardDb();
   const deck = useDeck();
 
+  const deckSize = useDeckSize();
+
   if (!result) return null;
 
-  const suggestedCounts = countById(result.deck);
-  const currentCounts = deck ? countById(deck.map((d) => d.cardId)) : new Map<number, number>();
+  const currentDeckIds = deck ? deck.map((d) => d.cardId) : [];
+  const paddedDeck = padWithUtilityCards(result.deck, currentDeckIds, cardDb.cardsById, deckSize);
+  const suggestedCounts = countById(paddedDeck);
+  const currentCounts = deck ? countById(currentDeckIds) : new Map<number, number>();
 
   const entries = buildDiffEntries(suggestedCounts, currentCounts, cardDb);
   const removed = entries.filter((e) => e.diffStatus === "removed");
@@ -32,7 +37,8 @@ export function useResultEntries(): ResultData | null {
   const kept = entries.filter((e) => e.diffStatus === "kept");
   const swapCount = removed.length;
 
-  return { entries, removed, added, kept, swapCount, result };
+  const paddedResult = paddedDeck !== result.deck ? { ...result, deck: paddedDeck } : result;
+  return { entries, removed, added, kept, swapCount, result: paddedResult };
 }
 
 /** Diff order: removed, added, kept. Within each group, by card id. */

@@ -14,12 +14,18 @@ vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
 }));
 
+vi.mock("../../db/use-user-preferences.ts", () => ({
+  useDeckSize: vi.fn(() => 40),
+}));
+
 import { useDeck } from "../../db/use-deck.ts";
+import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
+const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
 
 const fakeCardDb: CardDb = {
   cards: [],
@@ -27,6 +33,18 @@ const fakeCardDb: CardDb = {
     [1, { id: 1, name: "Blue-Eyes", kinds: [], isMonster: true, attack: 3000, defense: 2500 }],
     [2, { id: 2, name: "Dark Magician", kinds: [], isMonster: true, attack: 2500, defense: 2100 }],
     [3, { id: 3, name: "Red-Eyes", kinds: [], isMonster: true, attack: 2400, defense: 2000 }],
+    [
+      99,
+      {
+        id: 99,
+        name: "Raigeki",
+        kinds: [],
+        isMonster: false,
+        cardType: "Magic",
+        attack: 0,
+        defense: 0,
+      },
+    ],
   ]),
   cardsByName: new Map(),
 } as CardDb;
@@ -204,5 +222,31 @@ describe("useResultEntries", () => {
     expect(result.current).not.toBeNull();
     const statuses = (result.current?.entries ?? []).map((e) => e.diffStatus);
     expect(statuses).toEqual(["removed", "added", "kept"]);
+  });
+
+  it("pads result with utility cards from current deck when deckSize < 40", () => {
+    // Current deck: 3 monsters + 1 Raigeki (Magic). Scoring slots = 3.
+    // Optimizer returns 3 scoring cards. Raigeki should be kept, not removed.
+    mockDeckSize.mockReturnValue(3);
+    mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }, { cardId: 3 }, { cardId: 99 }]);
+    store.set(resultAtom, {
+      deck: [1, 2, 3],
+      expectedAtk: 3000,
+      currentDeckScore: null,
+      improvement: null,
+      elapsedMs: 50,
+    });
+    const { result } = renderHook(() => useResultEntries(), {
+      wrapper: makeWrapper(store),
+    });
+    expect(result.current).not.toBeNull();
+    // Raigeki should appear as "kept", not "removed"
+    const raigekiEntries = (result.current?.entries ?? []).filter((e) => e.id === 99);
+    expect(raigekiEntries).toHaveLength(1);
+    expect(raigekiEntries[0]?.diffStatus).toBe("kept");
+    // No removals — all scoring cards match, utility is preserved
+    expect(result.current?.removed).toHaveLength(0);
+    // The padded result deck includes the utility card
+    expect(result.current?.result.deck).toContain(99);
   });
 });

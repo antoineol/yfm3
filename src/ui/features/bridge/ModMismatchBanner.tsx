@@ -1,16 +1,22 @@
 import { MODS, modIdForFingerprint } from "../../../engine/mods.ts";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod, useSetSelectedMod } from "../../lib/use-selected-mod.ts";
 
 /**
  * Shows a warning banner when the game running in DuckStation doesn't match
  * the mod selected in the app, or when the game version is unrecognized.
+ *
+ * Hidden in auto-sync mode — mod auto-switching handles known mismatches,
+ * and unknown-fingerprint warnings are not actionable.
  */
 export function ModMismatchBanner() {
   const bridge = useBridge();
+  const autoSync = useBridgeAutoSync();
   const selectedMod = useSelectedMod();
   const setSelectedMod = useSetSelectedMod();
 
+  if (autoSync) return null;
   if (!bridge.modFingerprint) return null;
 
   const detectedMod = modIdForFingerprint(bridge.modFingerprint);

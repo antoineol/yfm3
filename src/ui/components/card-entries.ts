@@ -1,5 +1,6 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
+import { DECK_SIZE } from "../../engine/types/constants.ts";
 
 export type DiffStatus = "added" | "removed" | "kept";
 
@@ -78,6 +79,39 @@ export function countById(ids: number[]): Map<number, number> {
   const counts = new Map<number, number>();
   for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
   return counts;
+}
+
+const equipTypes = new Set(["Equip", "Équipement"]);
+
+/**
+ * Pad a scoring-only deck with utility cards (Magic/Trap/Ritual) from the
+ * current deck so the result is a full 40-card deck. This prevents the diff
+ * from showing "remove Raigeki" when those cards are outside optimizer scope.
+ */
+export function padWithUtilityCards(
+  scoringDeck: number[],
+  currentDeck: number[],
+  cardsById: ReadonlyMap<number, CardSpec>,
+  scoringSlots: number,
+): number[] {
+  const utilitySlots = DECK_SIZE - scoringSlots;
+  if (utilitySlots <= 0) return scoringDeck;
+
+  const scoringCounts = countById(scoringDeck);
+  const currentCounts = countById(currentDeck);
+  const utilityCards: number[] = [];
+
+  for (const [id, curQty] of currentCounts) {
+    if (utilityCards.length >= utilitySlots) break;
+    const card = cardsById.get(id);
+    if (!card || card.isMonster || equipTypes.has(card.cardType ?? "")) continue;
+    const surplus = curQty - (scoringCounts.get(id) ?? 0);
+    for (let i = 0; i < surplus && utilityCards.length < utilitySlots; i++) {
+      utilityCards.push(id);
+    }
+  }
+
+  return [...scoringDeck, ...utilityCards];
 }
 
 /* ── Card-type border colors (matches GameCard frame palettes) ── */

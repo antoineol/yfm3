@@ -12,6 +12,7 @@ import { extractDuelists } from "./extract-duelists.ts";
 import { extractEquips } from "./extract-equips.ts";
 import { extractFusions } from "./extract-fusions.ts";
 import {
+  detectDiscFormat,
   findFile,
   PVD_SECTOR,
   parseDirectory,
@@ -29,15 +30,16 @@ export type { CardStats, DuelistData, EquipEntry, Fusion, WaMrgLayout } from "./
 // Disc loading
 // ---------------------------------------------------------------------------
 
-export function loadDiscData(binPath: string): {
+export function loadDiscData(discPath: string): {
   slus: Buffer;
   waMrg: Buffer;
   /** Disc serial extracted from the PS1 executable filename (e.g. "SLES_039.48"). */
   serial: string;
 } {
-  const bin = fs.readFileSync(binPath);
+  const bin = fs.readFileSync(discPath);
+  const fmt = detectDiscFormat(bin);
 
-  const pvd = readSector(bin, PVD_SECTOR);
+  const pvd = readSector(bin, PVD_SECTOR, fmt);
   if (pvd.subarray(1, 6).toString("ascii") !== "CD001") {
     throw new Error("Not a valid ISO 9660 disc image");
   }
@@ -45,7 +47,7 @@ export function loadDiscData(binPath: string): {
   const rootRecord = pvd.subarray(156, 190);
   const rootExtent = rootRecord.readUInt32LE(2);
   const rootSize = rootRecord.readUInt32LE(10);
-  const rootData = readSectors(bin, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE));
+  const rootData = readSectors(bin, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE), fmt);
   const rootFiles = parseDirectory(rootData, rootSize);
 
   const exeEntry = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
@@ -59,8 +61,8 @@ export function loadDiscData(binPath: string): {
   const serial = exeEntry.name.replace(/;.*$/, "");
 
   return {
-    slus: readIsoFile(bin, exeEntry),
-    waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG"),
+    slus: readIsoFile(bin, exeEntry, fmt),
+    waMrg: findFile(bin, rootFiles, "DATA/WA_MRG.MRG", fmt),
     serial,
   };
 }

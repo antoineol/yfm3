@@ -2,6 +2,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
+import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
@@ -69,7 +70,10 @@ export function usePostDuelSuggestion(
     [modId],
   );
 
-  const detectedMod = bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
+  // In autosync mode all game data is read dynamically — fingerprint/mismatch is meaningless.
+  const autoSync = useBridgeAutoSync();
+  const detectedMod =
+    !autoSync && bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
 
   // Snapshot is managed here so tracker callbacks (called synchronously from

@@ -156,7 +156,7 @@ export function extractCards(
   for (let i = 0; i < NUM_CARDS; i++) {
     const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
     const text = texts[i] ?? { name: "", color: "" };
-    const levelAttr = slus[exeLayout.levelAttr + i] ?? 0;
+    const levelAttr = exeLayout.levelAttr >= 0 ? (slus[exeLayout.levelAttr + i] ?? 0) : 0;
     const sc = starchips[i] ?? { cost: 0, password: "" };
     cards.push({
       id: i + 1,
