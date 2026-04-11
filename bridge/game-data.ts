@@ -23,6 +23,7 @@ import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
 import { extractAllArtworkAsPng } from "./extract/extract-images.ts";
 import { langIdxForSerial, loadDiscData } from "./extract/index.ts";
+import { buildPerEquipBonuses } from "./extract/parse-equip-bonus.ts";
 import type {
   CardStats,
   DuelistData,
@@ -44,6 +45,8 @@ export interface GameData {
   equipTable: EquipEntry[];
   /** Equip bonus values read from the EXE, or null if detection failed. */
   equipBonuses: EquipBonusConfig | null;
+  /** Per-equip ATK bonuses parsed from card descriptions (equipId → bonus). */
+  perEquipBonuses: Record<number, number> | null;
   /**
    * Field bonus table: 120 actual bonus values (e.g., 500, -500, 0).
    * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
@@ -63,6 +66,7 @@ interface GameDataCache {
   fusions: Array<{ m1: number; m2: number; r: number }>;
   equips: Array<{ e: number; m: number[] }>;
   equipBonuses?: EquipBonusConfig | null;
+  perEquipBonuses?: Record<number, number> | null;
   fieldBonus?: number[] | null;
 }
 
@@ -154,6 +158,7 @@ function restoreFromCache(cache: GameDataCache): GameData {
     fusionTable: cache.fusions.map((f) => ({ material1: f.m1, material2: f.m2, result: f.r })),
     equipTable: cache.equips.map((e) => ({ equipId: e.e, monsterIds: e.m })),
     equipBonuses: cache.equipBonuses ?? null,
+    perEquipBonuses: cache.perEquipBonuses ?? null,
     fieldBonusTable: cache.fieldBonus ?? null,
   };
 }
@@ -169,6 +174,7 @@ function saveCache(cachePath: string, data: GameData): void {
     fusions: data.fusionTable.map((f) => ({ m1: f.material1, m2: f.material2, r: f.result })),
     equips: data.equipTable.map((e) => ({ e: e.equipId, m: e.monsterIds })),
     equipBonuses: data.equipBonuses,
+    perEquipBonuses: data.perEquipBonuses,
     fieldBonus: data.fieldBonusTable,
   };
   writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
@@ -392,6 +398,7 @@ function extractFromDiscs(
     const fusions = extractFusions(waMrg, waMrgLayout);
     const equips = extractEquips(waMrg, waMrgLayout);
     const equipBonuses = detectEquipBonuses(slus);
+    const perEquipBonuses = buildPerEquipBonuses(cards, equips);
 
     if (artworkDir) {
       extractAllArtworkAsPng(waMrg, waMrgLayout.artworkBlockSize, artworkDir);
@@ -407,6 +414,7 @@ function extractFromDiscs(
       fusionTable: fusions,
       equipTable: equips,
       equipBonuses,
+      perEquipBonuses,
       fieldBonusTable: null, // populated from RAM by serve.ts
     };
   } catch (err: unknown) {

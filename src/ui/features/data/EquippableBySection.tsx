@@ -27,6 +27,7 @@ export function EquippableBySection({ cardId }: { cardId: number }) {
   const modId = useSelectedMod();
   const bridge = useBridge();
   const eb = bridge.gameData?.equipBonuses;
+  const perEquip = bridge.gameData?.perEquipBonuses;
   const megamorphId = eb?.megamorphId ?? MODS[modId].megamorphId;
   const stdBonus = eb?.equipBonus ?? 500;
   const mmBonus = eb?.megamorphBonus ?? 1000;
@@ -38,15 +39,12 @@ export function EquippableBySection({ cardId }: { cardId: number }) {
       const equipCard = cardDb.cardsById.get(equipId);
       const name = equipCard?.name ?? `#${equipId}`;
       if (NUMERIC_NAME_RE.test(name)) continue;
-      result.push({
-        equipId,
-        equipName: name,
-        bonus: equipId === megamorphId ? mmBonus : stdBonus,
-      });
+      const bonus = equipId === megamorphId ? mmBonus : (perEquip?.[equipId] ?? stdBonus);
+      result.push({ equipId, equipName: name, bonus });
     }
     result.sort((a, b) => b.bonus - a.bonus || a.equipName.localeCompare(b.equipName));
     return result;
-  }, [equipCompat, cardDb, cardId, megamorphId, stdBonus, mmBonus]);
+  }, [equipCompat, cardDb, cardId, megamorphId, stdBonus, mmBonus, perEquip]);
 
   const [sort, setSort] = useState<SortState<EquippableBySortKey>>(null);
   const handleSort = useCallback(

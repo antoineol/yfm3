@@ -6,6 +6,7 @@ import { Button } from "../../components/Button.tsx";
 import { CardName } from "../../components/CardName.tsx";
 import type { HandCard } from "../../db/use-hand.ts";
 import { useFusionDepth } from "../../db/use-user-preferences.ts";
+import { useBridgeOptional } from "../../lib/bridge-context.tsx";
 import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
@@ -27,6 +28,8 @@ export function FusionResultsList({
   const { fusionTable, equipCompat } = useFusionTable();
   const cardDb = useCardDb();
   const fusionDepth = useFusionDepth();
+  const bridge = useBridgeOptional();
+  const perEquipBonuses = bridge?.gameData?.perEquipBonuses;
   const [animateRef] = useAutoAnimate();
   const handCardIds = useMemo(() => handCards.map((c) => c.cardId), [handCards]);
   const results = useMemo(
@@ -40,9 +43,19 @@ export function FusionResultsList({
             equipCompat,
             fieldCards,
             terrain,
+            perEquipBonuses ?? undefined,
           )
         : [],
-    [handCardIds, fusionTable, cardDb, fusionDepth, equipCompat, fieldCards, terrain],
+    [
+      handCardIds,
+      fusionTable,
+      cardDb,
+      fusionDepth,
+      equipCompat,
+      fieldCards,
+      terrain,
+      perEquipBonuses,
+    ],
   );
 
   if (handCardIds.length < 1) return null;

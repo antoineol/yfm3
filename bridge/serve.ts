@@ -198,6 +198,7 @@ function buildGameDataMessage(data: GameData): string {
     fusionTable: data.fusionTable,
     equipTable: data.equipTable,
     equipBonuses: data.equipBonuses,
+    perEquipBonuses: data.perEquipBonuses,
     fieldBonusTable: data.fieldBonusTable,
   });
 }

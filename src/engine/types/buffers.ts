@@ -15,6 +15,8 @@ export interface OptBuffers {
   readonly cardAtk: Int16Array;
   /** Flat equip compatibility table. equipCompat[equipId * 723 + monsterId] = 1 if compatible. */
   readonly equipCompat: Uint8Array;
+  /** Per-card equip ATK bonus. equipBonus[cardId] = bonus for that equip (0 for non-equips). */
+  readonly equipBonus: Uint16Array;
   /** The current deck, stored as card IDs. Length = deckSize. Mutated during optimization. */
   readonly deck: Int16Array;
   /** cardCounts[cardId] = how many copies of that card are currently in the deck. */
@@ -52,6 +54,7 @@ export function createBuffers(): OptBuffers {
     fusionTable: new Int16Array(MAX_CARD_ID * MAX_CARD_ID),
     cardAtk: new Int16Array(MAX_CARD_ID),
     equipCompat: new Uint8Array(MAX_CARD_ID * MAX_CARD_ID),
+    equipBonus: new Uint16Array(MAX_CARD_ID),
     deck: new Int16Array(DECK_SIZE),
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),

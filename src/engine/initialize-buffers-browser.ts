@@ -10,7 +10,7 @@ import {
 import { DEFAULT_MOD, type ModId } from "./mods.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
-import { MAX_COPIES } from "./types/constants.ts";
+import { MAX_CARD_ID, MAX_COPIES } from "./types/constants.ts";
 import type { BridgeGameData } from "./worker/messages.ts";
 
 type CsvCache = { cards: string; fusions: string; equips: string };
@@ -75,6 +75,7 @@ function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData
     const csv = getCsvCache(modId);
     cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
   }
+  populateEquipBonusBuffer(buf, gameData?.perEquipBonuses);
   const { terrain } = getConfig();
   if (terrain > 0) {
     for (const card of cards) {
@@ -84,4 +85,34 @@ function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData
   generateHandSlots(buf, rand);
   buildReverseLookup(buf);
   return { buf, cards };
+}
+
+/**
+ * Fill buf.equipBonus for every equip card that has compatibility entries.
+ * Priority: Megamorph uses config.megamorphBonus, per-equip parsed values,
+ * then config.equipBonus as fallback.
+ */
+function populateEquipBonusBuffer(
+  buf: OptBuffers,
+  perEquipBonuses?: Record<number, number> | null,
+): void {
+  const cfg = getConfig();
+  for (let equipId = 1; equipId < MAX_CARD_ID; equipId++) {
+    // Only set bonus for cards that actually have equip compatibility entries
+    let hasCompat = false;
+    for (let m = 1; m < MAX_CARD_ID; m++) {
+      if (buf.equipCompat[equipId * MAX_CARD_ID + m]) {
+        hasCompat = true;
+        break;
+      }
+    }
+    if (!hasCompat) continue;
+
+    if (equipId === cfg.megamorphId) {
+      buf.equipBonus[equipId] = cfg.megamorphBonus;
+    } else {
+      const parsed = perEquipBonuses?.[equipId];
+      buf.equipBonus[equipId] = parsed ?? cfg.equipBonus;
+    }
+  }
 }

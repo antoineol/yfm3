@@ -3,7 +3,8 @@ import { applyFieldBonus, fieldBonus } from "./data/field-bonus.ts";
 import type { CardDb } from "./data/game-db.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
-function equipBonus(equipId: number): number {
+function equipBonusForCard(equipId: number, perEquip?: Record<number, number>): number {
+  if (perEquip?.[equipId] != null) return perEquip[equipId];
   const cfg = getConfig();
   return equipId === cfg.megamorphId ? cfg.megamorphBonus : cfg.equipBonus;
 }
@@ -67,6 +68,7 @@ export function findFusionChains(
   equipCompat?: Uint8Array,
   fieldCards?: FieldCardInfo[],
   terrain = 0,
+  perEquipBonuses?: Record<number, number>,
 ): FusionChainResult[] {
   const tagged: TaggedCard[] = [
     ...handCardIds.map((cardId, i) => ({ cardId, originalIndex: i, source: "hand" as const })),
@@ -79,7 +81,19 @@ export function findFusionChains(
     })),
   ];
   const results = new Map<string, FusionChainResult>();
-  dfs(tagged, fusionTable, cardDb, fusionDepth, 0, [], [], results, equipCompat, terrain);
+  dfs(
+    tagged,
+    fusionTable,
+    cardDb,
+    fusionDepth,
+    0,
+    [],
+    [],
+    results,
+    equipCompat,
+    terrain,
+    perEquipBonuses,
+  );
 
   // Direct plays: hand monsters played as-is, and equip boosts on hand/field monsters
   for (let i = 0; i < tagged.length; i++) {
@@ -121,7 +135,7 @@ export function findFusionChains(
     if (equipCompat) {
       const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
       if (equips.length === 0) continue;
-      const bonus = equips.reduce((sum, eqId) => sum + equipBonus(eqId), 0);
+      const bonus = equips.reduce((sum, eqId) => sum + equipBonusForCard(eqId, perEquipBonuses), 0);
       const fieldPrefix = monster.source === "field" ? "f" : "";
       const key = `${fieldPrefix}${String(monster.cardId)}+${equips.join(",")}`;
       const existing = results.get(key);
@@ -177,6 +191,7 @@ function dfs(
   results: Map<string, FusionChainResult>,
   equipCompat: Uint8Array | undefined,
   terrain: number,
+  perEquipBonuses?: Record<number, number>,
 ): void {
   for (let i = 0; i < hand.length - 1; i++) {
     for (let j = i + 1; j < hand.length; j++) {
@@ -221,7 +236,10 @@ function dfs(
       let bonus = 0;
       if (equipCompat) {
         equips = findCompatibleEquips(hand, [i, j], resultId, equipCompat);
-        bonus = equips.reduce((sum: number, eqId: number) => sum + equipBonus(eqId), 0);
+        bonus = equips.reduce(
+          (sum: number, eqId: number) => sum + equipBonusForCard(eqId, perEquipBonuses),
+          0,
+        );
       }
       recordResult(resultId, newSteps, newConsumed, equips, bonus, cardDb, results, terrain);
 
@@ -239,6 +257,7 @@ function dfs(
           results,
           equipCompat,
           terrain,
+          perEquipBonuses,
         );
       }
     }

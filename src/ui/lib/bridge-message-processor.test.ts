@@ -345,6 +345,7 @@ describe("processBridgeMessage", () => {
         fusionTable: [3],
         equipTable: [4],
         equipBonuses: null,
+        perEquipBonuses: null,
         fieldBonusTable: null,
       });
       expect(s.gameDataError).toBeNull();
