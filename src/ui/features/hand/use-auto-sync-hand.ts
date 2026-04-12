@@ -10,7 +10,7 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
  * Auto-syncs the emulator hand to Convex in manual mode.
  *
  * In auto-sync mode this is a no-op — the bridge hand is consumed directly
- * by HandFusionCalculator without round-tripping through Convex.
+ * by PlayerDuelView without round-tripping through Convex.
  *
  * In manual mode (with bridge connected), the hand is synced to Convex only
  * at duel end. During the duel the UI displays bridge data directly, so

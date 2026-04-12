@@ -76,49 +76,57 @@ vi.mock("../../lib/bridge-context.tsx", () => ({
   useBridge: () => mockBridge(),
 }));
 
-vi.mock("./HandCardSelector.tsx", () => ({
+vi.mock("../hand/HandCardSelector.tsx", () => ({
   HandCardSelector: () => <div data-testid="hand-card-selector">deck</div>,
 }));
 
-vi.mock("./HandDisplay.tsx", () => ({
+vi.mock("../hand/HandDisplay.tsx", () => ({
   HandDisplay: () => <div data-testid="hand-display" />,
 }));
 
 const fusionResultsProps = vi.fn();
-vi.mock("./FusionResultsList.tsx", () => ({
+vi.mock("../hand/FusionResultsList.tsx", () => ({
   FusionResultsList: (props: Record<string, unknown>) => {
     fusionResultsProps(props);
     return <div data-testid="fusion-results" />;
   },
 }));
 
-vi.mock("./FieldDisplay.tsx", () => ({
+vi.mock("../hand/FieldDisplay.tsx", () => ({
   FieldDisplay: () => <div data-testid="field-display" />,
 }));
 
 vi.mock("../../lib/use-emulator-bridge.ts", () => ({}));
 
-vi.mock("./EmulatorBridgeBar.tsx", () => ({
+vi.mock("../hand/EmulatorBridgeBar.tsx", () => ({
   EmulatorBridgeBar: () => <div data-testid="emulator-bridge-bar" />,
 }));
 
-vi.mock("./use-auto-sync-hand.ts", () => ({
+vi.mock("../hand/use-auto-sync-hand.ts", () => ({
   useAutoSyncHand: vi.fn(),
 }));
 
-vi.mock("./use-sync-cpu-swaps.ts", () => ({
+vi.mock("../hand/use-sync-cpu-swaps.ts", () => ({
   useSyncCpuSwaps: vi.fn(),
 }));
 
-vi.mock("./CpuCheatBanner.tsx", () => ({
+vi.mock("../hand/CpuCheatBanner.tsx", () => ({
   CpuCheatBanner: () => null,
 }));
 
-vi.mock("./OpponentPanel.tsx", () => ({
-  OpponentPanel: () => <div data-testid="opponent-panel" />,
+vi.mock("../hand/CheatViewSwitch.tsx", () => ({
+  CheatViewSwitch: () => null,
 }));
 
-vi.mock("./use-post-duel-suggestion.ts", () => ({
+vi.mock("../hand/RankTracker.tsx", () => ({
+  RankTracker: () => null,
+}));
+
+vi.mock("./OpponentHandGrid.tsx", () => ({
+  OpponentHandGrid: () => <div data-testid="opponent-hand-grid" />,
+}));
+
+vi.mock("../hand/use-post-duel-suggestion.ts", () => ({
   usePostDuelSuggestion: vi.fn(() => ({
     state: "idle",
     progress: 0,
@@ -129,12 +137,12 @@ vi.mock("./use-post-duel-suggestion.ts", () => ({
   })),
 }));
 
-vi.mock("./PostDuelSuggestion.tsx", () => ({
+vi.mock("../hand/PostDuelSuggestion.tsx", () => ({
   PostDuelSuggestion: () => <div data-testid="post-duel-suggestion" />,
 }));
 
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
-import { HandFusionCalculator } from "./HandFusionCalculator.tsx";
+import { DuelPage } from "./DuelPage.tsx";
 
 afterEach(() => {
   cleanup();
@@ -149,11 +157,10 @@ function inDuelBridge(phase: string) {
   });
 }
 
-describe("HandFusionCalculator", () => {
+describe("DuelPage", () => {
   it("hydrates source mode from preferences and persists toggle changes", () => {
-    render(<HandFusionCalculator />);
+    render(<DuelPage />);
 
-    // HandCardSelector is mocked, but the ToggleGroup is real
     fireEvent.click(screen.getByText("All cards"));
 
     expect(mockUpdatePreferences).toHaveBeenCalledWith({ handSourceMode: "all" });
@@ -177,7 +184,7 @@ describe("HandFusionCalculator", () => {
       }),
     );
 
-    render(<HandFusionCalculator />);
+    render(<DuelPage />);
 
     expect(screen.getByTestId("emulator-bridge-bar")).toBeTruthy();
     expect(screen.queryByTestId("hand-card-selector")).toBeNull();
@@ -185,7 +192,7 @@ describe("HandFusionCalculator", () => {
   });
 
   it("hides bridge bar when disconnected", () => {
-    render(<HandFusionCalculator />);
+    render(<DuelPage />);
 
     expect(screen.queryByTestId("emulator-bridge-bar")).toBeNull();
     expect(screen.getByTestId("hand-card-selector")).toBeTruthy();
@@ -197,11 +204,11 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatView).mockReturnValue("player");
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "opponent" });
     });
@@ -211,11 +218,11 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatView).mockReturnValue("opponent");
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("hand"));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "player" });
     });
@@ -224,11 +231,11 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatMode).mockReturnValue(false);
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -237,11 +244,11 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatMode).mockReturnValue(true);
       mockBridge.mockReturnValue(defaultBridge({ phase: "hand", inDuel: false }));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(defaultBridge({ phase: "opponent", inDuel: false }));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -250,11 +257,11 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatMode).mockReturnValue(true);
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("other"));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -264,18 +271,17 @@ describe("HandFusionCalculator", () => {
       vi.mocked(useCheatView).mockReturnValue("opponent");
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<HandFusionCalculator />);
+      const { rerender } = render(<DuelPage />);
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<HandFusionCalculator />);
+      rerender(<DuelPage />);
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
   });
 
   it("derives hand from bridge (not Convex) in synced mode", () => {
-    // useHand returns [] (Convex) but bridge.hand has [10, 20, 30]
     mockBridge.mockReturnValue(
       defaultBridge({
         status: "connected",
@@ -286,11 +292,10 @@ describe("HandFusionCalculator", () => {
       }),
     );
 
-    render(<HandFusionCalculator />);
+    render(<DuelPage />);
 
     const lastCall = fusionResultsProps.mock.calls.at(-1)?.[0];
     expect(lastCall).toBeDefined();
-    // handCards should come from bridge (3 cards), not Convex (empty)
     expect(lastCall.handCards).toHaveLength(3);
     expect(lastCall.handCards.map((c: { cardId: number }) => c.cardId)).toEqual([10, 20, 30]);
   });

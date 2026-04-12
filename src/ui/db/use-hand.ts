@@ -16,7 +16,7 @@ export function useHand(): HandCard[] | undefined {
   const hand = useAuthQuery(api.hand.getHand, autoSync ? "skip" : undefined);
 
   return useMemo(() => {
-    // In auto-sync mode, bridge hand is consumed directly by HandFusionCalculator
+    // In auto-sync mode, bridge hand is consumed directly by PlayerDuelView
     if (autoSync) return EMPTY_HAND;
     return hand
       ?.slice()

@@ -15,8 +15,8 @@ import { CardDetailModal } from "./features/data/CardDetailModal.tsx";
 import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
+import { DuelPage } from "./features/duel/DuelPage.tsx";
 import { FarmPanelWrapper } from "./features/farm/FarmPanel.tsx";
-import { HandFusionCalculator } from "./features/hand/HandFusionCalculator.tsx";
 import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
@@ -74,7 +74,7 @@ function MainApp({ tab }: { tab: string }) {
           <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-6 overflow-y-auto" value="duel">
             <TabOnboardingGate>
               <RequireReferenceData>
-                <HandFusionCalculator />
+                <DuelPage />
               </RequireReferenceData>
             </TabOnboardingGate>
           </Tabs.Panel>
