@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type BridgeState,
   type EmulatorBridge,
@@ -112,5 +112,12 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     }
   }, []);
 
-  return { ...state, scan, restartEmulator, updateAndRestart, stageUpdate };
+  // React Compiler silently bails out on this hook (likely because of the
+  // mutable-ref assignments above), so we memoize the return explicitly.
+  // Without this, every `state` update returns a fresh object and defeats
+  // the per-slice ref stability established in `processBridgeMessage`.
+  return useMemo(
+    () => ({ ...state, scan, restartEmulator, updateAndRestart, stageUpdate }),
+    [state, scan, restartEmulator, updateAndRestart, stageUpdate],
+  );
 }

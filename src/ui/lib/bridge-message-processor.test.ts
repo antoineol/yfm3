@@ -567,4 +567,89 @@ describe("processBridgeMessage", () => {
       expect(r2.state.cpuSwaps).toEqual([]);
     });
   });
+
+  // ── Reference stability across unchanged polls ─────────────────────
+  // The bridge polls at 20 Hz and re-deserializes JSON into fresh arrays
+  // every time. Without per-slice ref preservation, React Compiler's
+  // auto-memo invalidates on every poll and the whole duel subtree
+  // re-renders uselessly. These tests lock in the invariant that
+  // `processBridgeMessage` reuses previous refs when content is unchanged.
+  describe("reference stability", () => {
+    function firstPoll() {
+      const r = processBridgeMessage(
+        makeRaw({ status: "ready", connected: true }),
+        INITIAL_BRIDGE_STATE,
+        INITIAL_ENDED_TRACKER,
+        1_000,
+      );
+      if (!r) throw new Error("processBridgeMessage returned null");
+      return r;
+    }
+
+    it("preserves the root state ref when nothing changed", () => {
+      const r1 = firstPoll();
+      // Send a bit-identical message on the next poll.
+      const r2 = processBridgeMessage(
+        makeRaw({ status: "ready", connected: true }),
+        r1.state,
+        r1.tracker,
+        1_050,
+      );
+      expect(r2).not.toBeNull();
+      expect(r2?.state).toBe(r1.state);
+    });
+
+    const slices: Array<keyof BridgeState> = [
+      "hand",
+      "field",
+      "opponentHand",
+      "opponentField",
+      "collection",
+      "deckDefinition",
+      "shuffledDeck",
+      "unlockedDuelists",
+      "stats",
+      "lp",
+      "cpuSwaps",
+    ];
+
+    for (const slice of slices) {
+      it(`preserves the ${slice} ref when content is unchanged`, () => {
+        const r1 = firstPoll();
+        const r2 = processBridgeMessage(
+          makeRaw({ status: "ready", connected: true }),
+          r1.state,
+          r1.tracker,
+          1_050,
+        );
+        expect(r2?.state[slice]).toBe(r1.state[slice]);
+      });
+    }
+
+    it("produces a new hand ref when hand content actually changes", () => {
+      const r1 = firstPoll();
+      const r2 = processBridgeMessage(
+        makeRaw({
+          status: "ready",
+          connected: true,
+          hand: [
+            { cardId: 150, atk: 1200, def: 800, status: 0x80 },
+            { cardId: 200, atk: 1500, def: 1000, status: 0x80 },
+            { cardId: 300, atk: 900, def: 700, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+        r1.state,
+        r1.tracker,
+        1_050,
+      );
+      expect(r2?.state.hand).not.toBe(r1.state.hand);
+      expect(r2?.state.hand).toEqual([150, 200, 300]);
+      // ...but unrelated slices stay pinned.
+      expect(r2?.state.field).toBe(r1.state.field);
+      expect(r2?.state.opponentField).toBe(r1.state.opponentField);
+      expect(r2?.state.lp).toBe(r1.state.lp);
+    });
+  });
 });

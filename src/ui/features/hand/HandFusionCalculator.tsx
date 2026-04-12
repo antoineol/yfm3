@@ -99,7 +99,7 @@ export function HandFusionCalculator() {
 
   // ── Zone toggle (hand/field, synced mode only) ─────────────────
   const zonePhase = bridge.phase === "opponent" ? ("field" as const) : bridge.phase;
-  const { focusedZone, animatedSetZone } = useZoneToggle(isSynced, zonePhase);
+  const { focusedZone, switchZone } = useZoneToggle(isSynced, zonePhase);
 
   if (effectiveHand === undefined) return <PanelLoadingState />;
 
@@ -172,7 +172,7 @@ export function HandFusionCalculator() {
                 count: effectiveHand.length,
                 maxCount: HAND_SIZE,
               }}
-              onSwitchZone={animatedSetZone}
+              onSwitchZone={switchZone}
             />
           )}
 

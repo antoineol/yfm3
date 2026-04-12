@@ -14,11 +14,12 @@ export function useZoneToggle(isSynced: boolean, phase: DuelPhase) {
   const [focusedZone, setFocusedZone] = useState<FocusedZone>("hand");
   const store = useStore();
 
-  const animatedSetZone = useCallback(
+  // Click path: state update must happen inside the view-transition
+  // callback for the browser to capture the post-state snapshot, hence
+  // `flushSync`. The card modal suppresses the animation (pseudo-elements
+  // would paint above it).
+  const switchZoneFromClick = useCallback(
     (zone: FocusedZone) => {
-      // Skip view-transition animation when the card modal is open —
-      // the transition pseudo-elements render in the top layer and
-      // would paint above the modal.
       const modalOpen = store.get(openCardIdAtom) !== null;
       if (document.startViewTransition && !modalOpen) {
         document.startViewTransition(() => {
@@ -31,17 +32,30 @@ export function useZoneToggle(isSynced: boolean, phase: DuelPhase) {
     [store],
   );
 
+  // Phase-driven auto-switch runs inside a post-commit `useEffect`, so
+  // the view-transition API can observe the DOM mutation without
+  // `flushSync` — React batches the setState into the normal commit.
+  const switchZoneFromPhase = useCallback((zone: FocusedZone) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        setFocusedZone(zone);
+      });
+    } else {
+      setFocusedZone(zone);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isSynced) {
       setFocusedZone("hand");
       return;
     }
     if (phase === "hand" || phase === "draw") {
-      animatedSetZone("hand");
+      switchZoneFromPhase("hand");
     } else if (phase !== "other") {
-      animatedSetZone("field");
+      switchZoneFromPhase("field");
     }
-  }, [phase, isSynced, animatedSetZone]);
+  }, [phase, isSynced, switchZoneFromPhase]);
 
-  return { focusedZone, animatedSetZone };
+  return { focusedZone, switchZone: switchZoneFromClick };
 }

@@ -145,6 +145,74 @@ export const INITIAL_ENDED_TRACKER: EndedTracker = {
   wasInDuel: false,
 };
 
+// ── Reference-stability helpers ──────────────────────────────────────
+// These let `processBridgeMessage` return the same slice refs (and root
+// ref) across polls with unchanged content, so React Compiler's auto-memo
+// can actually bail out downstream.
+
+function keepRef<T>(prev: T, next: T, eq: (a: T, b: T) => boolean): T {
+  return eq(prev, next) ? prev : next;
+}
+
+function eqNumArr(a: number[] | null, b: number[] | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function eqFieldArr(a: FieldCard[], b: FieldCard[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (!x || !y) return false;
+    if (x.cardId !== y.cardId || x.atk !== y.atk || x.def !== y.def) return false;
+  }
+  return true;
+}
+
+function eqLp(a: [number, number] | null, b: [number, number] | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return a[0] === b[0] && a[1] === b[1];
+}
+
+function eqStats(a: DuelStats | null, b: DuelStats | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    a.fusions === b.fusions &&
+    a.terrain === b.terrain &&
+    a.duelistId === b.duelistId &&
+    eqNumArr(a.rankCounters, b.rankCounters)
+  );
+}
+
+function eqNumRecord(a: Record<number, number> | null, b: Record<number, number> | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  const keysA = Object.keys(a);
+  if (keysA.length !== Object.keys(b).length) return false;
+  for (const k of keysA) {
+    if (a[k as unknown as number] !== b[k as unknown as number]) return false;
+  }
+  return true;
+}
+
+/** Shallow-equal check keyed on every field of BridgeState using Object.is. */
+function shallowEqBridgeState(a: BridgeState, b: BridgeState): boolean {
+  const keys = Object.keys(a) as (keyof BridgeState)[];
+  for (const k of keys) {
+    if (!Object.is(a[k], b[k])) return false;
+  }
+  return true;
+}
+
 // ── Exported functions ───────────────────────────────────────────────
 
 type ProcessResult = {
@@ -244,36 +312,65 @@ export function processBridgeMessage(
       now,
     );
 
-    return {
-      state: {
-        ...INITIAL_BRIDGE_STATE,
-        status: "connected",
-        detail: "ready",
-        version: stateMsg.version ?? null,
-        hand: interpreted.hand,
-        field: interpreted.field,
-        handReliable: interpreted.handReliable,
-        phase: effectivePhase,
-        opponentPhase: interpreted.opponentPhase,
-        inDuel: interpreted.inDuel,
-        lp: interpreted.lp,
-        stats: interpreted.stats,
-        collection: computeOwnedCards(raw.trunk, raw.deckDefinition),
-        deckDefinition: raw.deckDefinition,
-        shuffledDeck: raw.shuffledDeck ?? null,
-        modFingerprint: raw.modFingerprint ?? null,
-        // Preserve game data — it arrives via a separate message
-        gameData: currentState.gameData,
-        gameDataError: currentState.gameDataError,
-        // Preserve update flag — it arrives via a separate message
-        updateStaged: currentState.updateStaged,
-        opponentHand: interpreted.opponentHand,
-        opponentField: interpreted.opponentField,
-        cpuSwaps,
-        unlockedDuelists: raw.duelistUnlock ? decodeDuelistUnlock(raw.duelistUnlock) : null,
-      },
-      tracker: nextTracker,
+    // ── Reference-stability pass ─────────────────────────────────
+    // JSON deserialization + interpretation produce fresh array refs every
+    // poll (~20 Hz). React Compiler's auto-memo can only bail out when
+    // props keep Object.is identity, so we reuse previous refs for every
+    // slice whose content is structurally unchanged.
+    const hand = keepRef(currentState.hand, interpreted.hand, eqNumArr);
+    const field = keepRef(currentState.field, interpreted.field, eqFieldArr);
+    const opponentHand = keepRef(currentState.opponentHand, interpreted.opponentHand, eqNumArr);
+    const opponentField = keepRef(
+      currentState.opponentField,
+      interpreted.opponentField,
+      eqFieldArr,
+    );
+    const lp = keepRef(currentState.lp, interpreted.lp, eqLp);
+    const stats = keepRef(currentState.stats, interpreted.stats, eqStats);
+    const collection = keepRef(
+      currentState.collection,
+      computeOwnedCards(raw.trunk, raw.deckDefinition),
+      eqNumRecord,
+    );
+    const deckDefinition = keepRef(currentState.deckDefinition, raw.deckDefinition, eqNumArr);
+    const shuffledDeck = keepRef(currentState.shuffledDeck, raw.shuffledDeck ?? null, eqNumArr);
+    const unlockedDuelists = keepRef(
+      currentState.unlockedDuelists,
+      raw.duelistUnlock ? decodeDuelistUnlock(raw.duelistUnlock) : null,
+      eqNumArr,
+    );
+
+    const candidate: BridgeState = {
+      ...INITIAL_BRIDGE_STATE,
+      status: "connected",
+      detail: "ready",
+      version: stateMsg.version ?? null,
+      hand,
+      field,
+      handReliable: interpreted.handReliable,
+      phase: effectivePhase,
+      opponentPhase: interpreted.opponentPhase,
+      inDuel: interpreted.inDuel,
+      lp,
+      stats,
+      collection,
+      deckDefinition,
+      shuffledDeck,
+      modFingerprint: raw.modFingerprint ?? null,
+      // Preserve game data — it arrives via a separate message
+      gameData: currentState.gameData,
+      gameDataError: currentState.gameDataError,
+      // Preserve update flag — it arrives via a separate message
+      updateStaged: currentState.updateStaged,
+      opponentHand,
+      opponentField,
+      cpuSwaps,
+      unlockedDuelists,
     };
+
+    // Every slice already matches currentState ref? Skip the allocation.
+    const state = shallowEqBridgeState(currentState, candidate) ? currentState : candidate;
+    return { state, tracker: nextTracker };
   }
 
   if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
