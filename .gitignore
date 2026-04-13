@@ -29,3 +29,6 @@ dist-ssr
 .cache
 bridge/game-data-cache.json
 bridge/artwork/
+
+# LLM
+/.claude/scheduled_tasks.lock

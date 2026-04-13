@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetConfig, setConfig } from "../config.ts";
 import type { CardSpec } from "./card-model.ts";
-import { applyFieldBonus, cardFieldBonus, fieldBonus, terrainName } from "./field-bonus.ts";
+import { applyFieldBonus, buildTerrainNames, cardFieldBonus, fieldBonus } from "./field-bonus.ts";
 
 describe("fieldBonus", () => {
   it("returns 0 for Normal terrain (0)", () => {
@@ -121,22 +122,81 @@ describe("cardFieldBonus", () => {
   });
 });
 
-describe("terrainName", () => {
-  it("returns names for valid terrains", () => {
-    expect(terrainName(1)).toBe("Forest");
-    expect(terrainName(2)).toBe("Wasteland");
-    expect(terrainName(3)).toBe("Mountain");
-    expect(terrainName(4)).toBe("Meadow");
-    expect(terrainName(5)).toBe("Sea");
-    expect(terrainName(6)).toBe("Dark");
+describe("buildTerrainNames", () => {
+  it("falls back to vanilla names when gameData is missing", () => {
+    expect(buildTerrainNames(null)).toEqual({
+      1: "Forest",
+      2: "Wasteland",
+      3: "Mountain",
+      4: "Meadow",
+      5: "Sea",
+      6: "Dark",
+    });
   });
 
-  it("returns null for Normal terrain", () => {
-    expect(terrainName(0)).toBeNull();
+  it("uses field card names from cards 330–335 when present (Alpha mod)", () => {
+    const cards = [
+      { id: 330, name: "Toon World" },
+      { id: 331, name: "Canyon" },
+      { id: 332, name: "Dragon Ravine" },
+      { id: 333, name: "Gaia Power" },
+      { id: 334, name: "Umiiruka" },
+      { id: 335, name: "Chaos Zone" },
+    ];
+    expect(buildTerrainNames(cards)).toEqual({
+      1: "Toon World",
+      2: "Canyon",
+      3: "Dragon Ravine",
+      4: "Gaia Power",
+      5: "Umiiruka",
+      6: "Chaos Zone",
+    });
   });
 
-  it("returns null for unknown terrain IDs", () => {
-    expect(terrainName(7)).toBeNull();
-    expect(terrainName(-1)).toBeNull();
+  it("falls back per-terrain when a field card is missing", () => {
+    const names = buildTerrainNames([{ id: 333, name: "Gaia Power" }]);
+    expect(names[4]).toBe("Gaia Power");
+    expect(names[1]).toBe("Forest");
+  });
+});
+
+describe("fieldBonus with live RAM table (mod-aware)", () => {
+  afterEach(() => resetConfig());
+
+  // Alpha mod row excerpts decoded from RAM:
+  //   Dinosaur(10) on Canyon(2) = +500 — vanilla also gives this
+  //   Spellcaster(1) on Gaia Power(4) = -500 — vanilla gives 0
+  //   Sea Serpent(13) on every terrain = +500 — vanilla gives 0
+  //   Fish(12) on Toon World(1) = +500, on every other terrain = -500
+  function alphaTable(): number[] {
+    const t = new Array(120).fill(0);
+    t[1 * 6 + (4 - 1)] = -500; // Spellcaster × Gaia
+    t[10 * 6 + (2 - 1)] = 500; // Dinosaur × Canyon
+    for (let terrain = 1; terrain <= 6; terrain++) t[13 * 6 + (terrain - 1)] = 500;
+    t[12 * 6 + (1 - 1)] = 500; // Fish × Toon World
+    for (let terrain = 2; terrain <= 6; terrain++) t[12 * 6 + (terrain - 1)] = -500;
+    return t;
+  }
+
+  it("reads bonuses from the table when one is loaded", () => {
+    setConfig({ fieldBonusTable: alphaTable() });
+    expect(fieldBonus(2, "Dinosaur")).toBe(500);
+    expect(fieldBonus(4, "Spellcaster")).toBe(-500);
+    expect(fieldBonus(1, "Fish")).toBe(500);
+    expect(fieldBonus(3, "Fish")).toBe(-500);
+  });
+
+  it("overrides vanilla rules when the table differs", () => {
+    setConfig({ fieldBonusTable: alphaTable() });
+    // Vanilla: Sea Serpent on Mountain = 0; Alpha: +500 everywhere
+    expect(fieldBonus(3, "Sea Serpent")).toBe(500);
+    // Vanilla: Spellcaster on Sogen(4) = 0; Alpha: -500
+    expect(fieldBonus(4, "Spellcaster")).toBe(-500);
+  });
+
+  it("falls back to vanilla rules when no table is loaded", () => {
+    setConfig({ fieldBonusTable: null });
+    expect(fieldBonus(3, "Dragon")).toBe(500); // Mountain boosts Dragon
+    expect(fieldBonus(3, "Sea Serpent")).toBe(0); // Vanilla has no boost
   });
 });

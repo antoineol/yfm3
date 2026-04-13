@@ -57,6 +57,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
         megamorphId: eb?.megamorphId ?? MODS[modId].megamorphId,
         equipBonus: eb?.equipBonus ?? 500,
         megamorphBonus: eb?.megamorphBonus ?? 1000,
+        fieldBonusTable: bridge.gameData?.fieldBonusTable ?? null,
       };
       const worker = new Worker(
         new URL("../../../engine/worker/explainer-worker.ts", import.meta.url),

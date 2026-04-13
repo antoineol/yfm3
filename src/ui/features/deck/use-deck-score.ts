@@ -84,6 +84,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
         equipBonus: bridge.gameData?.equipBonuses?.equipBonus ?? 500,
         megamorphBonus: bridge.gameData?.equipBonuses?.megamorphBonus ?? 1000,
         terrain: 0,
+        fieldBonusTable: bridge.gameData?.fieldBonusTable ?? null,
       },
       modId,
       gameData: bridge.gameData ?? undefined,

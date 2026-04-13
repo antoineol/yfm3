@@ -3,7 +3,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { useForm, useFormContext } from "react-hook-form";
 import { toast } from "sonner";
-import { TERRAIN_IDS, TERRAIN_NAMES } from "../../../engine/data/field-bonus.ts";
+import { buildTerrainNames, TERRAIN_IDS } from "../../../engine/data/field-bonus.ts";
 import { Form } from "../../components/Form.tsx";
 import { Input } from "../../components/Input.tsx";
 import { Select } from "../../components/Select.tsx";
@@ -17,6 +17,7 @@ import {
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
 import { isOptimizingAtom } from "../../lib/atoms.ts";
+import { useBridgeOptional } from "../../lib/bridge-context.tsx";
 import { localSettingsAtom, persistLocalSettings } from "../../lib/bridge-snapshot-atoms.ts";
 import { type ConfigFormValues, configSchema } from "./config-schema.ts";
 import { ImportExportButtons } from "./ImportExportButtons.tsx";
@@ -191,6 +192,8 @@ function PreserveUtilityCheckbox({ disabled }: { disabled: boolean }) {
 
 function TerrainSelect({ disabled }: { disabled: boolean }) {
   const { register } = useFormContext<ConfigFormValues>();
+  const bridge = useBridgeOptional();
+  const terrainNames = buildTerrainNames(bridge?.gameData?.cards);
   return (
     <div className="flex flex-col gap-1.5 mt-3">
       <label
@@ -207,7 +210,7 @@ function TerrainSelect({ disabled }: { disabled: boolean }) {
         <option value={0}>None</option>
         {TERRAIN_IDS.map((id) => (
           <option key={id} value={id}>
-            {TERRAIN_NAMES[id]}
+            {terrainNames[id]}
           </option>
         ))}
       </Select>

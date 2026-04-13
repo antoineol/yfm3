@@ -717,37 +717,71 @@ export function readModFingerprint(view: DataView): string {
 // The function at the call site does: return table[offset] * 10.
 
 const FIELD_BONUS_TABLE_SIZE = 120; // 20 types × 6 terrains
-const FIELD_BONUS_VALID_VALUES = new Set([0, 50, -50]);
+const FIELD_BONUS_STRICT_VALUES = new Set([0, 50, -50]);
 const FIELD_BONUS_MIN_NONZERO = 10; // at least 10 bonuses/maluses expected
+const FIELD_BONUS_LOOSE_MAX_ABS = 100; // plausible mod range: ±1000
+
+/** Vanilla/RP bonus-byte predicate: values in {0, +50, -50}. */
+export function isStrictFieldBonusByte(v: number): boolean {
+  return FIELD_BONUS_STRICT_VALUES.has(v);
+}
+
+/** Mod-tolerant bonus-byte predicate: multiples of 10 within ±100. */
+export function isLooseFieldBonusByte(v: number): boolean {
+  return v % 10 === 0 && v >= -FIELD_BONUS_LOOSE_MAX_ABS && v <= FIELD_BONUS_LOOSE_MAX_ABS;
+}
+
+/** Test whether a 120-byte window satisfies a bonus-byte predicate. */
+function matchesFieldBonusSignature(
+  view: DataView,
+  offset: number,
+  isValid: (v: number) => boolean,
+): boolean {
+  let nonZero = 0;
+  for (let i = 0; i < FIELD_BONUS_TABLE_SIZE; i++) {
+    const v = view.getInt8(offset + i);
+    if (!isValid(v)) return false;
+    if (v !== 0) nonZero++;
+  }
+  return nonZero >= FIELD_BONUS_MIN_NONZERO;
+}
 
 /**
- * Scan the EXE code+data section in RAM for the field bonus table.
- * Returns the RAM offset of the table, or null if not found.
- *
- * Signature: 120 contiguous signed bytes where every value is 0, 50, or -50,
- * with at least 10 non-zero entries.
+ * Return the first RAM offset whose 120-byte window matches the predicate,
+ * or null. Defaults to the strict vanilla/RP signature.
  */
-export function scanFieldBonusTable(view: DataView): number | null {
-  // EXE occupies physical RAM 0x010000–0x1E0000
+export function scanFieldBonusTable(
+  view: DataView,
+  isValid: (v: number) => boolean = isStrictFieldBonusByte,
+): number | null {
   const scanStart = 0x010000;
   const scanEnd = 0x1e0000 - FIELD_BONUS_TABLE_SIZE;
-
   for (let off = scanStart; off < scanEnd; off++) {
-    let nonZero = 0;
-    let valid = true;
-
-    for (let i = 0; i < FIELD_BONUS_TABLE_SIZE; i++) {
-      const v = view.getInt8(off + i);
-      if (!FIELD_BONUS_VALID_VALUES.has(v)) {
-        valid = false;
-        break;
-      }
-      if (v !== 0) nonZero++;
-    }
-
-    if (valid && nonZero >= FIELD_BONUS_MIN_NONZERO) return off;
+    if (matchesFieldBonusSignature(view, off, isValid)) return off;
   }
   return null;
+}
+
+/**
+ * Return every RAM offset whose 120-byte window matches the predicate.
+ * Used by the field-bonus probe to enumerate candidates when the strict
+ * signature fails (e.g. on mods with non-±500 bonuses).
+ */
+export function scanFieldBonusTableCandidates(
+  view: DataView,
+  isValid: (v: number) => boolean = isLooseFieldBonusByte,
+  maxResults = 32,
+): number[] {
+  const scanStart = 0x010000;
+  const scanEnd = 0x1e0000 - FIELD_BONUS_TABLE_SIZE;
+  const hits: number[] = [];
+  for (let off = scanStart; off < scanEnd; off++) {
+    if (matchesFieldBonusSignature(view, off, isValid)) {
+      hits.push(off);
+      if (hits.length >= maxResults) break;
+    }
+  }
+  return hits;
 }
 
 /**

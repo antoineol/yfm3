@@ -11,8 +11,15 @@ export interface EngineConfig {
   equipBonus: number;
   /** ATK bonus for Megamorph specifically (default 1000). */
   megamorphBonus: number;
-  /** Terrain ID for field power bonuses (0 = none, 1–6 = Forest..Dark). */
+  /** Terrain ID for field power bonuses (0 = none, 1–6). */
   terrain: number;
+  /**
+   * Live field bonus table from the running game's RAM, when available.
+   * 120 ints (20 monster types × 6 terrains, type-major). Indexed as
+   * `typeIndex * 6 + (terrain - 1)` and read by `fieldBonus()`. When null,
+   * `fieldBonus()` falls back to its hardcoded vanilla rules.
+   */
+  fieldBonusTable: number[] | null;
 }
 
 const defaults: Readonly<EngineConfig> = {
@@ -23,6 +30,7 @@ const defaults: Readonly<EngineConfig> = {
   equipBonus: 500,
   megamorphBonus: 1000,
   terrain: 0,
+  fieldBonusTable: null,
 };
 
 const config: EngineConfig = { ...defaults };

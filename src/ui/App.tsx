@@ -1,6 +1,7 @@
 import { Tabs } from "@base-ui/react/tabs";
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
+import { setConfig } from "../engine/config.ts";
 import { modIdForFingerprint } from "../engine/mods.ts";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
@@ -49,6 +50,13 @@ function MainApp({ tab }: { tab: string }) {
 
   useHydrateBridgeSnapshot(modId);
   useAutoSyncCollection(bridge);
+
+  // Push the live RAM-scanned field bonus table into the engine config so
+  // UI-thread consumers (FieldDisplay) compute mod-aware ATK/DEF.
+  const fieldBonusTable = bridge.gameData?.fieldBonusTable ?? null;
+  useEffect(() => {
+    setConfig({ fieldBonusTable });
+  }, [fieldBonusTable]);
 
   // Auto-detect mod from bridge fingerprint in auto-sync mode.
   // When the detected mod changes, persist to localStorage and reload

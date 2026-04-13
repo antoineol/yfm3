@@ -134,6 +134,7 @@ export async function optimizeDeckParallel(
     equipBonus: eb?.equipBonus ?? 500,
     megamorphBonus: eb?.megamorphBonus ?? 1000,
     terrain,
+    fieldBonusTable: gameData?.fieldBonusTable ?? null,
   });
 
   const collectionRecord: Record<number, number> = {};
