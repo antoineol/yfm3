@@ -35,15 +35,19 @@ export function useZoneToggle(isSynced: boolean, phase: DuelPhase) {
   // Phase-driven auto-switch runs inside a post-commit `useEffect`, so
   // the view-transition API can observe the DOM mutation without
   // `flushSync` — React batches the setState into the normal commit.
-  const switchZoneFromPhase = useCallback((zone: FocusedZone) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
+  const switchZoneFromPhase = useCallback(
+    (zone: FocusedZone) => {
+      const modalOpen = store.get(openCardIdAtom) !== null;
+      if (document.startViewTransition && !modalOpen) {
+        document.startViewTransition(() => {
+          setFocusedZone(zone);
+        });
+      } else {
         setFocusedZone(zone);
-      });
-    } else {
-      setFocusedZone(zone);
-    }
-  }, []);
+      }
+    },
+    [store],
+  );
 
   useEffect(() => {
     if (!isSynced) {
