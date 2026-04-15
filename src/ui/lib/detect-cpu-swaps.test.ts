@@ -15,6 +15,18 @@ describe("accumulateCpuSwaps", () => {
     expect(result).toEqual([]);
   });
 
+  it("preserves existing empty-array ref when not in duel (ref stability across polls)", () => {
+    const existing: ReturnType<typeof accumulateCpuSwaps> = [];
+    const result = accumulateCpuSwaps(
+      existing,
+      snap([], 0, false),
+      snap([], 0, false),
+      "other",
+      NOW,
+    );
+    expect(result).toBe(existing);
+  });
+
   it("returns existing when not opponent's turn", () => {
     const existing = [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: NOW }];
     const result = accumulateCpuSwaps(existing, snap([22]), snap([71]), "hand", NOW);
