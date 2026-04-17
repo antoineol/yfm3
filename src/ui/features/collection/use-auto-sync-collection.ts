@@ -11,6 +11,8 @@ import {
   bridgeDeckAtom,
   collectionKey as collectionStorageKey,
   deckKey as deckStorageKey,
+  localSettingsAtom,
+  persistLocalSettings,
 } from "../../lib/bridge-snapshot-atoms.ts";
 import { writeLocal } from "../../lib/local-store.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -53,6 +55,7 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
   const autoSync = useBridgeAutoSync();
   const setBridgeCollection = useSetAtom(bridgeCollectionAtom);
   const setBridgeDeck = useSetAtom(bridgeDeckAtom);
+  const setLocalSettings = useSetAtom(localSettingsAtom);
   const syncFromBridge = useAuthMutation(api.importExport.syncCollectionFromBridge);
   const lastCollectionFpRef = useRef(0);
   const lastDeckFpRef = useRef(0);
@@ -90,6 +93,12 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
       if (deckChanged) {
         setBridgeDeck(bridge.deckDefinition);
         writeLocal(deckStorageKey(modId), bridge.deckDefinition);
+        setLocalSettings((prev) => {
+          if (prev.deckSizeOverride == null) return prev;
+          const next = { ...prev, deckSizeOverride: null };
+          persistLocalSettings(next);
+          return next;
+        });
       }
 
       if (!hasInitializedRef.current) {
@@ -142,6 +151,7 @@ export function useAutoSyncCollection(bridge: EmulatorBridge) {
     autoSync,
     setBridgeCollection,
     setBridgeDeck,
+    setLocalSettings,
   ]);
 
   // Cleanup debounce timer on unmount

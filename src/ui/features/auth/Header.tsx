@@ -294,8 +294,8 @@ function HeaderMenu({
         </svg>
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup className="z-50 bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-35">
+        <Menu.Positioner align="end" className="z-50" sideOffset={4}>
+          <Menu.Popup className="bg-bg-panel border border-border-accent rounded-lg shadow-dropdown py-1 min-w-35">
             <Menu.Item className={menuItemClass} onClick={onSetupGuide}>
               Setup guide
             </Menu.Item>

@@ -21,6 +21,8 @@ export function deckKey(modId: string) {
 
 export interface LocalSettings {
   deckSize: number;
+  /** User-set override for scoring cards; takes priority over bridge-derived value. */
+  deckSizeOverride: number | null;
   fusionDepth: number;
   useEquipment: boolean;
   terrain: number;
@@ -33,6 +35,7 @@ export interface LocalSettings {
 
 const LOCAL_SETTINGS_DEFAULTS: LocalSettings = {
   deckSize: DECK_SIZE,
+  deckSizeOverride: null,
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
   terrain: 0,
@@ -46,6 +49,9 @@ const LOCAL_SETTINGS_DEFAULTS: LocalSettings = {
 function hydrateLocalSettings(): LocalSettings {
   return {
     deckSize: readLocal<number>("yfm_settings:deckSize") ?? LOCAL_SETTINGS_DEFAULTS.deckSize,
+    deckSizeOverride:
+      readLocal<number | null>("yfm_settings:deckSizeOverride") ??
+      LOCAL_SETTINGS_DEFAULTS.deckSizeOverride,
     fusionDepth:
       readLocal<number>("yfm_settings:fusionDepth") ?? LOCAL_SETTINGS_DEFAULTS.fusionDepth,
     useEquipment:
@@ -69,6 +75,7 @@ export const localSettingsAtom = atom<LocalSettings>(hydrateLocalSettings());
 /** Persist all local settings to localStorage. */
 export function persistLocalSettings(settings: LocalSettings): void {
   writeLocal("yfm_settings:deckSize", settings.deckSize);
+  writeLocal("yfm_settings:deckSizeOverride", settings.deckSizeOverride);
   writeLocal("yfm_settings:fusionDepth", settings.fusionDepth);
   writeLocal("yfm_settings:useEquipment", settings.useEquipment);
   writeLocal("yfm_settings:terrain", settings.terrain);

@@ -57,11 +57,7 @@ export function ConfigPanel({ onClose }: ConfigPanelProps) {
     <>
       <Form form={form}>
         <div className="grid grid-cols-2 gap-4">
-          {autoSync ? (
-            <ScoringCardsReadonly />
-          ) : (
-            <ConfigInput disabled={isOptimizing} label="Scoring cards" name="deckSize" />
-          )}
+          <ConfigInput disabled={isOptimizing} label="Scoring cards" name="deckSize" />
           <ConfigInput disabled={isOptimizing} label="Fusion depth" name="fusionDepth" />
         </div>
         {autoSync && <PreserveUtilityCheckbox disabled={isOptimizing} />}
@@ -142,16 +138,6 @@ function FieldError({ name }: { name: keyof ConfigFormValues }) {
   const error = errors[name];
   if (!error) return null;
   return <span className="text-[11px] text-stat-atk">{error.message ?? "Invalid value"}</span>;
-}
-
-function ScoringCardsReadonly() {
-  const deckSize = useDeckSize();
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs text-text-secondary uppercase tracking-wide">Scoring cards</span>
-      <Input className="text-center font-mono" disabled readOnly type="number" value={deckSize} />
-    </label>
-  );
 }
 
 function PreserveUtilityCheckbox({ disabled }: { disabled: boolean }) {

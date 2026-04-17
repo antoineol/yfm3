@@ -55,6 +55,7 @@ export function useDeckSize() {
   const bridgeDeck = useAtomValue(bridgeDeckAtom);
   const cardDb = useCardDb();
   if (autoSync) {
+    if (localSettings.deckSizeOverride != null) return localSettings.deckSizeOverride;
     const preserve = localSettings.preserveUtilityCards ?? true;
     if (preserve && bridgeDeck) {
       const filtered = bridgeDeck.filter((id) => id > 0);
