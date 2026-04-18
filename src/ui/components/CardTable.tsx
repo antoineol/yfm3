@@ -11,7 +11,7 @@ import { cardTypeBorderColor } from "./card-entries.ts";
 import type { SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
-type SortKey = "id" | "atk";
+type SortKey = "id" | "atk" | "cost" | "value";
 
 /* ── Diff-status colors (shared by desktop & mobile) ── */
 
@@ -59,8 +59,18 @@ function diffColors(status: DiffStatus | undefined): DiffColors {
 
 /* ── Sort config ── */
 
-const SORT_FIRST_DIRS: Record<SortKey, "asc" | "desc"> = { id: "asc", atk: "desc" };
-const cardSortGetters = { id: (e: CardEntry) => e.id, atk: (e: CardEntry) => e.atk };
+const SORT_FIRST_DIRS: Record<SortKey, "asc" | "desc"> = {
+  id: "asc",
+  atk: "desc",
+  cost: "asc",
+  value: "desc",
+};
+const cardSortGetters = {
+  id: (e: CardEntry) => e.id,
+  atk: (e: CardEntry) => e.atk,
+  cost: (e: CardEntry) => e.cost ?? Number.POSITIVE_INFINITY,
+  value: (e: CardEntry) => (e.cost && e.cost > 0 ? e.atk / e.cost : 0),
+};
 
 /* ── CardTable ── */
 
@@ -70,12 +80,14 @@ export function CardTable<T extends CardEntry>({
   leftActions,
   defaultSort,
   showKinds,
+  showCost,
 }: {
   entries: T[];
   actions?: (entry: T) => ReactNode;
   leftActions?: (entry: T) => ReactNode;
   defaultSort?: SortState;
   showKinds?: boolean;
+  showCost?: boolean;
 }) {
   const resolveArtwork = useArtworkSrc();
   const isDesktop = useIsDesktop();
@@ -105,6 +117,7 @@ export function CardTable<T extends CardEntry>({
             leftActions={leftActions}
             resolveArtwork={resolveArtwork}
             showC={showC}
+            showCost={showCost}
             showD={showD}
           />
         ))}
@@ -141,7 +154,16 @@ export function CardTable<T extends CardEntry>({
               onClick={() => handleSortChange("atk")}
               px="px-2"
             />
-            <th className="text-left py-1.5 px-2 font-normal">DFD</th>
+            {showCost ? (
+              <SortableHeader
+                dir={sort?.key === "cost" ? sort.dir : undefined}
+                label="Cost"
+                onClick={() => handleSortChange("cost")}
+                px="px-2"
+              />
+            ) : (
+              <th className="text-left py-1.5 px-2 font-normal">DFD</th>
+            )}
             {showKinds && (
               <>
                 <th className="text-left py-1.5 px-1 font-normal hidden sm:table-cell">Kind1</th>
@@ -163,6 +185,7 @@ export function CardTable<T extends CardEntry>({
               leftActions={leftActions}
               resolveArtwork={resolveArtwork}
               showC={showC}
+              showCost={showCost}
               showD={showD}
               showKinds={showKinds}
             />
@@ -181,6 +204,7 @@ function DesktopCardRow<T extends CardEntry>({
   actions,
   hasCopyColumns,
   showC,
+  showCost,
   showD,
   showKinds,
   resolveArtwork,
@@ -190,17 +214,19 @@ function DesktopCardRow<T extends CardEntry>({
   actions?: (entry: T) => ReactNode;
   hasCopyColumns: boolean;
   showC: boolean;
+  showCost?: boolean;
   showD: boolean;
   showKinds?: boolean;
   resolveArtwork: (cardId: number) => string;
 }) {
   const c = diffColors(e.diffStatus);
   const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
+  const isDimmed = e.qty === 0 || e.dimmed;
 
   return (
     <tr
       className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover
-        even:bg-bg-surface/30${e.qty === 0 ? " opacity-40" : ""}${c.row}`}
+        even:bg-bg-surface/30${isDimmed ? " opacity-40" : ""}${c.row}`}
       key={e.rowKey ?? e.id}
       style={{ borderLeft: `3px solid ${borderColor}` }}
     >
@@ -237,9 +263,13 @@ function DesktopCardRow<T extends CardEntry>({
       <td className={`py-0.5 px-2 text-left font-mono font-bold ${c.atk}`}>
         {e.isMonster ? e.atk : ""}
       </td>
-      <td className={`py-0.5 px-2 text-left font-mono text-xs ${c.def}`}>
-        {e.isMonster ? e.def : ""}
-      </td>
+      {showCost ? (
+        <td className="py-0.5 px-2 text-left font-mono text-xs text-gold">{e.cost ?? ""}</td>
+      ) : (
+        <td className={`py-0.5 px-2 text-left font-mono text-xs ${c.def}`}>
+          {e.isMonster ? e.def : ""}
+        </td>
+      )}
       {showKinds && (
         <>
           <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">{e.kind1}</td>
@@ -261,6 +291,7 @@ function MobileCardRow<T extends CardEntry>({
   actions,
   hasCopyColumns,
   showC,
+  showCost,
   showD,
   resolveArtwork,
 }: {
@@ -269,16 +300,18 @@ function MobileCardRow<T extends CardEntry>({
   actions?: (entry: T) => ReactNode;
   hasCopyColumns: boolean;
   showC: boolean;
+  showCost?: boolean;
   showD: boolean;
   resolveArtwork: (cardId: number) => string;
 }) {
   const c = diffColors(e.diffStatus);
   const hasPills = showC || showD;
   const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
+  const isDimmed = e.qty === 0 || e.dimmed;
 
   return (
     <div
-      className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${c.row.trim()} ${e.qty === 0 ? "opacity-40" : ""}`}
+      className={`flex items-center gap-2 py-1 px-2 border-b border-border-subtle/50 ${c.row.trim()} ${isDimmed ? "opacity-40" : ""}`}
       style={{ borderLeft: `3px solid ${borderColor}` }}
     >
       <img
@@ -299,7 +332,13 @@ function MobileCardRow<T extends CardEntry>({
           {e.isMonster && (
             <span className="shrink-0 flex items-baseline gap-1.5">
               <span className={`font-mono font-bold text-base ${c.atk}`}>{e.atk}</span>
-              <span className={`font-mono text-xs ${c.def}`}>/ {e.def}</span>
+              {showCost ? (
+                e.cost !== undefined && (
+                  <span className="font-mono text-xs text-gold">· {e.cost}</span>
+                )
+              ) : (
+                <span className={`font-mono text-xs ${c.def}`}>/ {e.def}</span>
+              )}
             </span>
           )}
         </div>

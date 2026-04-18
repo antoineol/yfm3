@@ -21,6 +21,10 @@ export interface CardEntry {
   collectionCount?: number;
   /** Copies currently in deck. */
   deckCount?: number;
+  /** Starchip cost (used by the Buy view). */
+  cost?: number;
+  /** Render the row at reduced opacity without filtering it out. */
+  dimmed?: boolean;
   /** Unique key for React when multiple rows share the same card id. */
   rowKey?: string;
 }

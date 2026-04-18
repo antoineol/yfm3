@@ -3,17 +3,19 @@ import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
+import { BuyPanel } from "./BuyPanel.tsx";
 import { CardDetailPage } from "./CardDetailPage.tsx";
 import { CardsTable } from "./CardsTable.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
 
-type View = "cards" | "fusions" | "duelists";
+type View = "cards" | "fusions" | "duelists" | "buy";
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "cards", label: "Cards" },
   { value: "fusions", label: "Fusions" },
   { value: "duelists", label: "Duelists" },
+  { value: "buy", label: "Buy" },
 ];
 
 const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
@@ -78,6 +80,8 @@ export function DataPanel() {
           )
         ) : view === "fusions" ? (
           <FusionsTable cardDb={data.cardDb} fusions={data.fusions} />
+        ) : view === "buy" ? (
+          <BuyPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
         ) : (
           <DuelistsPanel
             cardDb={data.cardDb}
