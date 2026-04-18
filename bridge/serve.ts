@@ -179,6 +179,7 @@ let currentGameData: GameData | null = null;
 let gameDataFingerprint: string | null = null; // mod fingerprint we last attempted acquisition for
 let gameDataRetryAt: number | null = null; // timestamp for next retry (null = no retry scheduled)
 let gameDataRetries = 0;
+let waitingForSerialLogged = false; // avoid spamming the defer log on every poll
 const GAME_DATA_MAX_RETRIES = 3;
 const GAME_DATA_RETRY_DELAY_MS = 5000;
 
@@ -187,6 +188,7 @@ function resetGameData(): void {
   gameDataFingerprint = null;
   gameDataRetryAt = null;
   gameDataRetries = 0;
+  waitingForSerialLogged = false;
 }
 
 function buildGameDataMessage(data: GameData): string {
@@ -1113,7 +1115,16 @@ async function poll(): Promise<void> {
         const shouldAcquire =
           fingerprint !== gameDataFingerprint ||
           (gameDataRetryAt !== null && Date.now() >= gameDataRetryAt);
-        if (shouldAcquire) {
+        if (shouldAcquire && serial === null) {
+          // EXE not fully loaded into RAM yet — cardStats hash is transient
+          // garbage and would mismatch every disc. Defer until the serial
+          // appears, which is a strong "game is ready" signal.
+          if (!waitingForSerialLogged) {
+            console.log("Game serial not yet in RAM — deferring data acquisition");
+            waitingForSerialLogged = true;
+          }
+        } else if (shouldAcquire) {
+          waitingForSerialLogged = false;
           gameDataFingerprint = fingerprint;
           gameDataRetryAt = null;
           try {
