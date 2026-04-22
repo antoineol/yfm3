@@ -46,7 +46,7 @@ describe("balanceUnpinned", () => {
     expect(sum).toBe(POOL_SUM);
   });
 
-  test("leaves unpinned at zero when original unpinned sum is zero", () => {
+  test("leaves unpinned at zero when template unpinned sum is zero", () => {
     const original = makePool(722, { 0: 2048 });
     const draft = makePool(722, { 0: 500 });
     const pinned = new Set<number>([1]);
@@ -55,5 +55,16 @@ describe("balanceUnpinned", () => {
     const sum = balanced.reduce((a, b) => a + b, 0);
     // pinned sum is 500, no unpinned to allocate to — summary bar flags it
     expect(sum).toBe(500);
+  });
+
+  test("preserves unpinned edits when the draft itself is used as the template", () => {
+    // Real-world scenario: user bumps two unpinned cards to 60 each (draft),
+    // and expects Balance to keep their ratio while rescaling to POOL_SUM.
+    // The caller passes the draft as the template, so edits are preserved.
+    const draft = makePool(722, { 0: 60, 1: 60 });
+    const balanced = balanceUnpinned(draft, new Set(), draft);
+    expect(balanced[0]).toBe(balanced[1]); // ratio preserved
+    const sum = balanced.reduce((a, b) => a + b, 0);
+    expect(sum).toBe(POOL_SUM);
   });
 });

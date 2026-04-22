@@ -3,46 +3,42 @@ import { toast } from "sonner";
 import { Button } from "../../../components/Button.tsx";
 import { useBridge } from "../../../lib/bridge-context.tsx";
 import {
-  balanceUnpinnedAtom,
-  clearPinsAtom,
+  allValidSumsAtom,
+  balancePoolAtom,
   DECK_MIN_DISTINCT,
   distinctCountAtom,
+  type EditView,
   isModifiedAtom,
-  isValidSumAtom,
   modifiedCardIdsAtom,
+  modifiedCardIdsByPoolAtom,
   POOL_SUM,
+  POOL_TYPE_LABELS,
+  POOLS_BY_VIEW,
+  type PoolType,
   pinnedCardIdsAtom,
-  poolSumAtom,
+  poolSumsAtom,
   revertAtom,
   saveAtom,
   savingAtom,
 } from "./atoms.ts";
-import { IsoBackupsDrawerButton } from "./IsoBackupsDrawer.tsx";
 
 const CONFIRM_MESSAGE =
   "Saving will close the running game in DuckStation (no save state) so the patched weights can be written to the ISO. " +
   "After it saves, click the game row in DuckStation and choose 'Démarrage normal' to reload.\n\n" +
   "Any unsaved in-duel progress will be lost. Continue?";
 
-export function DropPoolSummary({ isDeckPool }: { isDeckPool: boolean }) {
+export function DropPoolSummary({ view }: { view: EditView }) {
   const bridge = useBridge();
-  const sum = useAtomValue(poolSumAtom);
-  const validSum = useAtomValue(isValidSumAtom);
+  const validAllSums = useAtomValue(allValidSumsAtom);
   const distinct = useAtomValue(distinctCountAtom);
   const modified = useAtomValue(isModifiedAtom);
   const modifiedCount = useAtomValue(modifiedCardIdsAtom).size;
-  const pinnedCount = useAtomValue(pinnedCardIdsAtom).size;
   const saving = useAtomValue(savingAtom);
 
-  const balance = useSetAtom(balanceUnpinnedAtom);
-  const clearPins = useSetAtom(clearPinsAtom);
   const revert = useSetAtom(revertAtom);
   const save = useSetAtom(saveAtom);
 
   async function onSave() {
-    // Only prompt if the game is running (the only case where the bridge
-    // will have to close it). If the user already closed the game manually,
-    // the write goes through instantly and confirmation would be noise.
     if (bridge.detail === "ready" && !window.confirm(CONFIRM_MESSAGE)) return;
     try {
       const outcome = await save();
@@ -67,60 +63,68 @@ export function DropPoolSummary({ isDeckPool }: { isDeckPool: boolean }) {
     }
   }
 
-  const canSave = validSum && (!isDeckPool || distinct >= DECK_MIN_DISTINCT);
+  const pools = POOLS_BY_VIEW[view];
+  const isDeckView = view === "deck";
+  const canSave = validAllSums && (!isDeckView || distinct >= DECK_MIN_DISTINCT);
 
   return (
-    <div className="flex items-center gap-x-2 gap-y-1 px-3 py-1 border-b border-border-subtle flex-wrap">
-      <SumPill sum={sum} valid={validSum} />
-      {isDeckPool && <DistinctPill count={distinct} />}
-      <Button
-        disabled={saving}
-        onClick={() => balance()}
-        size="sm"
-        title="Distribute the remaining budget across unpinned cards, proportional to the original on-disk weights."
-        variant="outline"
-      >
-        Balance{pinnedCount > 0 ? ` · ${pinnedCount} pinned` : " unpinned"}
-      </Button>
-      {pinnedCount > 0 && (
-        <Button disabled={saving} onClick={() => clearPins()} size="sm" variant="ghost">
-          Clear pins
-        </Button>
+    <div className="flex items-center gap-x-1.5 gap-y-1 px-3 py-1 border-b border-border-subtle flex-wrap">
+      {pools.map((p) => (
+        <PoolPill key={p} poolType={p} />
+      ))}
+      {isDeckView && <DistinctPill count={distinct} />}
+      {modified && (
+        <div className="ml-auto flex items-center gap-2">
+          <Button disabled={saving} onClick={() => revert()} size="sm" variant="ghost">
+            Revert
+          </Button>
+          <Button disabled={saving || !canSave} glowing={canSave} onClick={onSave} size="sm">
+            {saving ? "Saving…" : `Save · ${modifiedCount}`}
+          </Button>
+        </div>
       )}
-      <div className="ml-auto flex items-center gap-2">
-        <IsoBackupsDrawerButton />
-        {modified && (
-          <>
-            <Button disabled={saving} onClick={() => revert()} size="sm" variant="ghost">
-              Revert
-            </Button>
-            <Button disabled={saving || !canSave} glowing={canSave} onClick={onSave} size="sm">
-              {saving ? "Saving…" : `Save · ${modifiedCount}`}
-            </Button>
-          </>
-        )}
-      </div>
     </div>
   );
 }
 
-function SumPill({ sum, valid }: { sum: number; valid: boolean }) {
-  const color = valid ? "text-stat-up border-stat-up/40" : "text-stat-atk border-stat-atk/40";
+function PoolPill({ poolType }: { poolType: PoolType }) {
+  const sum = useAtomValue(poolSumsAtom)[poolType] ?? 0;
+  const pinnedTotal = useAtomValue(pinnedCardIdsAtom).size;
+  const modifiedInPool = useAtomValue(modifiedCardIdsByPoolAtom)[poolType]?.size ?? 0;
+  const saving = useAtomValue(savingAtom);
+  const balance = useSetAtom(balancePoolAtom);
+  const valid = sum === POOL_SUM;
   const delta = sum - POOL_SUM;
-  const deltaText = delta === 0 ? "" : delta > 0 ? ` (+${delta})` : ` (${delta})`;
+  const deltaText = delta === 0 ? "" : delta > 0 ? `+${delta}` : `${delta}`;
+  const color = valid ? "text-stat-up border-stat-up/40" : "text-stat-atk border-stat-atk/40";
+  const title =
+    `${POOL_TYPE_LABELS[poolType]} pool — must sum to ${POOL_SUM.toLocaleString("en-US")} ` +
+    `(rand() & 0x7FF).\nCurrent: ${sum.toLocaleString("en-US")}${delta === 0 ? "" : ` (${deltaText})`}` +
+    `\nModified: ${modifiedInPool} · Pinned: ${pinnedTotal}` +
+    "\nClick ⚖ to rebalance unpinned cards — their current relative ratios are kept, and their magnitudes are rescaled so the pool totals 2048.";
   return (
     <div
-      className={`flex items-baseline gap-1.5 px-2 py-0.5 rounded-md border ${color}`}
-      title="Each pool must sum to exactly 2048 — the game picks weights via rand() & 0x7FF."
+      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${color}`}
+      title={title}
     >
       <span className="font-display text-[10px] uppercase tracking-widest text-text-secondary">
-        Sum
+        {POOL_TYPE_LABELS[poolType]}
       </span>
-      <span className="font-mono text-sm tabular-nums">
-        {sum.toLocaleString("en-US")} / {POOL_SUM.toLocaleString("en-US")}
-        {deltaText}
+      <span className="font-mono text-xs tabular-nums">
+        {sum.toLocaleString("en-US")}
+        {deltaText && <span className="ml-0.5 opacity-70">({deltaText})</span>}
       </span>
-      <span className="font-mono">{valid ? "✓" : "✗"}</span>
+      <span className="font-mono text-xs">{valid ? "✓" : "✗"}</span>
+      <button
+        aria-label={`Rebalance ${POOL_TYPE_LABELS[poolType]} unpinned cards`}
+        className="ml-0.5 px-1 text-text-secondary hover:text-gold-bright disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        disabled={saving}
+        onClick={() => balance(poolType)}
+        title={`Rebalance ${POOL_TYPE_LABELS[poolType]} unpinned cards`}
+        type="button"
+      >
+        ⚖
+      </button>
     </div>
   );
 }

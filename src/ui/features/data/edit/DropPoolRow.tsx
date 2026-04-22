@@ -4,12 +4,13 @@ import type { CardSpec } from "../../../../engine/data/card-model.ts";
 import { CardName } from "../../../components/CardName.tsx";
 import { cardTypeBorderColor } from "../../../components/card-entries.ts";
 import { formatCardId } from "../../../lib/format.ts";
-import { POOL_SUM, setWeightAtom } from "./atoms.ts";
+import { POOL_SUM, type PoolType, setWeightAtom } from "./atoms.ts";
 
 type Props = {
   cardId: number;
   card: CardSpec | undefined;
-  weight: number;
+  pools: readonly PoolType[];
+  weights: Partial<Record<PoolType, number>>;
   pinned: boolean;
   modified: boolean;
   /** Called when the user toggles this row's pin checkbox.
@@ -21,20 +22,19 @@ type Props = {
 
 export const DropPoolRow = memo(DropPoolRowImpl);
 
-function DropPoolRowImpl({ cardId, card, weight, pinned, modified, onTogglePin }: Props) {
+function DropPoolRowImpl({ cardId, card, pools, weights, pinned, modified, onTogglePin }: Props) {
   const setWeight = useSetAtom(setWeightAtom);
   const isMonster = card?.isMonster ?? false;
   const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
-  const percent = ((weight / POOL_SUM) * 100).toFixed(1);
 
   return (
     <tr
       className={`border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30 ${
-        weight === 0 ? "opacity-60" : ""
-      } ${modified ? "bg-stat-up/5!" : ""}`}
+        modified ? "bg-stat-up/5!" : ""
+      }`}
       style={{ borderLeft: `3px solid ${borderColor}` }}
     >
-      <td className="py-0.5 px-1 text-center">
+      <td className="py-0.5 px-0.5 text-center">
         <input
           aria-label={`Pin ${card?.name ?? `card ${cardId}`}`}
           checked={pinned}
@@ -56,19 +56,40 @@ function DropPoolRowImpl({ cardId, card, weight, pinned, modified, onTogglePin }
           <span className="text-text-secondary italic">(unknown card)</span>
         )}
       </td>
-      <td className="py-0.5 px-2 text-right font-mono font-bold text-stat-atk tabular-nums">
+      <td className="py-0.5 px-1 text-right font-mono font-bold text-stat-atk tabular-nums">
         {isMonster ? card?.attack : ""}
       </td>
-      <td className="py-0.5 px-2 text-right font-mono text-xs text-stat-def tabular-nums">
+      <td className="py-0.5 px-1 text-right font-mono text-xs text-stat-def tabular-nums">
         {isMonster ? card?.defense : ""}
       </td>
-      <td className="py-0.5 px-2 text-right">
-        <WeightInput onCommit={(n) => setWeight({ cardId, weight: n })} value={weight} />
+      {pools.map((p) => {
+        const w = weights[p] ?? 0;
+        return (
+          <WeightCellPair
+            key={p}
+            onCommit={(n) => setWeight({ cardId, weight: n, poolType: p })}
+            weight={w}
+          />
+        );
+      })}
+    </tr>
+  );
+}
+
+function WeightCellPair({ weight, onCommit }: { weight: number; onCommit: (n: number) => void }) {
+  const percent = ((weight / POOL_SUM) * 100).toFixed(1);
+  const dim = weight === 0 ? "opacity-50" : "";
+  return (
+    <>
+      <td className="py-0.5 px-1 text-right">
+        <WeightInput onCommit={onCommit} value={weight} />
       </td>
-      <td className="py-0.5 px-2 text-right font-mono text-xs text-text-secondary tabular-nums">
+      <td
+        className={`py-0.5 px-1 text-right font-mono text-xs text-text-secondary tabular-nums ${dim}`}
+      >
         {percent}%
       </td>
-    </tr>
+    </>
   );
 }
 
@@ -95,18 +116,47 @@ function WeightInput({ value, onCommit }: { value: number; onCommit: (n: number)
 
   return (
     <input
-      className="py-0.5 px-1.5 text-sm font-mono tabular-nums text-right bg-bg-surface border border-border-subtle rounded w-16 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold"
+      className="py-0.5 px-1 text-sm font-mono tabular-nums text-right bg-bg-surface border border-border-subtle rounded w-14 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold"
       inputMode="numeric"
       onBlur={commit}
-      onChange={(e) => setDraft(e.currentTarget.value.replace(/[^\d]/g, ""))}
+      onChange={(e) => {
+        const cleaned = e.currentTarget.value.replace(/[^\d]/g, "");
+        setDraft(cleaned);
+        if (cleaned === "") return;
+        const parsed = Number.parseInt(cleaned, 10);
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 0xffff) {
+          onCommit(parsed);
+        }
+      }}
+      onFocus={(e) => e.currentTarget.select()}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();
-        if (e.key === "Escape") {
+        else if (e.key === "Escape") {
           setDraft(null);
           e.currentTarget.blur();
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          moveWeightFocus(e.currentTarget, "down");
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          moveWeightFocus(e.currentTarget, "up");
         }
       }}
       value={display}
     />
   );
+}
+
+/** Moves keyboard focus from this weight input to the same column in the
+ *  previous/next table row. Uses DOM traversal (instead of ref plumbing)
+ *  because the table is large and virtualizing ref maps would be fragile. */
+function moveWeightFocus(el: HTMLInputElement, dir: "up" | "down") {
+  const td = el.closest("td");
+  const tr = td?.parentElement;
+  if (!td || !tr) return;
+  const cellIdx = Array.prototype.indexOf.call(tr.children, td);
+  const neighborTr = dir === "down" ? tr.nextElementSibling : tr.previousElementSibling;
+  const neighborTd = neighborTr?.children[cellIdx] as HTMLElement | undefined;
+  const neighborInput = neighborTd?.querySelector("input") as HTMLInputElement | null;
+  neighborInput?.focus();
 }
