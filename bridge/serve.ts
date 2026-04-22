@@ -488,11 +488,25 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
     if (req.method === "PUT") {
       try {
         const bytes = new Uint8Array(await req.arrayBuffer());
+        // DuckStation keeps the memcard mirrored in memory and will write its
+        // own copy back on the next in-game save — silently clobbering our
+        // bytes. Close the game first so our write wins and the user can
+        // reload to pick up the edits. Mirrors `/api/active-iso` PUT.
+        let closedGame = false;
+        const hwnd = ensureHwnd();
+        if (hwnd) {
+          console.log("[save] PUT: closing DuckStation game before memcard write");
+          await sendCloseGameWithoutSaving(hwnd);
+          // DuckStation's close sequence takes ~600-800ms; wait past that so
+          // our write is strictly after any flush it does on shutdown.
+          await new Promise((r) => setTimeout(r, 900));
+          closedGame = true;
+        }
         const backup = writeSaveWithBackup(entry.memcardPath, bytes);
         console.log(
-          `[save] PUT ${entry.memcardFilename} (${bytes.byteLength} bytes)${backup ? ` · backup ${backup.filename}` : ""}`,
+          `[save] PUT ${entry.memcardFilename} (${bytes.byteLength} bytes)${backup ? ` · backup ${backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
         );
-        return jsonResponse({ ok: true, backup });
+        return jsonResponse({ ok: true, backup, closedGame });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[save] PUT failed: ${message}`);

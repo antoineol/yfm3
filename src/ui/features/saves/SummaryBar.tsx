@@ -26,6 +26,11 @@ import { BackupsDrawerButton } from "./BackupPanel.tsx";
 
 const UNIQUE_CARDS_CAP = 720;
 
+const CONFIRM_MESSAGE =
+  "Saving will close the running game in DuckStation (no save state) so the new memcard contents can be written. " +
+  "After it saves, click the game row in DuckStation and choose 'Démarrage normal' to reload with the edits.\n\n" +
+  "Any unsaved in-duel progress will be lost. Continue?";
+
 export function SummaryBar() {
   const loaded = useAtomValue(loadedSaveAtom);
   if (!loaded) return null;
@@ -50,10 +55,19 @@ function SummaryBarInner({ loaded }: { loaded: LoadedSave }) {
   const totalCopies = Object.values(owned).reduce((s, n) => s + n, 0);
 
   async function onSave() {
+    if (bridge.detail === "ready" && !window.confirm(CONFIRM_MESSAGE)) return;
     try {
-      const backup = await saveToDisk();
-      const backupPart = backup ? ` · backup: ${backup.filename}` : "";
-      toast.success(`Saved ${loaded.entry.memcardFilename}${backupPart}`);
+      const outcome = await saveToDisk();
+      if (!outcome) return;
+      const backupPart = outcome.backup ? ` · backup: ${outcome.backup.filename}` : "";
+      if (outcome.closedGame) {
+        toast.success(
+          `Saved ${loaded.entry.memcardFilename}${backupPart}. Click the game in DuckStation and choose 'Démarrage normal' to reload with the edits.`,
+          { duration: 10000 },
+        );
+      } else {
+        toast.success(`Saved ${loaded.entry.memcardFilename}${backupPart}`);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error(`Save failed: ${msg}`);

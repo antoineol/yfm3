@@ -100,7 +100,7 @@ export async function fetchActiveSaveBytes(): Promise<Uint8Array> {
 
 export async function putActiveSaveBytes(
   bytes: Uint8Array,
-): Promise<{ ok: true; backup: BridgeBackupEntry | null }> {
+): Promise<{ ok: true; backup: BridgeBackupEntry | null; closedGame: boolean }> {
   // Blob gives fetch a known length + content type, avoiding the chunked /
   // streaming paths some browser+Bun combinations reject with "Failed to fetch".
   // Copy into a plain ArrayBuffer so TS's BlobPart typing is happy even when

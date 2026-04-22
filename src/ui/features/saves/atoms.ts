@@ -160,7 +160,12 @@ export const grantAllCardsAtom = atom(null, (get, set, quantity: number) => {
   set(loadedSaveAtom, { ...loaded });
 });
 
-export const saveToDiskAtom = atom(null, async (get, set) => {
+export type SaveToDiskOutcome = {
+  backup: BridgeBackupEntry | null;
+  closedGame: boolean;
+};
+
+export const saveToDiskAtom = atom(null, async (get, set): Promise<SaveToDiskOutcome | null> => {
   const loaded = get(loadedSaveAtom);
   if (!loaded) return null;
   set(savingAtom, true);
@@ -172,7 +177,7 @@ export const saveToDiskAtom = atom(null, async (get, set) => {
       originalBytes: new Uint8Array(loaded.save.bytes),
       backups: updatedBackups,
     });
-    return result.backup;
+    return { backup: result.backup, closedGame: result.closedGame };
   } finally {
     set(savingAtom, false);
   }
