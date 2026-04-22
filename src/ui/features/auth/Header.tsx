@@ -1,12 +1,12 @@
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
-import { SignInButton, useClerk } from "@clerk/clerk-react";
-import { useConvexAuth } from "convex/react";
+import { SignInButton } from "@clerk/clerk-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MODS, type ModId } from "../../../engine/mods.ts";
 import { Dialog } from "../../components/Dialog.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import { Spinner } from "../../components/Loader.tsx";
+import { type AppAuth, useAppAuth } from "../../core/app-auth.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
@@ -24,8 +24,7 @@ export function Header() {
   const bridge = useBridge();
   const bridgeAutoSync = useBridgeAutoSync();
   const updatePreferences = useUpdatePreferences();
-  const { signOut } = useClerk();
-  const { isAuthenticated } = useConvexAuth();
+  const auth = useAppAuth();
   const [configOpen, setConfigOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const hasUpdate = bridge.version != null && bridge.version < BRIDGE_MIN_VERSION;
@@ -93,10 +92,9 @@ export function Header() {
       <div className="flex items-center gap-2 justify-end">
         <BridgeToggle onOpenDialog={() => setUpdateOpen(true)} />
         <HeaderMenu
-          isAuthenticated={isAuthenticated}
+          auth={auth}
           onSettings={() => setConfigOpen(true)}
           onSetupGuide={handleSetupGuide}
-          onSignOut={() => void signOut()}
         />
       </div>
       <Dialog onClose={() => setConfigOpen(false)} open={configOpen} title="Settings">
@@ -274,15 +272,13 @@ function DuelPhaseIndicator() {
 }
 
 function HeaderMenu({
-  isAuthenticated,
+  auth,
   onSetupGuide,
   onSettings,
-  onSignOut,
 }: {
-  isAuthenticated: boolean;
+  auth: AppAuth;
   onSetupGuide: () => void;
   onSettings: () => void;
-  onSignOut: () => void;
 }) {
   return (
     <Menu.Root>
@@ -302,18 +298,26 @@ function HeaderMenu({
             <Menu.Item className={menuItemClass} onClick={onSettings}>
               Settings
             </Menu.Item>
-            {isAuthenticated ? (
-              <Menu.Item className={menuItemClass} onClick={onSignOut}>
-                Sign out
-              </Menu.Item>
-            ) : (
-              <SignInButton mode="modal">
-                <Menu.Item className={menuItemClass}>Sign in</Menu.Item>
-              </SignInButton>
-            )}
+            <AuthMenuItem auth={auth} />
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  );
+}
+
+function AuthMenuItem({ auth }: { auth: AppAuth }) {
+  if (!auth.hasAuthProvider) return null;
+  if (auth.isAuthenticated) {
+    return (
+      <Menu.Item className={menuItemClass} onClick={() => void auth.signOut()}>
+        Sign out
+      </Menu.Item>
+    );
+  }
+  return (
+    <SignInButton mode="modal">
+      <Menu.Item className={menuItemClass}>Sign in</Menu.Item>
+    </SignInButton>
   );
 }

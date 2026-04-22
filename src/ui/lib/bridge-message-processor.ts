@@ -67,6 +67,8 @@ export type BridgeState = {
   shuffledDeck: number[] | null;
   /** Hex fingerprint of card stats in RAM — identifies which mod is running. */
   modFingerprint: string | null;
+  /** PSX game serial from the running EXE (e.g. "SLUS_027.11"). Identifies the active game. */
+  gameSerial: string | null;
   /** Fusion/equip tables extracted from the disc image by the bridge. */
   gameData: BridgeGameData | null;
   /** Error message when bridge failed to acquire game data. */
@@ -107,6 +109,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   deckDefinition: null,
   shuffledDeck: null,
   modFingerprint: null,
+  gameSerial: null,
   gameData: null,
   gameDataError: null,
   restartFailed: false,
@@ -357,6 +360,7 @@ export function processBridgeMessage(
       deckDefinition,
       shuffledDeck,
       modFingerprint: raw.modFingerprint ?? null,
+      gameSerial: raw.gameSerial ?? null,
       // Preserve game data — it arrives via a separate message
       gameData: currentState.gameData,
       gameDataError: currentState.gameDataError,

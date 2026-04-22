@@ -2,7 +2,7 @@ import type { FunctionArgs } from "convex/server";
 import { useSetAtom } from "jotai";
 import { api } from "../../../convex/_generated/api";
 import { useAuthMutation } from "../core/convex-hooks.ts";
-import { setAutoSyncMode } from "../lib/auto-sync-mode.ts";
+import { getAutoSyncMode, setAutoSyncMode } from "../lib/auto-sync-mode.ts";
 import {
   type LocalSettings,
   localSettingsAtom,
@@ -31,8 +31,14 @@ export function useUpdatePreferences() {
     const { bridgeAutoSync, handSourceMode, cheatMode, cheatView, targetRank, ...modValues } =
       values;
 
-    // Always persist bridgeAutoSync to localStorage (solves bootstrap problem)
+    // Always persist bridgeAutoSync to localStorage (solves bootstrap problem).
+    // Switching between auto-sync and manual changes which provider tree the
+    // app needs (Clerk + Convex vs offline-only), so reload on a real flip.
+    let modeFlipped = false;
     if (bridgeAutoSync !== undefined) {
+      const previous = getAutoSyncMode();
+      const next = bridgeAutoSync ?? undefined;
+      modeFlipped = (previous === true) !== (next === true);
       setAutoSyncMode(bridgeAutoSync);
     }
 
@@ -58,19 +64,26 @@ export function useUpdatePreferences() {
           return next;
         });
       }
-      return;
+    } else {
+      // Manual mode: existing Convex path
+      const hasModValues = Object.values(modValues).some((v) => v !== undefined);
+      const hasGlobalValues =
+        bridgeAutoSync !== undefined ||
+        handSourceMode !== undefined ||
+        cheatMode !== undefined ||
+        cheatView !== undefined ||
+        targetRank !== undefined;
+      if (hasModValues) void mutateModSettings(modValues);
+      if (hasGlobalValues)
+        void mutateUserSettings({
+          bridgeAutoSync,
+          handSourceMode,
+          cheatMode,
+          cheatView,
+          targetRank,
+        });
     }
 
-    // Manual mode: existing Convex path
-    const hasModValues = Object.values(modValues).some((v) => v !== undefined);
-    const hasGlobalValues =
-      bridgeAutoSync !== undefined ||
-      handSourceMode !== undefined ||
-      cheatMode !== undefined ||
-      cheatView !== undefined ||
-      targetRank !== undefined;
-    if (hasModValues) void mutateModSettings(modValues);
-    if (hasGlobalValues)
-      void mutateUserSettings({ bridgeAutoSync, handSourceMode, cheatMode, cheatView, targetRank });
+    if (modeFlipped && typeof window !== "undefined") window.location.reload();
   };
 }

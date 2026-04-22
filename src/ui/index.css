@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource/cinzel/latin-400.css";
+@import "@fontsource/cinzel/latin-700.css";
 
 @theme {
   --font-display: "Cinzel", serif;

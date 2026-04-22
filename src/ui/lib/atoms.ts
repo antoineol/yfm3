@@ -15,10 +15,6 @@ export const openCardIdAtom = atom<CardId | null>(null);
 /** Whether the manual setup modal is open. */
 export const manualSetupModalOpenAtom = atom(false);
 
-/** Active sub-tab within the Deck panel on mobile. */
-export type DeckSubTab = "collection" | "deck" | "result" | "farm";
-export const deckSubTabAtom = atom<DeckSubTab>("collection");
-
 // ── Post-duel suggestion atoms (persist across tab switches) ─────────
 
 export type PostDuelState = "idle" | "duel_active" | "optimizing" | "result" | "no_change";

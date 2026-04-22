@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -147,9 +147,9 @@ describe("resolveBinPath", () => {
   });
 });
 
-// ── acquireGameData (cache round-trip) ──────────────────────────
+// ── acquireGameData ─────────────────────────────────────────────
 
-describe("acquireGameData cache round-trip", () => {
+describe("acquireGameData", () => {
   let tmpDir: string;
 
   beforeEach(() => {
@@ -160,77 +160,13 @@ describe("acquireGameData cache round-trip", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("returns null when no serial and no cache", () => {
+  // Every call re-resolves the running disc and extracts content from it —
+  // there is no JSON content cache. With no DuckStation and no disc images
+  // reachable, the only possible outcome is null.
+
+  it("returns null when no disc images are available", async () => {
     const stats = new Uint8Array(2888).fill(1);
-    const result = acquireGameData(stats, null, tmpDir);
-    expect(result).toBeNull();
-  });
-
-  it("restores from cache when hash matches", () => {
-    const stats = new Uint8Array(2888).fill(0x42);
-    const hash = computeGameDataHash(stats);
-
-    // Write a cache file manually (must include cards and duelists)
-    const cache = {
-      gameDataHash: hash,
-      gameSerial: "SLES_039.48",
-      capturedAt: new Date().toISOString(),
-      cardStats: Buffer.from(stats).toString("base64"),
-      cards: [
-        {
-          id: 1,
-          name: "Test",
-          atk: 100,
-          def: 200,
-          gs1: "Sun",
-          gs2: "Moon",
-          type: "Dragon",
-          color: "",
-          level: 1,
-          attribute: "Light",
-          description: "",
-          starchipCost: 0,
-          password: "",
-        },
-      ],
-      duelists: [{ id: 1, name: "Simon", deck: [], saPow: [], bcd: [], saTec: [] }],
-      fusions: [{ m1: 1, m2: 2, r: 3 }],
-      equips: [{ e: 600, m: [1, 2, 3] }],
-    };
-    writeFileSync(join(tmpDir, "game-data-cache.json"), JSON.stringify(cache));
-
-    // Artwork cache dir must exist for cache hit (keyed by hash prefix)
-    const artDir = join(tmpDir, "artwork", hash.slice(0, 12));
-    mkdirSync(artDir, { recursive: true });
-    writeFileSync(join(artDir, "001.png"), Buffer.alloc(0));
-
-    const result = acquireGameData(stats, "SLES_039.48", tmpDir);
-    expect(result).not.toBeNull();
-    expect(result?.gameDataHash).toBe(hash);
-    expect(result?.cards).toHaveLength(1);
-    expect(result?.duelists).toHaveLength(1);
-    expect(result?.fusionTable).toEqual([{ material1: 1, material2: 2, result: 3 }]);
-    expect(result?.equipTable).toEqual([{ equipId: 600, monsterIds: [1, 2, 3] }]);
-    expect(result?.cardStats).toEqual(stats);
-  });
-
-  it("ignores cache when hash differs", () => {
-    const stats = new Uint8Array(2888).fill(0x42);
-    const differentStats = new Uint8Array(2888).fill(0x99);
-
-    // Cache was for different stats
-    const cache = {
-      gameDataHash: computeGameDataHash(differentStats),
-      gameSerial: "SLES_039.48",
-      capturedAt: new Date().toISOString(),
-      cardStats: Buffer.from(differentStats).toString("base64"),
-      fusions: [],
-      equips: [],
-    };
-    writeFileSync(join(tmpDir, "game-data-cache.json"), JSON.stringify(cache));
-
-    // No DuckStation available, so returns null after cache miss
-    const result = acquireGameData(stats, "SLES_039.48", tmpDir);
+    const result = await acquireGameData(stats, null, tmpDir);
     expect(result).toBeNull();
   });
 });

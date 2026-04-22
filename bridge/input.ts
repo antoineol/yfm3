@@ -63,6 +63,8 @@ const BLOCKED_VK = new Set([0x71]);
 // ── Windows constants ───────────────────────────────────────────
 
 const VK_MENU = 0x12; // Alt key
+const VK_S = 0x53;
+const VK_W = 0x57;
 const KEYEVENTF_KEYUP = 0x0002;
 
 // ── user32.dll FFI ──────────────────────────────────────────────
@@ -367,6 +369,49 @@ export async function holdButton(
   durationMs: number,
 ): Promise<boolean> {
   return tapButton(hwnd, button, durationMs);
+}
+
+/**
+ * Trigger DuckStation's `System → Close Game Without Saving` via the menu's
+ * Alt+S, W accelerator. Used by the ISO editor to release DuckStation's lock
+ * on the ROM before writing a patch.
+ *
+ * Chose menu-accelerator over a settings.ini hotkey binding because it works
+ * immediately with no DuckStation restart and no config changes. Sends:
+ *   Alt down → S down → S up → Alt up → (menu opens) → W down → W up
+ *
+ * The "W" accelerator is not localized in DuckStation's French build as of
+ * 0.1-11026 (the menu item reads "Close Game Without Saving" even with the
+ * rest of the menu translated), so this is stable for typical builds. If
+ * DuckStation ever fully translates that item the write step will surface
+ * EBUSY cleanly instead of corrupting anything.
+ */
+export async function sendCloseGameWithoutSaving(hwnd: Hwnd): Promise<boolean> {
+  const prev = stealFocus(hwnd);
+  await sleep(30);
+
+  // Alt+S to open the System menu
+  u32.keybd_event(VK_MENU, 0, 0, 0);
+  u32.keybd_event(VK_S, 0, 0, 0);
+  await sleep(50);
+  u32.keybd_event(VK_S, 0, KEYEVENTF_KEYUP, 0);
+  u32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+
+  // Wait for the menu to render before sending the accelerator
+  await sleep(250);
+
+  // W selects "Close Game Without Saving"
+  u32.keybd_event(VK_W, 0, 0, 0);
+  await sleep(80);
+  u32.keybd_event(VK_W, 0, KEYEVENTF_KEYUP, 0);
+
+  // Leave DuckStation in the foreground: after close, its game list is
+  // visible and the previously-played row is highlighted. Restoring focus
+  // back to the browser would force the user to click back into DS to
+  // relaunch. Caller should treat DS as foreground after this returns.
+  await sleep(30);
+  void prev;
+  return true;
 }
 
 /**

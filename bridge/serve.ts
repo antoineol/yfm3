@@ -27,8 +27,25 @@ import {
   isValidSlot,
   loadBindings,
   loadState,
+  sendCloseGameWithoutSaving,
   tapButton,
 } from "./input.ts";
+import {
+  isIsoLockedError,
+  isPoolType,
+  listIsoBackups,
+  patchDuelistPool,
+  reReadDuelists,
+  restoreIsoBackup,
+} from "./iso-edit.ts";
+import { probeLockedIsos } from "./iso-lock-probe.ts";
+import {
+  findActiveSave,
+  listBackups,
+  readSave,
+  restoreBackup,
+  writeSaveWithBackup,
+} from "./memcards.ts";
 import type { GameState, OffsetProfile, SharedMemoryMapping } from "./memory.ts";
 import {
   closeSharedMemory,
@@ -384,7 +401,8 @@ const clients = new Set<BridgeWebSocket>();
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PUT, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
 function serveArtwork(pathname: string): Response {
@@ -408,6 +426,223 @@ function serveArtwork(pathname: string): Response {
   }
 }
 
+// ── Save editor HTTP API (/api/active-save/*) ──────────────────
+//
+// Scoped to the running game: the bridge already knows the active serial
+// from RAM, and the active game's card table is already being broadcast over
+// the WebSocket. These routes only deal with the on-disk `.mcd` file.
+
+function jsonResponse(body: unknown, init?: { status?: number }): Response {
+  return new Response(JSON.stringify(body), {
+    status: init?.status ?? 200,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+function notFound(message = "Not found"): Response {
+  return new Response(message, { status: 404, headers: CORS_HEADERS });
+}
+
+function methodNotAllowed(): Response {
+  return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
+}
+
+function readActiveSerial(): string | null {
+  if (!mapping || !isGameLoaded(mapping.view)) return null;
+  return readGameSerial(mapping.view);
+}
+
+async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
+  const serial = readActiveSerial();
+  if (!serial) {
+    return jsonResponse({ error: "no_active_game" }, { status: 409 });
+  }
+  const result = await findActiveSave(mapping?.pid);
+  if (!result.ok) {
+    return jsonResponse(
+      {
+        error: "no_save_for_active_game",
+        gameSerial: serial,
+        reason: result.reason,
+        diagnostics: result.diag,
+      },
+      { status: 404 },
+    );
+  }
+  const entry = result.save;
+
+  const { pathname } = url;
+
+  if (pathname === "/api/active-save") {
+    if (req.method !== "GET") return methodNotAllowed();
+    return jsonResponse({ gameSerial: serial, ...entry });
+  }
+
+  if (pathname === "/api/active-save/bytes") {
+    if (req.method === "GET") {
+      const bytes = readSave(entry.memcardPath);
+      return new Response(bytes, {
+        headers: { ...CORS_HEADERS, "Content-Type": "application/octet-stream" },
+      });
+    }
+    if (req.method === "PUT") {
+      try {
+        const bytes = new Uint8Array(await req.arrayBuffer());
+        const backup = writeSaveWithBackup(entry.memcardPath, bytes);
+        console.log(
+          `[save] PUT ${entry.memcardFilename} (${bytes.byteLength} bytes)${backup ? ` · backup ${backup.filename}` : ""}`,
+        );
+        return jsonResponse({ ok: true, backup });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[save] PUT failed: ${message}`);
+        return jsonResponse({ ok: false, error: message }, { status: 500 });
+      }
+    }
+    return methodNotAllowed();
+  }
+
+  if (pathname === "/api/active-save/backups") {
+    if (req.method !== "GET") return methodNotAllowed();
+    return jsonResponse(listBackups(entry.memcardPath));
+  }
+
+  const restoreMatch = pathname.match(/^\/api\/active-save\/backups\/([^/]+)\/restore$/);
+  if (restoreMatch) {
+    if (req.method !== "POST") return methodNotAllowed();
+    const backupFilename = decodeURIComponent(restoreMatch[1] ?? "");
+    try {
+      const preRestore = restoreBackup(entry.memcardPath, backupFilename);
+      return jsonResponse({
+        ok: true,
+        preRestore,
+        backups: listBackups(entry.memcardPath),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(message, { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  return notFound();
+}
+
+// ── ISO editor HTTP API (/api/active-iso/*) ────────────────────
+//
+// Scoped to the currently-loaded game's disc image — the bridge has already
+// resolved and parsed it into `currentGameData`, so the UI never needs to
+// know the path. These routes expose:
+//   GET  /api/active-iso              — metadata (serial, filename, backup count)
+//   PUT  /api/active-iso/duelist-pool — patch one {duelistId, poolType, weights}
+//   GET  /api/active-iso/backups      — list rotating backups
+//   POST /api/active-iso/backups/:filename/restore
+
+async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
+  if (!currentGameData) {
+    return jsonResponse({ error: "no_game_data" }, { status: 409 });
+  }
+  const { discPath, gameSerial } = currentGameData;
+  const { pathname } = url;
+
+  if (pathname === "/api/active-iso") {
+    if (req.method !== "GET") return methodNotAllowed();
+    const backupCount = listIsoBackups(discPath).length;
+    return jsonResponse({
+      gameSerial,
+      discFilename: discPath.split(/[\\/]/).pop() ?? discPath,
+      backupCount,
+    });
+  }
+
+  if (pathname === "/api/active-iso/duelist-pool") {
+    if (req.method !== "PUT") return methodNotAllowed();
+    try {
+      const body = (await req.json()) as {
+        duelistId?: number;
+        poolType?: string;
+        weights?: number[];
+      };
+      if (
+        typeof body.duelistId !== "number" ||
+        !isPoolType(body.poolType) ||
+        !Array.isArray(body.weights)
+      ) {
+        return jsonResponse({ ok: false, error: "invalid_body" }, { status: 400 });
+      }
+
+      const duelistId = body.duelistId;
+      const poolType = body.poolType;
+      const weights = body.weights;
+      const applyPatch = () => patchDuelistPool(discPath, duelistId, poolType, weights);
+
+      let backup: ReturnType<typeof patchDuelistPool> = null;
+      let closedGame = false;
+      try {
+        backup = applyPatch();
+      } catch (err: unknown) {
+        if (!isIsoLockedError(err, discPath)) throw err;
+        // File is open by DuckStation. Close the game via Alt+S, W so it
+        // releases the lock, then retry the write once. See MVP flow in
+        // docs — confirmation / toast are handled client-side.
+        console.log("[iso] PUT duelist-pool: ISO locked; closing game in DuckStation");
+        const closeResult = await closeDuckStationGameAndWaitForUnlock(discPath);
+        if (!closeResult.ok) {
+          console.warn(`[iso] close-game fallback failed: ${closeResult.reason}`);
+          return jsonResponse(
+            { ok: false, error: "iso_locked", reason: closeResult.reason },
+            { status: 409 },
+          );
+        }
+        backup = applyPatch();
+        closedGame = true;
+      }
+
+      // Refresh in-memory state so other clients see the new pool, then
+      // re-broadcast so anything reading `gameData.duelists` updates live.
+      const duelists = reReadDuelists(discPath);
+      currentGameData = { ...currentGameData, duelists };
+      broadcast(buildGameDataMessage(currentGameData));
+      console.log(
+        `[iso] PUT duelist-pool duelist=${body.duelistId} pool=${body.poolType}${backup ? ` · backup ${backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
+      );
+      const duelist = duelists[body.duelistId - 1];
+      const pool = duelist && isPoolType(body.poolType) ? duelist[body.poolType] : null;
+      return jsonResponse({ ok: true, backup, pool, closedGame });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[iso] PUT duelist-pool failed: ${message}`);
+      return jsonResponse({ ok: false, error: message }, { status: 500 });
+    }
+  }
+
+  if (pathname === "/api/active-iso/backups") {
+    if (req.method !== "GET") return methodNotAllowed();
+    return jsonResponse(listIsoBackups(discPath));
+  }
+
+  const restoreMatch = pathname.match(/^\/api\/active-iso\/backups\/([^/]+)\/restore$/);
+  if (restoreMatch) {
+    if (req.method !== "POST") return methodNotAllowed();
+    const backupFilename = decodeURIComponent(restoreMatch[1] ?? "");
+    try {
+      const preRestore = restoreIsoBackup(discPath, backupFilename);
+      const duelists = reReadDuelists(discPath);
+      currentGameData = { ...currentGameData, duelists };
+      broadcast(buildGameDataMessage(currentGameData));
+      return jsonResponse({
+        ok: true,
+        preRestore,
+        backups: listIsoBackups(discPath),
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(message, { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  return notFound();
+}
+
 const server = Bun.serve({
   port: PORT,
   fetch(req, server) {
@@ -417,6 +652,12 @@ const server = Bun.serve({
     }
     if (req.method === "GET" && url.pathname.startsWith("/artwork/")) {
       return serveArtwork(url.pathname);
+    }
+    if (url.pathname.startsWith("/api/active-save")) {
+      return serveActiveSaveApi(req, url);
+    }
+    if (url.pathname.startsWith("/api/active-iso")) {
+      return serveActiveIsoApi(req, url);
     }
     if (server.upgrade(req)) return undefined;
     return new Response("WebSocket upgrade required", { status: 426 });
@@ -603,6 +844,29 @@ function ensureHwnd(): Hwnd | null {
     }
   }
   return dsHwnd;
+}
+
+/**
+ * Trigger DuckStation's "Close Game Without Saving" and block until it
+ * releases the ISO file handle. Used by the edit endpoint to turn an EBUSY
+ * write into a successful close-write cycle.
+ */
+async function closeDuckStationGameAndWaitForUnlock(
+  discPath: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const hwnd = ensureHwnd();
+  if (!hwnd) return { ok: false, reason: "duckstation_window_not_found" };
+
+  await sendCloseGameWithoutSaving(hwnd);
+
+  // Lock typically releases in ~600ms — poll every 100ms, cap at 5s.
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const locked = await probeLockedIsos([discPath]);
+    if (!locked.has(discPath)) return { ok: true };
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return { ok: false, reason: "iso_still_locked_after_5s" };
 }
 
 async function handleInputMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {
@@ -989,6 +1253,14 @@ async function poll(): Promise<void> {
         // ── Game not loaded or shared memory stale ─────────────────
         consecutiveZeroReads++;
 
+        // Invalidate the fingerprint while no game is active, so the next
+        // game-loaded transition forces `acquireGameData` to run — even when
+        // the user switches between two byte-identical ISOs (same content
+        // hash, same fingerprint). We deliberately do NOT null
+        // `currentGameData`: the UI keeps its last-known data, only the
+        // "have we already extracted this?" marker gets cleared. Idempotent.
+        gameDataFingerprint = null;
+
         // Periodically refresh the DataView when the game was never detected.
         // toArrayBuffer may snapshot memory-mapped pages; refreshing picks up
         // writes made by DuckStation after the initial mapping.
@@ -1129,7 +1401,7 @@ async function poll(): Promise<void> {
           gameDataRetryAt = null;
           try {
             const cardStats = readCardStats(mapping.view);
-            const data = acquireGameData(cardStats, serial, __dirname, mapping.pid);
+            const data = await acquireGameData(cardStats, serial, __dirname, mapping.pid);
 
             // Read field bonus table directly from RAM (always available)
             const fbOffset = scanFieldBonusTable(mapping.view);

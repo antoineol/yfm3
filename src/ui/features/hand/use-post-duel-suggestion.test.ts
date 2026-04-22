@@ -67,6 +67,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     deckDefinition: null,
     shuffledDeck: null,
     modFingerprint: null,
+    gameSerial: null,
     gameData: null,
     gameDataError: null,
     restartFailed: false,

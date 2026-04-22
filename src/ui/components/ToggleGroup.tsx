@@ -6,7 +6,7 @@ export function ToggleGroup<T extends string>({
 }: {
   value: T;
   onChange: (value: T) => void;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; decoration?: React.ReactNode }[];
   toHref?: (value: T) => string;
 }) {
   return (
@@ -14,6 +14,7 @@ export function ToggleGroup<T extends string>({
       {options.map((option) => (
         <ToggleOption
           active={value === option.value}
+          decoration={option.decoration}
           href={toHref?.(option.value)}
           key={option.value}
           label={option.label}
@@ -29,13 +30,15 @@ function ToggleOption({
   active,
   onClick,
   href,
+  decoration,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   href?: string;
+  decoration?: React.ReactNode;
 }) {
-  const className = `px-4 lg:px-3 py-2.5 lg:py-1 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-gold ${
+  const className = `relative px-4 lg:px-3 py-2.5 lg:py-1 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-gold ${
     active ? "bg-gold-dim/30 text-gold-bright" : "text-text-muted hover:text-text-secondary"
   }`;
 
@@ -50,6 +53,7 @@ function ToggleOption({
         }}
       >
         {label}
+        {decoration}
       </a>
     );
   }
@@ -57,6 +61,7 @@ function ToggleOption({
   return (
     <button className={className} onClick={onClick} type="button">
       {label}
+      {decoration}
     </button>
   );
 }

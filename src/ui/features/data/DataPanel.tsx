@@ -7,15 +7,17 @@ import { BuyPanel } from "./BuyPanel.tsx";
 import { CardDetailPage } from "./CardDetailPage.tsx";
 import { CardsTable } from "./CardsTable.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
+import { DataEditPanel } from "./edit/DataEditPanel.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
 
-type View = "cards" | "fusions" | "duelists" | "buy";
+type View = "cards" | "fusions" | "duelists" | "buy" | "edit";
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "cards", label: "Cards" },
   { value: "fusions", label: "Fusions" },
   { value: "duelists", label: "Duelists" },
   { value: "buy", label: "Buy" },
+  { value: "edit", label: "Edit" },
 ];
 
 const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
@@ -82,6 +84,8 @@ export function DataPanel() {
           <FusionsTable cardDb={data.cardDb} fusions={data.fusions} />
         ) : view === "buy" ? (
           <BuyPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
+        ) : view === "edit" ? (
+          <DataEditPanel />
         ) : (
           <DuelistsPanel
             cardDb={data.cardDb}

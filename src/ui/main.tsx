@@ -1,11 +1,13 @@
 import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { ConvexProviderWithAuth } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import type { ReactNode } from "react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "sonner";
 import App from "./App.tsx";
-import { convex } from "./core/convex-client.ts";
+import { ClerkAuthBridge, NoAuthProvider } from "./core/app-auth.tsx";
+import { convex, hasConvexUrl } from "./core/convex-client.ts";
 import { IdentityProvider } from "./core/identity-context.tsx";
 import "./index.css";
 import { isAutoSyncMode } from "./lib/auto-sync-mode.ts";
@@ -15,28 +17,42 @@ if (!root) throw new Error("Missing #root element");
 
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 
-// Convex+Clerk are required in manual mode but optional in auto-sync-only deployments
-if (!clerkPublishableKey && !isAutoSyncMode()) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
+// Initial mode is captured once at module load. Toggling auto-sync triggers a
+// page reload (see use-update-preferences) so the provider tree always matches
+// the active mode.
+const autoSyncOnBoot = isAutoSyncMode();
+
+if (!autoSyncOnBoot && (!clerkPublishableKey || !hasConvexUrl)) {
+  throw new Error("Manual mode requires VITE_CLERK_PUBLISHABLE_KEY and VITE_CONVEX_URL");
 }
 
+// Stub auth: keeps useConvexAuth() callable when Clerk isn't mounted, while
+// guaranteeing the Convex client never sets a token (no auth network calls).
+const useStubAuth = () => ({
+  isLoading: false,
+  isAuthenticated: false,
+  fetchAccessToken: async () => null,
+});
+
 function Providers({ children }: { children: ReactNode }) {
-  // Convex+Clerk providers are always mounted when env vars are present.
-  // In auto-sync mode, all Convex queries are skipped via "skip" — no
-  // network requests are made, but hooks remain callable.
-  if (convex && clerkPublishableKey) {
+  if (autoSyncOnBoot) {
     return (
-      <ClerkProvider afterSignOutUrl="/" publishableKey={clerkPublishableKey}>
-        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <IdentityProvider>{children}</IdentityProvider>
-        </ConvexProviderWithClerk>
-      </ClerkProvider>
+      <ConvexProviderWithAuth client={convex} useAuth={useStubAuth}>
+        <IdentityProvider>
+          <NoAuthProvider>{children}</NoAuthProvider>
+        </IdentityProvider>
+      </ConvexProviderWithAuth>
     );
   }
-  // Future: auto-sync-only deployment without Convex/Clerk.
-  // Components that call useConvexAuth / useClerk unconditionally
-  // (e.g. Header) would need wrapper guards before this path works.
-  return <>{children}</>;
+  return (
+    <ClerkProvider afterSignOutUrl="/" publishableKey={clerkPublishableKey as string}>
+      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+        <IdentityProvider>
+          <ClerkAuthBridge>{children}</ClerkAuthBridge>
+        </IdentityProvider>
+      </ConvexProviderWithClerk>
+    </ClerkProvider>
+  );
 }
 
 createRoot(root).render(

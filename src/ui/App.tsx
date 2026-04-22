@@ -1,5 +1,4 @@
 import { Tabs } from "@base-ui/react/tabs";
-import { useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { setConfig } from "../engine/config.ts";
 import { modIdForFingerprint } from "../engine/mods.ts";
@@ -15,20 +14,20 @@ import { useAutoSyncCollection } from "./features/collection/use-auto-sync-colle
 import { CardDetailModal } from "./features/data/CardDetailModal.tsx";
 import { DataPanel } from "./features/data/DataPanel.tsx";
 import { DeckPanel } from "./features/deck/DeckPanel.tsx";
-import { DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
+import { DECK_SUB_TABS, type DeckSubTab, DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { DuelPage } from "./features/duel/DuelPage.tsx";
 import { FarmPanelWrapper } from "./features/farm/FarmPanel.tsx";
 import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
-import { deckSubTabAtom } from "./lib/atoms.ts";
+import { SavesPanel } from "./features/saves/SavesPanel.tsx";
 import { BridgeProvider } from "./lib/bridge-context.tsx";
 import { useHydrateBridgeSnapshot } from "./lib/bridge-snapshot-atoms.ts";
 import { FusionTableProvider, useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { writeLocal } from "./lib/local-store.ts";
 import { useEmulatorBridge } from "./lib/use-emulator-bridge.ts";
 import { LOCAL_MOD_KEY, useSelectedMod } from "./lib/use-selected-mod.ts";
-import { useTabFromHash } from "./lib/use-tab-from-hash.ts";
+import { useSubTabFromHash, useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "duel", "data"] as const;
 
@@ -105,6 +104,19 @@ function MainApp({ tab }: { tab: string }) {
 
 function DeckTabPanel() {
   const showOnboarding = useShowOnboarding();
+  const [subTab, setSubTab] = useSubTabFromHash<DeckSubTab>("deck", DECK_SUB_TABS, "collection");
+
+  // Edit is full-width on all breakpoints (unlike the other sub-tabs, which
+  // share a 4-column grid on xl). It also doesn't need reference data — the
+  // save editor sources card data from the bridge HTTP API.
+  if (subTab === "edit") {
+    return (
+      <Tabs.Panel className="flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-3" value="deck">
+        <DeckSubTabs active={subTab} onChange={setSubTab} />
+        <SavesPanel />
+      </Tabs.Panel>
+    );
+  }
 
   return (
     <Tabs.Panel
@@ -113,17 +125,17 @@ function DeckTabPanel() {
     >
       <TabOnboardingGate>
         <RequireReferenceData>
-          <DeckSubTabs />
-          <DeckSubPanel value="collection">
+          <DeckSubTabs active={subTab} onChange={setSubTab} />
+          <DeckSubPanel active={subTab} value="collection">
             <CollectionPanel />
           </DeckSubPanel>
-          <DeckSubPanel value="deck">
+          <DeckSubPanel active={subTab} value="deck">
             <DeckPanel />
           </DeckSubPanel>
-          <DeckSubPanel value="result">
+          <DeckSubPanel active={subTab} value="result">
             <ResultPanel />
           </DeckSubPanel>
-          <DeckSubPanel value="farm">
+          <DeckSubPanel active={subTab} value="farm">
             <FarmPanelWrapper />
           </DeckSubPanel>
         </RequireReferenceData>
@@ -135,16 +147,17 @@ function DeckTabPanel() {
 // ── Deck sub-panel ───────────────────────────────────────────────
 
 function DeckSubPanel({
+  active,
   value,
   className = "",
   children,
 }: {
-  value: "collection" | "deck" | "result" | "farm";
+  active: DeckSubTab;
+  value: DeckSubTab;
   className?: string;
   children: React.ReactNode;
 }) {
-  const activeSubTab = useAtomValue(deckSubTabAtom);
-  const isActive = activeSubTab === value;
+  const isActive = active === value;
 
   return (
     <PanelCard className={`${isActive ? "" : "max-lg:hidden"} ${className} max-lg:flex-1`}>

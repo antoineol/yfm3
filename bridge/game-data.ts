@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   detectAttributeMapping,
@@ -31,6 +31,7 @@ import type {
   EquipEntry,
   Fusion,
 } from "./extract/types.ts";
+import { probeLockedIsos } from "./iso-lock-probe.ts";
 import { findSettingsPath } from "./settings.ts";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -54,26 +55,16 @@ export interface GameData {
    * null when not available (table not found in RAM or disc).
    */
   fieldBonusTable: number[] | null;
-}
-
-interface GameDataCache {
-  gameDataHash: string;
-  gameSerial: string;
-  capturedAt: string;
-  cardStats: string; // base64
-  cards: CardStats[];
-  duelists: DuelistData[];
-  fusions: Array<{ m1: number; m2: number; r: number }>;
-  equips: Array<{ e: number; m: number[] }>;
-  equipBonuses?: EquipBonusConfig | null;
-  perEquipBonuses?: Record<number, number> | null;
-  fieldBonus?: number[] | null;
+  /**
+   * Absolute path to the matched disc image. Bridge-only — never broadcast to
+   * the UI. The Data > Edit flow uses this to write patches in place.
+   */
+  discPath: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────
 
 const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — must match memory.ts
-const CACHE_FILENAME = "game-data-cache.json";
 
 // ── Main entry point ──────────────────────────────────────────────
 
@@ -85,39 +76,37 @@ const CACHE_FILENAME = "game-data-cache.json";
  * @param cacheDir   Directory for the cache file
  * @param pid        Optional running DuckStation PID, used for portable mode settings detection
  */
-export function acquireGameData(
+export async function acquireGameData(
   cardStats: Uint8Array,
   serial: string | null,
   cacheDir: string,
   pid?: number,
-): GameData | null {
+): Promise<GameData | null> {
   const gameDataHash = computeGameDataHash(cardStats);
-  const cachePath = join(cacheDir, CACHE_FILENAME);
-
-  // Check disk cache (require artwork dir to exist — otherwise re-extract)
   const hashPrefix = gameDataHash.slice(0, 12);
   const artworkDir = join(cacheDir, "artwork", hashPrefix);
-  const cached = loadCache(cachePath);
-  if (cached && cached.gameDataHash === gameDataHash && existsSync(join(artworkDir, "001.png"))) {
-    console.log(`Game data cache hit (hash=${gameDataHash.slice(0, 12)}...)`);
-    return restoreFromCache(cached);
-  }
-  console.log(`Game data cache miss (hash=${gameDataHash.slice(0, 12)}...)`);
 
-  // Resolve disc image paths by scanning DuckStation's game directories
+  // Single source of truth: every call re-scans DuckStation's game dirs, picks
+  // the ISO the emulator currently has locked, and extracts content from THAT
+  // file. There is no content cache — caching a stale snapshot would let
+  // `GameData.duelists` (what the UI displays) drift from `GameData.discPath`
+  // (what edit writes patch), which caused real bugs when two byte-identical
+  // ISOs sat in the same folder. Artwork PNGs are the only thing we still
+  // cache on disk (keyed by content hash) since re-extracting 722 PNGs is
+  // genuinely expensive; content parsing is cheap (< 200 ms on a cold read).
   const { cuePaths, isoPaths } = findDiscImages(pid);
   const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
+
   if (discPaths.length === 0) {
     console.warn("No disc images found in DuckStation game directories");
     return null;
   }
 
-  const data = extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
+  const data = await extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
 
   if (data) {
-    saveCache(cachePath, data);
     console.log(
-      `Game data acquired: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips`,
+      `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips`,
     );
     return data;
   }
@@ -131,53 +120,6 @@ export function acquireGameData(
 /** SHA-256 hex digest of the card stats table. */
 export function computeGameDataHash(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
-}
-
-// ── Disk cache ────────────────────────────────────────────────────
-
-function loadCache(cachePath: string): GameDataCache | null {
-  if (!existsSync(cachePath)) return null;
-  try {
-    const cache = JSON.parse(readFileSync(cachePath, "utf-8"));
-    // Reject stale cache entries missing required fields (written by older bridge versions)
-    if (!Array.isArray(cache.cards) || cache.cards.length === 0) return null;
-    if (!Array.isArray(cache.duelists) || cache.duelists.length === 0) return null;
-    return cache;
-  } catch {
-    return null;
-  }
-}
-
-function restoreFromCache(cache: GameDataCache): GameData {
-  return {
-    gameDataHash: cache.gameDataHash,
-    gameSerial: cache.gameSerial,
-    cardStats: new Uint8Array(Buffer.from(cache.cardStats, "base64")),
-    cards: cache.cards,
-    duelists: cache.duelists,
-    fusionTable: cache.fusions.map((f) => ({ material1: f.m1, material2: f.m2, result: f.r })),
-    equipTable: cache.equips.map((e) => ({ equipId: e.e, monsterIds: e.m })),
-    equipBonuses: cache.equipBonuses ?? null,
-    perEquipBonuses: cache.perEquipBonuses ?? null,
-    fieldBonusTable: cache.fieldBonus ?? null,
-  };
-}
-
-function saveCache(cachePath: string, data: GameData): void {
-  const cache: GameDataCache = {
-    gameDataHash: data.gameDataHash,
-    gameSerial: data.gameSerial,
-    capturedAt: new Date().toISOString(),
-    cardStats: Buffer.from(data.cardStats).toString("base64"),
-    cards: data.cards,
-    duelists: data.duelists,
-    fusions: data.fusionTable.map((f) => ({ m1: f.material1, m2: f.material2, r: f.result })),
-    equips: data.equipTable.map((e) => ({ e: e.equipId, m: e.monsterIds })),
-    equipBonuses: data.equipBonuses,
-    perEquipBonuses: data.perEquipBonuses,
-    fieldBonus: data.fieldBonusTable,
-  };
-  writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
 }
 
 // ── .cue file discovery ──────────────────────────────────────────
@@ -326,13 +268,13 @@ function findSerialInExe(slus: Buffer): string | null {
  * hash, and extract all game data from the best match. Prefers the disc whose
  * EXE serial matches the RAM serial (handles mods with custom gamelist serials).
  */
-function extractFromDiscs(
+async function extractFromDiscs(
   discPaths: string[],
   gameDataHash: string,
   cardStats: Uint8Array,
   ramSerial?: string | null,
   artworkDir?: string,
-): GameData | null {
+): Promise<GameData | null> {
   type Match = {
     binPath: string;
     slus: Buffer;
@@ -363,16 +305,19 @@ function extractFromDiscs(
 
   if (matches.length === 0) return null;
 
-  // Prefer the disc whose EXE contains the RAM serial (handles mods where
-  // the ISO filename differs from the serial embedded in the EXE code).
+  // Prefer, in order: (1) the match DuckStation currently has open (the
+  // definitive signal when two ISOs share content), (2) the match whose EXE
+  // serial matches RAM, (3) first match.
+  const lockedPaths = await probeLockedIsos(matches.map((m) => m.binPath));
+  const lockedMatch = matches.find((m) => lockedPaths.has(m.binPath));
   const normalRam = ramSerial ? normalizeSerial(ramSerial) : null;
-  const preferred = normalRam
+  const serialMatch = normalRam
     ? (matches.find((m) => {
         const exeSerial = findSerialInExe(m.slus);
         return exeSerial != null && normalizeSerial(exeSerial) === normalRam;
       }) ?? matches.find((m) => normalizeSerial(m.discSerial) === normalRam))
     : undefined;
-  const best = preferred ?? matches[0];
+  const best = lockedMatch ?? serialMatch ?? matches[0];
   if (!best) return null;
   console.log(
     `Matched .bin: ${best.binPath} (disc serial: ${best.discSerial}` +
@@ -400,7 +345,7 @@ function extractFromDiscs(
     const equipBonuses = detectEquipBonuses(slus);
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
 
-    if (artworkDir) {
+    if (artworkDir && !existsSync(join(artworkDir, "001.png"))) {
       extractAllArtworkAsPng(waMrg, waMrgLayout.artworkBlockSize, artworkDir);
       console.log(`Extracted ${cards.length} artwork PNGs to ${artworkDir}`);
     }
@@ -416,6 +361,7 @@ function extractFromDiscs(
       equipBonuses,
       perEquipBonuses,
       fieldBonusTable: null, // populated from RAM by serve.ts
+      discPath: best.binPath,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

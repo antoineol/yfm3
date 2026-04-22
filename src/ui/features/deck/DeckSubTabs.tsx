@@ -1,36 +1,55 @@
-import { useAtom, useAtomValue } from "jotai";
-import { type DeckSubTab, deckSubTabAtom, resultAtom } from "../../lib/atoms.ts";
+import { useAtomValue } from "jotai";
+import { ToggleGroup } from "../../components/ToggleGroup.tsx";
+import { resultAtom } from "../../lib/atoms.ts";
 
-const SUB_TABS: { value: DeckSubTab; label: string }[] = [
+export type DeckSubTab = "collection" | "deck" | "result" | "farm" | "edit";
+
+export const DECK_SUB_TABS: readonly DeckSubTab[] = [
+  "collection",
+  "deck",
+  "result",
+  "farm",
+  "edit",
+];
+
+const SUB_TAB_LABELS: { value: DeckSubTab; label: string }[] = [
   { value: "collection", label: "Collection" },
   { value: "deck", label: "Deck" },
   { value: "result", label: "Optimize" },
   { value: "farm", label: "Farm" },
+  { value: "edit", label: "Edit" },
 ];
 
-export function DeckSubTabs() {
-  const [active, setActive] = useAtom(deckSubTabAtom);
+export function DeckSubTabs({
+  active,
+  onChange,
+}: {
+  active: DeckSubTab;
+  onChange: (value: DeckSubTab) => void;
+}) {
   const hasResult = useAtomValue(resultAtom) !== null;
 
+  const options = SUB_TAB_LABELS.map(({ value, label }) => ({
+    value,
+    label,
+    decoration:
+      value === "result" && hasResult && active !== "result" ? (
+        <span className="absolute top-1 right-1 size-1.5 rounded-full bg-stat-up" />
+      ) : undefined,
+  }));
+
+  // On lg+, the non-edit sub-panels render side-by-side in a grid, so the
+  // switcher is mobile-only. Edit takes the full width at every breakpoint.
+  const visibilityClass = active === "edit" ? "" : "lg:hidden";
+
   return (
-    <div className="lg:hidden flex rounded-lg bg-bg-surface border border-border-subtle p-0.5 mx-3 mt-2 mb-1">
-      {SUB_TABS.map(({ value, label }) => (
-        <button
-          className={`flex-1 relative py-2.5 text-xs font-display font-bold uppercase tracking-widest rounded-md transition-colors cursor-pointer ${
-            active === value
-              ? "bg-bg-hover text-gold-bright"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-          key={value}
-          onClick={() => setActive(value)}
-          type="button"
-        >
-          {label}
-          {value === "result" && hasResult && active !== "result" && (
-            <span className="absolute top-1.5 right-2 size-2 rounded-full bg-stat-up" />
-          )}
-        </button>
-      ))}
+    <div className={`${visibilityClass} flex items-center justify-center`}>
+      <ToggleGroup
+        onChange={onChange}
+        options={options}
+        toHref={(v) => `#deck/${v}`}
+        value={active}
+      />
     </div>
   );
 }

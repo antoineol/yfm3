@@ -41,3 +41,27 @@ export function useTabFromHash(validTabs: readonly string[], defaultTab: string)
 
   return [tab, setTab] as const;
 }
+
+/**
+ * Sub-tab state scoped to a top-level tab, e.g. `#deck/collection`.
+ * Reads the second hash segment; writes preserve the top-level tab prefix.
+ */
+export function useSubTabFromHash<T extends string>(
+  tab: string,
+  validSubTabs: readonly T[],
+  defaultSubTab: T,
+) {
+  const [hash, setHash] = useHash();
+  const segments = hash.split("/");
+  const raw = segments[1] ?? "";
+  const subTab = (validSubTabs as readonly string[]).includes(raw) ? (raw as T) : defaultSubTab;
+
+  const setSubTab = useCallback(
+    (value: T) => {
+      setHash(`${tab}/${value}`);
+    },
+    [setHash, tab],
+  );
+
+  return [subTab, setSubTab] as const;
+}

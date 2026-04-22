@@ -236,16 +236,24 @@ export function findSettingsPath(pid?: number): string | null {
  * Get the Windows "Documents" folder path via PowerShell.
  * This calls the same underlying API (SHGetKnownFolderPath / FOLDERID_Documents)
  * that DuckStation uses, so it handles OneDrive redirection correctly.
+ *
+ * Result is memoized for the bridge process lifetime — the folder doesn't
+ * move while the OS is running, and each PowerShell spawn costs ~400ms on
+ * Windows. Without this cache, every `findActiveSave` pays that twice.
  */
+let documentsPathCache: string | null | undefined;
 function getDocumentsPath(): string | null {
+  if (documentsPathCache !== undefined) return documentsPathCache;
   try {
-    return execSync(
-      "powershell -NoProfile -Command \"[Environment]::GetFolderPath('MyDocuments')\"",
-      { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] },
-    ).trim();
+    documentsPathCache =
+      execSync("powershell -NoProfile -Command \"[Environment]::GetFolderPath('MyDocuments')\"", {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "ignore"],
+      }).trim() || null;
   } catch {
-    return null;
+    documentsPathCache = null;
   }
+  return documentsPathCache;
 }
 
 // ── Main entry point ──────────────────────────────────────────────

@@ -12,7 +12,6 @@ import {
 } from "../../db/use-user-preferences.ts";
 import {
   currentDeckScoreAtom,
-  deckSubTabAtom,
   isOptimizingAtom,
   liveBestDeckAtom,
   liveBestScoreAtom,
@@ -20,6 +19,7 @@ import {
 } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
+import { useHash } from "../../lib/use-tab-from-hash.ts";
 
 const LIVE_DECK_UPDATE_INTERVAL_MS = 1500;
 
@@ -27,7 +27,7 @@ export function useOptimize() {
   const isOptimizing = useAtomValue(isOptimizingAtom);
   const setIsOptimizing = useSetAtom(isOptimizingAtom);
   const setResult = useSetAtom(resultAtom);
-  const setDeckSubTab = useSetAtom(deckSubTabAtom);
+  const [, setHash] = useHash();
   const setLiveBestScore = useSetAtom(liveBestScoreAtom);
   const setLiveBestDeck = useSetAtom(liveBestDeckAtom);
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
@@ -84,7 +84,7 @@ export function useOptimize() {
     })
       .then((res) => {
         setResult(res);
-        setDeckSubTab("result");
+        setHash("deck/result");
       })
       .catch((err) => console.error("Optimization failed:", err))
       .finally(() => {
