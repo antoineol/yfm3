@@ -64,6 +64,36 @@ describe("BiasedSelection", () => {
     }
   });
 
+  it("never returns a card already at its deck-copy cap (even when player owns more)", () => {
+    const b = createAllCardsBuffers();
+    const selector = createBiasedSelector();
+    selector.recomputeWeights(b);
+
+    // Pick a mid-ATK card as the capped target so it has real selection weight.
+    let targetCard = -1;
+    for (let c = 1; c < MAX_CARD_ID; c++) {
+      if ((b.cardAtk[c] ?? 0) >= 1500) {
+        targetCard = c;
+        break;
+      }
+    }
+    expect(targetCard).toBeGreaterThan(0);
+
+    // Player owns 3 copies, deck already has 1, but the deck-copy cap is 1.
+    b.availableCounts[targetCard] = 3;
+    b.cardCounts[targetCard] = 1;
+    b.maxCopies[targetCard] = 1;
+
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    for (let i = 0; i < 5000; i++) {
+      expect(selector.selectCandidate(b, -1, rand)).not.toBe(targetCard);
+    }
+  });
+
   it("returns -1 when no valid candidate found", () => {
     const selector = createBiasedSelector();
     selector.recomputeWeights(buf);

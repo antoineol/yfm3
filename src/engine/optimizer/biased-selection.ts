@@ -68,11 +68,12 @@ export function createBiasedSelector() {
    * Pick a replacement card using weighted random selection.
    *
    * Rejection-sampling: roll a weighted random card, reject if it's the same
-   * card we're replacing or if the player has no copies left. Up to 20 attempts
+   * card we're replacing, if the player has no copies left, or if adding
+   * another copy would exceed that card's deck-copy cap. Up to 20 attempts
    * before giving up (returns -1).
    */
   function selectCandidate(buf: OptBuffers, oldCard: number, rand: () => number): number {
-    const { availableCounts, cardCounts } = buf;
+    const { availableCounts, cardCounts, maxCopies } = buf;
     const totalWeight = cumulativeWeights[MAX_CARD_ID - 1] ?? 1;
 
     for (let attempt = 0; attempt < 20; attempt++) {
@@ -92,7 +93,8 @@ export function createBiasedSelector() {
 
       const candidate = lo;
       if (candidate === oldCard) continue;
-      if ((cardCounts[candidate] ?? 0) >= (availableCounts[candidate] ?? 0)) continue;
+      const cap = Math.min(availableCounts[candidate] ?? 0, maxCopies[candidate] ?? 0);
+      if ((cardCounts[candidate] ?? 0) >= cap) continue;
 
       return candidate;
     }
