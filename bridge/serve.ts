@@ -42,6 +42,8 @@ import {
 } from "./iso-edit.ts";
 import { probeLockedIsos } from "./iso-lock-probe.ts";
 import {
+  type ActiveSave,
+  buildActiveSave,
   findActiveSave,
   listBackups,
   readSave,
@@ -224,6 +226,7 @@ function persistGameDataCache(data: GameData): void {
     equipTable: data.equipTable,
     equipBonuses: data.equipBonuses,
     perEquipBonuses: data.perEquipBonuses,
+    deckLimits: data.deckLimits,
   });
 }
 
@@ -237,6 +240,7 @@ function buildGameDataMessage(data: GameData): string {
     equipTable: data.equipTable,
     equipBonuses: data.equipBonuses,
     perEquipBonuses: data.perEquipBonuses,
+    deckLimits: data.deckLimits,
     fieldBonusTable: data.fieldBonusTable,
   });
 }
@@ -484,13 +488,37 @@ function readActiveSerial(): string | null {
   return readGameSerial(mapping.view);
 }
 
+// Sticky fallback for memcard resolution. Our own PUT /bytes closes the game
+// before writing (so DuckStation doesn't clobber the write on shutdown); any
+// follow-up read (backups, bytes) then hits a DuckStation window with no game
+// title and `findActiveSave` can no longer derive the filename. Caching the
+// last good (pid, serial) → path lets those reads still succeed for the rest
+// of this DuckStation session. Live resolution always wins when available.
+let lastResolvedMemcard: {
+  pid: number | undefined;
+  serial: string;
+  memcardPath: string;
+} | null = null;
+
 async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
   const serial = readActiveSerial();
   if (!serial) {
     return jsonResponse({ error: "no_active_game" }, { status: 409 });
   }
-  const result = await findActiveSave(mapping?.pid);
-  if (!result.ok) {
+  const pid = mapping?.pid;
+  const result = await findActiveSave(pid);
+  let entry: ActiveSave;
+  if (result.ok) {
+    entry = result.save;
+    lastResolvedMemcard = { pid, serial, memcardPath: entry.memcardPath };
+  } else if (
+    lastResolvedMemcard &&
+    lastResolvedMemcard.pid === pid &&
+    lastResolvedMemcard.serial === serial &&
+    existsSync(lastResolvedMemcard.memcardPath)
+  ) {
+    entry = buildActiveSave(lastResolvedMemcard.memcardPath);
+  } else {
     return jsonResponse(
       {
         error: "no_save_for_active_game",
@@ -501,7 +529,6 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
       { status: 404 },
     );
   }
-  const entry = result.save;
 
   const { pathname } = url;
 

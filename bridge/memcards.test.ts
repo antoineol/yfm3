@@ -13,7 +13,7 @@ import {
   sanitizeTitleForFilename,
   writeSaveWithBackup,
 } from "./memcards.ts";
-import { cleanWindowTitleToGameTitle } from "./process-info.ts";
+import { cleanWindowTitleToGameTitle, titleIndicatesNoGameLoaded } from "./process-info.ts";
 
 describe("parseMemcardConfig", () => {
   it("uses documented defaults when [MemoryCards] is absent", () => {
@@ -100,6 +100,22 @@ describe("cleanWindowTitleToGameTitle", () => {
 
   it("returns just 'DuckStation' when no game is loaded", () => {
     expect(cleanWindowTitleToGameTitle("DuckStation")).toBe("DuckStation");
+  });
+});
+
+describe("titleIndicatesNoGameLoaded", () => {
+  it("matches bare 'DuckStation'", () => {
+    expect(titleIndicatesNoGameLoaded("DuckStation")).toBe(true);
+  });
+
+  it("matches DuckStation with a version suffix (newer builds)", () => {
+    expect(titleIndicatesNoGameLoaded("DuckStation 0.1-11026")).toBe(true);
+    expect(titleIndicatesNoGameLoaded("DuckStation 0.1.9")).toBe(true);
+  });
+
+  it("does not match a real game title", () => {
+    expect(titleIndicatesNoGameLoaded("Yu-Gi-Oh! Forbidden Memories RP")).toBe(false);
+    expect(titleIndicatesNoGameLoaded("Yu-Gi-Oh! Alpha Mod (Drop x15)")).toBe(false);
   });
 });
 

@@ -16,19 +16,34 @@ export async function loadReferenceCsvs(modId: ModId = DEFAULT_MOD): Promise<{
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
   equips: RefEquip[];
+  deckLimits?: Record<number, number>;
 }> {
-  const [cardsCsv, fusionsCsv, duelistsCsv, equipsCsv] = await Promise.all([
+  const [cardsCsv, fusionsCsv, duelistsCsv, equipsCsv, deckLimitsCsv] = await Promise.all([
     fetch(`/data/${modId}/cards.csv`).then((r) => r.text()),
     fetch(`/data/${modId}/fusions.csv`).then((r) => r.text()),
     fetch(`/data/${modId}/duelists.csv`).then((r) => r.text()),
     fetch(`/data/${modId}/equips.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/deck-limits.csv`).then((r) => (r.ok ? r.text() : "")),
   ]);
 
   const cards = parseCardsCsv(cardsCsv);
   const fusions = parseFusionsCsv(fusionsCsv);
   const duelists = parseDuelistsCsv(duelistsCsv);
   const equips = parseEquipsCsv(equipsCsv);
-  return { cards, fusions, duelists, equips };
+  const deckLimits = parseDeckLimitsCsv(deckLimitsCsv);
+  return { cards, fusions, duelists, equips, deckLimits };
+}
+
+/** @internal exported for testing */
+export function parseDeckLimitsCsv(csv: string): Record<number, number> | undefined {
+  if (!csv) return undefined;
+  const out: Record<number, number> = {};
+  for (const [idStr = "", maxStr = ""] of parseCsvRows(csv)) {
+    const id = parseInt(idStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (Number.isFinite(id) && Number.isFinite(max)) out[id] = max;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function parseCsvRows(csv: string): string[][] {
@@ -159,6 +174,7 @@ export function bridgeGameDataToReference(gameData: BridgeGameData): {
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
   equips: RefEquip[];
+  deckLimits?: Record<number, number>;
 } {
   const cards: RefCard[] = gameData.cards.map((c) => ({
     id: c.id,
@@ -209,5 +225,5 @@ export function bridgeGameDataToReference(gameData: BridgeGameData): {
     }
   }
 
-  return { cards, fusions, duelists, equips };
+  return { cards, fusions, duelists, equips, deckLimits: gameData.deckLimits?.byCard };
 }

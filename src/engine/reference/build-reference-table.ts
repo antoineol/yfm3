@@ -85,8 +85,16 @@ export function buildReferenceTableData(rows: {
   fusions: RefFusion[];
   duelists: RefDuelistCard[];
   equips: RefEquip[];
+  /** Optional sparse cardId → max copies (1 or 2). Absent cards cap at 3. */
+  deckLimits?: Record<number, number>;
 }): ReferenceTableData {
   const cardDb = createCardDb();
+  if (rows.deckLimits) {
+    for (const [idStr, max] of Object.entries(rows.deckLimits)) {
+      const id = Number(idStr);
+      if (Number.isFinite(id) && Number.isFinite(max)) cardDb.maxCopiesById.set(id, max);
+    }
+  }
   for (const c of rows.cards) {
     if (c.id < 1 || c.id >= MAX_CARD_ID) throw new Error(`cardId ${c.id} out of range`);
     const kind = typeToKind.get(c.type);

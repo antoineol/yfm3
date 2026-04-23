@@ -10,21 +10,22 @@ import {
 import { DEFAULT_MOD, type ModId } from "./mods.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
-import { MAX_CARD_ID, MAX_COPIES } from "./types/constants.ts";
+import { MAX_CARD_ID } from "./types/constants.ts";
 import type { BridgeGameData } from "./worker/messages.ts";
 
-type CsvCache = { cards: string; fusions: string; equips: string };
+type CsvCache = { cards: string; fusions: string; equips: string; deckLimits: string };
 const csvCache = new Map<ModId, CsvCache>();
 
 /** Fetch CSV game data for a mod. Safe to call multiple times — only fetches once per mod. */
 export async function ensureCsvLoaded(modId: ModId = DEFAULT_MOD): Promise<void> {
   if (csvCache.has(modId)) return;
-  const [cards, fusions, equips] = await Promise.all([
+  const [cards, fusions, equips, deckLimits] = await Promise.all([
     fetch(`/data/${modId}/cards.csv`).then((r) => r.text()),
     fetch(`/data/${modId}/fusions.csv`).then((r) => r.text()),
     fetch(`/data/${modId}/equips.csv`).then((r) => r.text()),
+    fetch(`/data/${modId}/deck-limits.csv`).then((r) => (r.ok ? r.text() : "")),
   ]);
-  csvCache.set(modId, { cards, fusions, equips });
+  csvCache.set(modId, { cards, fusions, equips, deckLimits });
 }
 
 function getCsvCache(modId: ModId = DEFAULT_MOD): CsvCache {
@@ -32,6 +33,30 @@ function getCsvCache(modId: ModId = DEFAULT_MOD): CsvCache {
   if (!cached)
     throw new Error(`CSV data not loaded for mod "${modId}". Call ensureCsvLoaded() first.`);
   return cached;
+}
+
+/**
+ * Parse the mod's deck-limits CSV into a sparse `cardId → max` map.
+ * Returns `undefined` if no CSV is cached yet (caller hasn't awaited
+ * `ensureCsvLoaded`) or if the CSV is empty — both cases fall back to the
+ * global `MAX_COPIES`.
+ */
+export function getCachedDeckLimits(
+  modId: ModId = DEFAULT_MOD,
+): Record<number, number> | undefined {
+  const cached = csvCache.get(modId);
+  if (!cached || !cached.deckLimits) return undefined;
+  const map: Record<number, number> = {};
+  const lines = cached.deckLimits.split("\n").slice(1);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [idStr = "", maxStr = ""] = trimmed.split(",");
+    const id = parseInt(idStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (Number.isFinite(id) && Number.isFinite(max)) map[id] = max;
+  }
+  return Object.keys(map).length > 0 ? map : undefined;
 }
 
 /**
@@ -47,7 +72,10 @@ export function initializeBuffersBrowser(
 ): OptBuffers {
   const { buf, cards } = initializeBrowserGameBuffers(rand, modId, gameData);
   for (const card of cards) {
-    buf.availableCounts[card.id] = Math.min(collection.get(card.id) ?? 0, MAX_COPIES);
+    buf.availableCounts[card.id] = Math.min(
+      collection.get(card.id) ?? 0,
+      buf.maxCopies[card.id] ?? 0,
+    );
   }
   buildInitialDeck(buf, cards);
   return buf;
@@ -70,10 +98,11 @@ function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData
       gameData.cards,
       gameData.fusionTable,
       gameData.equipTable,
+      gameData.deckLimits,
     );
   } else {
     const csv = getCsvCache(modId);
-    cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips);
+    cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips, csv.deckLimits);
   }
   populateEquipBonusBuffer(buf, gameData?.perEquipBonuses);
   const { terrain } = getConfig();

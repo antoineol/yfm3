@@ -134,3 +134,14 @@ export function cleanWindowTitleToGameTitle(title: string): string {
   t = t.replace(STATUS_PAREN_RE, "");
   return t.trim();
 }
+
+/**
+ * DuckStation's main window shows just its name (older builds) or its name
+ * plus version (`DuckStation 0.1-11026`, recent builds) when no game is
+ * running. Distinguishes "idle library view" from a real game title.
+ */
+const NO_GAME_TITLE_RE = /^DuckStation(\s|$)/i;
+
+export function titleIndicatesNoGameLoaded(title: string): boolean {
+  return NO_GAME_TITLE_RE.test(title.trim());
+}

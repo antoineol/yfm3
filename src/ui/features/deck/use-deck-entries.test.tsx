@@ -24,6 +24,7 @@ const fakeCardDb: CardDb = {
     [2, { id: 2, name: "Dark Magician", kinds: [], isMonster: true, attack: 2500, defense: 2100 }],
   ]),
   cardsByName: new Map(),
+  maxCopiesById: new Map(),
 } as CardDb;
 
 afterEach(cleanup);

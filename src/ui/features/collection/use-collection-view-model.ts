@@ -1,4 +1,4 @@
-import { MAX_COPIES } from "../../../engine/types/constants.ts";
+import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { buildCardEntries, type CardEntry, countById } from "../../components/card-entries.ts";
 import { useCollectionViewModelFromState, useHydrateCollectionState } from "./collection-state.ts";
 
@@ -33,7 +33,8 @@ export function buildCollectionViewModel(
     Object.entries(ownedCardTotals).map(([cardId, totalOwned]) => {
       const id = Number(cardId);
       const inDeck = deckCounts.get(id) ?? 0;
-      const availableInCollection = Math.max(Math.min(totalOwned, MAX_COPIES) - inDeck, 0);
+      const cap = maxCopiesFor(cardDb, id);
+      const availableInCollection = Math.max(Math.min(totalOwned, cap) - inDeck, 0);
       return [id, availableInCollection] as const;
     }),
     cardDb,

@@ -1,6 +1,9 @@
 import { getConfig } from "../config.ts";
 import { MAX_COPIES } from "../types/constants.ts";
 
+/** Sparse cardId → cap map; missing cards fall back to `MAX_COPIES`. */
+export type DeckLimitsMap = Readonly<Record<number, number>>;
+
 /**
  * Generate initial decks for multi-start SA.
  *
@@ -11,14 +14,16 @@ import { MAX_COPIES } from "../types/constants.ts";
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
  * @param rand              seeded PRNG returning values in [0, 1)
+ * @param deckLimits        optional per-card cap overrides (absent → cap of 3)
  * @returns array of length numWorkers; element 0 is undefined (greedy default)
  */
 export function generateInitialDecks(
   collectionRecord: Record<number, number>,
   numWorkers: number,
   rand: () => number,
+  deckLimits?: DeckLimitsMap,
 ): Array<number[] | undefined> {
-  const pool = buildPool(collectionRecord);
+  const pool = buildPool(collectionRecord, deckLimits);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
 
   // Worker 0: greedy (no override)
@@ -43,13 +48,17 @@ interface PoolEntry {
   maxCopies: number;
 }
 
-/** Build pool entries from the collection record, capped at MAX_COPIES. */
-function buildPool(collectionRecord: Record<number, number>): PoolEntry[] {
+/** Build pool entries from the collection record, capped at the per-card limit (or MAX_COPIES). */
+function buildPool(
+  collectionRecord: Record<number, number>,
+  deckLimits: DeckLimitsMap | undefined,
+): PoolEntry[] {
   const pool: PoolEntry[] = [];
   for (const key in collectionRecord) {
     const id = Number(key);
     const qty = collectionRecord[key] ?? 0;
-    const maxCopies = Math.min(qty, MAX_COPIES);
+    const cap = deckLimits?.[id] ?? MAX_COPIES;
+    const maxCopies = Math.min(qty, cap);
     if (maxCopies > 0) {
       pool.push({ id, maxCopies });
     }

@@ -39,6 +39,12 @@ export type BridgeGameData = {
   /** Per-equip ATK bonuses parsed from card descriptions (equipId → bonus). */
   perEquipBonuses?: Record<number, number> | null;
   /**
+   * Per-card deck-copy limit from the SLUS dispatcher table.
+   * cardId → 1 or 2 (sparse — absent IDs default to 3).
+   * `null` when the running mod has no dispatcher (e.g. vanilla).
+   */
+  deckLimits?: { byCard: Record<number, number> } | null;
+  /**
    * Field bonus table from RAM: 120 actual bonus values (e.g., 500, -500, 0).
    * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
    * Terrains 1–6 = Forest, Wasteland, Mountain, Sogen, Umi, Yami.

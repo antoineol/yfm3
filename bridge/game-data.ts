@@ -19,6 +19,7 @@ import {
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
 import { extractCards } from "./extract/extract-cards.ts";
+import { type DeckLimits, extractDeckLimits } from "./extract/extract-deck-limits.ts";
 import { extractDuelists } from "./extract/extract-duelists.ts";
 import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
@@ -49,6 +50,11 @@ export interface GameData {
   equipBonuses: EquipBonusConfig | null;
   /** Per-equip ATK bonuses parsed from card descriptions (equipId → bonus). */
   perEquipBonuses: Record<number, number> | null;
+  /**
+   * Per-card deck-copy limit (cardId → 1 or 2). Cards absent from this map
+   * default to 3. `null` when the mod doesn't ship a limit dispatcher.
+   */
+  deckLimits: DeckLimits | null;
   /**
    * Field bonus table: 120 actual bonus values (e.g., 500, -500, 0).
    * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
@@ -127,6 +133,7 @@ export async function acquireGameData(
       equipTable: data.equipTable,
       equipBonuses: data.equipBonuses,
       perEquipBonuses: data.perEquipBonuses,
+      deckLimits: data.deckLimits,
     });
     console.log(
       `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips — total ${ms(performance.now() - t0)}`,
@@ -158,6 +165,7 @@ function buildGameDataFromCache(
     equipTable: cached.equipTable,
     equipBonuses: cached.equipBonuses,
     perEquipBonuses: cached.perEquipBonuses,
+    deckLimits: cached.deckLimits,
     fieldBonusTable: null, // populated from RAM by serve.ts
     discPath,
   };
@@ -352,6 +360,7 @@ async function extractFromDiscs(
     const equips = extractEquips(waMrg, waMrgLayout);
     const equipBonuses = detectEquipBonuses(slus);
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
+    const deckLimits = extractDeckLimits(slus);
 
     if (artworkDir) {
       startArtworkExtraction(
@@ -372,6 +381,7 @@ async function extractFromDiscs(
       equipTable: equips,
       equipBonuses,
       perEquipBonuses,
+      deckLimits,
       fieldBonusTable: null, // populated from RAM by serve.ts
       discPath: winner.binPath,
     };

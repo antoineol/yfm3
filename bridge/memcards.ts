@@ -23,7 +23,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
-import { cleanWindowTitleToGameTitle, getProcessMainWindowTitle } from "./process-info.ts";
+import {
+  cleanWindowTitleToGameTitle,
+  getProcessMainWindowTitle,
+  titleIndicatesNoGameLoaded,
+} from "./process-info.ts";
 import { findDuckStationDataDir, findSettingsPath } from "./settings.ts";
 
 export const MAX_BACKUPS = 50;
@@ -298,7 +302,7 @@ export async function findActiveSave(pid: number | undefined): Promise<ActiveSav
 
   const title = cleanWindowTitleToGameTitle(rawTitle);
   diag.resolvedTitle = title;
-  if (!title || /^DuckStation$/i.test(title)) {
+  if (!title || titleIndicatesNoGameLoaded(title)) {
     return {
       ok: false,
       reason: "DuckStation has no game loaded yet (window title shows no game)",
@@ -330,7 +334,7 @@ export async function findActiveSave(pid: number | undefined): Promise<ActiveSav
   };
 }
 
-function buildActiveSave(memcardPath: string): ActiveSave {
+export function buildActiveSave(memcardPath: string): ActiveSave {
   const stat = statSync(memcardPath);
   return {
     memcardFilename: basename(memcardPath),

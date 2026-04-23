@@ -1,5 +1,5 @@
 import { getConfig } from "../config.ts";
-import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, NUM_HANDS } from "./constants.ts";
+import { CHOOSE_5, DECK_SIZE, HAND_SIZE, MAX_CARD_ID, MAX_COPIES, NUM_HANDS } from "./constants.ts";
 
 /**
  * All pre-allocated typed-array buffers used by the optimizer.
@@ -23,6 +23,11 @@ export interface OptBuffers {
   readonly cardCounts: Uint8Array;
   /** availableCounts[cardId] = how many copies the player owns (upper bound for cardCounts). */
   readonly availableCounts: Uint8Array;
+  /**
+   * maxCopies[cardId] = per-card deck-copy cap (1, 2, or 3). Defaults to 3 for
+   * every card; overrides are written by load-game-data from the SLUS's deck-limit table.
+   */
+  readonly maxCopies: Uint8Array;
   /**
    * Flat array of NUM_HANDS * 5 deck-slot indices (0..39).
    * Each group of 5 is one sampled hand, stored as slot positions — NOT card IDs.
@@ -50,6 +55,8 @@ export interface OptBuffers {
 export function createBuffers(): OptBuffers {
   const { deckSize } = getConfig();
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
+  const maxCopies = new Uint8Array(MAX_CARD_ID);
+  maxCopies.fill(MAX_COPIES);
   return {
     fusionTable: new Int16Array(MAX_CARD_ID * MAX_CARD_ID),
     cardAtk: new Int16Array(MAX_CARD_ID),
@@ -58,6 +65,7 @@ export function createBuffers(): OptBuffers {
     deck: new Int16Array(DECK_SIZE),
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),
+    maxCopies,
     handSlots: new Uint8Array(numHands * HAND_SIZE),
     handScores: new Int16Array(numHands),
     affectedHandIds: new Uint16Array(numHands * HAND_SIZE),

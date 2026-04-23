@@ -3,11 +3,12 @@
 // ---------------------------------------------------------------------------
 
 import fs from "node:fs";
-import { cardsToCsv, duelistsToCsv, equipsToCsv, fusionsToCsv } from "./csv.ts";
+import { cardsToCsv, deckLimitsToCsv, duelistsToCsv, equipsToCsv, fusionsToCsv } from "./csv.ts";
 import { detectAttributeMapping, detectExeLayout } from "./detect-exe.ts";
 import { detectWaMrgLayout } from "./detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./detect-wamrg-text.ts";
 import { extractCards } from "./extract-cards.ts";
+import { extractDeckLimits } from "./extract-deck-limits.ts";
 import { extractDuelists } from "./extract-duelists.ts";
 import { extractEquips } from "./extract-equips.ts";
 import { extractFusions } from "./extract-fusions.ts";
@@ -278,6 +279,7 @@ export function extractAllCsvs(
   const fusions = extractFusions(waMrg, waMrgLayout);
   const equips = extractEquips(waMrg, waMrgLayout);
   const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
+  const deckLimits = extractDeckLimits(slus);
   const cardAtk = new Map(cards.map((c) => [c.id, c.atk]));
 
   return {
@@ -285,6 +287,7 @@ export function extractAllCsvs(
     "fusions.csv": fusionsToCsv(fusions, cardAtk),
     "equips.csv": equipsToCsv(equips),
     "duelists.csv": duelistsToCsv(duelists),
+    "deck-limits.csv": deckLimitsToCsv(deckLimits),
   };
 }
 

@@ -1,5 +1,5 @@
 import type { OptBuffers } from "../types/buffers.ts";
-import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
+import { FUSION_NONE, MAX_CARD_ID, MAX_COPIES } from "../types/constants.ts";
 import type { BridgeCard } from "../worker/messages.ts";
 import { type CardSpec, nonMonsterTypes } from "./card-model.ts";
 import { addCard, createCardDb } from "./game-db.ts";
@@ -19,6 +19,7 @@ export function loadGameDataFromStrings(
   cardsCsvContent: string,
   fusionsCsvContent: string,
   equipsCsvContent: string,
+  deckLimitsCsvContent?: string,
 ): CardSpec[] {
   const cardDb = createCardDb();
 
@@ -63,7 +64,21 @@ export function loadGameDataFromStrings(
     buf.equipCompat[equipId * MAX_CARD_ID + monsterId] = 1;
   }
 
+  populateDeckLimitsFromCsv(buf, deckLimitsCsvContent);
+
   return cardDb.cards;
+}
+
+function populateDeckLimitsFromCsv(buf: OptBuffers, csv: string | undefined): void {
+  buf.maxCopies.fill(MAX_COPIES);
+  if (!csv) return;
+  for (const [idStr = "", maxStr = ""] of parseCsvRows(csv)) {
+    const id = parseInt(idStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
+    if (!Number.isFinite(max) || max < 1 || max > MAX_COPIES) continue;
+    buf.maxCopies[id] = max;
+  }
 }
 
 /**
@@ -75,6 +90,7 @@ export function loadGameDataWithBridgeTables(
   cards: BridgeCard[],
   fusions: Array<{ material1: number; material2: number; result: number }>,
   equips: Array<{ equipId: number; monsterIds: number[] }>,
+  deckLimits?: { byCard: Record<number, number> } | null,
 ): CardSpec[] {
   const cardDb = createCardDb();
 
@@ -117,7 +133,23 @@ export function loadGameDataWithBridgeTables(
     }
   }
 
+  populateDeckLimitsFromBridge(buf, deckLimits);
+
   return cardDb.cards;
+}
+
+function populateDeckLimitsFromBridge(
+  buf: OptBuffers,
+  deckLimits: { byCard: Record<number, number> } | null | undefined,
+): void {
+  buf.maxCopies.fill(MAX_COPIES);
+  if (!deckLimits) return;
+  for (const [idStr, max] of Object.entries(deckLimits.byCard)) {
+    const id = Number(idStr);
+    if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
+    if (!Number.isFinite(max) || max < 1 || max > MAX_COPIES) continue;
+    buf.maxCopies[id] = max;
+  }
 }
 
 function parseCsvRows(csvContent: string): string[][] {

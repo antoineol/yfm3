@@ -14,6 +14,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { DeckLimits } from "./extract/extract-deck-limits.ts";
 import type {
   CardStats,
   DuelistData,
@@ -22,7 +23,7 @@ import type {
   Fusion,
 } from "./extract/types.ts";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_FILENAME = "gamedata.json";
 
 export interface CachedGameData {
@@ -33,6 +34,7 @@ export interface CachedGameData {
   equipTable: EquipEntry[];
   equipBonuses: EquipBonusConfig | null;
   perEquipBonuses: Record<number, number> | null;
+  deckLimits: DeckLimits | null;
 }
 
 interface CacheFile extends CachedGameData {
@@ -53,6 +55,7 @@ export function readGameDataCache(artworkDir: string): CachedGameData | null {
       equipTable: parsed.equipTable,
       equipBonuses: parsed.equipBonuses ?? null,
       perEquipBonuses: parsed.perEquipBonuses ?? null,
+      deckLimits: parsed.deckLimits ?? null,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -2,6 +2,7 @@
 // CSV serialization for all table types
 // ---------------------------------------------------------------------------
 
+import type { DeckLimits } from "./extract-deck-limits.ts";
 import type { CardStats, DuelistData, EquipEntry, Fusion } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
 
@@ -31,6 +32,16 @@ export function equipsToCsv(equips: EquipEntry[]): string {
       rows.push(`${eq.equipId},${mid}`);
     }
   }
+  return `${header}\n${rows.join("\n")}\n`;
+}
+
+export function deckLimitsToCsv(limits: DeckLimits | null): string {
+  const header = "card_id,max_copies";
+  if (!limits) return `${header}\n`;
+  const rows = Object.entries(limits.byCard)
+    .map(([k, v]) => ({ id: Number(k), max: v }))
+    .sort((a, b) => a.id - b.id)
+    .map(({ id, max }) => `${id},${max}`);
   return `${header}\n${rows.join("\n")}\n`;
 }
 

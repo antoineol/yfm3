@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
-import { MAX_CARD_ID, MAX_COPIES } from "../../../engine/types/constants.ts";
+import { maxCopiesFor } from "../../../engine/data/game-db.ts";
+import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { GameCard } from "../../components/GameCard.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
+import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { DroppedBySection } from "./DroppedBySection.tsx";
 import { EquippableBySection } from "./EquippableBySection.tsx";
@@ -32,6 +34,8 @@ export function CardDetailBody({ card, header }: { card: CardSpec; header: React
 function DetailPanel({ card }: { card: CardSpec }) {
   const typeDisplay = card.kinds[0] ? formatKind(card.kinds[0]) : card.cardType;
   const ownedTotals = useOwnedCardTotals();
+  const cardDb = useCardDb();
+  const cap = maxCopiesFor(cardDb, card.id);
 
   return (
     <div className="flex flex-col gap-3">
@@ -61,7 +65,7 @@ function DetailPanel({ card }: { card: CardSpec }) {
             </DetailSection>
           </>
         )}
-        {ownedTotals !== undefined && <OwnedBadge count={ownedTotals[card.id] ?? 0} />}
+        {ownedTotals !== undefined && <OwnedBadge count={ownedTotals[card.id] ?? 0} max={cap} />}
       </div>
 
       {card.guardianStar1 && card.guardianStar1 !== "None" && (
@@ -155,15 +159,15 @@ function FusedBySection({ cardId }: { cardId: number }) {
 
 /* ── Small UI helpers ────────────────────────────────────────── */
 
-function OwnedBadge({ count }: { count: number }) {
-  const needMore = count < MAX_COPIES;
+function OwnedBadge({ count, max }: { count: number; max: number }) {
+  const needMore = count < max;
   return (
     <DetailSection label="Owned">
       <span
         className={`text-base font-mono font-bold ${needMore ? "text-text-need owned-need" : "text-text-muted"}`}
       >
         {count}
-        <span className="text-text-muted font-normal text-xs"> / {MAX_COPIES}</span>
+        <span className="text-text-muted font-normal text-xs"> / {max}</span>
       </span>
     </DetailSection>
   );

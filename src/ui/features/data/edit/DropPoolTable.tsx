@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CardSpec } from "../../../../engine/data/card-model.ts";
-import { MAX_COPIES } from "../../../../engine/types/constants.ts";
+import { maxCopiesFor } from "../../../../engine/data/game-db.ts";
 import { Input } from "../../../components/Input.tsx";
 import {
   SortableHeader,
@@ -113,7 +113,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
         weights,
         pinned: isPinned,
         modified: isModified,
-        needMore: (ownedTotals?.[cardId] ?? 0) < MAX_COPIES,
+        needMore: (ownedTotals?.[cardId] ?? 0) < maxCopiesFor(cardDb, cardId),
       });
     }
     return out;

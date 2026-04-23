@@ -100,6 +100,7 @@ const fakeCardDb: CardDb = {
     [2, { id: 2, name: "Kuriboh", kinds: [], isMonster: true, attack: 300, defense: 200 }],
   ]),
   cardsByName: new Map(),
+  maxCopiesById: new Map(),
 } as CardDb;
 
 beforeEach(() => {

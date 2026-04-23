@@ -1,6 +1,5 @@
-import type { CardDb } from "../../../engine/data/game-db.ts";
+import { type CardDb, maxCopiesFor } from "../../../engine/data/game-db.ts";
 import type { RefDuelistCard } from "../../../engine/reference/build-reference-table.ts";
-import { MAX_COPIES } from "../../../engine/types/constants.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { cardTypeBorderColor } from "../../components/card-entries.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
@@ -92,7 +91,8 @@ export function DuelistCardTable({
               {rows.map((row) => {
                 const card = cardDb.cardsById.get(row.cardId);
                 const isMonster = card?.isMonster ?? true;
-                const needMore = showOwned && (ownedTotals[row.cardId] ?? 0) < MAX_COPIES;
+                const needMore =
+                  showOwned && (ownedTotals[row.cardId] ?? 0) < maxCopiesFor(cardDb, row.cardId);
                 const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
                 return (
                   <tr

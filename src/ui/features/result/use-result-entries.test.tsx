@@ -47,6 +47,7 @@ const fakeCardDb: CardDb = {
     ],
   ]),
   cardsByName: new Map(),
+  maxCopiesById: new Map(),
 } as CardDb;
 
 afterEach(cleanup);

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { api } from "../../../../convex/_generated/api";
+import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { Button } from "../../components/Button.tsx";
 import { CardActionButton } from "../../components/CardActionButton.tsx";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
@@ -20,10 +21,9 @@ import {
   useCollectionViewModel,
 } from "./use-collection-view-model.ts";
 
-const MAX_COPIES_PER_CARD = 3;
-
 export function CollectionPanel() {
-  const { cards: allCards } = useCardDb();
+  const cardDb = useCardDb();
+  const { cards: allCards } = cardDb;
   const data = useCollectionViewModel();
   const targetSize = useDeckSize();
   const readOnly = useBridgeAutoSync();
@@ -42,11 +42,11 @@ export function CollectionPanel() {
         const owned = entriesByCardId?.get(card.id)?.totalOwned ?? 0;
         return {
           ...card,
-          disabled: owned >= MAX_COPIES_PER_CARD,
+          disabled: owned >= maxCopiesFor(cardDb, card.id),
           ownedCount: owned,
         };
       }),
-    [allCards, entriesByCardId],
+    [allCards, cardDb, entriesByCardId],
   );
 
   const renderActions = useCallback(
@@ -56,7 +56,7 @@ export function CollectionPanel() {
       return (
         <span className="inline-flex items-center gap-1.5 lg:gap-0.5">
           <CardActionButton
-            disabled={entry.totalOwned >= MAX_COPIES_PER_CARD}
+            disabled={entry.totalOwned >= maxCopiesFor(cardDb, entry.id)}
             onClick={() => void addCard({ cardId: entry.id })}
             title="Add copy"
             variant="add"
@@ -89,7 +89,7 @@ export function CollectionPanel() {
         </span>
       );
     },
-    [addCard, addToDeck, deckFull, removeCard],
+    [addCard, addToDeck, cardDb, deckFull, removeCard],
   );
 
   if (data === undefined) return <PanelLoadingState />;

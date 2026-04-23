@@ -38,6 +38,7 @@ function makeBuffers(deckCardIds: number[]): OptBuffers {
     deck,
     cardCounts: new Uint8Array(MAX_CARD_ID),
     availableCounts: new Uint8Array(MAX_CARD_ID),
+    maxCopies: new Uint8Array(MAX_CARD_ID),
     handSlots: new Uint8Array(numHands * 5),
     handScores: new Int16Array(numHands),
     affectedHandIds: new Uint16Array(numHands * 5),
