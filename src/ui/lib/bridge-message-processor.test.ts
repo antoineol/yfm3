@@ -346,9 +346,23 @@ describe("processBridgeMessage", () => {
         equipTable: [4],
         equipBonuses: null,
         perEquipBonuses: null,
+        deckLimits: null,
         fieldBonusTable: null,
       });
       expect(s.gameDataError).toBeNull();
+    });
+
+    it("passes through deckLimits when present", () => {
+      const msg = {
+        type: "gameData",
+        cards: [],
+        duelists: [],
+        fusionTable: [],
+        equipTable: [],
+        deckLimits: { byCard: { 299: 2, 348: 1 } },
+      };
+      const { state: s } = process(msg);
+      expect(s.gameData?.deckLimits).toEqual({ byCard: { 299: 2, 348: 1 } });
     });
 
     it("sets gameDataError on failure", () => {

@@ -278,6 +278,7 @@ export function processBridgeMessage(
           equipTable: m.equipTable,
           equipBonuses: m.equipBonuses ?? null,
           perEquipBonuses: m.perEquipBonuses ?? null,
+          deckLimits: m.deckLimits ?? null,
           fieldBonusTable: m.fieldBonusTable ?? null,
         } as BridgeGameData,
         gameDataError: null,
