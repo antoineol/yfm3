@@ -50,10 +50,10 @@ async function main() {
   const pidsBefore = findDsPids();
   console.log(`DS PIDs: ${pidsBefore.join(", ") || "(none)"}`);
   console.log(`ISO locked: ${isLocked(ROM)}`);
-  if (pidsBefore.length === 0) {
+  const pid = pidsBefore[0];
+  if (pid === undefined) {
     console.log("No DuckStation running — skipping kill step.");
   } else {
-    const pid = pidsBefore[0]!;
     console.log(`\n=== Step 1: kill PID ${pid} (graceful WM_CLOSE) ===`);
     const t0 = t();
     try {

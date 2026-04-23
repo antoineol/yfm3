@@ -99,8 +99,8 @@ async function main() {
   const cards = gameData.cards || [];
   const fusionTable = gameData.fusionTable || [];
   const equipTable = gameData.equipTable || [];
-  const name = (id) => (cards.find((c) => c.id === id) || {}).name || `#${id}`;
-  const atk = (id) => (cards.find((c) => c.id === id) || {}).atk || 0;
+  const name = (id) => cards.find((c) => c.id === id)?.name || `#${id}`;
+  const atk = (id) => cards.find((c) => c.id === id)?.atk || 0;
 
   // Read hand (active cards only via bridge state)
   const hand = (state.hand || []).filter((c) => c.status & 0x80);

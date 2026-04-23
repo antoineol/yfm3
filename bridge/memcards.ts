@@ -102,7 +102,7 @@ function extractSection(iniContent: string, sectionName: string): Map<string, st
     if (inside && t.startsWith("[")) break;
     if (!inside) continue;
     const m = t.match(/^([^=\s]+)\s*=\s*(.*)$/);
-    if (m) out.set(m[1]!, (m[2] ?? "").trim());
+    if (m?.[1]) out.set(m[1], (m[2] ?? "").trim());
   }
   return out;
 }

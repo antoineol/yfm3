@@ -70,19 +70,20 @@ const scaled: number[] = orig.map((v) => Math.floor((v * TOTAL) / (2 * origSum))
 const scaledSum = scaled.reduce((a, b) => a + b, 0);
 let bewdWeight = TOTAL - scaledSum; // = 1024 + any rounding deficit
 // Zero out BEWD's own scaled value (it was 0 originally, but guard anyway)
-bewdWeight -= scaled[TARGET_CARD_ID - 1]!;
+bewdWeight -= scaled[TARGET_CARD_ID - 1] ?? 0;
 scaled[TARGET_CARD_ID - 1] = bewdWeight;
 
 const newSum = scaled.reduce((a, b) => a + b, 0);
 const newNz = scaled.filter((v) => v > 0).length;
-const bewdPct = ((scaled[TARGET_CARD_ID - 1]! / TOTAL) * 100).toFixed(1);
+const bewdScaled = scaled[TARGET_CARD_ID - 1] ?? 0;
+const bewdPct = ((bewdScaled / TOTAL) * 100).toFixed(1);
 console.log(
-  `Patched deck pool: sum=${newSum}, nonzero=${newNz}, BEWD weight=${scaled[TARGET_CARD_ID - 1]} (${bewdPct}%)`,
+  `Patched deck pool: sum=${newSum}, nonzero=${newNz}, BEWD weight=${bewdScaled} (${bewdPct}%)`,
 );
 if (newSum !== TOTAL) throw new Error(`sum mismatch: ${newSum}`);
 
 for (let i = 0; i < NUM_CARDS; i++) {
-  writeU16LeAt(bin, waMrgEntry.sector, poolFileOffset + i * 2, scaled[i]!, fmt);
+  writeU16LeAt(bin, waMrgEntry.sector, poolFileOffset + i * 2, scaled[i] ?? 0, fmt);
 }
 
 fs.writeFileSync(DST, bin);

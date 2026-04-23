@@ -44,14 +44,7 @@ function ToggleOption({
 
   if (href) {
     return (
-      <a
-        className={className}
-        href={href}
-        onClick={(e) => {
-          e.preventDefault();
-          onClick();
-        }}
-      >
+      <a className={className} href={href}>
         {label}
         {decoration}
       </a>

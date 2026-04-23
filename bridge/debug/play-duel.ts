@@ -65,7 +65,7 @@ function startVigemHelper(): { tap: (btn: string) => Promise<void>; quit: () => 
   function send(cmd: string): Promise<void> {
     return new Promise((resolve) => {
       pendingResolve = resolve;
-      proc.stdin.write(cmd + "\n");
+      proc.stdin.write(`${cmd}\n`);
     });
   }
 

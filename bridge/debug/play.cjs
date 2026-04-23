@@ -21,7 +21,7 @@ function tap(btn) {
   return new Promise((resolve, reject) => {
     const c = net.connect(VIGEM_PORT, "127.0.0.1");
     c.on("connect", () => c.write(`tap ${btn}\n`));
-    c.on("data", (d) => {
+    c.on("data", () => {
       c.end();
       resolve();
     });
@@ -181,7 +181,6 @@ async function main() {
 
   let stuckCount = 0;
   const MaxStuck = 10;
-  const MaxTurns = 100;
   let turnCount = 0;
 
   for (let step = 0; step < 500; step++) {

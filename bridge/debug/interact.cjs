@@ -80,7 +80,7 @@ async function main() {
     return `phase=${state.duelPhase} turn=${state.turnIndicator} h=${h} f=${f} lp=${JSON.stringify(state.lp)}`;
   }
 
-  console.log("[start] " + stateStr());
+  console.log(`[start] ${stateStr()}`);
 
   for (const btn of buttons) {
     await tap(btn);

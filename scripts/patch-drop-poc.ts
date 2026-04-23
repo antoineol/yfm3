@@ -64,8 +64,8 @@ console.log(`Pool file offset (in WA_MRG): 0x${poolFileOffset.toString(16)}`);
 // confirm they match what loadDiscData saw.
 const sampleFileOff = poolFileOffset + 227 * 2; // card #228, top-weighted entry
 const sampleBefore =
-  bin[discOffset(waMrgEntry.sector, sampleFileOff, fmt)]! |
-  (bin[discOffset(waMrgEntry.sector, sampleFileOff + 1, fmt)]! << 8);
+  (bin[discOffset(waMrgEntry.sector, sampleFileOff, fmt)] ?? 0) |
+  ((bin[discOffset(waMrgEntry.sector, sampleFileOff + 1, fmt)] ?? 0) << 8);
 const sampleExpected = waMrg.readUInt16LE(sampleFileOff);
 console.log(
   `Sanity: card #228 weight via raw disc = ${sampleBefore}, via WA_MRG buffer = ${sampleExpected}`,

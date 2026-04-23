@@ -29,7 +29,8 @@ for (const iso of ["gamedata/alpha-mod.iso", "gamedata/alpha-mod-patched.iso"]) 
 // Also: full CSV pipeline produces the right row.
 const { slus, waMrg } = loadDiscData("gamedata/alpha-mod-patched.iso");
 const csvs = extractAllCsvs(slus, waMrg);
-const lines = csvs["duelists.csv"]!.split("\n").filter((l) => l.startsWith("1,"));
+const duelistsCsv = csvs["duelists.csv"] ?? "";
+const lines = duelistsCsv.split("\n").filter((l) => l.startsWith("1,"));
 console.log("\nCSV rows for duelist 1 (Simon Muran), first 5:");
 for (const l of lines.slice(0, 5)) console.log(`  ${l}`);
 console.log(`Total non-trivial rows for duelist 1: ${lines.length}`);

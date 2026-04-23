@@ -95,7 +95,7 @@ const server = net.createServer((socket) => {
         socket.write("error: helper not running\n");
         continue;
       }
-      helper.stdin.write(cmd + "\n");
+      helper.stdin.write(`${cmd}\n`);
       await waitOk();
       socket.write("ok\n");
     }
