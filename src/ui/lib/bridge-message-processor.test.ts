@@ -212,7 +212,16 @@ describe("processBridgeMessage", () => {
       detail: "ready",
       hand: [1, 2, 3],
       modFingerprint: "old",
-      gameData: { cards: [], duelists: [], fusionTable: [], equipTable: [] },
+      gameData: {
+        cards: [],
+        duelists: [],
+        fusionTable: [],
+        equipTable: [],
+        equipBonuses: null,
+        perEquipBonuses: null,
+        deckLimits: null,
+        fieldBonusTable: null,
+      },
       gameDataError: null,
       restartFailed: true,
     };

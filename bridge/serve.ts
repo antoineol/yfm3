@@ -230,8 +230,28 @@ function persistGameDataCache(data: GameData): void {
   });
 }
 
+/**
+ * Wire-shape of the `gameData` WebSocket message. Kept in sync by hand with
+ * `BridgeGameData` in the UI (separate TS project, can't share types). The
+ * `satisfies` check below forces every field enumerated here to be provided —
+ * if `GameData` gains a field and this shape is updated, the object literal
+ * below fails to compile until it's forwarded.
+ */
+type GameDataWireMessage = {
+  type: "gameData";
+  gameDataHash: GameData["gameDataHash"];
+  cards: GameData["cards"];
+  duelists: GameData["duelists"];
+  fusionTable: GameData["fusionTable"];
+  equipTable: GameData["equipTable"];
+  equipBonuses: GameData["equipBonuses"];
+  perEquipBonuses: GameData["perEquipBonuses"];
+  deckLimits: GameData["deckLimits"];
+  fieldBonusTable: GameData["fieldBonusTable"];
+};
+
 function buildGameDataMessage(data: GameData): string {
-  return JSON.stringify({
+  const msg: GameDataWireMessage = {
     type: "gameData",
     gameDataHash: data.gameDataHash,
     cards: data.cards,
@@ -242,7 +262,8 @@ function buildGameDataMessage(data: GameData): string {
     perEquipBonuses: data.perEquipBonuses,
     deckLimits: data.deckLimits,
     fieldBonusTable: data.fieldBonusTable,
-  });
+  };
+  return JSON.stringify(msg);
 }
 
 // ── Offset profile resolution ─────────────────────────────────────

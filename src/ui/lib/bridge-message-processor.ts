@@ -224,6 +224,28 @@ type ProcessResult = {
 };
 
 /**
+ * Boundary parser: maps a raw JSON `gameData` payload to a `BridgeGameData`.
+ * The return-type annotation forces TypeScript to verify every field of
+ * `BridgeGameData` is set — add a field to the type and this function fails
+ * to compile until it's handled here. Runtime validation is intentionally
+ * minimal (field-level `unknown` casts) because the bridge is a trusted
+ * first-party producer; the safety goal is *structural completeness at
+ * compile time*, not input sanitization.
+ */
+function parseGameDataMessage(m: Record<string, unknown>): BridgeGameData {
+  return {
+    cards: m.cards as BridgeGameData["cards"],
+    duelists: m.duelists as BridgeGameData["duelists"],
+    fusionTable: m.fusionTable as BridgeGameData["fusionTable"],
+    equipTable: m.equipTable as BridgeGameData["equipTable"],
+    equipBonuses: (m.equipBonuses ?? null) as BridgeGameData["equipBonuses"],
+    perEquipBonuses: (m.perEquipBonuses ?? null) as BridgeGameData["perEquipBonuses"],
+    deckLimits: (m.deckLimits ?? null) as BridgeGameData["deckLimits"],
+    fieldBonusTable: (m.fieldBonusTable ?? null) as BridgeGameData["fieldBonusTable"],
+  };
+}
+
+/**
  * Pure function: maps a raw bridge WebSocket message to the next BridgeState.
  * Returns null for malformed/unparseable messages.
  *
@@ -269,20 +291,7 @@ export function processBridgeMessage(
       };
     }
     return {
-      state: {
-        ...currentState,
-        gameData: {
-          cards: m.cards,
-          duelists: m.duelists,
-          fusionTable: m.fusionTable,
-          equipTable: m.equipTable,
-          equipBonuses: m.equipBonuses ?? null,
-          perEquipBonuses: m.perEquipBonuses ?? null,
-          deckLimits: m.deckLimits ?? null,
-          fieldBonusTable: m.fieldBonusTable ?? null,
-        } as BridgeGameData,
-        gameDataError: null,
-      },
+      state: { ...currentState, gameData: parseGameDataMessage(m), gameDataError: null },
       tracker,
     };
   }

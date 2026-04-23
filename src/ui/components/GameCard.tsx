@@ -1,4 +1,5 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
+import { DescriptionText } from "../lib/DescriptionText.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
 
 /** Attribute orb colors — the small sphere next to the card name. */
@@ -143,7 +144,7 @@ export function GameCard({ card }: { card: CardSpec }) {
           <div className={`fm-card-bottom ${card.isMonster ? "fm-card-bottom--split" : ""}`}>
             {card.description && (
               <div className="fm-card-desc">
-                <p className="fm-card-desc-text">{card.description}</p>
+                <DescriptionText className="fm-card-desc-text" text={card.description} />
               </div>
             )}
             {card.isMonster && (

@@ -23,8 +23,26 @@ export function isTblString(buf: Buffer, addr: number, limit = 100): boolean {
   return false;
 }
 
+/** Private-Use-Area base for inline icon tokens emitted by decodeTblString.
+ *  A `F8 0B XX` control sequence becomes a single char at `ICON_TOKEN_BASE + XX`,
+ *  where `XX` is the monster-type index (0=Dragon, 1=Spellcaster, …).
+ *  Consumers can detect tokens with `isIconToken` and recover `XX` via `iconTokenType`. */
+export const ICON_TOKEN_BASE = 0xe100;
+export const ICON_TOKEN_END = 0xe17f;
+
+export function isIconToken(ch: string): boolean {
+  const c = ch.charCodeAt(0);
+  return c >= ICON_TOKEN_BASE && c <= ICON_TOKEN_END;
+}
+
+export function iconTokenType(ch: string): number {
+  return ch.charCodeAt(0) - ICON_TOKEN_BASE;
+}
+
 /** Decode a TBL-encoded string from `buf` at `start` until 0xFF or `maxLen`.
- *  0xFE = newline, 0xF8 starts a multi-byte control sequence (skipped).
+ *  0xFE = newline. 0xF8 XX YY is a control sequence: `F8 0B XX` is an inline
+ *  type-icon (emitted as a single PUA char, see `ICON_TOKEN_BASE`); all other
+ *  F8 sequences are skipped (3 bytes total).
  *  `charTable` selects the encoding: CHAR_TABLE for NTSC-U, PAL_CHAR_TABLE for EU. */
 export function decodeTblString(
   buf: Buffer,
@@ -40,8 +58,12 @@ export function decodeTblString(
       result += "\n";
       continue;
     }
-    // F8 XX YY is a control/color prefix — skip 3 bytes total
     if (b === 0xf8) {
+      const sub = buf[i + 1] ?? 0;
+      const arg = buf[i + 2] ?? 0;
+      if (sub === 0x0b && arg <= ICON_TOKEN_END - ICON_TOKEN_BASE) {
+        result += String.fromCharCode(ICON_TOKEN_BASE + arg);
+      }
       i += 2;
       continue;
     }

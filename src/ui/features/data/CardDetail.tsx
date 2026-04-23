@@ -6,6 +6,7 @@ import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { GameCard } from "../../components/GameCard.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
+import { DescriptionText } from "../../lib/DescriptionText.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { DroppedBySection } from "./DroppedBySection.tsx";
 import { EquippableBySection } from "./EquippableBySection.tsx";
@@ -81,7 +82,10 @@ function DetailPanel({ card }: { card: CardSpec }) {
 
       {card.description && (
         <div className="rounded-lg border border-border-subtle bg-bg-surface/40 px-3 py-2.5">
-          <p className="text-sm text-text-primary leading-relaxed">{card.description}</p>
+          <DescriptionText
+            className="block text-sm text-text-primary leading-relaxed whitespace-pre-line"
+            text={card.description}
+          />
         </div>
       )}
 

@@ -90,7 +90,7 @@ export function loadGameDataWithBridgeTables(
   cards: BridgeCard[],
   fusions: Array<{ material1: number; material2: number; result: number }>,
   equips: Array<{ equipId: number; monsterIds: number[] }>,
-  deckLimits?: { byCard: Record<number, number> } | null,
+  deckLimits: { byCard: Record<number, number> } | null,
 ): CardSpec[] {
   const cardDb = createCardDb();
 
@@ -140,7 +140,7 @@ export function loadGameDataWithBridgeTables(
 
 function populateDeckLimitsFromBridge(
   buf: OptBuffers,
-  deckLimits: { byCard: Record<number, number> } | null | undefined,
+  deckLimits: { byCard: Record<number, number> } | null,
 ): void {
   buf.maxCopies.fill(MAX_COPIES);
   if (!deckLimits) return;

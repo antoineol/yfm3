@@ -28,29 +28,37 @@ export type BridgeDuelist = {
   saTec: number[];
 };
 
-/** Game data received from the emulator bridge (all game tables from disc image + RAM). */
+/**
+ * Game data received from the emulator bridge (all game tables from disc image + RAM).
+ *
+ * Every field is **required**: the boundary parser must set each one. Nullable
+ * fields encode "not present for this mod" (e.g. vanilla has no deck-limit
+ * dispatcher, so `deckLimits` is `null`). This distinguishes "legitimately
+ * absent" (null) from "silently dropped in transit" (which would now be a
+ * type error instead of a runtime no-op — that exact bug is what this shape
+ * prevents).
+ */
 export type BridgeGameData = {
   cards: BridgeCard[];
   duelists: BridgeDuelist[];
   fusionTable: Array<{ material1: number; material2: number; result: number }>;
   equipTable: Array<{ equipId: number; monsterIds: number[] }>;
-  /** Equip bonus values from the EXE (standard bonus, Megamorph ID + bonus). */
-  equipBonuses?: { equipBonus: number; megamorphId: number; megamorphBonus: number } | null;
-  /** Per-equip ATK bonuses parsed from card descriptions (equipId → bonus). */
-  perEquipBonuses?: Record<number, number> | null;
+  /** Equip bonus values from the EXE, or null if detection failed. */
+  equipBonuses: { equipBonus: number; megamorphId: number; megamorphBonus: number } | null;
+  /** Per-equip ATK bonuses parsed from card descriptions, or null if unavailable. */
+  perEquipBonuses: Record<number, number> | null;
   /**
-   * Per-card deck-copy limit from the SLUS dispatcher table.
-   * cardId → 1 or 2 (sparse — absent IDs default to 3).
-   * `null` when the running mod has no dispatcher (e.g. vanilla).
+   * Per-card deck-copy limit from the SLUS dispatcher table. cardId → 1 or 2
+   * (sparse — absent IDs default to 3). `null` when the running mod has no
+   * dispatcher (e.g. vanilla).
    */
-  deckLimits?: { byCard: Record<number, number> } | null;
+  deckLimits: { byCard: Record<number, number> } | null;
   /**
-   * Field bonus table from RAM: 120 actual bonus values (e.g., 500, -500, 0).
-   * 20 monster types × 6 non-Normal terrains, indexed as type * 6 + (terrain - 1).
-   * Terrains 1–6 = Forest, Wasteland, Mountain, Sogen, Umi, Yami.
-   * null when not found in RAM.
+   * Field bonus table from RAM: 120 signed bytes (20 monster types × 6
+   * non-Normal terrains, indexed as type * 6 + (terrain - 1)). null when not
+   * found in RAM.
    */
-  fieldBonusTable?: number[] | null;
+  fieldBonusTable: number[] | null;
 };
 
 /** Main thread → Worker: initialize buffers and run SA. */
