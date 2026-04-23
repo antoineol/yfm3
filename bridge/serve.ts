@@ -19,6 +19,7 @@ import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe
 import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
 import { acquireGameData, type GameData } from "./game-data.ts";
+import { writeGameDataCache } from "./gamedata-cache.ts";
 import type { Hwnd } from "./input.ts";
 import {
   areBindingsLoaded,
@@ -207,6 +208,23 @@ function resetGameData(): void {
   gameDataRetryAt = null;
   gameDataRetries = 0;
   waitingForSerialLogged = false;
+}
+
+// Keep the on-disk gamedata cache in sync after an ISO edit. `acquireGameData`
+// keys the cache by the RAM card-stats hash, which doesn't change when we
+// patch WA_MRG.MRG — without this, a cache hit on the next boot would return
+// the pre-patch duelists and silently overwrite our in-memory state.
+function persistGameDataCache(data: GameData): void {
+  const artworkDir = join(__dirname, "artwork", data.gameDataHash.slice(0, 12));
+  writeGameDataCache(artworkDir, {
+    gameSerial: data.gameSerial,
+    cards: data.cards,
+    duelists: data.duelists,
+    fusionTable: data.fusionTable,
+    equipTable: data.equipTable,
+    equipBonuses: data.equipBonuses,
+    perEquipBonuses: data.perEquipBonuses,
+  });
 }
 
 function buildGameDataMessage(data: GameData): string {
@@ -629,6 +647,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
       // re-broadcast so anything reading `gameData.duelists` updates live.
       const duelists = reReadDuelists(discPath);
       currentGameData = { ...currentGameData, duelists };
+      persistGameDataCache(currentGameData);
       broadcast(buildGameDataMessage(currentGameData));
       console.log(
         `[iso] PUT duelist-pool duelist=${body.duelistId} pool=${body.poolType}${backup ? ` · backup ${backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
@@ -656,6 +675,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
       const preRestore = restoreIsoBackup(discPath, backupFilename);
       const duelists = reReadDuelists(discPath);
       currentGameData = { ...currentGameData, duelists };
+      persistGameDataCache(currentGameData);
       broadcast(buildGameDataMessage(currentGameData));
       return jsonResponse({
         ok: true,
