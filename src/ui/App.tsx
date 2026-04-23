@@ -87,9 +87,11 @@ function MainApp({ tab }: { tab: string }) {
           </Tabs.Panel>
 
           <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-3 overflow-y-auto" value="data">
-            <RequireReferenceData>
-              <DataPanel />
-            </RequireReferenceData>
+            <TabOnboardingGate>
+              <RequireReferenceData>
+                <DataPanel />
+              </RequireReferenceData>
+            </TabOnboardingGate>
           </Tabs.Panel>
           <BottomTabBar />
           <ManualSetupModal />
@@ -113,7 +115,9 @@ function DeckTabPanel() {
     return (
       <Tabs.Panel className="flex-1 min-h-0 flex flex-col gap-3 px-3 pt-2 pb-3" value="deck">
         <DeckSubTabs active={subTab} onChange={setSubTab} />
-        <SavesPanel />
+        <TabOnboardingGate>
+          <SavesPanel />
+        </TabOnboardingGate>
       </Tabs.Panel>
     );
   }

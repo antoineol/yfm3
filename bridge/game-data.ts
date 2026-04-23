@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { startArtworkExtraction } from "./artwork-extraction.ts";
 import {
   detectAttributeMapping,
   detectEquipBonuses,
@@ -21,8 +22,7 @@ import { extractCards } from "./extract/extract-cards.ts";
 import { extractDuelists } from "./extract/extract-duelists.ts";
 import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
-import { extractAllArtworkAsPng } from "./extract/extract-images.ts";
-import { langIdxForSerial, loadDiscData } from "./extract/index.ts";
+import { langIdxForSerial, loadDiscData, readDiscExe } from "./extract/index.ts";
 import { buildPerEquipBonuses } from "./extract/parse-equip-bonus.ts";
 import type {
   CardStats,
@@ -31,6 +31,7 @@ import type {
   EquipEntry,
   Fusion,
 } from "./extract/types.ts";
+import { type CachedGameData, readGameDataCache, writeGameDataCache } from "./gamedata-cache.ts";
 import { probeLockedIsos } from "./iso-lock-probe.ts";
 import { findSettingsPath } from "./settings.ts";
 
@@ -82,18 +83,18 @@ export async function acquireGameData(
   cacheDir: string,
   pid?: number,
 ): Promise<GameData | null> {
+  const t0 = performance.now();
   const gameDataHash = computeGameDataHash(cardStats);
   const hashPrefix = gameDataHash.slice(0, 12);
   const artworkDir = join(cacheDir, "artwork", hashPrefix);
 
-  // Single source of truth: every call re-scans DuckStation's game dirs, picks
-  // the ISO the emulator currently has locked, and extracts content from THAT
-  // file. There is no content cache — caching a stale snapshot would let
-  // `GameData.duelists` (what the UI displays) drift from `GameData.discPath`
-  // (what edit writes patch), which caused real bugs when two byte-identical
-  // ISOs sat in the same folder. Artwork PNGs are the only thing we still
-  // cache on disk (keyed by content hash) since re-extracting 722 PNGs is
-  // genuinely expensive; content parsing is cheap (< 200 ms on a cold read).
+  // Disc content is cached on disk keyed by gameDataHash (see
+  // gamedata-cache.ts). `discPath` is never cached — we always re-resolve
+  // it from DuckStation's game dirs so it matches the file the emulator
+  // currently has locked. Past bug to avoid: caching `discPath` alongside
+  // content let the two drift when two byte-identical ISOs sat in the same
+  // folder. Hash-keyed content is safe (identical hash ⇒ identical bytes);
+  // only the path needs fresh resolution.
   const { cuePaths, isoPaths } = findDiscImages(pid);
   const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
 
@@ -102,17 +103,64 @@ export async function acquireGameData(
     return null;
   }
 
+  const cached = readGameDataCache(artworkDir);
+  if (cached) {
+    const winner = await pickWinningDisc(discPaths, gameDataHash, serial);
+    if (winner) {
+      console.log(
+        `Game data loaded from cache (${hashPrefix}) — disc: ${winner.binPath} — total ${ms(performance.now() - t0)}`,
+      );
+      return buildGameDataFromCache(gameDataHash, cardStats, cached, winner.binPath);
+    }
+    // Cache hit but no disc currently matches the hash — content may have
+    // been modified since caching; fall through to a fresh extract below.
+  }
+
   const data = await extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
 
   if (data) {
+    writeGameDataCache(artworkDir, {
+      gameSerial: data.gameSerial,
+      cards: data.cards,
+      duelists: data.duelists,
+      fusionTable: data.fusionTable,
+      equipTable: data.equipTable,
+      equipBonuses: data.equipBonuses,
+      perEquipBonuses: data.perEquipBonuses,
+    });
     console.log(
-      `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips`,
+      `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips — total ${ms(performance.now() - t0)}`,
     );
     return data;
   }
 
   console.warn("No matching disc image found in DuckStation gamelist");
   return null;
+}
+
+function ms(duration: number): string {
+  return `${duration.toFixed(1)}ms`;
+}
+
+function buildGameDataFromCache(
+  gameDataHash: string,
+  cardStats: Uint8Array,
+  cached: CachedGameData,
+  discPath: string,
+): GameData {
+  return {
+    gameDataHash,
+    gameSerial: cached.gameSerial,
+    cardStats,
+    cards: cached.cards,
+    duelists: cached.duelists,
+    fusionTable: cached.fusionTable,
+    equipTable: cached.equipTable,
+    equipBonuses: cached.equipBonuses,
+    perEquipBonuses: cached.perEquipBonuses,
+    fieldBonusTable: null, // populated from RAM by serve.ts
+    discPath,
+  };
 }
 
 // ── Hash ──────────────────────────────────────────────────────────
@@ -275,57 +323,17 @@ async function extractFromDiscs(
   ramSerial?: string | null,
   artworkDir?: string,
 ): Promise<GameData | null> {
-  type Match = {
-    binPath: string;
-    slus: Buffer;
-    waMrg: Buffer;
-    discSerial: string;
-    exeLayout: import("./extract/types.ts").ExeLayout;
-  };
-  const matches: Match[] = [];
-  for (const binPath of discPaths) {
-    try {
-      const { slus, waMrg, serial: discSerial } = loadDiscData(binPath);
-      const exeLayout = detectExeLayout(slus);
-      const binStats = slus.subarray(exeLayout.cardStats, exeLayout.cardStats + CARD_STATS_SIZE);
-      const binHash = computeGameDataHash(binStats);
-      if (binHash === gameDataHash) {
-        matches.push({ binPath, slus, waMrg, discSerial, exeLayout });
-      } else {
-        console.log(
-          `Hash mismatch for ${binPath} (disc=${discSerial}): ` +
-            `bin=${binHash.slice(0, 12)}… vs ram=${gameDataHash.slice(0, 12)}…`,
-        );
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`Skipping unreadable .bin ${binPath}: ${msg}`);
-    }
-  }
+  const winner = await pickWinningDisc(discPaths, gameDataHash, ramSerial);
+  if (!winner) return null;
 
-  if (matches.length === 0) return null;
-
-  // Prefer, in order: (1) the match DuckStation currently has open (the
-  // definitive signal when two ISOs share content), (2) the match whose EXE
-  // serial matches RAM, (3) first match.
-  const lockedPaths = await probeLockedIsos(matches.map((m) => m.binPath));
-  const lockedMatch = matches.find((m) => lockedPaths.has(m.binPath));
-  const normalRam = ramSerial ? normalizeSerial(ramSerial) : null;
-  const serialMatch = normalRam
-    ? (matches.find((m) => {
-        const exeSerial = findSerialInExe(m.slus);
-        return exeSerial != null && normalizeSerial(exeSerial) === normalRam;
-      }) ?? matches.find((m) => normalizeSerial(m.discSerial) === normalRam))
-    : undefined;
-  const best = lockedMatch ?? serialMatch ?? matches[0];
-  if (!best) return null;
-  console.log(
-    `Matched .bin: ${best.binPath} (disc serial: ${best.discSerial}` +
-      `${matches.length > 1 ? `, ${matches.length} candidates` : ""})`,
-  );
+  const suffix =
+    (winner.discSerial ? `disc serial: ${winner.discSerial}` : "trusted single lock") +
+    (winner.candidateCount > 1 ? `, ${winner.candidateCount} candidates` : "");
+  console.log(`Matched .bin: ${winner.binPath} (${suffix})`);
 
   try {
-    const { slus, waMrg, discSerial, exeLayout } = best;
+    const { slus, waMrg, serial: discSerial } = loadDiscData(winner.binPath);
+    const exeLayout = detectExeLayout(slus);
     const waMrgLayout = detectWaMrgLayout(waMrg);
     const langIdx = langIdxForSerial(discSerial);
     const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);
@@ -345,9 +353,13 @@ async function extractFromDiscs(
     const equipBonuses = detectEquipBonuses(slus);
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
 
-    if (artworkDir && !existsSync(join(artworkDir, "001.png"))) {
-      extractAllArtworkAsPng(waMrg, waMrgLayout.artworkBlockSize, artworkDir);
-      console.log(`Extracted ${cards.length} artwork PNGs to ${artworkDir}`);
+    if (artworkDir) {
+      startArtworkExtraction(
+        gameDataHash.slice(0, 12),
+        artworkDir,
+        waMrg,
+        waMrgLayout.artworkBlockSize,
+      );
     }
 
     return {
@@ -361,11 +373,112 @@ async function extractFromDiscs(
       equipBonuses,
       perEquipBonuses,
       fieldBonusTable: null, // populated from RAM by serve.ts
-      discPath: best.binPath,
+      discPath: winner.binPath,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`Failed to extract from ${best.binPath}: ${msg}`);
+    console.warn(`Failed to extract from ${winner.binPath}: ${msg}`);
+    return null;
+  }
+}
+
+interface DiscCandidate {
+  binPath: string;
+  discSerial: string;
+  exeSerial: string | null;
+}
+
+interface WinningDisc {
+  binPath: string;
+  /** Serial from the disc EXE, or null when we trusted the lock without an EXE read. */
+  discSerial: string | null;
+  candidateCount: number;
+}
+
+/**
+ * Resolve which candidate disc matches the running game, using EXE-only reads
+ * for hash comparison instead of loading each full 500+ MB .bin. Probes OS
+ * locks first: a single locked disc with a matching hash short-circuits the
+ * scan, turning the common single-game case from N × full-read into 1 × EXE.
+ */
+async function pickWinningDisc(
+  discPaths: string[],
+  gameDataHash: string,
+  ramSerial: string | null | undefined,
+): Promise<WinningDisc | null> {
+  const lockedPaths = await probeLockedIsos(discPaths);
+
+  // Trust-the-lock: when DuckStation has exactly one disc file open, that
+  // file IS the running game (the RAM we hashed came from that same emulator).
+  // Verifying it via `disambiguateDisc` re-reads the EXE from disk, and that
+  // first read costs ~2 s on Windows (Defender scan on cold access). Skipping
+  // it here is the single biggest latency win on both the cache-hit warm path
+  // and the cold path — worth the negligible correctness risk.
+  if (lockedPaths.size === 1) {
+    const [path] = [...lockedPaths];
+    if (path) return { binPath: path, discSerial: null, candidateCount: 1 };
+  }
+
+  // Ambiguous lock state (multiple locked, or none): fall back to hash
+  // verification via EXE-only reads.
+  if (lockedPaths.size > 0) {
+    for (const path of lockedPaths) {
+      const match = disambiguateDisc(path, gameDataHash);
+      if (match) return { binPath: path, discSerial: match.discSerial, candidateCount: 1 };
+    }
+  }
+
+  // Scan remaining candidates with EXE-only reads.
+  const skip = lockedPaths;
+  const candidates: DiscCandidate[] = [];
+  for (const binPath of discPaths) {
+    if (skip.has(binPath)) continue;
+    const match = disambiguateDisc(binPath, gameDataHash);
+    if (match) candidates.push({ binPath, ...match });
+  }
+
+  if (candidates.length === 0) return null;
+
+  const normalRam = ramSerial ? normalizeSerial(ramSerial) : null;
+  const serialMatch = normalRam
+    ? (candidates.find((c) => c.exeSerial != null && normalizeSerial(c.exeSerial) === normalRam) ??
+      candidates.find((c) => normalizeSerial(c.discSerial) === normalRam))
+    : undefined;
+  const best = serialMatch ?? candidates[0];
+  if (!best) return null;
+  return {
+    binPath: best.binPath,
+    discSerial: best.discSerial,
+    candidateCount: candidates.length,
+  };
+}
+
+/**
+ * Lightweight disambiguation: read only the EXE from a disc, compute the
+ * card-stats hash, and return serial info when it matches RAM. Returns null
+ * on mismatch or read failure (errors logged, not thrown, so a single bad
+ * disc doesn't abort the scan).
+ */
+function disambiguateDisc(
+  binPath: string,
+  gameDataHash: string,
+): { discSerial: string; exeSerial: string | null } | null {
+  try {
+    const { slus, serial: discSerial } = readDiscExe(binPath);
+    const exeLayout = detectExeLayout(slus);
+    const binStats = slus.subarray(exeLayout.cardStats, exeLayout.cardStats + CARD_STATS_SIZE);
+    const binHash = computeGameDataHash(binStats);
+    if (binHash !== gameDataHash) {
+      console.log(
+        `Hash mismatch for ${binPath} (disc=${discSerial}): ` +
+          `bin=${binHash.slice(0, 12)}… vs ram=${gameDataHash.slice(0, 12)}…`,
+      );
+      return null;
+    }
+    return { discSerial, exeSerial: findSerialInExe(slus) };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`Skipping unreadable .bin ${binPath}: ${msg}`);
     return null;
   }
 }

@@ -12,15 +12,19 @@ import { extractDuelists } from "./extract-duelists.ts";
 import { extractEquips } from "./extract-equips.ts";
 import { extractFusions } from "./extract-fusions.ts";
 import {
+  type DiscFormat,
   detectDiscFormat,
   findFile,
   PVD_SECTOR,
   parseDirectory,
   readIsoFile,
   readSector,
+  readSectorFromFd,
   readSectors,
+  readSectorsFromFd,
   SECTOR_DATA_SIZE,
 } from "./iso9660.ts";
+import type { IsoFile } from "./types.ts";
 
 // Re-export for consumers
 export { extractAllArtwork, FULL_IMG_HEIGHT, FULL_IMG_WIDTH } from "./extract-images.ts";
@@ -57,6 +61,86 @@ export function loadDiscData(discPath: string): {
     waMrg: findWaMrg(bin, rootFiles, fmt),
     serial,
   };
+}
+
+/**
+ * Lightweight alternative to loadDiscData: reads only the PS1 executable,
+ * not WA_MRG. Used for hash-based disambiguation across multiple candidate
+ * .bin/.iso files — avoids paging in 500+ MB of disc image just to hash a
+ * 2888-byte window of the EXE.
+ *
+ * Reads: PVD sector + root directory sectors + EXE sectors (via SYSTEM.CNF
+ * fallback if the EXE isn't named after the disc serial). Typically totals
+ * a few hundred KB of I/O vs. the full disc.
+ */
+export function readDiscExe(discPath: string): { slus: Buffer; serial: string } {
+  const fd = fs.openSync(discPath, "r");
+  try {
+    // 64 KB covers PVD at sector 16 in both MODE2/2352 (offset 37,632) and
+    // MODE1/2048 (offset 32,768) — enough to detect format from either layout.
+    const head = Buffer.alloc(64 * 1024);
+    fs.readSync(fd, head, 0, head.length, 0);
+    const fmt = detectDiscFormat(head);
+
+    const pvd = readSectorFromFd(fd, PVD_SECTOR, fmt);
+    if (pvd.subarray(1, 6).toString("ascii") !== "CD001") {
+      throw new Error("Not a valid ISO 9660 disc image");
+    }
+
+    const rootRecord = pvd.subarray(156, 190);
+    const rootExtent = rootRecord.readUInt32LE(2);
+    const rootSize = rootRecord.readUInt32LE(10);
+    const rootData = readSectorsFromFd(fd, rootExtent, Math.ceil(rootSize / SECTOR_DATA_SIZE), fmt);
+    const rootFiles = parseDirectory(rootData, rootSize);
+
+    const { exeEntry, serial } = findExeViaFd(fd, rootFiles, fmt);
+    const exeRaw = readSectorsFromFd(
+      fd,
+      exeEntry.sector,
+      Math.ceil(exeEntry.size / SECTOR_DATA_SIZE),
+      fmt,
+    );
+    return { slus: exeRaw.subarray(0, exeEntry.size), serial };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * Fd-aware variant of findExe: same resolution logic (standard-named serial
+ * file, then SYSTEM.CNF BOOT fallback) but reads SYSTEM.CNF via positioned
+ * reads instead of indexing into a full-disc buffer.
+ */
+function findExeViaFd(
+  fd: number,
+  rootFiles: IsoFile[],
+  fmt: DiscFormat,
+): { exeEntry: IsoFile; serial: string } {
+  const standard = rootFiles.find((f) => SERIAL_RE.test(f.name));
+  if (standard) return { exeEntry: standard, serial: standard.name.replace(/;.*$/, "") };
+
+  const cnfEntry = rootFiles.find((f) => f.name === "SYSTEM.CNF");
+  if (!cnfEntry) {
+    throw new Error(
+      `No PS1 executable found in disc image (files: ${rootFiles.map((f) => f.name).join(", ")})`,
+    );
+  }
+  const cnfRaw = readSectorsFromFd(
+    fd,
+    cnfEntry.sector,
+    Math.ceil(cnfEntry.size / SECTOR_DATA_SIZE),
+    fmt,
+  );
+  const cnfData = cnfRaw.subarray(0, cnfEntry.size);
+  const bootName = parseBootExeName(cnfData.toString("ascii"));
+  if (!bootName) {
+    throw new Error("Could not parse BOOT entry from SYSTEM.CNF");
+  }
+  const exeEntry = rootFiles.find((f) => f.name === bootName);
+  if (!exeEntry) {
+    throw new Error(`Boot executable '${bootName}' not found on disc`);
+  }
+  return { exeEntry, serial: bootName };
 }
 
 // ---------------------------------------------------------------------------

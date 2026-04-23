@@ -1,6 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CardSpec } from "../../../../engine/data/card-model.ts";
+import { MAX_COPIES } from "../../../../engine/types/constants.ts";
 import { Input } from "../../../components/Input.tsx";
 import {
   SortableHeader,
@@ -8,6 +9,7 @@ import {
   sortEntries,
   toggleSort,
 } from "../../../components/sortable-header.tsx";
+import { useOwnedCardTotals } from "../../../db/use-owned-card-totals.ts";
 import { useFusionTable } from "../../../lib/fusion-table-context.tsx";
 import {
   draftWeightsAtom,
@@ -38,6 +40,7 @@ type Entry = {
   weights: Partial<Record<PoolType, number>>;
   pinned: boolean;
   modified: boolean;
+  needMore: boolean;
 };
 
 function buildSortGetters(pools: readonly PoolType[]): Record<SortKey, (e: Entry) => number> {
@@ -57,6 +60,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
   const draft = useAtomValue(draftWeightsAtom);
   const pinned = useAtomValue(pinnedCardIdsAtom);
   const modified = useAtomValue(modifiedCardIdsAtom);
+  const ownedTotals = useOwnedCardTotals();
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
   const pools = POOLS_BY_VIEW[view];
@@ -109,10 +113,11 @@ export function DropPoolTable({ view }: { view: EditView }) {
         weights,
         pinned: isPinned,
         modified: isModified,
+        needMore: (ownedTotals?.[cardId] ?? 0) < MAX_COPIES,
       });
     }
     return out;
-  }, [draft, cardDb, search, showAll, pinned, modified, pools, firstPool]);
+  }, [draft, cardDb, search, showAll, pinned, modified, pools, firstPool, ownedTotals]);
 
   const sortGetters = useMemo(() => buildSortGetters(pools), [pools]);
   const sorted = useMemo(
@@ -242,6 +247,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
                   cardId={e.cardId}
                   key={e.cardId}
                   modified={e.modified}
+                  needMore={e.needMore}
                   onTogglePin={handleTogglePin}
                   pinned={e.pinned}
                   pools={pools}

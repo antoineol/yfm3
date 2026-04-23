@@ -32,7 +32,9 @@ function parseDataHash(hash: string): {
   const rawView = segments[1] ?? "";
   const view: View = VALID_VIEWS.has(rawView) ? (rawView as View) : "cards";
   const duelistId =
-    view === "duelists" && segments[2] ? Number(segments[2]) || undefined : undefined;
+    (view === "duelists" || view === "edit") && segments[2]
+      ? Number(segments[2]) || undefined
+      : undefined;
   const cardId = view === "cards" && segments[2] ? Number(segments[2]) || undefined : undefined;
   return { view, duelistId, cardId };
 }
@@ -53,6 +55,13 @@ export function DataPanel() {
   const handleDuelistChange = useCallback(
     (id: number) => {
       setHash(`data/duelists/${id}`);
+    },
+    [setHash],
+  );
+
+  const handleEditDuelistChange = useCallback(
+    (id: number) => {
+      setHash(`data/edit/${id}`);
     },
     [setHash],
   );
@@ -85,7 +94,7 @@ export function DataPanel() {
         ) : view === "buy" ? (
           <BuyPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
         ) : view === "edit" ? (
-          <DataEditPanel />
+          <DataEditPanel onDuelistChange={handleEditDuelistChange} selectedDuelistId={duelistId} />
         ) : (
           <DuelistsPanel
             cardDb={data.cardDb}

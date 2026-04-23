@@ -14,6 +14,7 @@
 import { execSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { awaitArtworkExtraction } from "./artwork-extraction.ts";
 import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
 import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
@@ -405,13 +406,26 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-function serveArtwork(pathname: string): Response {
+async function serveArtwork(pathname: string): Promise<Response> {
   const filename = pathname.replace("/artwork/", "");
   if (!/^\d{3}\.png$/.test(filename) || !currentGameData) {
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });
   }
   const hashPrefix = currentGameData.gameDataHash.slice(0, 12);
   const filePath = join(__dirname, "artwork", hashPrefix, filename);
+  // Extraction runs in the background after gameData broadcasts (see
+  // artwork-extraction.ts). If the caller races ahead of the writer, wait
+  // for that batch to finish rather than flashing a 404.
+  if (!existsSync(filePath)) {
+    const pending = awaitArtworkExtraction(hashPrefix);
+    if (pending) {
+      try {
+        await pending;
+      } catch {
+        // extraction failed — fall through to the read attempt and return 404
+      }
+    }
+  }
   try {
     const data = readFileSync(filePath);
     return new Response(data, {

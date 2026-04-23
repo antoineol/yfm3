@@ -18,26 +18,36 @@ const VIEW_DESCRIPTIONS: Record<EditView, string> = {
   deck: "Cards the AI builds its deck from.",
 };
 
-export function DropPoolEditor({ gameData }: { gameData: BridgeGameData }) {
+export function DropPoolEditor({
+  gameData,
+  onDuelistChange,
+  selectedDuelistId,
+}: {
+  gameData: BridgeGameData;
+  onDuelistChange: (id: number) => void;
+  selectedDuelistId: number | undefined;
+}) {
   const duelists = gameData.duelists;
   const target = useAtomValue(editingTargetAtom);
   const loadTarget = useSetAtom(loadTargetAtom);
 
-  // First-mount: seed selection to duelist #1 / drops view so the user always
-  // lands on a populated editor instead of an empty placeholder.
+  // Sync selection from the URL. Seeds duelist #1 / drops view on first mount
+  // when the URL has no id; reacts to external URL changes (reload, back/forward).
+  // A guard keeps this a no-op when the target already matches, so view switches
+  // and unsaved edits aren't clobbered.
   useEffect(() => {
-    if (target === null && duelists.length > 0) {
-      const firstId = duelists[0]?.id ?? 1;
-      loadTarget({ target: { duelistId: firstId, view: "drops" }, duelists });
-    }
-  }, [target, duelists, loadTarget]);
+    if (duelists.length === 0) return;
+    const desiredId = selectedDuelistId ?? target?.duelistId ?? duelists[0]?.id ?? 1;
+    if (target !== null && target.duelistId === desiredId) return;
+    loadTarget({ target: { duelistId: desiredId, view: target?.view ?? "drops" }, duelists });
+  }, [selectedDuelistId, duelists, target, loadTarget]);
 
   if (!target) return null;
   const selected = duelists.find((d) => d.id === target.duelistId);
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <PickerBar duelists={duelists} target={target} />
+      <PickerBar duelists={duelists} onDuelistChange={onDuelistChange} target={target} />
       <DropPoolSummary view={target.view} />
       <div className="flex-1 min-h-0 flex flex-col">
         <DropPoolTable view={target.view} />
@@ -53,9 +63,11 @@ export function DropPoolEditor({ gameData }: { gameData: BridgeGameData }) {
 
 function PickerBar({
   duelists,
+  onDuelistChange,
   target,
 }: {
   duelists: readonly BridgeDuelist[];
+  onDuelistChange: (id: number) => void;
   target: { duelistId: number; view: EditView };
 }) {
   const loadTarget = useSetAtom(loadTargetAtom);
@@ -65,12 +77,7 @@ function PickerBar({
       <select
         aria-label="Duelist"
         className="appearance-none bg-bg-surface border border-border-subtle rounded-md pl-2.5 pr-6 py-1 text-sm text-text-primary focus:outline-none focus:border-gold-dim hover:border-border-accent cursor-pointer"
-        onChange={(e) =>
-          loadTarget({
-            target: { duelistId: Number(e.target.value), view: target.view },
-            duelists: [...duelists],
-          })
-        }
+        onChange={(e) => onDuelistChange(Number(e.target.value))}
         value={target.duelistId}
       >
         {duelists.map((d) => (

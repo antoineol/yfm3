@@ -27,7 +27,7 @@ for (const iso of ["gamedata/alpha-mod.iso", "gamedata/alpha-mod-patched.iso"]) 
 }
 
 // Also: full CSV pipeline produces the right row.
-const { slus, waMrg, serial } = loadDiscData("gamedata/alpha-mod-patched.iso");
+const { slus, waMrg } = loadDiscData("gamedata/alpha-mod-patched.iso");
 const csvs = extractAllCsvs(slus, waMrg);
 const lines = csvs["duelists.csv"]!.split("\n").filter((l) => l.startsWith("1,"));
 console.log("\nCSV rows for duelist 1 (Simon Muran), first 5:");

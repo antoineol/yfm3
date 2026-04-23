@@ -2,6 +2,7 @@
 // Disc image reading & ISO 9660 filesystem parsing
 // ---------------------------------------------------------------------------
 
+import { readSync } from "node:fs";
 import type { IsoFile } from "./types.ts";
 
 // ── Disc format detection ───────────────────────────────────────
@@ -103,6 +104,36 @@ export function readIsoFile(bin: Buffer, file: IsoFile, fmt: DiscFormat = MODE2_
   const sectorCount = Math.ceil(file.size / SECTOR_DATA_SIZE);
   const raw = readSectors(bin, file.sector, sectorCount, fmt);
   return raw.subarray(0, file.size);
+}
+
+/**
+ * Read a range of sectors directly from an open file descriptor, returning
+ * concatenated 2048-byte data portions. Used by path-based disc readers that
+ * avoid loading the entire 500+ MB .bin image into memory.
+ */
+export function readSectorsFromFd(
+  fd: number,
+  startSector: number,
+  count: number,
+  fmt: DiscFormat,
+): Buffer {
+  const raw = Buffer.alloc(count * fmt.sectorSize);
+  readSync(fd, raw, 0, raw.length, startSector * fmt.sectorSize);
+  const out = Buffer.alloc(count * SECTOR_DATA_SIZE);
+  for (let i = 0; i < count; i++) {
+    raw.copy(
+      out,
+      i * SECTOR_DATA_SIZE,
+      i * fmt.sectorSize + fmt.dataOffset,
+      i * fmt.sectorSize + fmt.dataOffset + SECTOR_DATA_SIZE,
+    );
+  }
+  return out;
+}
+
+/** Read a single sector directly from an open file descriptor. */
+export function readSectorFromFd(fd: number, sector: number, fmt: DiscFormat): Buffer {
+  return readSectorsFromFd(fd, sector, 1, fmt);
 }
 
 export function findFile(

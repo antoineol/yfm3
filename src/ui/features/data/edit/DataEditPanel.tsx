@@ -3,7 +3,13 @@ import { useBridgeAutoSync } from "../../../db/use-user-preferences.ts";
 import { useBridge } from "../../../lib/bridge-context.tsx";
 import { DropPoolEditor } from "./DropPoolEditor.tsx";
 
-export function DataEditPanel() {
+export function DataEditPanel({
+  onDuelistChange,
+  selectedDuelistId,
+}: {
+  onDuelistChange: (id: number) => void;
+  selectedDuelistId: number | undefined;
+}) {
   const autoSyncOn = useBridgeAutoSync();
   const bridge = useBridge();
   const gameReady = autoSyncOn && bridge.detail === "ready";
@@ -44,7 +50,11 @@ export function DataEditPanel() {
 
   return (
     <PanelCard className="w-full max-w-5xl mx-auto">
-      <DropPoolEditor gameData={bridge.gameData} />
+      <DropPoolEditor
+        gameData={bridge.gameData}
+        onDuelistChange={onDuelistChange}
+        selectedDuelistId={selectedDuelistId}
+      />
     </PanelCard>
   );
 }

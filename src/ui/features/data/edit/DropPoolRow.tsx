@@ -13,6 +13,7 @@ type Props = {
   weights: Partial<Record<PoolType, number>>;
   pinned: boolean;
   modified: boolean;
+  needMore: boolean;
   /** Called when the user toggles this row's pin checkbox.
    *  `desired` is what the click intends (true = become pinned, false = unpin).
    *  `shiftKey` is the native shift-key state at click time, so the parent can
@@ -22,7 +23,16 @@ type Props = {
 
 export const DropPoolRow = memo(DropPoolRowImpl);
 
-function DropPoolRowImpl({ cardId, card, pools, weights, pinned, modified, onTogglePin }: Props) {
+function DropPoolRowImpl({
+  cardId,
+  card,
+  pools,
+  weights,
+  pinned,
+  modified,
+  needMore,
+  onTogglePin,
+}: Props) {
   const setWeight = useSetAtom(setWeightAtom);
   const isMonster = card?.isMonster ?? false;
   const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
@@ -51,7 +61,11 @@ function DropPoolRowImpl({ cardId, card, pools, weights, pinned, modified, onTog
       </td>
       <td className="py-0.5 px-1 text-text-primary">
         {card ? (
-          <CardName cardId={cardId} name={card.name} />
+          <CardName
+            cardId={cardId}
+            className={needMore ? "text-text-need" : undefined}
+            name={card.name}
+          />
         ) : (
           <span className="text-text-secondary italic">(unknown card)</span>
         )}
