@@ -95,63 +95,7 @@ export function findFusionChains(
     perEquipBonuses,
   );
 
-  // Direct plays: hand monsters played as-is, and equip boosts on hand/field monsters
-  for (let i = 0; i < tagged.length; i++) {
-    const monster = tagged[i];
-    if (!monster) continue;
-    const card = cardDb.cardsById.get(monster.cardId);
-    const fb = fieldBonus(terrain, card?.cardType);
-    // For field cards, use live ATK (includes existing equip boosts) + field bonus;
-    // otherwise use DB base ATK with field bonus applied.
-    const currentAtk =
-      monster.liveAtk != null
-        ? monster.liveAtk + fb
-        : applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType);
-    const currentDef =
-      monster.liveDef != null
-        ? monster.liveDef + fb
-        : applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType);
-    if (currentAtk === 0) continue;
-
-    // Raw play: hand monster with no fusion, no equip
-    if (monster.source === "hand") {
-      const key = `${String(monster.cardId)}+`;
-      const existing = results.get(key);
-      if (!existing || existing.resultAtk <= currentAtk) {
-        results.set(key, {
-          resultCardId: monster.cardId,
-          resultAtk: currentAtk,
-          resultDef: currentDef,
-          resultName: card?.name ?? `Card #${monster.cardId}`,
-          steps: [],
-          materialCardIds: [monster.cardId],
-          fieldMaterialCardIds: [],
-          equipCardIds: [],
-        });
-      }
-    }
-
-    // Equip-boosted play: hand or field monster with compatible equips from hand
-    if (equipCompat) {
-      const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
-      if (equips.length === 0) continue;
-      const bonus = equips.reduce((sum, eqId) => sum + equipBonusForCard(eqId, perEquipBonuses), 0);
-      const fieldPrefix = monster.source === "field" ? "f" : "";
-      const key = `${fieldPrefix}${String(monster.cardId)}+${equips.join(",")}`;
-      const existing = results.get(key);
-      if (existing && existing.resultAtk >= currentAtk + bonus) continue;
-      results.set(key, {
-        resultCardId: monster.cardId,
-        resultAtk: currentAtk + bonus,
-        resultDef: currentDef + bonus,
-        resultName: card?.name ?? `Card #${monster.cardId}`,
-        steps: [],
-        materialCardIds: monster.source === "hand" ? [monster.cardId] : [],
-        fieldMaterialCardIds: monster.source === "field" ? [monster.cardId] : [],
-        equipCardIds: equips,
-      });
-    }
-  }
+  enumerateDirectPlays(tagged, cardDb, results, equipCompat, terrain, perEquipBonuses);
 
   // Filter out results that consume no hand cards at all (field-only, no equips)
   const filtered = Array.from(results.values()).filter(
@@ -283,7 +227,7 @@ function buildRemainingHand(
   return remaining;
 }
 
-/** Keep result with highest effective ATK per unique (resultCardId + equips + field flag) combo. */
+/** Record a fusion result, unless it sacrifices a field card with higher ATK than the result. */
 function recordResult(
   resultId: number,
   steps: FusionStep[],
@@ -298,8 +242,6 @@ function recordResult(
   const fieldMaterialCardIds = consumedCards
     .filter((c) => c.source === "field")
     .map((c) => c.cardId);
-  const fieldPrefix = fieldMaterialCardIds.length > 0 ? "f" : "";
-  const key = `${fieldPrefix}${String(resultId)}+${equipCardIds.join(",")}`;
   const card = cardDb.cardsById.get(resultId);
   const effectiveAtk =
     applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType) + equipBonusTotal;
@@ -312,18 +254,8 @@ function recordResult(
     }
   }
 
-  const existing = results.get(key);
-  if (existing) {
-    if (existing.resultAtk > effectiveAtk) return;
-    if (
-      existing.resultAtk === effectiveAtk &&
-      existing.materialCardIds.length + existing.fieldMaterialCardIds.length <=
-        materialCardIds.length + fieldMaterialCardIds.length
-    )
-      return;
-  }
-
-  results.set(key, {
+  const fieldPrefix = fieldMaterialCardIds.length > 0 ? "f" : "";
+  upsertPlay(results, `${fieldPrefix}${String(resultId)}+${equipCardIds.join(",")}`, {
     resultCardId: resultId,
     resultAtk: effectiveAtk,
     resultDef: applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType) + equipBonusTotal,
@@ -333,6 +265,89 @@ function recordResult(
     fieldMaterialCardIds,
     equipCardIds,
   });
+}
+
+/**
+ * Enumerate direct plays: hand monsters played as-is, and hand/field monsters
+ * boosted by compatible equips from the hand.
+ */
+function enumerateDirectPlays(
+  tagged: TaggedCard[],
+  cardDb: CardDb,
+  results: Map<string, FusionChainResult>,
+  equipCompat: Uint8Array | undefined,
+  terrain: number,
+  perEquipBonuses: Record<number, number> | undefined,
+): void {
+  for (let i = 0; i < tagged.length; i++) {
+    const monster = tagged[i];
+    if (!monster) continue;
+    const card = cardDb.cardsById.get(monster.cardId);
+    const fb = fieldBonus(terrain, card?.cardType);
+    // For field cards, use live ATK (includes existing equip boosts) + field bonus;
+    // otherwise use DB base ATK with field bonus applied.
+    const baseAtk =
+      monster.liveAtk != null
+        ? monster.liveAtk + fb
+        : applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType);
+    const baseDef =
+      monster.liveDef != null
+        ? monster.liveDef + fb
+        : applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType);
+    if (baseAtk === 0) continue;
+    const name = card?.name ?? `Card #${monster.cardId}`;
+
+    if (monster.source === "hand") {
+      upsertPlay(results, `${String(monster.cardId)}+`, {
+        resultCardId: monster.cardId,
+        resultAtk: baseAtk,
+        resultDef: baseDef,
+        resultName: name,
+        steps: [],
+        materialCardIds: [monster.cardId],
+        fieldMaterialCardIds: [],
+        equipCardIds: [],
+      });
+    }
+
+    if (!equipCompat) continue;
+    const equips = findCompatibleEquips(tagged, [i], monster.cardId, equipCompat);
+    if (equips.length === 0) continue;
+    const bonus = equips.reduce((sum, eqId) => sum + equipBonusForCard(eqId, perEquipBonuses), 0);
+    const fieldPrefix = monster.source === "field" ? "f" : "";
+    upsertPlay(results, `${fieldPrefix}${String(monster.cardId)}+${equips.join(",")}`, {
+      resultCardId: monster.cardId,
+      resultAtk: baseAtk + bonus,
+      resultDef: baseDef + bonus,
+      resultName: name,
+      steps: [],
+      materialCardIds: monster.source === "hand" ? [monster.cardId] : [],
+      fieldMaterialCardIds: monster.source === "field" ? [monster.cardId] : [],
+      equipCardIds: equips,
+    });
+  }
+}
+
+/**
+ * Insert `candidate` at `key` unless an existing play strictly dominates it.
+ * Priority: higher ATK first, then fewer total materials; existing wins on full tie.
+ */
+function upsertPlay(
+  results: Map<string, FusionChainResult>,
+  key: string,
+  candidate: FusionChainResult,
+): void {
+  const existing = results.get(key);
+  if (existing) {
+    if (existing.resultAtk > candidate.resultAtk) return;
+    if (existing.resultAtk === candidate.resultAtk) {
+      const existingMats = existing.materialCardIds.length + existing.fieldMaterialCardIds.length;
+      const candidateMats =
+        candidate.materialCardIds.length + candidate.fieldMaterialCardIds.length;
+      if (existingMats <= candidateMats) return;
+    }
+  }
+  results.set(key, candidate);
 }
 
 /**

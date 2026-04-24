@@ -346,6 +346,18 @@ describe("findFusionChains with equip bonus", () => {
     expect(doubleEquip?.resultAtk).toBe(3500); // 2000 + 500 + 1000
   });
 
+  it("prefers direct play + equip over fusion + equip reaching the same ATK", () => {
+    // SwordDragon(65) already in hand + Megamorph(657) = 4500 directly (2 cards).
+    // Warrior(60) + Dragon(61) → SwordDragon(65) + Megamorph(657) = 4500 via fusion (3 cards).
+    // Same (result, equip, ATK) — dedup should keep the cheaper direct play.
+    const results = findFusionChains([60, 61, 65, 657], eqFusionTable, eqCardDb, 3, equipCompat);
+    const withEquip = results.filter((r) => r.resultCardId === 65 && r.equipCardIds.length > 0);
+    expect(withEquip).toHaveLength(1);
+    expect(withEquip[0]?.steps).toEqual([]);
+    expect(withEquip[0]?.materialCardIds).toEqual([65]);
+    expect(withEquip[0]?.resultAtk).toBe(4500);
+  });
+
   it("without equipCompat, no equip results are shown but raw plays appear", () => {
     const results = findFusionChains([60, 62, 64], eqFusionTable, eqCardDb, 3);
     // No fusions possible, no equip compat — only raw monster plays
