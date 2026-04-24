@@ -3,8 +3,8 @@
  *
  * Resolves the .bin path for the running game via DuckStation's gamelist
  * cache, extracts all game data (cards, duelists, fusions, equips) from
- * the disc image, and manages a single-entry disk cache keyed by
- * gameDataHash (SHA-256 of card stats).
+ * the disc image, and manages an on-disk cache keyed per-disc (see
+ * `artworkCacheKey`).
  */
 
 import { createHash } from "node:crypto";
@@ -101,13 +101,7 @@ export async function acquireGameData(
 ): Promise<AcquireGameDataResult> {
   const t0 = performance.now();
   const gameDataHash = computeGameDataHash(cardStats);
-  const hashPrefix = gameDataHash.slice(0, 12);
-  const artworkDir = join(cacheDir, "artwork", hashPrefix);
 
-  // Disc content is cached on disk keyed by gameDataHash (see
-  // gamedata-cache.ts). `discPath` is never cached — we always re-resolve
-  // it from DuckStation's game dirs so it matches the file the emulator
-  // currently has locked.
   const { cuePaths, isoPaths } = findDiscImages(pid);
   const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
 
@@ -116,65 +110,54 @@ export async function acquireGameData(
     return { kind: "none" };
   }
 
+  // Resolve the active disc up front. Both the gamedata JSON cache and the
+  // artwork PNG dir live under a key that includes `discPath`, so sibling
+  // ISOs that share the EXE hash but differ in WA_MRG can't bleed into each
+  // other's cache (see `artworkCacheKey` for the rationale).
+  const match = await pickWinningDisc(discPaths, gameDataHash, serial);
+  if (match.kind === "ambiguous") {
+    console.warn(
+      `Disc resolution ambiguous — ${match.candidates.length} candidates: ${match.candidates.join(" | ")}`,
+    );
+    return { kind: "ambiguous", candidates: match.candidates };
+  }
+  if (match.kind === "none") {
+    console.warn("No matching disc image found in DuckStation gamelist");
+    return { kind: "none" };
+  }
+
+  const dirKey = artworkCacheKey(gameDataHash, match.binPath);
+  const artworkDir = join(cacheDir, "artwork", dirKey);
+
   const cached = readGameDataCache(artworkDir);
   if (cached) {
-    const match = await pickWinningDisc(discPaths, gameDataHash, serial);
-    if (match.kind === "winner") {
-      if (cached.discPath === match.binPath) {
-        console.log(
-          `Game data loaded from cache (${hashPrefix}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
-        );
-        return {
-          kind: "ok",
-          data: buildGameDataFromCache(gameDataHash, cardStats, cached, match.binPath),
-        };
-      }
-      // Same EXE hash, different file → the cache was written from a sibling
-      // ISO that shares the EXE (e.g. Alpha Mod + BEWD-test). WA_MRG drop
-      // tables may differ, so cached tables cannot be trusted — re-extract.
-      console.log(
-        `Cache discPath mismatch (cached=${cached.discPath} vs active=${match.binPath}) — re-extracting`,
-      );
-    } else if (match.kind === "ambiguous") {
-      console.warn(
-        `Disc resolution ambiguous (cache hit) — ${match.candidates.length} candidates: ${match.candidates.join(" | ")}`,
-      );
-      return { kind: "ambiguous", candidates: match.candidates };
-    }
-    // `none` — cache hit but no disc currently matches the hash; content may
-    // have been modified since caching; fall through to a fresh extract.
-  }
-
-  const result = await extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
-
-  if (result.kind === "ok") {
-    const { data } = result;
-    writeGameDataCache(artworkDir, {
-      gameSerial: data.gameSerial,
-      discPath: data.discPath,
-      cards: data.cards,
-      duelists: data.duelists,
-      fusionTable: data.fusionTable,
-      equipTable: data.equipTable,
-      equipBonuses: data.equipBonuses,
-      perEquipBonuses: data.perEquipBonuses,
-      deckLimits: data.deckLimits,
-    });
     console.log(
-      `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips — total ${ms(performance.now() - t0)}`,
+      `Game data loaded from cache (${dirKey}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
     );
-    return result;
+    return {
+      kind: "ok",
+      data: buildGameDataFromCache(gameDataHash, cardStats, cached, match.binPath),
+    };
   }
 
-  if (result.kind === "ambiguous") {
-    console.warn(
-      `Disc resolution ambiguous — ${result.candidates.length} candidates: ${result.candidates.join(" | ")}`,
-    );
-    return result;
-  }
+  const result = extractFromWinner(match, gameDataHash, cardStats, artworkDir, dirKey);
+  if (result.kind === "none") return { kind: "none" };
 
-  console.warn("No matching disc image found in DuckStation gamelist");
-  return { kind: "none" };
+  const { data } = result;
+  writeGameDataCache(artworkDir, {
+    gameSerial: data.gameSerial,
+    cards: data.cards,
+    duelists: data.duelists,
+    fusionTable: data.fusionTable,
+    equipTable: data.equipTable,
+    equipBonuses: data.equipBonuses,
+    perEquipBonuses: data.perEquipBonuses,
+    deckLimits: data.deckLimits,
+  });
+  console.log(
+    `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips — total ${ms(performance.now() - t0)}`,
+  );
+  return result;
 }
 
 function ms(duration: number): string {
@@ -208,6 +191,21 @@ function buildGameDataFromCache(
 /** SHA-256 hex digest of the card stats table. */
 export function computeGameDataHash(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * Per-disc cache directory key. Keyed on `gameDataHash` AND `discPath` — the
+ * hash alone collides across sibling ISOs that share the EXE card-stats table
+ * but differ in WA_MRG content (e.g. Alpha Mod vs a BEWD-test sibling). Using
+ * only the hash caused both the gamedata JSON cache and the artwork PNG dir
+ * to bleed across siblings: drop-pool edits written to one ISO could be
+ * served out of the other's cache on the next boot. Including `discPath`
+ * gives each disc image its own bucket, making the collision structurally
+ * impossible.
+ */
+export function artworkCacheKey(gameDataHash: string, discPath: string): string {
+  const pathHash = createHash("sha256").update(discPath).digest("hex").slice(0, 8);
+  return `${gameDataHash.slice(0, 12)}-${pathHash}`;
 }
 
 // ── .cue file discovery ──────────────────────────────────────────
@@ -352,20 +350,18 @@ function findSerialInExe(slus: Buffer): string | null {
 // ── Extraction ────────────────────────────────────────────────────
 
 /**
- * Try each disc image candidate (.bin or .iso), disambiguate by card stats
- * hash, and extract all game data from the best match. Prefers the disc whose
- * EXE serial matches the RAM serial (handles mods with custom gamelist serials).
+ * Extract all game data from a disc whose identity has already been resolved
+ * upstream (via `pickWinningDisc`). Keeping the disc-selection decision out
+ * of this function means we only probe OS locks and re-read EXEs once per
+ * `acquireGameData` call instead of twice.
  */
-async function extractFromDiscs(
-  discPaths: string[],
+function extractFromWinner(
+  match: Extract<DiscMatchResult, { kind: "winner" }>,
   gameDataHash: string,
   cardStats: Uint8Array,
-  ramSerial?: string | null,
-  artworkDir?: string,
-): Promise<AcquireGameDataResult> {
-  const match = await pickWinningDisc(discPaths, gameDataHash, ramSerial);
-  if (match.kind !== "winner") return match;
-
+  artworkDir: string,
+  dirKey: string,
+): { kind: "ok"; data: GameData } | { kind: "none" } {
   const suffix =
     (match.discSerial ? `disc serial: ${match.discSerial}` : "trusted single lock") +
     (match.candidateCount > 1 ? `, ${match.candidateCount} candidates` : "");
@@ -394,14 +390,7 @@ async function extractFromDiscs(
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
     const deckLimits = extractDeckLimits(slus);
 
-    if (artworkDir) {
-      startArtworkExtraction(
-        gameDataHash.slice(0, 12),
-        artworkDir,
-        waMrg,
-        waMrgLayout.artworkBlockSize,
-      );
-    }
+    startArtworkExtraction(dirKey, artworkDir, waMrg, waMrgLayout.artworkBlockSize);
 
     return {
       kind: "ok",

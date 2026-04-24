@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { EXTRA_GAME_VARIANTS, MODS } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import type { BridgeDetail } from "../../lib/bridge-message-processor.ts";
 import {
   BIOS_EU_URL,
   BIOS_US_URL,
@@ -20,9 +21,22 @@ import {
   Troubleshooting,
 } from "./setup-steps.tsx";
 
+/**
+ * Bridge "ready" means shared-memory card-stats are non-zero — not that disc
+ * extraction finished. Until `gameData` actually arrives, we keep step 8
+ * ("Load the game") active: the user hasn't completed the flow, whether
+ * because the emulator is between loads (stale shared memory) or extraction
+ * is still running in the background.
+ */
+function effectiveDetail(detail: BridgeDetail, hasGameData: boolean): BridgeDetail {
+  if (detail === "ready" && !hasGameData) return "waiting_for_game";
+  return detail;
+}
+
 export function BridgeSetupGuide() {
   const bridge = useBridge();
   const updatePreferences = useUpdatePreferences();
+  const detail = effectiveDetail(bridge.detail, bridge.gameData !== null);
 
   const handleSwitchMode = useCallback(() => {
     updatePreferences({ bridgeAutoSync: null });
@@ -30,9 +44,9 @@ export function BridgeSetupGuide() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      {bridge.detail !== "waiting_for_game" && (
+      {detail !== "waiting_for_game" && (
         <StatusBanner
-          detail={bridge.detail}
+          detail={detail}
           detailMessage={bridge.detailMessage}
           settingsPatched={bridge.settingsPatched}
         />
@@ -47,7 +61,8 @@ export function BridgeSetupGuide() {
 function SetupSteps() {
   const bridge = useBridge();
   const [downloaded, setDownloaded] = useState(false);
-  const states = stepStatesForDetail(bridge.detail);
+  const detail = effectiveDetail(bridge.detail, bridge.gameData !== null);
+  const states = stepStatesForDetail(detail);
 
   const step4 = downloaded && states[3] === STEP_ACTIVE ? STEP_DONE : states[3];
   const step7 = bridge.settingsPatched ? STEP_DONE : states[6];

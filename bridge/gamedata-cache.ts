@@ -1,18 +1,13 @@
 /**
- * Persistent disk cache for parsed disc content, keyed by gameDataHash.
+ * Persistent disk cache for parsed disc content.
  *
- * The hash is SHA-256 of the 2888-byte card-stats table read from RAM. It
- * deterministically identifies the EXE content — but NOT the drop tables in
- * WA_MRG.MRG. Two ISOs derived from the same base (e.g. an Alpha Mod and a
- * BEWD-test sibling with edited drops) have identical `gameDataHash` and
- * collide on this cache slot.
- *
- * To make the cache safe against that collision, we store `discPath` in the
- * cache file and `acquireGameData` invalidates (re-extracts) whenever the
- * current lock-probe winner's path doesn't match the cached one. Without
- * this, a cache hit would return whichever ISO happened to be extracted
- * last, silently serving the wrong drop tables — the root cause of the
- * "my edits disappeared" incident.
+ * The cache dir is keyed by `artworkCacheKey(gameDataHash, discPath)`, so
+ * each disc image gets its own bucket. This structurally prevents the
+ * same-EXE-hash collision that caused the "my edits disappeared" incident:
+ * two ISOs derived from the same base (e.g. Alpha Mod + a BEWD-test
+ * sibling) used to share a single cache slot keyed on the RAM card-stats
+ * hash alone, letting whichever extracted last silently serve its drop
+ * tables to the other.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,18 +21,11 @@ import type {
   Fusion,
 } from "./extract/types.ts";
 
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 const CACHE_FILENAME = "gamedata.json";
 
 export interface CachedGameData {
   gameSerial: string;
-  /**
-   * Absolute path of the disc image these tables were extracted from. Used
-   * by `acquireGameData` to detect same-EXE-hash collisions: when two ISOs
-   * share `gameDataHash` but differ in WA_MRG content, the cache slot can
-   * be filled by either one, and only this path disambiguates.
-   */
-  discPath: string;
   cards: CardStats[];
   duelists: DuelistData[];
   fusionTable: Fusion[];
@@ -59,7 +47,6 @@ export function readGameDataCache(artworkDir: string): CachedGameData | null {
     if (parsed.version !== CACHE_VERSION) return null;
     return {
       gameSerial: parsed.gameSerial,
-      discPath: parsed.discPath,
       cards: parsed.cards,
       duelists: parsed.duelists,
       fusionTable: parsed.fusionTable,

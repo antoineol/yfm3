@@ -18,7 +18,7 @@ import { awaitArtworkExtraction } from "./artwork-extraction.ts";
 import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
 import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
-import { acquireGameData, type GameData } from "./game-data.ts";
+import { acquireGameData, artworkCacheKey, type GameData } from "./game-data.ts";
 import { writeGameDataCache } from "./gamedata-cache.ts";
 import type { Hwnd } from "./input.ts";
 import {
@@ -231,15 +231,14 @@ function describeDiscAmbiguity(candidates: readonly string[]): string {
   );
 }
 
-// Keep the on-disk gamedata cache in sync after an ISO edit. `acquireGameData`
-// keys the cache by the RAM card-stats hash, which doesn't change when we
-// patch WA_MRG.MRG — without this, a cache hit on the next boot would return
-// the pre-patch duelists and silently overwrite our in-memory state.
+// Keep the on-disk gamedata cache in sync after an ISO edit. Our patches
+// (e.g. WA_MRG.MRG drop pools) don't touch the EXE card-stats the RAM hash
+// is computed from, so the next boot would otherwise serve pre-patch tables
+// from cache.
 function persistGameDataCache(data: GameData): void {
-  const artworkDir = join(__dirname, "artwork", data.gameDataHash.slice(0, 12));
+  const artworkDir = join(__dirname, "artwork", artworkCacheKey(data.gameDataHash, data.discPath));
   writeGameDataCache(artworkDir, {
     gameSerial: data.gameSerial,
-    discPath: data.discPath,
     cards: data.cards,
     duelists: data.duelists,
     fusionTable: data.fusionTable,
@@ -259,7 +258,6 @@ function persistGameDataCache(data: GameData): void {
  */
 type GameDataWireMessage = {
   type: "gameData";
-  gameDataHash: GameData["gameDataHash"];
   cards: GameData["cards"];
   duelists: GameData["duelists"];
   fusionTable: GameData["fusionTable"];
@@ -273,7 +271,6 @@ type GameDataWireMessage = {
 function buildGameDataMessage(data: GameData): string {
   const msg: GameDataWireMessage = {
     type: "gameData",
-    gameDataHash: data.gameDataHash,
     cards: data.cards,
     duelists: data.duelists,
     fusionTable: data.fusionTable,
@@ -474,13 +471,13 @@ async function serveArtwork(pathname: string): Promise<Response> {
   if (!/^\d{3}\.png$/.test(filename) || !currentGameData) {
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });
   }
-  const hashPrefix = currentGameData.gameDataHash.slice(0, 12);
-  const filePath = join(__dirname, "artwork", hashPrefix, filename);
+  const dirKey = artworkCacheKey(currentGameData.gameDataHash, currentGameData.discPath);
+  const filePath = join(__dirname, "artwork", dirKey, filename);
   // Extraction runs in the background after gameData broadcasts (see
   // artwork-extraction.ts). If the caller races ahead of the writer, wait
   // for that batch to finish rather than flashing a 404.
   if (!existsSync(filePath)) {
-    const pending = awaitArtworkExtraction(hashPrefix);
+    const pending = awaitArtworkExtraction(dirKey);
     if (pending) {
       try {
         await pending;
