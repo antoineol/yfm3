@@ -214,70 +214,68 @@ export function DropPoolTable({ view }: { view: EditView }) {
           All cards
         </label>
       </div>
-      <div className="overflow-x-auto overflow-y-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-bg-panel border-b border-border-accent z-10">
-            <tr className="text-text-secondary text-xs uppercase tracking-wide">
-              <th className="w-8 py-1.5 px-0.5 font-normal text-center">
-                <MasterPinCheckbox onToggle={handleMasterTogglePin} state={masterPinState} />
-              </th>
-              <SortableHeader
-                dir={sort?.key === "id" ? sort.dir : undefined}
-                label="#"
-                onClick={() => handleSort("id")}
-                px="px-1"
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="sticky top-0 z-20 bg-bg-panel border-b border-border-accent text-text-secondary text-xs uppercase tracking-wide">
+            <th className="w-8 py-1.5 px-0.5 font-normal text-center">
+              <MasterPinCheckbox onToggle={handleMasterTogglePin} state={masterPinState} />
+            </th>
+            <SortableHeader
+              dir={sort?.key === "id" ? sort.dir : undefined}
+              label="#"
+              onClick={() => handleSort("id")}
+              px="px-1"
+            />
+            <th className="text-left py-1.5 px-1 font-normal">Card</th>
+            <SortableHeader
+              align="text-right"
+              dir={sort?.key === "atk" ? sort.dir : undefined}
+              label="ATK"
+              onClick={() => handleSort("atk")}
+              px="px-1"
+            />
+            <SortableHeader
+              align="text-right"
+              dir={sort?.key === "def" ? sort.dir : undefined}
+              label="DFD"
+              onClick={() => handleSort("def")}
+              px="px-1"
+            />
+            {pools.map((p) => (
+              <WeightHeaderPair
+                key={p}
+                onSort={() => handleSort(`weight:${p}`)}
+                poolType={p}
+                sortDir={sort?.key === `weight:${p}` ? sort.dir : undefined}
               />
-              <th className="text-left py-1.5 px-1 font-normal">Card</th>
-              <SortableHeader
-                align="text-right"
-                dir={sort?.key === "atk" ? sort.dir : undefined}
-                label="ATK"
-                onClick={() => handleSort("atk")}
-                px="px-1"
-              />
-              <SortableHeader
-                align="text-right"
-                dir={sort?.key === "def" ? sort.dir : undefined}
-                label="DFD"
-                onClick={() => handleSort("def")}
-                px="px-1"
-              />
-              {pools.map((p) => (
-                <WeightHeaderPair
-                  key={p}
-                  onSort={() => handleSort(`weight:${p}`)}
-                  poolType={p}
-                  sortDir={sort?.key === `weight:${p}` ? sort.dir : undefined}
-                />
-              ))}
+            ))}
+          </tr>
+          <BulkEditRow pools={pools} scopeLabel={scopeLabel} targetCardIds={targetCardIds} />
+        </thead>
+        <tbody>
+          {sorted.length === 0 ? (
+            <tr>
+              <td className="py-8 text-center text-text-muted italic" colSpan={headerColSpan}>
+                No cards match.
+              </td>
             </tr>
-            <BulkEditRow pools={pools} scopeLabel={scopeLabel} targetCardIds={targetCardIds} />
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr>
-                <td className="py-8 text-center text-text-muted italic" colSpan={headerColSpan}>
-                  No cards match.
-                </td>
-              </tr>
-            ) : (
-              sorted.map((e) => (
-                <DropPoolRow
-                  card={e.card}
-                  cardId={e.cardId}
-                  key={e.cardId}
-                  modified={e.modified}
-                  needMore={e.needMore}
-                  onTogglePin={handleTogglePin}
-                  pinned={e.pinned}
-                  pools={pools}
-                  weights={e.weights}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+          ) : (
+            sorted.map((e) => (
+              <DropPoolRow
+                card={e.card}
+                cardId={e.cardId}
+                key={e.cardId}
+                modified={e.modified}
+                needMore={e.needMore}
+                onTogglePin={handleTogglePin}
+                pinned={e.pinned}
+                pools={pools}
+                weights={e.weights}
+              />
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

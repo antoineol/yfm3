@@ -149,7 +149,12 @@ function GlobalSaveRevert({ duelists }: { duelists: readonly BridgeDuelist[] }) 
   const revertAll = useSetAtom(revertAllAtom);
   const save = useSetAtom(saveAtom);
 
-  if (duelistCount === 0) return null;
+  // Stay mounted while saving even after `modifiedByDuelist` empties out. The
+  // save atom clears edits mid-flight (once each pool's canonical write-back
+  // becomes the new baseline), but the toast only fires after the promise
+  // fully resolves — without this guard the row vanishes seconds before the
+  // confirmation toast appears.
+  if (duelistCount === 0 && !saving) return null;
 
   async function onSave() {
     if (bridge.detail === "ready" && !window.confirm(CONFIRM_MESSAGE)) return;

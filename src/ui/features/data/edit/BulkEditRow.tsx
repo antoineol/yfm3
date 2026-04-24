@@ -14,7 +14,7 @@ export function BulkEditRow({ pools, targetCardIds, scopeLabel }: Props) {
   const disabled = targetCardIds.length === 0;
   return (
     <tr
-      className="border-t border-border-accent/60 bg-bg-panel/80"
+      className="sticky top-7 z-10 border-t border-border-accent/60 bg-bg-panel"
       title="Type a weight to apply it to every row in scope."
     >
       <td className="py-0.5 px-0.5" />
