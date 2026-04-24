@@ -162,11 +162,11 @@ describe("acquireGameData", () => {
 
   // Every call re-resolves the running disc and extracts content from it —
   // there is no JSON content cache. With no DuckStation and no disc images
-  // reachable, the only possible outcome is null.
+  // reachable, the only possible outcome is `none`.
 
-  it("returns null when no disc images are available", async () => {
+  it("returns kind 'none' when no disc images are available", async () => {
     const stats = new Uint8Array(2888).fill(1);
     const result = await acquireGameData(stats, null, tmpDir);
-    expect(result).toBeNull();
+    expect(result).toEqual({ kind: "none" });
   });
 });

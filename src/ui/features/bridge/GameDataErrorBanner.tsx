@@ -15,7 +15,7 @@ export function GameDataErrorBanner() {
       <span className="inline-block size-2.5 rounded-full shrink-0 bg-yellow-400" />
       <div className="min-w-0">
         <p className="text-sm font-medium text-yellow-400">Game data unavailable</p>
-        <p className="mt-0.5 text-xs text-text-muted">{bridge.gameDataError}</p>
+        <p className="mt-0.5 text-xs text-text-muted whitespace-pre-line">{bridge.gameDataError}</p>
       </div>
     </div>
   );

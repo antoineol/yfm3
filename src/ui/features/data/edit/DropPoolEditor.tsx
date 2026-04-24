@@ -202,9 +202,7 @@ function GlobalSaveRevert({ duelists }: { duelists: readonly BridgeDuelist[] }) 
         size="sm"
         title={saveTitle}
       >
-        {saving
-          ? "Saving…"
-          : `Save · ${duelistCount} duelist${duelistCount === 1 ? "" : "s"} · ${cardCount} card${cardCount === 1 ? "" : "s"}`}
+        {saving ? "Saving…" : `Save all · ${duelistCount}`}
       </Button>
     </>
   );

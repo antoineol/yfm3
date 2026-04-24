@@ -201,6 +201,15 @@ let gameDataFingerprint: string | null = null; // mod fingerprint we last attemp
 let gameDataRetryAt: number | null = null; // timestamp for next retry (null = no retry scheduled)
 let gameDataRetries = 0;
 let waitingForSerialLogged = false; // avoid spamming the defer log on every poll
+/**
+ * Set when `acquireGameData` returns `ambiguous` — multiple disc images in
+ * DuckStation's games dir share the running game's EXE hash and we can't
+ * tell which one DuckStation actually has open. Persists until the next
+ * successful acquisition or game-loaded transition. ISO-edit endpoints must
+ * refuse while this is non-null: writing to a guessed disc would silently
+ * corrupt the wrong file.
+ */
+let ambiguousDiscCandidates: string[] | null = null;
 const GAME_DATA_MAX_RETRIES = 3;
 const GAME_DATA_RETRY_DELAY_MS = 5000;
 
@@ -210,6 +219,16 @@ function resetGameData(): void {
   gameDataRetryAt = null;
   gameDataRetries = 0;
   waitingForSerialLogged = false;
+  ambiguousDiscCandidates = null;
+}
+
+function describeDiscAmbiguity(candidates: readonly string[]): string {
+  return (
+    "Two or more disc images in DuckStation's games folder match this game's EXE — " +
+    "the bridge can't tell which one is the active ISO and refuses to guess. " +
+    "Move or rename all but one out of DuckStation's scan paths, then reload.\n" +
+    candidates.map((p) => `  • ${p}`).join("\n")
+  );
 }
 
 // Keep the on-disk gamedata cache in sync after an ISO edit. `acquireGameData`
@@ -632,6 +651,16 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
 //   POST /api/active-iso/backups/:filename/restore
 
 async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
+  if (ambiguousDiscCandidates) {
+    return jsonResponse(
+      {
+        error: "ambiguous_disc",
+        message: describeDiscAmbiguity(ambiguousDiscCandidates),
+        candidates: ambiguousDiscCandidates,
+      },
+      { status: 409 },
+    );
+  }
   if (!currentGameData) {
     return jsonResponse({ error: "no_game_data" }, { status: 409 });
   }
@@ -1497,7 +1526,7 @@ async function poll(): Promise<void> {
           gameDataRetryAt = null;
           try {
             const cardStats = readCardStats(mapping.view);
-            const data = await acquireGameData(cardStats, serial, __dirname, mapping.pid);
+            const result = await acquireGameData(cardStats, serial, __dirname, mapping.pid);
 
             // Read field bonus table directly from RAM (always available)
             const fbOffset = scanFieldBonusTable(mapping.view);
@@ -1507,15 +1536,28 @@ async function poll(): Promise<void> {
               console.log(`Field bonus table found at RAM 0x${fbOffset.toString(16)}`);
             }
 
-            if (data) {
-              data.fieldBonusTable = fieldBonus;
-            }
-
-            currentGameData = data;
-            if (data) {
+            if (result.kind === "ok") {
+              result.data.fieldBonusTable = fieldBonus;
+              currentGameData = result.data;
+              ambiguousDiscCandidates = null;
               gameDataRetries = 0;
-              broadcast(buildGameDataMessage(data));
+              broadcast(buildGameDataMessage(result.data));
+            } else if (result.kind === "ambiguous") {
+              // Stop retrying — only user action (moving/renaming a disc image)
+              // can resolve this. Keep `currentGameData` null so the active-iso
+              // endpoints refuse writes.
+              currentGameData = null;
+              ambiguousDiscCandidates = result.candidates;
+              gameDataRetries = 0;
+              broadcast(
+                JSON.stringify({
+                  type: "gameData",
+                  error: describeDiscAmbiguity(result.candidates),
+                }),
+              );
             } else {
+              currentGameData = null;
+              ambiguousDiscCandidates = null;
               gameDataRetries++;
               if (gameDataRetries <= GAME_DATA_MAX_RETRIES) {
                 console.log(

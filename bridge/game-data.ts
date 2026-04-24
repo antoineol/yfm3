@@ -83,12 +83,22 @@ const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — must match memory.ts
  * @param cacheDir   Directory for the cache file
  * @param pid        Optional running DuckStation PID, used for portable mode settings detection
  */
+/**
+ * Result of `acquireGameData`. `ambiguous` is the case the caller MUST handle
+ * specially — surface the candidate paths to the user and refuse any ISO
+ * write — instead of silently falling back to "no data" or guessing.
+ */
+export type AcquireGameDataResult =
+  | { kind: "ok"; data: GameData }
+  | { kind: "ambiguous"; candidates: string[] }
+  | { kind: "none" };
+
 export async function acquireGameData(
   cardStats: Uint8Array,
   serial: string | null,
   cacheDir: string,
   pid?: number,
-): Promise<GameData | null> {
+): Promise<AcquireGameDataResult> {
   const t0 = performance.now();
   const gameDataHash = computeGameDataHash(cardStats);
   const hashPrefix = gameDataHash.slice(0, 12);
@@ -97,34 +107,41 @@ export async function acquireGameData(
   // Disc content is cached on disk keyed by gameDataHash (see
   // gamedata-cache.ts). `discPath` is never cached — we always re-resolve
   // it from DuckStation's game dirs so it matches the file the emulator
-  // currently has locked. Past bug to avoid: caching `discPath` alongside
-  // content let the two drift when two byte-identical ISOs sat in the same
-  // folder. Hash-keyed content is safe (identical hash ⇒ identical bytes);
-  // only the path needs fresh resolution.
+  // currently has locked.
   const { cuePaths, isoPaths } = findDiscImages(pid);
   const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
 
   if (discPaths.length === 0) {
     console.warn("No disc images found in DuckStation game directories");
-    return null;
+    return { kind: "none" };
   }
 
   const cached = readGameDataCache(artworkDir);
   if (cached) {
-    const winner = await pickWinningDisc(discPaths, gameDataHash, serial);
-    if (winner) {
+    const match = await pickWinningDisc(discPaths, gameDataHash, serial);
+    if (match.kind === "winner") {
       console.log(
-        `Game data loaded from cache (${hashPrefix}) — disc: ${winner.binPath} — total ${ms(performance.now() - t0)}`,
+        `Game data loaded from cache (${hashPrefix}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
       );
-      return buildGameDataFromCache(gameDataHash, cardStats, cached, winner.binPath);
+      return {
+        kind: "ok",
+        data: buildGameDataFromCache(gameDataHash, cardStats, cached, match.binPath),
+      };
     }
-    // Cache hit but no disc currently matches the hash — content may have
-    // been modified since caching; fall through to a fresh extract below.
+    if (match.kind === "ambiguous") {
+      console.warn(
+        `Disc resolution ambiguous (cache hit) — ${match.candidates.length} candidates: ${match.candidates.join(" | ")}`,
+      );
+      return { kind: "ambiguous", candidates: match.candidates };
+    }
+    // `none` — cache hit but no disc currently matches the hash; content may
+    // have been modified since caching; fall through to a fresh extract.
   }
 
-  const data = await extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
+  const result = await extractFromDiscs(discPaths, gameDataHash, cardStats, serial, artworkDir);
 
-  if (data) {
+  if (result.kind === "ok") {
+    const { data } = result;
     writeGameDataCache(artworkDir, {
       gameSerial: data.gameSerial,
       cards: data.cards,
@@ -138,11 +155,18 @@ export async function acquireGameData(
     console.log(
       `Game data acquired from ${data.discPath}: ${data.cards.length} cards, ${data.duelists.length} duelists, ${data.fusionTable.length} fusions, ${data.equipTable.length} equips — total ${ms(performance.now() - t0)}`,
     );
-    return data;
+    return result;
+  }
+
+  if (result.kind === "ambiguous") {
+    console.warn(
+      `Disc resolution ambiguous — ${result.candidates.length} candidates: ${result.candidates.join(" | ")}`,
+    );
+    return result;
   }
 
   console.warn("No matching disc image found in DuckStation gamelist");
-  return null;
+  return { kind: "none" };
 }
 
 function ms(duration: number): string {
@@ -330,17 +354,17 @@ async function extractFromDiscs(
   cardStats: Uint8Array,
   ramSerial?: string | null,
   artworkDir?: string,
-): Promise<GameData | null> {
-  const winner = await pickWinningDisc(discPaths, gameDataHash, ramSerial);
-  if (!winner) return null;
+): Promise<AcquireGameDataResult> {
+  const match = await pickWinningDisc(discPaths, gameDataHash, ramSerial);
+  if (match.kind !== "winner") return match;
 
   const suffix =
-    (winner.discSerial ? `disc serial: ${winner.discSerial}` : "trusted single lock") +
-    (winner.candidateCount > 1 ? `, ${winner.candidateCount} candidates` : "");
-  console.log(`Matched .bin: ${winner.binPath} (${suffix})`);
+    (match.discSerial ? `disc serial: ${match.discSerial}` : "trusted single lock") +
+    (match.candidateCount > 1 ? `, ${match.candidateCount} candidates` : "");
+  console.log(`Matched .bin: ${match.binPath} (${suffix})`);
 
   try {
-    const { slus, waMrg, serial: discSerial } = loadDiscData(winner.binPath);
+    const { slus, waMrg, serial: discSerial } = loadDiscData(match.binPath);
     const exeLayout = detectExeLayout(slus);
     const waMrgLayout = detectWaMrgLayout(waMrg);
     const langIdx = langIdxForSerial(discSerial);
@@ -372,95 +396,188 @@ async function extractFromDiscs(
     }
 
     return {
-      gameDataHash,
-      gameSerial: discSerial,
-      cardStats,
-      cards,
-      duelists,
-      fusionTable: fusions,
-      equipTable: equips,
-      equipBonuses,
-      perEquipBonuses,
-      deckLimits,
-      fieldBonusTable: null, // populated from RAM by serve.ts
-      discPath: winner.binPath,
+      kind: "ok",
+      data: {
+        gameDataHash,
+        gameSerial: discSerial,
+        cardStats,
+        cards,
+        duelists,
+        fusionTable: fusions,
+        equipTable: equips,
+        equipBonuses,
+        perEquipBonuses,
+        deckLimits,
+        fieldBonusTable: null, // populated from RAM by serve.ts
+        discPath: match.binPath,
+      },
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`Failed to extract from ${winner.binPath}: ${msg}`);
-    return null;
+    console.warn(`Failed to extract from ${match.binPath}: ${msg}`);
+    return { kind: "none" };
   }
 }
 
-interface DiscCandidate {
+export interface DiscCandidate {
   binPath: string;
   discSerial: string;
   exeSerial: string | null;
 }
 
-interface WinningDisc {
-  binPath: string;
-  /** Serial from the disc EXE, or null when we trusted the lock without an EXE read. */
-  discSerial: string | null;
-  candidateCount: number;
+/**
+ * Outcome of resolving which on-disk image corresponds to the game in RAM.
+ *
+ * `ambiguous` is the load-bearing case: when multiple discs match the
+ * card-stats hash and no positive identifier (lock, unique RAM-serial match)
+ * narrows them down, callers MUST refuse to operate on any of them. Picking
+ * one arbitrarily would silently route ISO edits to the wrong file — see the
+ * incident write-up at the top of `pickWinningDisc`.
+ */
+export type DiscMatchResult =
+  | {
+      kind: "winner";
+      binPath: string;
+      /** Serial from the disc EXE, or null when we trusted the lock without an EXE read. */
+      discSerial: string | null;
+      candidateCount: number;
+    }
+  | { kind: "ambiguous"; candidates: string[] }
+  | { kind: "none" };
+
+/**
+ * Pure decision: given the list of disc paths, the locked subset, the
+ * hash-matching candidates, and the RAM serial, return the winning disc — or
+ * `ambiguous` when no positive identifier picks a unique one.
+ *
+ * Selection precedence (each rule must *uniquely* identify a disc; otherwise
+ * fall through):
+ *   1. Lock probe — exactly one file held by another process and present in
+ *      `discPaths`. RAM came from that same emulator, so the lock IS the
+ *      authoritative signal.
+ *   2. Hash — exactly one `discPaths` entry matches `gameDataHash`.
+ *   3. RAM serial — exactly one hash-matching candidate's EXE serial equals
+ *      the RAM serial.
+ *
+ * Unlike the previous implementation, there is no "best guess" fallback:
+ * when none of the rules narrow to one candidate, the result is `ambiguous`
+ * and the bridge surfaces the candidate paths to the user. This is what
+ * prevents the cross-ISO contamination bug where two byte-identical-EXE
+ * mods sat in the same DuckStation games dir.
+ */
+export function decideDiscMatch(
+  discPaths: readonly string[],
+  lockedPaths: ReadonlySet<string>,
+  hashCandidates: readonly DiscCandidate[],
+  ramSerial: string | null | undefined,
+): DiscMatchResult {
+  // Rule 1: a single lock among our candidates is decisive.
+  const lockedKnown = [...lockedPaths].filter((p) => discPaths.includes(p));
+  if (lockedKnown.length === 1) {
+    const [path] = lockedKnown;
+    if (path !== undefined) {
+      const matched = hashCandidates.find((c) => c.binPath === path);
+      return {
+        kind: "winner",
+        binPath: path,
+        discSerial: matched?.discSerial ?? null,
+        candidateCount: Math.max(hashCandidates.length, 1),
+      };
+    }
+  }
+
+  if (hashCandidates.length === 0) return { kind: "none" };
+
+  // Rule 2: a single hash match is decisive.
+  if (hashCandidates.length === 1) {
+    const [only] = hashCandidates;
+    if (only !== undefined) {
+      return {
+        kind: "winner",
+        binPath: only.binPath,
+        discSerial: only.discSerial,
+        candidateCount: 1,
+      };
+    }
+  }
+
+  // Rule 3: among multiple hash matches, the RAM serial uniquely picks one.
+  // Common case where this helps: a single mod with both .iso and .bin/.cue
+  // sitting in the games dir. Common case where it does NOT help (and we
+  // must surface ambiguity): two byte-identical-EXE mods sharing the same
+  // serial but differing in WA_MRG content.
+  const normalRam = ramSerial ? normalizeSerial(ramSerial) : null;
+  if (normalRam) {
+    const matchByExe = hashCandidates.filter(
+      (c) => c.exeSerial != null && normalizeSerial(c.exeSerial) === normalRam,
+    );
+    if (matchByExe.length === 1) {
+      const [only] = matchByExe;
+      if (only !== undefined) {
+        return {
+          kind: "winner",
+          binPath: only.binPath,
+          discSerial: only.discSerial,
+          candidateCount: hashCandidates.length,
+        };
+      }
+    }
+    const matchByDisc = hashCandidates.filter((c) => normalizeSerial(c.discSerial) === normalRam);
+    if (matchByDisc.length === 1) {
+      const [only] = matchByDisc;
+      if (only !== undefined) {
+        return {
+          kind: "winner",
+          binPath: only.binPath,
+          discSerial: only.discSerial,
+          candidateCount: hashCandidates.length,
+        };
+      }
+    }
+  }
+
+  return { kind: "ambiguous", candidates: hashCandidates.map((c) => c.binPath) };
 }
 
 /**
  * Resolve which candidate disc matches the running game, using EXE-only reads
  * for hash comparison instead of loading each full 500+ MB .bin. Probes OS
- * locks first: a single locked disc with a matching hash short-circuits the
- * scan, turning the common single-game case from N × full-read into 1 × EXE.
+ * locks first: a single locked disc short-circuits the scan, turning the
+ * common single-game case from N × full-read into 1 × EXE.
+ *
+ * Returns `ambiguous` rather than guessing when multiple discs match and no
+ * lock or RAM-serial signal narrows them down. See `decideDiscMatch` for the
+ * rationale — silently picking the first candidate previously caused saves
+ * to be routed to the wrong ISO and stale data to appear in the UI.
  */
 async function pickWinningDisc(
   discPaths: string[],
   gameDataHash: string,
   ramSerial: string | null | undefined,
-): Promise<WinningDisc | null> {
+): Promise<DiscMatchResult> {
   const lockedPaths = await probeLockedIsos(discPaths);
 
-  // Trust-the-lock: when DuckStation has exactly one disc file open, that
-  // file IS the running game (the RAM we hashed came from that same emulator).
-  // Verifying it via `disambiguateDisc` re-reads the EXE from disk, and that
-  // first read costs ~2 s on Windows (Defender scan on cold access). Skipping
-  // it here is the single biggest latency win on both the cache-hit warm path
-  // and the cold path — worth the negligible correctness risk.
-  if (lockedPaths.size === 1) {
-    const [path] = [...lockedPaths];
-    if (path) return { binPath: path, discSerial: null, candidateCount: 1 };
-  }
-
-  // Ambiguous lock state (multiple locked, or none): fall back to hash
-  // verification via EXE-only reads.
-  if (lockedPaths.size > 0) {
-    for (const path of lockedPaths) {
-      const match = disambiguateDisc(path, gameDataHash);
-      if (match) return { binPath: path, discSerial: match.discSerial, candidateCount: 1 };
+  // Trust-the-lock: a single locked candidate ends the search before we pay
+  // the per-candidate EXE read (~2 s on Windows cold cache, mostly Defender).
+  const lockedKnown = [...lockedPaths].filter((p) => discPaths.includes(p));
+  if (lockedKnown.length === 1) {
+    const [path] = lockedKnown;
+    if (path !== undefined) {
+      return { kind: "winner", binPath: path, discSerial: null, candidateCount: 1 };
     }
   }
 
-  // Scan remaining candidates with EXE-only reads.
-  const skip = lockedPaths;
-  const candidates: DiscCandidate[] = [];
-  for (const binPath of discPaths) {
-    if (skip.has(binPath)) continue;
+  // No single lock: hash-disambiguate every candidate (locks first, in case
+  // one of them turns out to be the only hash match — we prefer the one
+  // DuckStation has open).
+  const ordered = [...lockedKnown, ...discPaths.filter((p) => !lockedPaths.has(p))];
+  const hashCandidates: DiscCandidate[] = [];
+  for (const binPath of ordered) {
     const match = disambiguateDisc(binPath, gameDataHash);
-    if (match) candidates.push({ binPath, ...match });
+    if (match) hashCandidates.push({ binPath, ...match });
   }
 
-  if (candidates.length === 0) return null;
-
-  const normalRam = ramSerial ? normalizeSerial(ramSerial) : null;
-  const serialMatch = normalRam
-    ? (candidates.find((c) => c.exeSerial != null && normalizeSerial(c.exeSerial) === normalRam) ??
-      candidates.find((c) => normalizeSerial(c.discSerial) === normalRam))
-    : undefined;
-  const best = serialMatch ?? candidates[0];
-  if (!best) return null;
-  return {
-    binPath: best.binPath,
-    discSerial: best.discSerial,
-    candidateCount: candidates.length,
-  };
+  return decideDiscMatch(discPaths, lockedPaths, hashCandidates, ramSerial);
 }
 
 /**

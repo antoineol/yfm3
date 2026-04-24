@@ -74,7 +74,7 @@ export function PanelEmptyState({ title, subtitle }: { title: string; subtitle: 
     <div className="flex flex-col items-center justify-center py-16 px-3 gap-3 text-center">
       <div className="w-12 h-16 border-2 border-text-muted rounded-lg opacity-40" />
       <p className="text-text-secondary">{title}</p>
-      <p className="text-xs text-text-muted">{subtitle}</p>
+      <p className="text-xs text-text-muted whitespace-pre-line">{subtitle}</p>
     </div>
   );
 }
