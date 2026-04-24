@@ -149,7 +149,15 @@ export function extractCards(
   }
 
   const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks, langIdx);
-  const descriptions = extractCardDescriptions(slus, waMrg, exeLayout, waMrgTextBlocks, langIdx);
+  const iconNames = Array.from({ length: NUM_TYPE_NAMES }, (_, i) => cardTypes[i] ?? `Type ${i}`);
+  const descriptions = extractCardDescriptions(
+    slus,
+    waMrg,
+    exeLayout,
+    waMrgTextBlocks,
+    langIdx,
+    iconNames,
+  );
   const starchips = extractStarchips(waMrg, waMrgLayout);
   const cards: CardStats[] = [];
 
@@ -236,13 +244,14 @@ export function extractCardDescriptions(
   exeLayout: ExeLayout,
   waMrgTextBlocks: WaMrgTextBlock[],
   langIdx?: number,
+  iconNames?: readonly string[],
 ): string[] {
   if (exeLayout.descOffsetTable !== -1 && exeLayout.descTextPoolBase !== -1) {
     const results: string[] = [];
     for (let i = 0; i < NUM_CARDS; i++) {
       const off = slus.readUInt16LE(exeLayout.descOffsetTable + i * 2);
       const addr = exeLayout.descTextPoolBase + off;
-      results.push(decodeTblString(slus, addr, 500));
+      results.push(decodeTblString(slus, addr, 500, CHAR_TABLE, iconNames));
     }
     return results;
   }
@@ -251,15 +260,40 @@ export function extractCardDescriptions(
   const textBlock = waMrgTextBlocks[blockIdx];
   if (textBlock) {
     const charTable = blockIdx === 4 ? ES_CHAR_TABLE : PAL_CHAR_TABLE;
-    const allDescs = extractWaMrgStrings(
+    const allDescs = extractWaMrgStringsWithIcons(
       waMrg,
       textBlock.descBlockStart,
       WAMRG_DESC_CARD_START + NUM_CARDS,
       charTable,
+      iconNames,
     );
     return allDescs.slice(WAMRG_DESC_CARD_START, WAMRG_DESC_CARD_START + NUM_CARDS);
   }
   return Array.from({ length: NUM_CARDS }, () => "");
+}
+
+/** Variant of `extractWaMrgStrings` that forwards an `iconNames` table to the
+ *  TBL decoder so card descriptions get readable `[TypeName]` markers for the
+ *  PAL path too. */
+function extractWaMrgStringsWithIcons(
+  buf: Buffer,
+  offset: number,
+  count: number,
+  charTable: string[],
+  iconNames?: readonly string[],
+): string[] {
+  const out: string[] = [];
+  let pos = offset;
+  for (let i = 0; i < count && pos < buf.length; i++) {
+    const end = buf.indexOf(0xff, pos);
+    if (end === -1 || end - pos > 500) {
+      out.push("");
+      break;
+    }
+    out.push(decodeTblString(buf, pos, end - pos, charTable, iconNames));
+    pos = end + 1;
+  }
+  return out;
 }
 
 function extractStarchips(waMrg: Buffer, waMrgLayout: WaMrgLayout): Starchip[] {

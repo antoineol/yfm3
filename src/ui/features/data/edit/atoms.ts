@@ -1,4 +1,4 @@
-import { atom } from "jotai";
+import { atom, type Getter, type Setter } from "jotai";
 import type { BridgeDuelist } from "../../../../engine/worker/messages.ts";
 import {
   fetchIsoBackups,
@@ -21,6 +21,13 @@ export type { PoolType } from "./bridge-client.ts";
 export type EditView = "drops" | "deck";
 
 export const DROP_POOL_TYPES = ["saPow", "bcd", "saTec"] as const satisfies readonly PoolType[];
+
+export const ALL_POOL_TYPES = [
+  "saPow",
+  "bcd",
+  "saTec",
+  "deck",
+] as const satisfies readonly PoolType[];
 
 export const POOLS_BY_VIEW: Record<EditView, readonly PoolType[]> = {
   drops: DROP_POOL_TYPES,
@@ -50,27 +57,55 @@ export type EditingTarget = { duelistId: number; view: EditView };
 
 type PoolWeights = Partial<Record<PoolType, number[]>>;
 
+/** Sticky per-duelist edit state. Stored in `editsByDuelistAtom` keyed by id.
+ *  All four pools are snapshotted at hydration so drops↔deck view switches
+ *  never lose work. `original` is the baseline for revert/diff; `draft` is the
+ *  live in-memory state; `pinned` is the working set for balance/bulk-edit. */
+export type DuelistEdit = {
+  original: PoolWeights;
+  draft: PoolWeights;
+  pinned: ReadonlySet<number>;
+};
+
+const EMPTY_PINS: ReadonlySet<number> = new Set();
+
 // ── Primitive atoms ──────────────────────────────────────────────
 
 export const editingTargetAtom = atom<EditingTarget | null>(null);
 
-/** Snapshot of on-disk weights for each pool in the current view. Used as the
- *  baseline for "modified" / "revert" and as the proportional template for
- *  `balanceUnpinned`. */
-export const originalWeightsAtom = atom<PoolWeights | null>(null);
-
-/** Current in-memory draft weights per pool. Mutated locally until save. */
-export const draftWeightsAtom = atom<PoolWeights | null>(null);
-
-/** Shared pin set across every pool in the current view. `balanceUnpinned`
- *  consults this when rescaling a specific pool. */
-export const pinnedCardIdsAtom = atom<ReadonlySet<number>>(new Set<number>());
+/** Per-duelist edit records, keyed by duelist id. Sparse: a duelist is
+ *  present iff the user has visited it since the last save/reload. Drafts
+ *  survive duelist and view switches. Wiped on baseline drift (see
+ *  `loadTargetAtom`). */
+export const editsByDuelistAtom = atom<Record<number, DuelistEdit>>({});
 
 export const savingAtom = atom(false);
 
 export const backupsAtom = atom<IsoBackupEntry[] | null>(null);
 
-// ── Derived atoms ────────────────────────────────────────────────
+// ── Derived: current-duelist shortcuts ───────────────────────────
+
+const currentEditAtom = atom<DuelistEdit | null>((get) => {
+  const target = get(editingTargetAtom);
+  if (!target) return null;
+  return get(editsByDuelistAtom)[target.duelistId] ?? null;
+});
+
+/** Current duelist's draft. Read-only view — writers go through action atoms
+ *  so every mutation updates the keyed record atomically. */
+export const draftWeightsAtom = atom<PoolWeights | null>(
+  (get) => get(currentEditAtom)?.draft ?? null,
+);
+
+export const originalWeightsAtom = atom<PoolWeights | null>(
+  (get) => get(currentEditAtom)?.original ?? null,
+);
+
+export const pinnedCardIdsAtom = atom<ReadonlySet<number>>(
+  (get) => get(currentEditAtom)?.pinned ?? EMPTY_PINS,
+);
+
+// ── Derived: per-view (current duelist) summaries ────────────────
 
 export const poolSumsAtom = atom<Partial<Record<PoolType, number>>>((get) => {
   const draft = get(draftWeightsAtom);
@@ -86,16 +121,8 @@ export const poolSumsAtom = atom<Partial<Record<PoolType, number>>>((get) => {
   return out;
 });
 
-/** True iff every pool in the current view sums to exactly POOL_SUM. */
-export const allValidSumsAtom = atom<boolean>((get) => {
-  const sums = get(poolSumsAtom);
-  const keys = Object.keys(sums);
-  if (keys.length === 0) return false;
-  for (const k of keys) if (sums[k as PoolType] !== POOL_SUM) return false;
-  return true;
-});
-
-/** Per-pool sets of card ids whose draft weight differs from original. */
+/** Per-pool sets of card ids whose draft weight differs from original, scoped
+ *  to the current duelist. Drives pool-pill mod counts and row highlighting. */
 export const modifiedCardIdsByPoolAtom = atom<Partial<Record<PoolType, Set<number>>>>((get) => {
   const draft = get(draftWeightsAtom);
   const original = get(originalWeightsAtom);
@@ -112,8 +139,6 @@ export const modifiedCardIdsByPoolAtom = atom<Partial<Record<PoolType, Set<numbe
   return out;
 });
 
-/** Union of card ids modified in any pool — drives row highlighting and the
- *  Save button's count badge. */
 export const modifiedCardIdsAtom = atom<ReadonlySet<number>>((get) => {
   const per = get(modifiedCardIdsByPoolAtom);
   const out = new Set<number>();
@@ -132,7 +157,6 @@ export const modifiedPoolsAtom = atom<PoolType[]>((get) => {
 
 export const isModifiedAtom = atom<boolean>((get) => get(modifiedPoolsAtom).length > 0);
 
-/** Distinct count for the deck pool (used only in deck view). */
 export const distinctCountAtom = atom<number>((get) => {
   const draft = get(draftWeightsAtom);
   const pool = draft?.deck;
@@ -142,61 +166,180 @@ export const distinctCountAtom = atom<number>((get) => {
   return count;
 });
 
+// ── Derived: global (all duelists) summaries ─────────────────────
+
+/** Every touched duelist's set of modified pools. An entry exists iff the
+ *  duelist has ≥1 pool whose draft differs from original. Drives the global
+ *  save button and serves as the iteration plan for `saveAtom`. */
+export const modifiedByDuelistAtom = atom<Record<number, PoolType[]>>((get) => {
+  const edits = get(editsByDuelistAtom);
+  const out: Record<number, PoolType[]> = {};
+  for (const [idStr, edit] of Object.entries(edits)) {
+    const pools: PoolType[] = [];
+    for (const p of ALL_POOL_TYPES) {
+      const d = edit.draft[p];
+      const o = edit.original[p];
+      if (!d || !o) continue;
+      if (!arraysEqual(d, o)) pools.push(p);
+    }
+    if (pools.length > 0) out[Number(idStr)] = pools;
+  }
+  return out;
+});
+
+export const modifiedDuelistCountAtom = atom<number>(
+  (get) => Object.keys(get(modifiedByDuelistAtom)).length,
+);
+
+export const totalModifiedCardCountAtom = atom<number>((get) => {
+  const edits = get(editsByDuelistAtom);
+  const modified = get(modifiedByDuelistAtom);
+  let total = 0;
+  for (const [idStr, poolTypes] of Object.entries(modified)) {
+    const edit = edits[Number(idStr)];
+    if (!edit) continue;
+    const cardIds = new Set<number>();
+    for (const p of poolTypes) {
+      const d = edit.draft[p];
+      const o = edit.original[p];
+      if (!d || !o) continue;
+      for (let i = 0; i < d.length; i++) if (d[i] !== o[i]) cardIds.add(i + 1);
+    }
+    total += cardIds.size;
+  }
+  return total;
+});
+
+export type SaveOffender = { duelistId: number; reason: string };
+
+/** Global save gate: every modified pool must sum to POOL_SUM; every modified
+ *  deck pool must have ≥ DECK_MIN_DISTINCT distinct cards. Returns an offender
+ *  list so the UI can point users at the exact (duelist, pool) that blocks save. */
+export const globalSaveGateAtom = atom<{ ok: boolean; offenders: SaveOffender[] }>((get) => {
+  const edits = get(editsByDuelistAtom);
+  const modified = get(modifiedByDuelistAtom);
+  const offenders: SaveOffender[] = [];
+  for (const [idStr, poolTypes] of Object.entries(modified)) {
+    const duelistId = Number(idStr);
+    const edit = edits[duelistId];
+    if (!edit) continue;
+    for (const p of poolTypes) {
+      const pool = edit.draft[p];
+      if (!pool) continue;
+      let sum = 0;
+      let distinct = 0;
+      for (const v of pool) {
+        sum += v;
+        if (v > 0) distinct++;
+      }
+      if (sum !== POOL_SUM) {
+        offenders.push({
+          duelistId,
+          reason: `${POOL_TYPE_LABELS[p]} sums to ${sum} (needs ${POOL_SUM})`,
+        });
+      }
+      if (p === "deck" && distinct < DECK_MIN_DISTINCT) {
+        offenders.push({
+          duelistId,
+          reason: `Deck has ${distinct} distinct cards (needs ≥ ${DECK_MIN_DISTINCT})`,
+        });
+      }
+    }
+  }
+  return { ok: offenders.length === 0, offenders };
+});
+
 // ── Action atoms ─────────────────────────────────────────────────
 
-/** Load the current view's pools into the editor from the bridge duelists. */
+/** Point the editor at `target`. On every call, checks whether any stored
+ *  baseline still matches the incoming game data; if not (ISO reloaded,
+ *  external patch, etc.), wipes all stored edits before hydrating, so we
+ *  never save deltas against a stale baseline. Otherwise, hydrates the
+ *  target duelist only if it hasn't been hydrated yet — preserving in-memory
+ *  drafts across duelist and view switches. */
 export const loadTargetAtom = atom(
   null,
-  (_get, set, payload: { target: EditingTarget; duelists: BridgeDuelist[] }) => {
-    const duelist = payload.duelists[payload.target.duelistId - 1];
+  (get, set, payload: { target: EditingTarget; duelists: readonly BridgeDuelist[] }) => {
+    const { target, duelists } = payload;
+    const duelist = duelists[target.duelistId - 1];
     if (!duelist) return;
-    const pools = POOLS_BY_VIEW[payload.target.view];
-    const original: PoolWeights = {};
-    const draft: PoolWeights = {};
-    for (const p of pools) {
-      original[p] = [...duelist[p]];
-      draft[p] = [...duelist[p]];
+
+    const prev = get(editingTargetAtom);
+    if (!prev || prev.duelistId !== target.duelistId || prev.view !== target.view) {
+      set(editingTargetAtom, target);
     }
-    set(editingTargetAtom, payload.target);
-    set(originalWeightsAtom, original);
-    set(draftWeightsAtom, draft);
-    set(pinnedCardIdsAtom, new Set());
+
+    const edits = get(editsByDuelistAtom);
+    if (isBaselineStale(edits, duelists)) {
+      const fresh = cloneDuelistPools(duelist);
+      set(editsByDuelistAtom, {
+        [target.duelistId]: {
+          original: fresh,
+          draft: clonePools(fresh),
+          pinned: new Set<number>(),
+        },
+      });
+      return;
+    }
+
+    if (edits[target.duelistId]) return;
+    const snap = cloneDuelistPools(duelist);
+    set(editsByDuelistAtom, {
+      ...edits,
+      [target.duelistId]: { original: snap, draft: clonePools(snap), pinned: new Set<number>() },
+    });
   },
 );
 
 export const setWeightAtom = atom(
   null,
   (get, set, payload: { cardId: number; weight: number; poolType: PoolType }) => {
-    const draft = get(draftWeightsAtom);
-    if (!draft) return;
-    const pool = draft[payload.poolType];
-    if (!pool) return;
-    const next = [...pool];
-    next[payload.cardId - 1] = clampWeight(payload.weight);
-    set(draftWeightsAtom, { ...draft, [payload.poolType]: next });
+    updateCurrentDraft(get, set, payload.poolType, (pool) => {
+      const next = [...pool];
+      next[payload.cardId - 1] = clampWeight(payload.weight);
+      return next;
+    });
+  },
+);
+
+/** Set the same weight on many cards in a single pool in one atom update.
+ *  Drives the bulk-edit row; scope (all visible vs. pinned only) is decided
+ *  by the caller. */
+export const setPoolWeightForCardsAtom = atom(
+  null,
+  (get, set, payload: { poolType: PoolType; cardIds: readonly number[]; weight: number }) => {
+    updateCurrentDraft(get, set, payload.poolType, (pool) => {
+      const w = clampWeight(payload.weight);
+      const next = [...pool];
+      for (const id of payload.cardIds) {
+        const idx = id - 1;
+        if (idx >= 0 && idx < next.length) next[idx] = w;
+      }
+      return next;
+    });
   },
 );
 
 export const togglePinAtom = atom(null, (get, set, cardId: number) => {
-  const prev = get(pinnedCardIdsAtom);
-  const next = new Set(prev);
-  if (next.has(cardId)) next.delete(cardId);
-  else next.add(cardId);
-  set(pinnedCardIdsAtom, next);
+  updateCurrentPinned(get, set, (prev) => {
+    const next = new Set(prev);
+    if (next.has(cardId)) next.delete(cardId);
+    else next.add(cardId);
+    return next;
+  });
 });
 
-/** Apply the same pinned state to every card in `cardIds`. Used for shift-click
- *  range selection in the table and for the master header checkbox. */
 export const setRangePinnedAtom = atom(
   null,
   (get, set, payload: { cardIds: readonly number[]; pinned: boolean }) => {
-    const prev = get(pinnedCardIdsAtom);
-    const next = new Set(prev);
-    for (const id of payload.cardIds) {
-      if (payload.pinned) next.add(id);
-      else next.delete(id);
-    }
-    set(pinnedCardIdsAtom, next);
+    updateCurrentPinned(get, set, (prev) => {
+      const next = new Set(prev);
+      for (const id of payload.cardIds) {
+        if (payload.pinned) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
   },
 );
 
@@ -204,58 +347,110 @@ export const setRangePinnedAtom = atom(
  *  Uses the current draft as the proportional template so unpinned edits are
  *  preserved (only the magnitudes are rescaled to absorb the pinned slack). */
 export const balancePoolAtom = atom(null, (get, set, poolType: PoolType) => {
-  const draft = get(draftWeightsAtom);
-  const pinned = get(pinnedCardIdsAtom);
-  if (!draft) return;
-  const d = draft[poolType];
-  if (!d) return;
-  set(draftWeightsAtom, { ...draft, [poolType]: balanceUnpinned(d, pinned, d) });
+  const target = get(editingTargetAtom);
+  if (!target) return;
+  const edit = get(editsByDuelistAtom)[target.duelistId];
+  if (!edit) return;
+  const pinned = edit.pinned;
+  updateCurrentDraft(get, set, poolType, (pool) => balanceUnpinned(pool, pinned, pool));
 });
 
-export const revertAtom = atom(null, (get, set) => {
-  const original = get(originalWeightsAtom);
-  if (!original) return;
-  const draft: PoolWeights = {};
-  for (const k of Object.keys(original) as PoolType[]) {
-    const o = original[k];
-    if (o) draft[k] = [...o];
+/** Revert the current duelist's draft back to its baseline and clear its
+ *  pins. Does not touch other duelists. Exposed below the table in
+ *  `DropPoolSummary`. */
+export const revertCurrentDuelistAtom = atom(null, (get, set) => {
+  const target = get(editingTargetAtom);
+  if (!target) return;
+  const edits = get(editsByDuelistAtom);
+  const edit = edits[target.duelistId];
+  if (!edit) return;
+  set(editsByDuelistAtom, {
+    ...edits,
+    [target.duelistId]: {
+      original: edit.original,
+      draft: clonePools(edit.original),
+      pinned: new Set<number>(),
+    },
+  });
+});
+
+/** Revert drafts of every touched duelist. Lives in the top toolbar next to
+ *  the global Save button. */
+export const revertAllAtom = atom(null, (get, set) => {
+  const edits = get(editsByDuelistAtom);
+  const next: Record<number, DuelistEdit> = {};
+  for (const [idStr, edit] of Object.entries(edits)) {
+    next[Number(idStr)] = {
+      original: edit.original,
+      draft: clonePools(edit.original),
+      pinned: new Set<number>(),
+    };
   }
-  set(draftWeightsAtom, draft);
-  set(pinnedCardIdsAtom, new Set());
+  set(editsByDuelistAtom, next);
 });
 
 export type SaveOutcome =
-  | { ok: true; backup: { filename: string } | null; closedGame: boolean; savedPools: number }
+  | {
+      ok: true;
+      backup: { filename: string } | null;
+      closedGame: boolean;
+      savedPools: number;
+      savedDuelists: number;
+    }
   | { ok: false; error: string; reason?: string };
 
+/** Persist every modified pool across every touched duelist. Each pool is one
+ *  HTTP call (the first write may close DuckStation; later writes hit the fast
+ *  path). On partial failure, already-saved pools are retained as the new
+ *  baseline — the user just re-clicks Save to retry the rest. */
 export const saveAtom = atom(null, async (get, set): Promise<SaveOutcome | null> => {
-  const target = get(editingTargetAtom);
-  const draft = get(draftWeightsAtom);
-  const original = get(originalWeightsAtom);
-  const modifiedPools = get(modifiedPoolsAtom);
-  if (!target || !draft || !original || modifiedPools.length === 0) return null;
+  const modifiedByDuelist = get(modifiedByDuelistAtom);
+  const plan = Object.entries(modifiedByDuelist);
+  if (plan.length === 0) return null;
   set(savingAtom, true);
   try {
-    // Each pool is one HTTP call. The first write may close DuckStation to
-    // release the lock; later writes then run through the fast path.
-    const nextDraft: PoolWeights = { ...draft };
-    const nextOriginal: PoolWeights = { ...original };
+    const edits = get(editsByDuelistAtom);
+    const nextEdits: Record<number, DuelistEdit> = { ...edits };
     let firstBackup: { filename: string } | null = null;
     let closedGame = false;
-    for (const poolType of modifiedPools) {
-      const result = await putDuelistPool(target.duelistId, poolType, draft[poolType] ?? []);
-      if (!result.ok) return { ok: false, error: result.error, reason: result.reason };
-      if (!firstBackup) firstBackup = result.backup;
-      if (result.closedGame) closedGame = true;
-      nextDraft[poolType] = [...result.pool];
-      nextOriginal[poolType] = [...result.pool];
+    let savedPools = 0;
+
+    for (const [idStr, poolTypes] of plan) {
+      const duelistId = Number(idStr);
+      const current = nextEdits[duelistId];
+      if (!current) continue;
+      let nextDraft = current.draft;
+      let nextOriginal = current.original;
+      for (const poolType of poolTypes) {
+        const result = await putDuelistPool(duelistId, poolType, nextDraft[poolType] ?? []);
+        if (!result.ok) {
+          nextEdits[duelistId] = { ...current, draft: nextDraft, original: nextOriginal };
+          set(editsByDuelistAtom, nextEdits);
+          return { ok: false, error: result.error, reason: result.reason };
+        }
+        if (!firstBackup) firstBackup = result.backup;
+        if (result.closedGame) closedGame = true;
+        nextDraft = { ...nextDraft, [poolType]: [...result.pool] };
+        nextOriginal = { ...nextOriginal, [poolType]: [...result.pool] };
+        savedPools++;
+      }
+      nextEdits[duelistId] = {
+        draft: nextDraft,
+        original: nextOriginal,
+        pinned: new Set<number>(),
+      };
     }
-    set(draftWeightsAtom, nextDraft);
-    set(originalWeightsAtom, nextOriginal);
-    set(pinnedCardIdsAtom, new Set());
+
+    set(editsByDuelistAtom, nextEdits);
     const updatedBackups = await fetchIsoBackups();
     set(backupsAtom, updatedBackups);
-    return { ok: true, backup: firstBackup, closedGame, savedPools: modifiedPools.length };
+    return {
+      ok: true,
+      backup: firstBackup,
+      closedGame,
+      savedPools,
+      savedDuelists: plan.length,
+    };
   } finally {
     set(savingAtom, false);
   }
@@ -277,6 +472,89 @@ export const restoreBackupAtom = atom(null, async (_get, set, backupFilename: st
 });
 
 // ── Helpers ──────────────────────────────────────────────────────
+
+/** Patch one pool of the current duelist's draft via `mutate`. Used by every
+ *  single-pool writer so the "look up target, look up edit, splice back"
+ *  boilerplate lives in one place. No-op when there's no target, no edit, or
+ *  the target pool is absent. */
+function updateCurrentDraft(
+  get: Getter,
+  set: Setter,
+  poolType: PoolType,
+  mutate: (pool: number[]) => number[],
+): void {
+  const target = get(editingTargetAtom);
+  if (!target) return;
+  const edits = get(editsByDuelistAtom);
+  const edit = edits[target.duelistId];
+  if (!edit) return;
+  const pool = edit.draft[poolType];
+  if (!pool) return;
+  set(editsByDuelistAtom, {
+    ...edits,
+    [target.duelistId]: {
+      ...edit,
+      draft: { ...edit.draft, [poolType]: mutate(pool) },
+    },
+  });
+}
+
+function updateCurrentPinned(
+  get: Getter,
+  set: Setter,
+  mutate: (prev: ReadonlySet<number>) => ReadonlySet<number>,
+): void {
+  const target = get(editingTargetAtom);
+  if (!target) return;
+  const edits = get(editsByDuelistAtom);
+  const edit = edits[target.duelistId];
+  if (!edit) return;
+  set(editsByDuelistAtom, {
+    ...edits,
+    [target.duelistId]: { ...edit, pinned: mutate(edit.pinned) },
+  });
+}
+
+function cloneDuelistPools(duelist: BridgeDuelist): PoolWeights {
+  return {
+    saPow: [...duelist.saPow],
+    bcd: [...duelist.bcd],
+    saTec: [...duelist.saTec],
+    deck: [...duelist.deck],
+  };
+}
+
+function clonePools(pools: PoolWeights): PoolWeights {
+  const out: PoolWeights = {};
+  for (const k of Object.keys(pools) as PoolType[]) {
+    const v = pools[k];
+    if (v) out[k] = [...v];
+  }
+  return out;
+}
+
+function arraysEqual(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** True iff any stored baseline no longer matches the incoming game data
+ *  (different length, different values, or duelist no longer present). */
+function isBaselineStale(
+  edits: Record<number, DuelistEdit>,
+  duelists: readonly BridgeDuelist[],
+): boolean {
+  for (const [idStr, edit] of Object.entries(edits)) {
+    const d = duelists[Number(idStr) - 1];
+    if (!d) return true;
+    for (const p of ALL_POOL_TYPES) {
+      const stored = edit.original[p];
+      if (!stored || !arraysEqual(stored, d[p])) return true;
+    }
+  }
+  return false;
+}
 
 function clampWeight(n: number): number {
   if (!Number.isFinite(n)) return 0;

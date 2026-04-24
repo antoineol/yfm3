@@ -22,6 +22,7 @@ import {
   setRangePinnedAtom,
   togglePinAtom,
 } from "./atoms.ts";
+import { BulkEditRow } from "./BulkEditRow.tsx";
 import { DropPoolRow } from "./DropPoolRow.tsx";
 
 type SortKey = "id" | "atk" | "def" | `weight:${PoolType}`;
@@ -132,14 +133,32 @@ export function DropPoolTable({ view }: { view: EditView }) {
     setSort((prev) => toggleSort(prev, key, firstDir));
   }
 
+  const pinnedVisibleCardIds = useMemo(
+    () => sorted.filter((e) => e.pinned).map((e) => e.cardId),
+    [sorted],
+  );
+
   const masterPinState: "none" | "some" | "all" = useMemo(() => {
     if (sorted.length === 0) return "none";
-    let pinnedVisible = 0;
-    for (const e of sorted) if (e.pinned) pinnedVisible++;
-    if (pinnedVisible === 0) return "none";
-    if (pinnedVisible === sorted.length) return "all";
+    const n = pinnedVisibleCardIds.length;
+    if (n === 0) return "none";
+    if (n === sorted.length) return "all";
     return "some";
-  }, [sorted]);
+  }, [sorted, pinnedVisibleCardIds]);
+
+  const { targetCardIds, scopeLabel } = useMemo(() => {
+    if (pinnedVisibleCardIds.length > 0) {
+      return {
+        scopeLabel: `Apply to ${pinnedVisibleCardIds.length} pinned`,
+        targetCardIds: pinnedVisibleCardIds,
+      };
+    }
+    const visible = sorted.map((e) => e.cardId);
+    return {
+      scopeLabel: visible.length === 0 ? "No rows" : `Apply to all ${visible.length} visible`,
+      targetCardIds: visible,
+    };
+  }, [sorted, pinnedVisibleCardIds]);
 
   const handleMasterTogglePin = useCallback(() => {
     if (sorted.length === 0) return;
@@ -232,6 +251,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
                 />
               ))}
             </tr>
+            <BulkEditRow pools={pools} scopeLabel={scopeLabel} targetCardIds={targetCardIds} />
           </thead>
           <tbody>
             {sorted.length === 0 ? (

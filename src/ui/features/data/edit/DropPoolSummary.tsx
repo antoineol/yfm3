@@ -1,15 +1,11 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { toast } from "sonner";
 import { Button } from "../../../components/Button.tsx";
-import { useBridge } from "../../../lib/bridge-context.tsx";
 import {
-  allValidSumsAtom,
   balancePoolAtom,
   DECK_MIN_DISTINCT,
   distinctCountAtom,
   type EditView,
   isModifiedAtom,
-  modifiedCardIdsAtom,
   modifiedCardIdsByPoolAtom,
   POOL_SUM,
   POOL_TYPE_LABELS,
@@ -17,55 +13,18 @@ import {
   type PoolType,
   pinnedCardIdsAtom,
   poolSumsAtom,
-  revertAtom,
-  saveAtom,
+  revertCurrentDuelistAtom,
   savingAtom,
 } from "./atoms.ts";
 
-const CONFIRM_MESSAGE =
-  "Saving will close the running game in DuckStation (no save state) so the patched weights can be written to the ISO. " +
-  "After it saves, click the game row in DuckStation and choose 'Démarrage normal' to reload.\n\n" +
-  "Any unsaved in-duel progress will be lost. Continue?";
-
 export function DropPoolSummary({ view }: { view: EditView }) {
-  const bridge = useBridge();
-  const validAllSums = useAtomValue(allValidSumsAtom);
   const distinct = useAtomValue(distinctCountAtom);
   const modified = useAtomValue(isModifiedAtom);
-  const modifiedCount = useAtomValue(modifiedCardIdsAtom).size;
   const saving = useAtomValue(savingAtom);
-
-  const revert = useSetAtom(revertAtom);
-  const save = useSetAtom(saveAtom);
-
-  async function onSave() {
-    if (bridge.detail === "ready" && !window.confirm(CONFIRM_MESSAGE)) return;
-    try {
-      const outcome = await save();
-      if (!outcome) return;
-      if (!outcome.ok) {
-        const detail = outcome.reason ? ` (${outcome.reason})` : "";
-        toast.error(`Save failed: ${outcome.error}${detail}`);
-        return;
-      }
-      const backupPart = outcome.backup ? ` · backup ${outcome.backup.filename}` : "";
-      if (outcome.closedGame) {
-        toast.success(
-          `Patch applied${backupPart}. Click the game in DuckStation and choose 'Démarrage normal' to reload with the new weights.`,
-          { duration: 10000 },
-        );
-      } else {
-        toast.success(`Pool saved${backupPart}`);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Save failed: ${msg}`);
-    }
-  }
+  const revertCurrent = useSetAtom(revertCurrentDuelistAtom);
 
   const pools = POOLS_BY_VIEW[view];
   const isDeckView = view === "deck";
-  const canSave = validAllSums && (!isDeckView || distinct >= DECK_MIN_DISTINCT);
 
   return (
     <div className="flex items-center gap-x-1.5 gap-y-1 px-3 py-1 border-b border-border-subtle flex-wrap">
@@ -74,14 +33,16 @@ export function DropPoolSummary({ view }: { view: EditView }) {
       ))}
       {isDeckView && <DistinctPill count={distinct} />}
       {modified && (
-        <div className="ml-auto flex items-center gap-2">
-          <Button disabled={saving} onClick={() => revert()} size="sm" variant="ghost">
-            Revert
-          </Button>
-          <Button disabled={saving || !canSave} glowing={canSave} onClick={onSave} size="sm">
-            {saving ? "Saving…" : `Save · ${modifiedCount}`}
-          </Button>
-        </div>
+        <Button
+          className="ml-auto"
+          disabled={saving}
+          onClick={() => revertCurrent()}
+          size="sm"
+          title="Revert this duelist's unsaved changes (other edited duelists are kept)"
+          variant="ghost"
+        >
+          Revert duelist
+        </Button>
       )}
     </div>
   );

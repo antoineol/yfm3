@@ -23,7 +23,7 @@ import type {
   Fusion,
 } from "./extract/types.ts";
 
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 const CACHE_FILENAME = "gamedata.json";
 
 export interface CachedGameData {

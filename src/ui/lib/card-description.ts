@@ -2,62 +2,54 @@
 // Render-time parsing of card descriptions.
 //
 // The TBL decoder (`bridge/extract/text-decoding.ts`) emits inline type icons
-// as Private-Use-Area chars in the range [ICON_TOKEN_BASE, ICON_TOKEN_END].
-// This module splits such a description into renderable segments.
+// as `[TypeName]` — readable as plain text if rendered raw, and parseable
+// here so the UI can wrap each occurrence in a styled chip.
 // ---------------------------------------------------------------------------
 
-const ICON_TOKEN_BASE = 0xe100;
-const ICON_TOKEN_END = 0xe17f;
+/** Type names the decoder may emit — used to match `[Name]` tokens
+ *  confidently without triggering on unrelated bracketed text. */
+const ICON_TYPE_NAMES: ReadonlySet<string> = new Set([
+  "Dragon",
+  "Spellcaster",
+  "Zombie",
+  "Warrior",
+  "Beast-Warrior",
+  "Beast",
+  "Winged Beast",
+  "Fiend",
+  "Fairy",
+  "Insect",
+  "Dinosaur",
+  "Reptile",
+  "Fish",
+  "Sea Serpent",
+  "Machine",
+  "Thunder",
+  "Aqua",
+  "Pyro",
+  "Rock",
+  "Plant",
+  "Magic",
+  "Trap",
+  "Ritual",
+  "Equip",
+]);
 
-/** Game-internal type-ID → display name.
- *  Matches the 24-entry type-names table the game renders for these icons. */
-const ICON_TYPE_NAMES: readonly string[] = [
-  "Dragon", // 0
-  "Spellcaster", // 1
-  "Zombie", // 2
-  "Warrior", // 3
-  "Beast-Warrior", // 4
-  "Beast", // 5
-  "Winged Beast", // 6
-  "Fiend", // 7
-  "Fairy", // 8
-  "Insect", // 9
-  "Dinosaur", // 10
-  "Reptile", // 11
-  "Fish", // 12
-  "Sea Serpent", // 13
-  "Machine", // 14
-  "Thunder", // 15
-  "Aqua", // 16
-  "Pyro", // 17
-  "Rock", // 18
-  "Plant", // 19
-  "Magic", // 20
-  "Trap", // 21
-  "Ritual", // 22
-  "Equip", // 23
-];
+const TOKEN_RE = /\[([^[\]]+?)\]/g;
 
-export type DescriptionSegment =
-  | { kind: "text"; text: string }
-  | { kind: "icon"; type: number; label: string };
+export type DescriptionSegment = { kind: "text"; text: string } | { kind: "icon"; label: string };
 
 export function parseDescription(desc: string): DescriptionSegment[] {
   const segments: DescriptionSegment[] = [];
-  let run = "";
-  for (const ch of desc) {
-    const code = ch.charCodeAt(0);
-    if (code >= ICON_TOKEN_BASE && code <= ICON_TOKEN_END) {
-      if (run) {
-        segments.push({ kind: "text", text: run });
-        run = "";
-      }
-      const type = code - ICON_TOKEN_BASE;
-      segments.push({ kind: "icon", type, label: ICON_TYPE_NAMES[type] ?? `Type ${type}` });
-    } else {
-      run += ch;
-    }
+  let last = 0;
+  for (const match of desc.matchAll(TOKEN_RE)) {
+    const name = match[1] ?? "";
+    if (!ICON_TYPE_NAMES.has(name)) continue;
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ kind: "text", text: desc.slice(last, start) });
+    segments.push({ kind: "icon", label: name });
+    last = start + match[0].length;
   }
-  if (run) segments.push({ kind: "text", text: run });
+  if (last < desc.length) segments.push({ kind: "text", text: desc.slice(last) });
   return segments;
 }

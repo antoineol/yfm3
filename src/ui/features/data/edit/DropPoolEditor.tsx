@@ -1,7 +1,21 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import type { BridgeDuelist, BridgeGameData } from "../../../../engine/worker/messages.ts";
-import { type EditView, editingTargetAtom, loadTargetAtom } from "./atoms.ts";
+import { Button } from "../../../components/Button.tsx";
+import { useBridge } from "../../../lib/bridge-context.tsx";
+import {
+  type EditView,
+  editingTargetAtom,
+  globalSaveGateAtom,
+  loadTargetAtom,
+  modifiedByDuelistAtom,
+  modifiedDuelistCountAtom,
+  revertAllAtom,
+  saveAtom,
+  savingAtom,
+  totalModifiedCardCountAtom,
+} from "./atoms.ts";
 import { DropPoolSummary } from "./DropPoolSummary.tsx";
 import { DropPoolTable } from "./DropPoolTable.tsx";
 import { IsoBackupsDrawerButton } from "./IsoBackupsDrawer.tsx";
@@ -18,6 +32,11 @@ const VIEW_DESCRIPTIONS: Record<EditView, string> = {
   deck: "Cards the AI builds its deck from.",
 };
 
+const CONFIRM_MESSAGE =
+  "Saving will close the running game in DuckStation (no save state) so the patched weights can be written to the ISO. " +
+  "After it saves, click the game row in DuckStation and choose 'Démarrage normal' to reload.\n\n" +
+  "Any unsaved in-duel progress will be lost. Continue?";
+
 export function DropPoolEditor({
   gameData,
   onDuelistChange,
@@ -33,12 +52,11 @@ export function DropPoolEditor({
 
   // Sync selection from the URL. Seeds duelist #1 / drops view on first mount
   // when the URL has no id; reacts to external URL changes (reload, back/forward).
-  // A guard keeps this a no-op when the target already matches, so view switches
-  // and unsaved edits aren't clobbered.
+  // `loadTargetAtom` is idempotent: it no-ops when target+baseline already match,
+  // and transparently wipes stored edits if the game data's baseline drifted.
   useEffect(() => {
     if (duelists.length === 0) return;
     const desiredId = selectedDuelistId ?? target?.duelistId ?? duelists[0]?.id ?? 1;
-    if (target !== null && target.duelistId === desiredId) return;
     loadTarget({ target: { duelistId: desiredId, view: target?.view ?? "drops" }, duelists });
   }, [selectedDuelistId, duelists, target, loadTarget]);
 
@@ -113,9 +131,94 @@ function PickerBar({
           </button>
         ))}
       </div>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <GlobalSaveRevert duelists={duelists} />
         <IsoBackupsDrawerButton />
       </div>
     </div>
   );
+}
+
+function GlobalSaveRevert({ duelists }: { duelists: readonly BridgeDuelist[] }) {
+  const bridge = useBridge();
+  const duelistCount = useAtomValue(modifiedDuelistCountAtom);
+  const cardCount = useAtomValue(totalModifiedCardCountAtom);
+  const gate = useAtomValue(globalSaveGateAtom);
+  const saving = useAtomValue(savingAtom);
+  const modifiedByDuelist = useAtomValue(modifiedByDuelistAtom);
+  const revertAll = useSetAtom(revertAllAtom);
+  const save = useSetAtom(saveAtom);
+
+  if (duelistCount === 0) return null;
+
+  async function onSave() {
+    if (bridge.detail === "ready" && !window.confirm(CONFIRM_MESSAGE)) return;
+    try {
+      const outcome = await save();
+      if (!outcome) return;
+      if (!outcome.ok) {
+        const detail = outcome.reason ? ` (${outcome.reason})` : "";
+        toast.error(`Save failed: ${outcome.error}${detail}`);
+        return;
+      }
+      const backupPart = outcome.backup ? ` · backup ${outcome.backup.filename}` : "";
+      const scope = `${outcome.savedPools} pool${outcome.savedPools === 1 ? "" : "s"} across ${outcome.savedDuelists} duelist${outcome.savedDuelists === 1 ? "" : "s"}`;
+      if (outcome.closedGame) {
+        toast.success(
+          `Saved ${scope}${backupPart}. Click the game in DuckStation and choose 'Démarrage normal' to reload with the new weights.`,
+          { duration: 10000 },
+        );
+      } else {
+        toast.success(`Saved ${scope}${backupPart}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Save failed: ${msg}`);
+    }
+  }
+
+  const saveTitle = gate.ok
+    ? summarizeEdits(duelists, modifiedByDuelist)
+    : `Fix before saving:\n${gate.offenders.map((o) => `#${o.duelistId} — ${o.reason}`).join("\n")}`;
+  const revertTitle = `Revert every unsaved change across ${duelistCount} duelist${
+    duelistCount === 1 ? "" : "s"
+  } (${cardCount} card${cardCount === 1 ? "" : "s"}).`;
+
+  return (
+    <>
+      <Button
+        disabled={saving}
+        onClick={() => revertAll()}
+        size="sm"
+        title={revertTitle}
+        variant="ghost"
+      >
+        Revert all
+      </Button>
+      <Button
+        disabled={saving || !gate.ok}
+        glowing={gate.ok}
+        onClick={onSave}
+        size="sm"
+        title={saveTitle}
+      >
+        {saving
+          ? "Saving…"
+          : `Save · ${duelistCount} duelist${duelistCount === 1 ? "" : "s"} · ${cardCount} card${cardCount === 1 ? "" : "s"}`}
+      </Button>
+    </>
+  );
+}
+
+function summarizeEdits(
+  duelists: readonly BridgeDuelist[],
+  modifiedByDuelist: Record<number, readonly string[]>,
+): string {
+  const byId = new Map(duelists.map((d) => [d.id, d.name.trim()]));
+  const lines = Object.entries(modifiedByDuelist).map(([idStr, poolTypes]) => {
+    const id = Number(idStr);
+    const name = byId.get(id) ?? "(unknown)";
+    return `#${id} ${name} — ${poolTypes.join(", ")}`;
+  });
+  return `Save across:\n${lines.join("\n")}`;
 }

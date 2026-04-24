@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHAR_TABLE, PAL_CHAR_TABLE } from "./char-tables.ts";
-import {
-  decodeTblString,
-  extractWaMrgStrings,
-  ICON_TOKEN_BASE,
-  iconTokenType,
-  isIconToken,
-  isTblString,
-} from "./text-decoding.ts";
+import { decodeTblString, extractWaMrgStrings, isTblString } from "./text-decoding.ts";
 
 describe("decodeTblString", () => {
   it("decodes known TBL bytes to ASCII using CHAR_TABLE", () => {
@@ -34,23 +27,21 @@ describe("decodeTblString", () => {
     expect(decodeTblString(buf, 0, 10)).toBe("a");
   });
 
-  it("emits a PUA icon token for 0xF8 0B XX (inline type icon)", () => {
-    // "e" + F8 0B 00 (Dragon icon) + "a" + terminator
+  it("emits [TypeName] for 0xF8 0B XX when iconNames is provided", () => {
+    // "e" + F8 0B 00 (type index 0) + "a" + terminator
     const buf = Buffer.from([0x01, 0xf8, 0x0b, 0x00, 0x03, 0xff]);
-    const decoded = decodeTblString(buf, 0, 10);
-    expect(decoded).toHaveLength(3);
-    expect(decoded[0]).toBe("e");
-    expect(decoded[2]).toBe("a");
-    const token = decoded.charAt(1);
-    expect(isIconToken(token)).toBe(true);
-    expect(iconTokenType(token)).toBe(0);
-    expect(token.charCodeAt(0)).toBe(ICON_TOKEN_BASE);
+    const iconNames = ["Dragon", "Spellcaster"];
+    expect(decodeTblString(buf, 0, 10, CHAR_TABLE, iconNames)).toBe("e[Dragon]a");
   });
 
-  it("encodes the icon-type byte in the token (F8 0B 16 → Ritual index)", () => {
+  it("drops F8 0B XX when iconNames is not provided", () => {
+    const buf = Buffer.from([0x01, 0xf8, 0x0b, 0x00, 0x03, 0xff]);
+    expect(decodeTblString(buf, 0, 10)).toBe("ea");
+  });
+
+  it("falls back to [Type N] for unmapped icon indices", () => {
     const buf = Buffer.from([0xf8, 0x0b, 0x16, 0xff]);
-    const decoded = decodeTblString(buf, 0, 10);
-    expect(iconTokenType(decoded)).toBe(0x16);
+    expect(decodeTblString(buf, 0, 10, CHAR_TABLE, ["Dragon"])).toBe("[Type 22]");
   });
 
   it("renders unknown bytes as hex placeholders", () => {
