@@ -120,15 +120,22 @@ export async function acquireGameData(
   if (cached) {
     const match = await pickWinningDisc(discPaths, gameDataHash, serial);
     if (match.kind === "winner") {
+      if (cached.discPath === match.binPath) {
+        console.log(
+          `Game data loaded from cache (${hashPrefix}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
+        );
+        return {
+          kind: "ok",
+          data: buildGameDataFromCache(gameDataHash, cardStats, cached, match.binPath),
+        };
+      }
+      // Same EXE hash, different file → the cache was written from a sibling
+      // ISO that shares the EXE (e.g. Alpha Mod + BEWD-test). WA_MRG drop
+      // tables may differ, so cached tables cannot be trusted — re-extract.
       console.log(
-        `Game data loaded from cache (${hashPrefix}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
+        `Cache discPath mismatch (cached=${cached.discPath} vs active=${match.binPath}) — re-extracting`,
       );
-      return {
-        kind: "ok",
-        data: buildGameDataFromCache(gameDataHash, cardStats, cached, match.binPath),
-      };
-    }
-    if (match.kind === "ambiguous") {
+    } else if (match.kind === "ambiguous") {
       console.warn(
         `Disc resolution ambiguous (cache hit) — ${match.candidates.length} candidates: ${match.candidates.join(" | ")}`,
       );
@@ -144,6 +151,7 @@ export async function acquireGameData(
     const { data } = result;
     writeGameDataCache(artworkDir, {
       gameSerial: data.gameSerial,
+      discPath: data.discPath,
       cards: data.cards,
       duelists: data.duelists,
       fusionTable: data.fusionTable,

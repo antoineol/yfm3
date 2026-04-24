@@ -239,6 +239,7 @@ function persistGameDataCache(data: GameData): void {
   const artworkDir = join(__dirname, "artwork", data.gameDataHash.slice(0, 12));
   writeGameDataCache(artworkDir, {
     gameSerial: data.gameSerial,
+    discPath: data.discPath,
     cards: data.cards,
     duelists: data.duelists,
     fusionTable: data.fusionTable,
