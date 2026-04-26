@@ -1431,6 +1431,29 @@ async function poll(): Promise<void> {
           resetProfile();
           resetGameData();
           resetPalProbe();
+        } else if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && !hadNonZeroData) {
+          // Bridge mapped shared memory before the game was loaded (e.g. user
+          // launched DuckStation, then loaded an ISO). DuckStation may
+          // recreate its file mapping on disc-load, leaving us with a stale
+          // handle. Reopen periodically until the game appears or the PID
+          // dies. openSharedMemory returns null on a dead PID, in which case
+          // tryConnect picks up the new DuckStation on the next poll.
+          if (!reopenedAfterStale) {
+            console.log("Game still not detected — reopening shared memory...");
+            reopenedAfterStale = true; // log throttle only — reset on detection
+          }
+          const oldPid = mapping.pid;
+          try {
+            closeSharedMemory(mapping);
+          } catch {
+            /* ignore */
+          }
+          mapping = openSharedMemory(oldPid, { quiet: true });
+          consecutiveZeroReads = 0;
+          pidCheckCounter = 0;
+          resetProfile();
+          resetGameData();
+          resetPalProbe();
         }
 
         // Broadcast "waiting_for_game"
