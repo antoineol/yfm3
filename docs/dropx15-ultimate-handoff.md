@@ -1,12 +1,12 @@
 # Hand-off: 15-card-drop patch for Ultimate ISO
 
-## 2026-04-26 update: local hidden-random PoC partly successful
+## 2026-04-26 update: local full-random PoC successful
 
 The current test ISO is:
 
 `/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/ultimate-x15-test.iso`
 
-The current ISO was rebuilt from the clean Ultimate ISO with [scripts/patch-ultimate-x15.ts](../scripts/patch-ultimate-x15.ts) in `local-full-random` mode. It keeps the safe local code host and sends all 15 drops through the game's normal card-credit routine.
+The current ISO was rebuilt from the clean Ultimate ISO with [scripts/patch-ultimate-x15.ts](../scripts/patch-ultimate-x15.ts) in `local-full-random` mode. It keeps the safe local code host and sends all 15 drops through the game's normal card-credit routine. The detailed implementation spec is [docs/dropx15-ultimate-spec.md](dropx15-ultimate-spec.md).
 
 What it does:
 
@@ -20,8 +20,8 @@ Observed result:
 
 - Duel ended successfully, no black screen.
 - Reward UI still showed one card, as expected.
-- Bridge log showed the collection total increase from 45 to 60 at `2026-04-26T09:05:03.065Z`, so the patch granted 15 total cards.
-- Only the one displayed reward appeared as latest/new in-game. The 14 direct hidden writes increased collection counts but did not update the game's recent/new reward list.
+- Collection gained 15 cards.
+- All 15 cards were marked as new/latest in-game.
 
 Known results:
 
@@ -30,7 +30,7 @@ Known results:
 - Hidden-random patch at `0x801aac40`: black-screened after validating the reward screen, during the transition back to campaign.
 - Local-cave same-card smoke patch at `0x80021f24`: confirmed in DuckStation, 15 copies of displayed card, no transition crash.
 - Local hidden-random patch at `0x80021f24`: confirmed in DuckStation, 15 total cards, no transition crash, but incomplete latest/new bookkeeping.
-- Current local-full-random patch: awaiting DuckStation test. It is intended to fix latest/new bookkeeping by routing all grants through `FUN_80021894`.
+- Local full-random patch at `0x80021f24`: confirmed in DuckStation, 15 cards, no transition crash, all marked new/latest.
 
 What failed after that:
 
@@ -57,10 +57,11 @@ Additional comparison:
 
 Next step:
 
-- Manual DuckStation test: boot `ultimate-x15-test.iso`, win one duel, confirm it exits cleanly and that the collection's latest/new list shows 15 newly earned cards.
-- If `local-full-random` crashes, the missing piece is repeated `FUN_80021894`; fall back to direct writes plus a separate minimal recent-list update.
+- Safety commit this working formula and spec.
+- Delete the experimental implementation modes.
+- Reimplement the feature cleanly from [docs/dropx15-ultimate-spec.md](dropx15-ultimate-spec.md).
 
-The patcher supports `same-card` (safe direct patch), `cave-same-card` (known-crashing `0x801aac40` diagnostic), `local-cave-same-card` (confirmed transition-safe same-card trampoline), `local-hidden-random` (15 total cards but incomplete latest/new bookkeeping), and `local-full-random` (next test). Default CLI mode is `same-card`.
+The current patcher still contains experimental modes (`same-card`, `cave-same-card`, `local-cave-same-card`, `local-hidden-random`, `local-full-random`). The clean rewrite should keep only the final `local-full-random` behavior.
 
 ## Goal
 
