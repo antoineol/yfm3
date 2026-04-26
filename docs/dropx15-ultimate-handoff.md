@@ -141,4 +141,4 @@ I'd start with **(3)** as a 5-minute sanity check, then **(4)** as the actually-
 
 ## Top-of-mind context
 
-User wants this exposed as a single checkbox in `Data > Edit` (file [src/ui/features/data/edit/DataEditPanel.tsx](../src/ui/features/data/edit/DataEditPanel.tsx)) once the ISO patch is verified working in DuckStation. Bridge IPC plumbing comes after. UI work is *not* started.
+The patch is now exposed in `Data > Edit` as a compact "Duel rewards" strip above the pool editor. The bridge supports GET/PUT `/api/active-iso/drop-x15`, creates normal ISO backups before writing, and closes DuckStation through the existing ISO-lock fallback when needed. Current scope is explicit: only the tested Ultimate `SLUS_027.11` layout is supported; other versions/mods report unsupported until a new patch definition is added.

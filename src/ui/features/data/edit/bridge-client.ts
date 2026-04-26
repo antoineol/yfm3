@@ -22,6 +22,24 @@ export type IsoBackupEntry = {
   sizeBytes: number;
 };
 
+export type DropX15Status =
+  | {
+      supported: true;
+      enabled: boolean;
+      definitionId: string;
+      definitionName: string;
+      gameSerial: string;
+      discFilename: string;
+      reason?: string;
+    }
+  | {
+      supported: false;
+      enabled: false;
+      gameSerial: string;
+      discFilename: string;
+      reason: string;
+    };
+
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
   return (await res.json()) as T;
@@ -68,6 +86,30 @@ export async function putDuelistPool(
     return (await res.json()) as PutDuelistPoolError;
   }
   return parseJson<PutDuelistPoolResult>(res);
+}
+
+export type PutDropX15Result =
+  | {
+      ok: true;
+      backup: IsoBackupEntry | null;
+      changed: boolean;
+      closedGame: boolean;
+      status: Extract<DropX15Status, { supported: true }>;
+    }
+  | {
+      ok: false;
+      error: string;
+      reason?: string;
+    };
+
+export async function fetchDropX15Status(): Promise<DropX15Status> {
+  return parseJson(await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/drop-x15`));
+}
+
+export async function putDropX15Patch(): Promise<PutDropX15Result> {
+  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/drop-x15`, { method: "PUT" });
+  if (res.status === 409) return (await res.json()) as PutDropX15Result;
+  return parseJson<PutDropX15Result>(res);
 }
 
 export async function fetchIsoBackups(): Promise<IsoBackupEntry[]> {

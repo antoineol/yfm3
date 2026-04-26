@@ -2,6 +2,7 @@ import { PanelCard, PanelEmptyState } from "../../../components/panel-chrome.tsx
 import { useBridgeAutoSync } from "../../../db/use-user-preferences.ts";
 import { useBridge } from "../../../lib/bridge-context.tsx";
 import { DropPoolEditor } from "./DropPoolEditor.tsx";
+import { DropX15PatchPanel } from "./DropX15PatchPanel.tsx";
 
 export function DataEditPanel({
   onDuelistChange,
@@ -50,6 +51,7 @@ export function DataEditPanel({
 
   return (
     <PanelCard className="w-full max-w-5xl mx-auto">
+      <DropX15PatchPanel />
       <DropPoolEditor
         gameData={bridge.gameData}
         onDuelistChange={onDuelistChange}

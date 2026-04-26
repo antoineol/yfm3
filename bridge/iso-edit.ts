@@ -20,6 +20,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import {
+  type DropX15PatchStatus,
+  inspectDropX15Patch,
+  patchDropX15DiscInPlace,
+} from "./drop-x15-patch.ts";
 import { detectAttributeMapping, detectExeLayout } from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
@@ -67,13 +72,13 @@ export function isPoolType(value: unknown): value is PoolType {
  * Whether an error from `patchDuelistPool` represents the ISO being held open
  * by another process (typically DuckStation). On Windows, `fs.writeFileSync`
  * against a file open with `FILE_SHARE_READ` but not `FILE_SHARE_WRITE`
- * surfaces as `EBUSY` or `EPERM`. Used by the server to decide whether the
- * close-and-retry fallback applies.
+ * surfaces as `EBUSY`, `EPERM`, or `EACCES` depending on runtime/path layer.
+ * Used by the server to decide whether the close-and-retry fallback applies.
  */
 export function isIsoLockedError(err: unknown, discPath: string): boolean {
   if (!(err instanceof Error)) return false;
   const e = err as NodeJS.ErrnoException;
-  if (e.code !== "EBUSY" && e.code !== "EPERM") return false;
+  if (e.code !== "EBUSY" && e.code !== "EPERM" && e.code !== "EACCES") return false;
   // Guard: if a path is attached, make sure it points at our disc — we don't
   // want to misattribute unrelated locking errors from backup writes etc.
   return !e.path || e.path === discPath;
@@ -127,6 +132,25 @@ export function patchDuelistPool(
   writeFileSync(discPath, bin);
   pruneOldBackups(discPath);
   return backup;
+}
+
+export function getDropX15PatchStatus(discPath: string): DropX15PatchStatus {
+  return inspectDropX15Patch(discPath);
+}
+
+export function patchDropX15(discPath: string): {
+  backup: IsoBackupEntry | null;
+  changed: boolean;
+  status: Extract<DropX15PatchStatus, { supported: true }>;
+} {
+  const before = inspectDropX15Patch(discPath);
+  if (!before.supported) throw new Error(before.reason);
+  if (before.enabled) return { backup: null, changed: false, status: before };
+
+  const backup = backupIso(discPath);
+  const result = patchDropX15DiscInPlace(discPath);
+  pruneOldBackups(discPath);
+  return { backup, changed: result.changed, status: result.status };
 }
 
 function validateWeights(weights: readonly number[]): void {

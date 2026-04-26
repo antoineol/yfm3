@@ -33,9 +33,11 @@ import {
   tapButton,
 } from "./input.ts";
 import {
+  getDropX15PatchStatus,
   isIsoLockedError,
   isPoolType,
   listIsoBackups,
+  patchDropX15,
   patchDuelistPool,
   reReadDuelists,
   restoreIsoBackup,
@@ -656,6 +658,8 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
 // know the path. These routes expose:
 //   GET  /api/active-iso              — metadata (serial, filename, backup count)
 //   PUT  /api/active-iso/duelist-pool — patch one {duelistId, poolType, weights}
+//   GET  /api/active-iso/drop-x15     — 15-card drop patch status
+//   PUT  /api/active-iso/drop-x15     — enable 15-card drops when supported
 //   GET  /api/active-iso/backups      — list rotating backups
 //   POST /api/active-iso/backups/:filename/restore
 
@@ -746,6 +750,61 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
       console.error(`[iso] PUT duelist-pool failed: ${message}`);
       return jsonResponse({ ok: false, error: message }, { status: 500 });
     }
+  }
+
+  if (pathname === "/api/active-iso/drop-x15") {
+    if (req.method === "GET") {
+      const status = getDropX15PatchStatus(discPath);
+      return jsonResponse({
+        ...status,
+        discFilename: discPath.split(/[\\/]/).pop() ?? discPath,
+        gameSerial,
+      });
+    }
+    if (req.method === "PUT") {
+      try {
+        const currentStatus = getDropX15PatchStatus(discPath);
+        if (!currentStatus.supported) {
+          return jsonResponse(
+            { ok: false, error: "unsupported_disc", reason: currentStatus.reason },
+            { status: 400 },
+          );
+        }
+        const applyPatch = () => patchDropX15(discPath);
+
+        let result: ReturnType<typeof patchDropX15>;
+        let closedGame = false;
+        try {
+          result = applyPatch();
+        } catch (err: unknown) {
+          if (!isIsoLockedError(err, discPath)) throw err;
+          console.log("[iso] PUT drop-x15: ISO locked; closing game in DuckStation");
+          const closeResult = await closeDuckStationGameAndWaitForUnlock(discPath);
+          if (!closeResult.ok) {
+            console.warn(`[iso] close-game fallback failed: ${closeResult.reason}`);
+            return jsonResponse(
+              { ok: false, error: "iso_locked", reason: closeResult.reason },
+              { status: 409 },
+            );
+          }
+          result = applyPatch();
+          closedGame = true;
+        }
+
+        console.log(
+          `[iso] PUT drop-x15${result.backup ? ` · backup ${result.backup.filename}` : ""}${result.changed ? "" : " · already enabled"}${closedGame ? " · closed game" : ""}`,
+        );
+        return jsonResponse({ ok: true, ...result, closedGame });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[iso] PUT drop-x15 failed: ${message}`);
+        return jsonResponse(
+          { ok: false, error: "drop_x15_failed", reason: message },
+          { status: 500 },
+        );
+      }
+    }
+    return methodNotAllowed();
   }
 
   if (pathname === "/api/active-iso/backups") {
