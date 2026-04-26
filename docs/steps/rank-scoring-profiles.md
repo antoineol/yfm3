@@ -12,6 +12,7 @@
   - Vanilla/old row: `used < 9 => +15`, `used < 13 => +12`, `used < 33 => 0`, `used < 37 => -5`, else `-7`.
   - RP 1.3 row: `used < 9 => +32`, `used < 15 => +20`, `used < 33 => 0`, `used < 37 => -5`, else `-7`.
 - The app stores the equivalent `remainingCards` value, so RP 1.3 maps to thresholds `[4, 8, 26, 32]` with points `[-7, -5, 0, 20, 32]`.
+- Extraction now scans for the table structure itself: 10 rows, each with 5 `[exclusiveLimit, points]` signed-short pairs, and each row ending at `0x7fff`. This no longer depends on the vanilla turns row staying unchanged.
 
 ## Current Step
 
@@ -22,5 +23,5 @@
 ## Next Steps
 
 - Validate the extracted table against a live RP 1.3 bridge run after cache refresh.
-- Generalize beyond the stable first-row signature if a mod edits the turns thresholds too, likely by finding the decompiled rank helper callsite and following its table pointer.
+- Treat mods that change the rank algorithm shape itself separately: different factor count, different row width, changed victory bonuses, or changed final rank thresholds would need code-pattern extraction from the rank helper/caller instead of table-only extraction.
 - Surface extraction metadata in diagnostics if users report rank mismatches (`tableCount`, `selectedCount`, `variantCount`).

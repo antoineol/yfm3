@@ -89,6 +89,21 @@ describe("extractRankScoring", () => {
     expect(cardsLeft?.points).toEqual([-7, -5, 0, 12, 15]);
   });
 
+  it("does not depend on the vanilla turns row signature", () => {
+    const buffer = Buffer.alloc(512);
+    writeTable(
+      buffer,
+      32,
+      patchRow(VANILLA_ROWS, 0, [6, 13], [10, 9], [30, 0], [34, -9], [0x7fff, -13]),
+    );
+
+    const result = extractRankScoring(buffer);
+
+    const turns = result?.factors.find((factor) => factor.key === "turns");
+    expect(turns?.thresholds).toEqual([6, 10, 30, 34]);
+    expect(turns?.points).toEqual([13, 9, 0, -9, -13]);
+  });
+
   it("uses the majority table when repeated executable copies disagree", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const buffer = Buffer.alloc(1024);
@@ -114,8 +129,12 @@ describe("extractRankScoring", () => {
 });
 
 function patchCardsUsed(rows: Row[], ...pairs: Row): Row[] {
+  return patchRow(rows, 6, ...pairs, [0x7fff, -7]);
+}
+
+function patchRow(rows: Row[], rowIndex: number, ...pairs: Row): Row[] {
   const next = rows.map((row) => row.map(([limit, points]) => [limit, points] as [number, number]));
-  next[6] = [...pairs, [0x7fff, -7]];
+  next[rowIndex] = pairs;
   return next;
 }
 

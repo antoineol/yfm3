@@ -12,11 +12,7 @@ const ROW_SIZE = PAIRS_PER_ROW * PAIR_SIZE;
 const TABLE_SIZE = ROW_COUNT * ROW_SIZE;
 const OPEN_LIMIT = 0x7fff;
 const STARTING_DECK_SIZE = 40;
-
-const FIRST_ROW_SIGNATURE = Buffer.from([
-  0x05, 0x00, 0x0c, 0x00, 0x09, 0x00, 0x08, 0x00, 0x1d, 0x00, 0x00, 0x00, 0x21, 0x00, 0xf8, 0xff,
-  0xff, 0x7f, 0xf4, 0xff,
-]);
+const OPEN_LIMIT_BYTES = Buffer.from([0xff, 0x7f]);
 
 const GAME_TO_APP_FACTORS: readonly {
   gameIndex: number;
@@ -69,11 +65,16 @@ export function extractRankScoring(image: Buffer | Uint8Array): RankScoringData 
 
 function findRankTables(buffer: Buffer): RawRankRow[][] {
   const tables: RawRankRow[][] = [];
-  let offset = buffer.indexOf(FIRST_ROW_SIGNATURE);
+  const seen = new Set<number>();
+  let offset = buffer.indexOf(OPEN_LIMIT_BYTES);
   while (offset !== -1) {
-    const table = parseTable(buffer, offset);
-    if (table) tables.push(table);
-    offset = buffer.indexOf(FIRST_ROW_SIGNATURE, offset + 1);
+    const tableOffset = offset - (PAIRS_PER_ROW - 1) * PAIR_SIZE;
+    if (!seen.has(tableOffset)) {
+      seen.add(tableOffset);
+      const table = parseTable(buffer, tableOffset);
+      if (table) tables.push(table);
+    }
+    offset = buffer.indexOf(OPEN_LIMIT_BYTES, offset + 1);
   }
   return tables;
 }
