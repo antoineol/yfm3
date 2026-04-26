@@ -18,9 +18,6 @@ import { type RankTrackerState, useRankTracker } from "./use-rank-tracker.ts";
 
 const STORAGE_KEY = "fm-rank-details-open";
 
-/** Factor zone definitions are static — compute once at module level. */
-const ZONE_DEFINITIONS = getFactorZoneDefinitions();
-
 // ── Main component ────────────────────────────────────────────────────
 
 export function RankTracker() {
@@ -112,6 +109,10 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
     () => buildFactorRows(tracker.breakdown, tracker.isPartial),
     [tracker.breakdown, tracker.isPartial],
   );
+  const zoneDefinitions = useMemo(
+    () => getFactorZoneDefinitions(tracker.profile),
+    [tracker.profile],
+  );
 
   const scoreColor = scoreToColor(tracker.breakdown.total);
   const rankLabel = tracker.breakdown.rank.label;
@@ -130,7 +131,12 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
         <div className="fm-rank-details-inner">
           <div className="fm-rank-factor-list">
             {factors.map((f, i) => (
-              <FactorZoneRow factor={f} key={f.name} zoneLayout={ZONE_DEFINITIONS[i]} />
+              <FactorZoneRow
+                factor={f}
+                key={f.name}
+                profile={tracker.profile}
+                zoneLayout={zoneDefinitions[i]}
+              />
             ))}
             <VictoryBonusRow bonus={tracker.breakdown.victoryBonus} />
           </div>
@@ -173,12 +179,14 @@ function buildFactorRows(breakdown: RankBreakdown, isPartial: boolean): FactorRo
 
 function FactorZoneRow({
   factor,
+  profile,
   zoneLayout,
 }: {
   factor: FactorRowData;
+  profile: RankTrackerState["profile"];
   zoneLayout: FactorZoneLayout | undefined;
 }) {
-  const activeIdx = getActiveZoneIndex(factor.factorIndex, factor.rawValue);
+  const activeIdx = getActiveZoneIndex(factor.factorIndex, factor.rawValue, profile);
   const zones = zoneLayout?.zones ?? [];
   const cursorLeft = computeCursorPosition(activeIdx, factor.rawValue, zones);
 

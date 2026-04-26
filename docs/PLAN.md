@@ -91,3 +91,4 @@ Return best deck + exact expected ATK
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
 | **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |
+| **Rank Scoring Profiles** (CURRENT) | [`docs/steps/rank-scoring-profiles.md`](steps/rank-scoring-profiles.md) | Use decompiled rank tables to score vanilla and RP 1.3 duels correctly, then extract tables for additional mods |

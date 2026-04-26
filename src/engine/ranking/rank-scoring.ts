@@ -27,6 +27,7 @@ export type VictoryType = "normal" | "deckout" | "exodia";
 export type RankGrade = "S" | "A" | "B" | "C" | "D";
 export type RankSkill = "POW" | "TEC";
 export type DropPool = "SA-POW" | "BCD" | "SA-TEC";
+export type RankScoringProfile = "vanilla" | "rp";
 
 export interface RankResult {
   score: number;
@@ -121,6 +122,21 @@ const FACTOR_DEFINITIONS: readonly FactorDefinition[] = [
   },
 ] as const;
 
+const RP_FACTOR_DEFINITIONS: readonly FactorDefinition[] = FACTOR_DEFINITIONS.map((def) =>
+  def.key === "remainingCards"
+    ? {
+        ...def,
+        thresholds: [4, 8, 26, 32],
+        points: [-7, -5, 0, 20, 32],
+      }
+    : def,
+);
+
+const FACTOR_DEFINITIONS_BY_PROFILE: Record<RankScoringProfile, readonly FactorDefinition[]> = {
+  vanilla: FACTOR_DEFINITIONS,
+  rp: RP_FACTOR_DEFINITIONS,
+};
+
 const BASE_SCORE = 50;
 
 const VICTORY_BONUSES: Record<VictoryType, number> = {
@@ -159,12 +175,14 @@ const RANK_THRESHOLDS: readonly RankThreshold[] = [
 export function computeRankBreakdown(
   factors: RankFactors,
   victoryType: VictoryType,
+  profile: RankScoringProfile = "vanilla",
 ): RankBreakdown {
   const victoryBonus = VICTORY_BONUSES[victoryType];
+  const definitions = getDefinitions(profile);
 
-  const factorResults = FACTOR_DEFINITIONS.map((def, i) => {
+  const factorResults = definitions.map((def, i) => {
     const rawValue = factors[def.key];
-    const pts = computeFactorPoints(i, rawValue);
+    const pts = computeFactorPoints(i, rawValue, profile);
     const sortedPoints = [...def.points].sort((a, b) => a - b);
     return {
       name: def.name,
@@ -187,12 +205,17 @@ export function computeRankBreakdown(
 }
 
 /** Quick score computation without breakdown. */
-export function computeRankScore(factors: RankFactors, victoryType: VictoryType): number {
+export function computeRankScore(
+  factors: RankFactors,
+  victoryType: VictoryType,
+  profile: RankScoringProfile = "vanilla",
+): number {
   let score = BASE_SCORE + VICTORY_BONUSES[victoryType];
-  for (let i = 0; i < FACTOR_DEFINITIONS.length; i++) {
-    const def = FACTOR_DEFINITIONS[i];
+  const definitions = getDefinitions(profile);
+  for (let i = 0; i < definitions.length; i++) {
+    const def = definitions[i];
     if (def) {
-      score += computeFactorPoints(i, factors[def.key]);
+      score += computeFactorPoints(i, factors[def.key], profile);
     }
   }
   return score;
@@ -212,8 +235,12 @@ export function getRankFromScore(score: number): RankResult {
 }
 
 /** Compute score contribution for a single factor given its raw value. */
-export function computeFactorPoints(factorIndex: number, rawValue: number): number {
-  const def = FACTOR_DEFINITIONS[factorIndex];
+export function computeFactorPoints(
+  factorIndex: number,
+  rawValue: number,
+  profile: RankScoringProfile = "vanilla",
+): number {
+  const def = getDefinitions(profile)[factorIndex];
   if (!def) {
     throw new Error(`Invalid factor index: ${factorIndex}`);
   }
@@ -221,13 +248,13 @@ export function computeFactorPoints(factorIndex: number, rawValue: number): numb
 }
 
 /** Get the factor definitions array (for UI rendering). */
-export function getFactorDefinitions(): Array<{
+export function getFactorDefinitions(profile: RankScoringProfile = "vanilla"): Array<{
   name: string;
   key: keyof RankFactors;
   thresholds: number[];
   points: number[];
 }> {
-  return FACTOR_DEFINITIONS.map((def) => ({
+  return getDefinitions(profile).map((def) => ({
     name: def.name,
     key: def.key,
     thresholds: [...def.thresholds],
@@ -236,6 +263,10 @@ export function getFactorDefinitions(): Array<{
 }
 
 // ── Internal helpers ───────────────────────────────────────────────────────
+
+function getDefinitions(profile: RankScoringProfile): readonly FactorDefinition[] {
+  return FACTOR_DEFINITIONS_BY_PROFILE[profile];
+}
 
 /**
  * Given a raw value, a sorted list of thresholds, and the corresponding

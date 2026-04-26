@@ -5,7 +5,7 @@
 // rank-scoring into visual zone structures consumed by RankTracker.
 // ---------------------------------------------------------------------------
 
-import type { RankFactors } from "./rank-scoring.ts";
+import type { RankFactors, RankScoringProfile } from "./rank-scoring.ts";
 import { getFactorDefinitions } from "./rank-scoring.ts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,9 +34,6 @@ export interface FactorZoneLayout {
 
 type FactorDef = { name: string; key: keyof RankFactors; thresholds: number[]; points: number[] };
 
-/** Cached copy of factor definitions — computed once at module load. */
-const DEFINITIONS: FactorDef[] = getFactorDefinitions();
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -44,8 +41,10 @@ const DEFINITIONS: FactorDef[] = getFactorDefinitions();
  * Zones are sorted so the leftmost zone is most TEC-friendly (lowest points)
  * and the rightmost is most POW-friendly (highest points).
  */
-export function getFactorZoneDefinitions(): FactorZoneLayout[] {
-  return DEFINITIONS.map((def) => {
+export function getFactorZoneDefinitions(
+  profile: RankScoringProfile = "vanilla",
+): FactorZoneLayout[] {
+  return getFactorDefinitions(profile).map((def) => {
     const zones = buildFactorZones(def);
     // If points descend (POW first), reverse so TEC is on the left, POW on the right
     if (zones.length >= 2 && (zones[0]?.points ?? 0) > (zones[zones.length - 1]?.points ?? 0)) {
@@ -63,8 +62,12 @@ export function getFactorZoneDefinitions(): FactorZoneLayout[] {
  * Determine which zone index (0-based) a raw value maps to in display order.
  * The returned index matches the zone array from getFactorZoneDefinitions().
  */
-export function getActiveZoneIndex(factorIndex: number, rawValue: number): number {
-  const def = DEFINITIONS[factorIndex];
+export function getActiveZoneIndex(
+  factorIndex: number,
+  rawValue: number,
+  profile: RankScoringProfile = "vanilla",
+): number {
+  const def = getFactorDefinitions(profile)[factorIndex];
   if (!def) return 0;
 
   let idx = def.thresholds.length;

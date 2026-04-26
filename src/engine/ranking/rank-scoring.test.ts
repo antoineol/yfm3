@@ -281,6 +281,11 @@ describe("computeFactorPoints", () => {
     it("40 → +15", () => {
       expect(computeFactorPoints(8, 40)).toBe(15);
     });
+
+    it("uses RP 1.3 cards-used thresholds when requested", () => {
+      expect(computeFactorPoints(8, 29, "rp")).toBe(20);
+      expect(computeFactorPoints(8, 32, "rp")).toBe(32);
+    });
   });
 
   describe("Remaining LP (index 9): [100,1000,7000,8000] → [-7,-5,0,+4,+6]", () => {
@@ -539,6 +544,21 @@ describe("computeRankScore", () => {
       const bd = computeRankBreakdown(factors, vt);
       expect(score).toBe(bd.total);
     }
+  });
+
+  it("uses the selected rank profile for scoring and breakdown", () => {
+    const factors: RankFactors = {
+      ...zeroFactors(),
+      turns: 0,
+      effectiveAttacks: 2,
+      fusionsInitiated: 0,
+      remainingCards: 29,
+    };
+
+    expect(computeRankScore(factors, "normal")).toBe(86);
+    expect(computeRankBreakdown(factors, "normal").rank.label).toBe("A-POW");
+    expect(computeRankScore(factors, "normal", "rp")).toBe(94);
+    expect(computeRankBreakdown(factors, "normal", "rp").rank.label).toBe("S-POW");
   });
 });
 

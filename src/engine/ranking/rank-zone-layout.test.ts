@@ -66,6 +66,13 @@ describe("getFactorZoneDefinitions", () => {
     expect(right).toEqual(["3", "7", "27", "31", ""]);
   });
 
+  it("Cards left zones use RP 1.3 thresholds when requested", () => {
+    const cards = getFactorZoneDefinitions("rp").find((f) => f.name === "Cards left");
+    expect(cards?.zones.map((z) => z.points)).toEqual([-7, -5, 0, 20, 32]);
+    expect(cards?.zones.map((z) => z.leftLabel)).toEqual(["", "4", "8", "26", "32"]);
+    expect(cards?.zones.map((z) => z.rightLabel)).toEqual(["3", "7", "25", "31", ""]);
+  });
+
   it("Traps zones (reversed: TEC left, POW right)", () => {
     const traps = getFactorZoneDefinitions().find((f) => f.name === "Traps");
     const pts = traps?.zones.map((z) => z.points);
@@ -115,6 +122,10 @@ describe("getActiveZoneIndex", () => {
     expect(getActiveZoneIndex(9, 6999)).toBe(2);
     expect(getActiveZoneIndex(9, 7000)).toBe(3); // 7k-8k
     expect(getActiveZoneIndex(9, 8000)).toBe(4); // 8k+ → rightmost (POW)
+  });
+
+  it("Cards left: RP profile maps 29 cards left to the +20 zone", () => {
+    expect(getActiveZoneIndex(8, 29, "rp")).toBe(3);
   });
 
   it("invalid factor index returns 0", () => {

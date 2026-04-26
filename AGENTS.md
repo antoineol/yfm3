@@ -39,3 +39,4 @@ When choosing a solution, apply these principles:
 ## Confusion points
 
 - `api.deck.getDeck` currently sorts returned rows by `cardId`, not by the fractional `order` field from the schema. If deck order matters for a change, do not assume the query preserves it.
+- Rank scoring thresholds live in repeated loaded executable copies in the raw BIN, not reliably in the ISO9660-extracted `SLUS_014.11`. RP 1.3 patches 39 of 40 copies of the cards-used row; scanning only the extracted executable shows zeroed runtime data and misses the active rank table.
