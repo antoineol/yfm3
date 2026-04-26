@@ -59,6 +59,13 @@ export type BridgeGameData = {
    * found in RAM.
    */
   fieldBonusTable: number[] | null;
+  /**
+   * Per-disc artwork cache key (gameDataHash[0:12]-pathHash[0:8]). Goes in
+   * bridge artwork URLs so each mod/disc has its own URL space — without it,
+   * the browser HTTP cache returns the previous mod's PNG when the user swaps
+   * ROMs (URL is identical, on-disk dir differs).
+   */
+  artworkKey: string;
 };
 
 /** Main thread → Worker: initialize buffers and run SA. */

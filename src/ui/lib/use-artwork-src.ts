@@ -7,6 +7,7 @@ import { useSelectedMod } from "./use-selected-mod.ts";
 export function useArtworkSrc(): (cardId: number) => string {
   const bridge = useBridgeOptional();
   const modId = useSelectedMod();
-  if (bridge?.gameData) return bridgeArtworkSrc;
+  const artworkKey = bridge?.gameData?.artworkKey;
+  if (artworkKey) return (cardId: number) => bridgeArtworkSrc(artworkKey, cardId);
   return (cardId: number) => artworkSrc(modId, cardId);
 }

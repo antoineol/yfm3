@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artworkSrc, formatCardId, formatRate } from "./format.ts";
+import { artworkSrc, bridgeArtworkSrc, formatCardId, formatRate } from "./format.ts";
 
 describe("formatCardId", () => {
   it("pads single digit", () => {
@@ -22,6 +22,19 @@ describe("artworkSrc", () => {
   });
   it("uses vanilla mod path", () => {
     expect(artworkSrc("vanilla", 1)).toBe("/images/artwork/vanilla/001.webp");
+  });
+});
+
+describe("bridgeArtworkSrc", () => {
+  it("scopes the URL by artworkKey so each mod has its own browser-cache bucket", () => {
+    expect(bridgeArtworkSrc("abc123def456-78c4801f", 380)).toBe(
+      "http://localhost:3333/artwork/abc123def456-78c4801f/380.png",
+    );
+  });
+  it("returns a different URL for the same card under a different mod", () => {
+    const a = bridgeArtworkSrc("aaaaaaaaaaaa-11111111", 380);
+    const b = bridgeArtworkSrc("bbbbbbbbbbbb-22222222", 380);
+    expect(a).not.toBe(b);
   });
 });
 

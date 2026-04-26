@@ -8,9 +8,11 @@ export function artworkSrc(modId: string, cardId: number): string {
   return `/images/artwork/${modId}/${formatCardId(cardId)}.webp`;
 }
 
-/** Artwork URL served by the local bridge (dynamic, from disc extraction). */
-export function bridgeArtworkSrc(cardId: number): string {
-  return `http://localhost:3333/artwork/${formatCardId(cardId)}.png`;
+/** Artwork URL served by the local bridge (dynamic, from disc extraction).
+ *  `artworkKey` scopes the URL per-mod so the browser HTTP cache can't return
+ *  the previous mod's PNG when the active ROM changes. */
+export function bridgeArtworkSrc(artworkKey: string, cardId: number): string {
+  return `http://localhost:3333/artwork/${artworkKey}/${formatCardId(cardId)}.png`;
 }
 
 export const DROP_TOTAL = 2048;

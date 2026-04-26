@@ -221,6 +221,7 @@ describe("processBridgeMessage", () => {
         perEquipBonuses: null,
         deckLimits: null,
         fieldBonusTable: null,
+        artworkKey: "old-key",
       },
       gameDataError: null,
       restartFailed: true,
@@ -346,6 +347,7 @@ describe("processBridgeMessage", () => {
         duelists: [2],
         fusionTable: [3],
         equipTable: [4],
+        artworkKey: "abc123def456-78c4801f",
       };
       const { state: s } = process(msg);
       expect(s.gameData).toEqual({
@@ -357,6 +359,7 @@ describe("processBridgeMessage", () => {
         perEquipBonuses: null,
         deckLimits: null,
         fieldBonusTable: null,
+        artworkKey: "abc123def456-78c4801f",
       });
       expect(s.gameDataError).toBeNull();
     });

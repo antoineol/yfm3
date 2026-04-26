@@ -266,6 +266,7 @@ type GameDataWireMessage = {
   perEquipBonuses: GameData["perEquipBonuses"];
   deckLimits: GameData["deckLimits"];
   fieldBonusTable: GameData["fieldBonusTable"];
+  artworkKey: string;
 };
 
 function buildGameDataMessage(data: GameData): string {
@@ -279,6 +280,7 @@ function buildGameDataMessage(data: GameData): string {
     perEquipBonuses: data.perEquipBonuses,
     deckLimits: data.deckLimits,
     fieldBonusTable: data.fieldBonusTable,
+    artworkKey: artworkCacheKey(data.gameDataHash, data.discPath),
   };
   return JSON.stringify(msg);
 }
@@ -467,11 +469,20 @@ const CORS_HEADERS: Record<string, string> = {
 };
 
 async function serveArtwork(pathname: string): Promise<Response> {
-  const filename = pathname.replace("/artwork/", "");
-  if (!/^\d{3}\.png$/.test(filename) || !currentGameData) {
+  // URL shape: /artwork/{artworkKey}/{nnn}.png. The artworkKey scopes the
+  // browser HTTP cache per-mod — without it, swapping ROMs returns the
+  // previous mod's PNG from cache because the URL would be identical.
+  const match = /^\/artwork\/([^/]+)\/(\d{3}\.png)$/.exec(pathname);
+  if (!match || !currentGameData) {
     return new Response("Not found", { status: 404, headers: CORS_HEADERS });
   }
+  const requestedKey = match[1] as string;
+  const filename = match[2] as string;
   const dirKey = artworkCacheKey(currentGameData.gameDataHash, currentGameData.discPath);
+  if (requestedKey !== dirKey) {
+    // Stale URL from a previous mod — refuse rather than serve the wrong art.
+    return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+  }
   const filePath = join(__dirname, "artwork", dirKey, filename);
   // Extraction runs in the background after gameData broadcasts (see
   // artwork-extraction.ts). If the caller races ahead of the writer, wait

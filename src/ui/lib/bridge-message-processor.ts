@@ -242,6 +242,7 @@ function parseGameDataMessage(m: Record<string, unknown>): BridgeGameData {
     perEquipBonuses: (m.perEquipBonuses ?? null) as BridgeGameData["perEquipBonuses"],
     deckLimits: (m.deckLimits ?? null) as BridgeGameData["deckLimits"],
     fieldBonusTable: (m.fieldBonusTable ?? null) as BridgeGameData["fieldBonusTable"],
+    artworkKey: m.artworkKey as BridgeGameData["artworkKey"],
   };
 }
 
