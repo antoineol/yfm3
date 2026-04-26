@@ -21,7 +21,7 @@ export interface CardEntry {
   collectionCount?: number;
   /** Copies currently in deck. */
   deckCount?: number;
-  /** Starchip cost (used by the Buy view). */
+  /** Starchip cost (used by the Starchip view). */
   cost?: number;
   /** Render the row at reduced opacity without filtering it out. */
   dimmed?: boolean;

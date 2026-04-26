@@ -3,20 +3,20 @@ import { ToggleGroup } from "../../components/ToggleGroup.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 import { useHash } from "../../lib/use-tab-from-hash.ts";
-import { BuyPanel } from "./BuyPanel.tsx";
 import { CardDetailPage } from "./CardDetailPage.tsx";
 import { CardsTable } from "./CardsTable.tsx";
 import { DuelistsPanel } from "./DuelistsPanel.tsx";
 import { DataEditPanel } from "./edit/DataEditPanel.tsx";
 import { FusionsTable } from "./FusionsTable.tsx";
+import { StarchipPanel } from "./StarchipPanel.tsx";
 
-type View = "cards" | "fusions" | "duelists" | "buy" | "edit";
+type View = "cards" | "fusions" | "duelists" | "starchip" | "edit";
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "cards", label: "Cards" },
   { value: "fusions", label: "Fusions" },
   { value: "duelists", label: "Duelists" },
-  { value: "buy", label: "Buy" },
+  { value: "starchip", label: "Starchip" },
   { value: "edit", label: "Edit" },
 ];
 
@@ -91,8 +91,8 @@ export function DataPanel() {
           )
         ) : view === "fusions" ? (
           <FusionsTable cardDb={data.cardDb} fusions={data.fusions} />
-        ) : view === "buy" ? (
-          <BuyPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
+        ) : view === "starchip" ? (
+          <StarchipPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
         ) : view === "edit" ? (
           <DataEditPanel onDuelistChange={handleEditDuelistChange} selectedDuelistId={duelistId} />
         ) : (

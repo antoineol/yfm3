@@ -2,43 +2,43 @@ import { useMemo, useState } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { CardTable } from "../../components/CardTable.tsx";
 import type { CardEntry } from "../../components/card-entries.ts";
-import { BuyFilterBar, type BuyFilters } from "./BuyFilterBar.tsx";
+import { StarchipFilterBar, type StarchipFilters } from "./StarchipFilterBar.tsx";
 
 const NOT_FOR_SALE = 999999;
 
-const DEFAULT_FILTERS: BuyFilters = {
+const DEFAULT_FILTERS: StarchipFilters = {
   kind: "all",
   minAtk: 1500,
   maxCost: NOT_FOR_SALE - 1,
   hideFullyStocked: true,
 };
 
-export function BuyPanel({
+export function StarchipPanel({
   cards,
   ownedTotals,
 }: {
   cards: CardSpec[];
   ownedTotals: Record<number, number> | undefined;
 }) {
-  const [filters, setFilters] = useState<BuyFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<StarchipFilters>(DEFAULT_FILTERS);
 
   const entries = useMemo(
-    (): CardEntry[] => buildBuyEntries(cards, ownedTotals, filters),
+    (): CardEntry[] => buildStarchipEntries(cards, ownedTotals, filters),
     [cards, ownedTotals, filters],
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <BuyFilterBar filters={filters} onChange={setFilters} />
+      <StarchipFilterBar filters={filters} onChange={setFilters} />
       <CardTable defaultSort={{ key: "value", dir: "desc" }} entries={entries} showCost />
     </div>
   );
 }
 
-function buildBuyEntries(
+function buildStarchipEntries(
   cards: CardSpec[],
   ownedTotals: Record<number, number> | undefined,
-  filters: BuyFilters,
+  filters: StarchipFilters,
 ): CardEntry[] {
   const entries: CardEntry[] = [];
   for (const c of cards) {

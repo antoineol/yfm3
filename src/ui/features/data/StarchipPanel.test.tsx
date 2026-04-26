@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
 import { CardDbProvider } from "../../lib/card-db-context.tsx";
-import { BuyPanel } from "./BuyPanel.tsx";
+import { StarchipPanel } from "./StarchipPanel.tsx";
 
 vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: () => "rp",
@@ -69,12 +69,12 @@ function renderPanel(ownedTotals: Record<number, number> | undefined = undefined
   }
   return render(
     <CardDbProvider cardDb={db}>
-      <BuyPanel cards={db.cards} ownedTotals={ownedTotals} />
+      <StarchipPanel cards={db.cards} ownedTotals={ownedTotals} />
     </CardDbProvider>,
   );
 }
 
-describe("BuyPanel", () => {
+describe("StarchipPanel", () => {
   it("lists only buyable monsters above the default min-ATK threshold", () => {
     renderPanel();
     expect(screen.getAllByText("Cheap High Value").length).toBeGreaterThanOrEqual(1);

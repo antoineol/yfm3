@@ -1,4 +1,4 @@
-# Buy view — marginal value metric (v2 design notes)
+# Starchip view — marginal value metric (v2 design notes)
 
 ## Why `ATK / cost` is wrong (in a useful way)
 
@@ -33,7 +33,7 @@ Mitigations, in order of effort:
 - **Which deck context?** Options: (a) the user's current on-screen deck; (b) the optimizer's best deck given current collection; (c) a hypothetical "best possible with 3 copies of everything" baseline. (b) is the most honest answer but adds dependency on the optimizer pipeline.
 - **Ranking stability.** Unlike `ATK / cost`, marginal value changes every time the collection changes. Surface this so users don't feel whiplashed: maybe show a small "changed since last visit" marker instead of reordering silently.
 - **Presentation.** The ratio unit ("score points per starchip") has no natural interpretation — consider grading (S/A/B) or a normalized 0–100 band for scannability, and keep the raw number in a tooltip.
-- **Non-monsters.** Equip/Magic/Trap/Ritual cards also cost starchips. Their contribution to `optimizedScore` is indirect (fusions, utility). If we extend the Buy view to them, marginal value is arguably the *only* metric that makes sense.
+- **Non-monsters.** Equip/Magic/Trap/Ritual cards also cost starchips. Their contribution to `optimizedScore` is indirect (fusions, utility). If we extend the Starchip view to them, marginal value is arguably the *only* metric that makes sense.
 
 ## When to revisit
 
