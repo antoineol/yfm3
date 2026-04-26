@@ -55,13 +55,11 @@ Additional comparison:
 - `Vanilla USA/Yu-Gi-Oh! Forbidden Memories (USA).bin` is not byte-identical to the `15 card mod` backup baseline and did not match the exact Ghost anchors. The reliable before/after pair in this folder is `Copy.bin.uibak` -> `Copy.bin`.
 - RP[15], RP 1.3, Alpha, and the vanilla 15-card mod all use the same `0x801aac40`/`0x801aad4c`/`0x801aae74` expansion family in the loaded executable copies. They are good algorithm inspiration, but not safe byte-location inspiration for Ultimate.
 
-Next step:
+Clean rewrite status:
 
-- Safety commit this working formula and spec.
-- Delete the experimental implementation modes.
-- Reimplement the feature cleanly from [docs/dropx15-ultimate-spec.md](dropx15-ultimate-spec.md).
-
-The current patcher still contains experimental modes (`same-card`, `cave-same-card`, `local-cave-same-card`, `local-hidden-random`, `local-full-random`). The clean rewrite should keep only the final `local-full-random` behavior.
+- Safety/spec commit created: `7ea4019 document ultimate x15 drop formula`.
+- Experimental implementation modes removed.
+- [scripts/patch-ultimate-x15.ts](../scripts/patch-ultimate-x15.ts) now implements only the final local full-random formula from [docs/dropx15-ultimate-spec.md](dropx15-ultimate-spec.md).
 
 ## Goal
 
