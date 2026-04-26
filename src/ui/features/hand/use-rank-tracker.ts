@@ -3,6 +3,7 @@ import { modIdForFingerprint } from "../../../engine/mods.ts";
 import type {
   RankBreakdown,
   RankFactors,
+  RankScoringConfig,
   RankScoringProfile,
   VictoryType,
 } from "../../../engine/ranking/rank-scoring.ts";
@@ -13,7 +14,7 @@ import { useBridge } from "../../lib/bridge-context.tsx";
 
 export interface RankTrackerState {
   breakdown: RankBreakdown;
-  profile: RankScoringProfile;
+  scoring: RankScoringConfig;
   isPartial: boolean;
   isDuelActive: boolean;
   isDuelEnded: boolean;
@@ -58,7 +59,7 @@ export function useRankTracker(): RankTrackerState {
   const isDuelActive = bridge.inDuel;
   const isDuelEnded = bridge.phase === "ended";
   const isVisible = bridge.status === "connected" && (isDuelActive || isDuelEnded);
-  const profile = getRankProfile(bridge.modFingerprint);
+  const scoring = bridge.gameData?.rankScoring ?? getRankProfile(bridge.modFingerprint);
 
   const hasFullCounters =
     bridge.stats?.rankCounters != null && bridge.stats.rankCounters.length === 10;
@@ -94,8 +95,8 @@ export function useRankTracker(): RankTrackerState {
   const victoryType: VictoryType = "normal";
 
   const breakdown = useMemo(
-    () => computeRankBreakdown(factors, victoryType, profile),
-    [factors, profile],
+    () => computeRankBreakdown(factors, victoryType, scoring),
+    [factors, scoring],
   );
 
   // Freeze breakdown at duel end (store last value before inDuel goes false)
@@ -114,7 +115,7 @@ export function useRankTracker(): RankTrackerState {
 
   return {
     breakdown: effectiveBreakdown,
-    profile,
+    scoring,
     isPartial,
     isDuelActive,
     isDuelEnded,

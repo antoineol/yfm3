@@ -248,6 +248,7 @@ function persistGameDataCache(data: GameData): void {
     equipBonuses: data.equipBonuses,
     perEquipBonuses: data.perEquipBonuses,
     deckLimits: data.deckLimits,
+    rankScoring: data.rankScoring,
   });
 }
 
@@ -267,6 +268,7 @@ type GameDataWireMessage = {
   equipBonuses: GameData["equipBonuses"];
   perEquipBonuses: GameData["perEquipBonuses"];
   deckLimits: GameData["deckLimits"];
+  rankScoring: GameData["rankScoring"];
   fieldBonusTable: GameData["fieldBonusTable"];
   artworkKey: string;
 };
@@ -281,6 +283,7 @@ function buildGameDataMessage(data: GameData): string {
     equipBonuses: data.equipBonuses,
     perEquipBonuses: data.perEquipBonuses,
     deckLimits: data.deckLimits,
+    rankScoring: data.rankScoring,
     fieldBonusTable: data.fieldBonusTable,
     artworkKey: artworkCacheKey(data.gameDataHash, data.discPath),
   };

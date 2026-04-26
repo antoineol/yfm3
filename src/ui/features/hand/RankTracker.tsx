@@ -110,8 +110,8 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
     [tracker.breakdown, tracker.isPartial],
   );
   const zoneDefinitions = useMemo(
-    () => getFactorZoneDefinitions(tracker.profile),
-    [tracker.profile],
+    () => getFactorZoneDefinitions(tracker.scoring),
+    [tracker.scoring],
   );
 
   const scoreColor = scoreToColor(tracker.breakdown.total);
@@ -134,7 +134,7 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
               <FactorZoneRow
                 factor={f}
                 key={f.name}
-                profile={tracker.profile}
+                scoring={tracker.scoring}
                 zoneLayout={zoneDefinitions[i]}
               />
             ))}
@@ -179,14 +179,14 @@ function buildFactorRows(breakdown: RankBreakdown, isPartial: boolean): FactorRo
 
 function FactorZoneRow({
   factor,
-  profile,
+  scoring,
   zoneLayout,
 }: {
   factor: FactorRowData;
-  profile: RankTrackerState["profile"];
+  scoring: RankTrackerState["scoring"];
   zoneLayout: FactorZoneLayout | undefined;
 }) {
-  const activeIdx = getActiveZoneIndex(factor.factorIndex, factor.rawValue, profile);
+  const activeIdx = getActiveZoneIndex(factor.factorIndex, factor.rawValue, scoring);
   const zones = zoneLayout?.zones ?? [];
   const cursorLeft = computeCursorPosition(activeIdx, factor.rawValue, zones);
 

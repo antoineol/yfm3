@@ -15,12 +15,12 @@
 
 ## Current Step
 
-- Add vanilla and RP rank scoring profiles.
-- Select the profile from the bridge mod fingerprint during live duel tracking.
-- Keep vanilla as the fallback for unknown mods.
+- Extract the rank table from the active BIN during bridge `gameData` acquisition.
+- Collapse repeated loaded executable copies by majority vote and warn when copies disagree.
+- Broadcast the extracted table to the UI and use hardcoded vanilla/RP profiles only as fallback.
 
 ## Next Steps
 
-- Extract the rank table into bridge `gameData` from the active disc image instead of hardcoding known profiles.
-- Collapse repeated raw-BIN copies by majority vote and warn when copies disagree.
-- Broadcast the extracted rank table to the UI so unknown mods can be scored without a code change.
+- Validate the extracted table against a live RP 1.3 bridge run after cache refresh.
+- Generalize beyond the stable first-row signature if a mod edits the turns thresholds too, likely by finding the decompiled rank helper callsite and following its table pointer.
+- Surface extraction metadata in diagnostics if users report rank mismatches (`tableCount`, `selectedCount`, `variantCount`).

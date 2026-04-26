@@ -19,9 +19,10 @@ import type {
   EquipBonusConfig,
   EquipEntry,
   Fusion,
+  RankScoringData,
 } from "./extract/types.ts";
 
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 const CACHE_FILENAME = "gamedata.json";
 
 export interface CachedGameData {
@@ -33,6 +34,7 @@ export interface CachedGameData {
   equipBonuses: EquipBonusConfig | null;
   perEquipBonuses: Record<number, number> | null;
   deckLimits: DeckLimits | null;
+  rankScoring: RankScoringData | null;
 }
 
 interface CacheFile extends CachedGameData {
@@ -54,6 +56,7 @@ export function readGameDataCache(artworkDir: string): CachedGameData | null {
       equipBonuses: parsed.equipBonuses ?? null,
       perEquipBonuses: parsed.perEquipBonuses ?? null,
       deckLimits: parsed.deckLimits ?? null,
+      rankScoring: parsed.rankScoring ?? null,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

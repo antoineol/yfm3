@@ -1,5 +1,6 @@
 import type { EngineConfig } from "../config.ts";
 import type { ModId } from "../mods.ts";
+import type { RankFactorDefinition } from "../ranking/rank-scoring.ts";
 
 /** A card extracted from the game disc image by the bridge. */
 export type BridgeCard = {
@@ -28,6 +29,14 @@ export type BridgeDuelist = {
   saTec: number[];
 };
 
+export type BridgeRankScoringData = {
+  source: "bin-majority";
+  tableCount: number;
+  selectedCount: number;
+  variantCount: number;
+  factors: RankFactorDefinition[];
+};
+
 /**
  * Game data received from the emulator bridge (all game tables from disc image + RAM).
  *
@@ -53,6 +62,8 @@ export type BridgeGameData = {
    * dispatcher (e.g. vanilla).
    */
   deckLimits: { byCard: Record<number, number> } | null;
+  /** Rank threshold table extracted from the active disc image, or null if unavailable. */
+  rankScoring: BridgeRankScoringData | null;
   /**
    * Field bonus table from RAM: 120 signed bytes (20 monster types × 6
    * non-Normal terrains, indexed as type * 6 + (terrain - 1)). null when not

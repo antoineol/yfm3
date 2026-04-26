@@ -81,6 +81,33 @@ export interface DuelistData {
   saTec: number[];
 }
 
+export type RankFactorKey =
+  | "turns"
+  | "effectiveAttacks"
+  | "defensiveWins"
+  | "faceDownPlays"
+  | "fusionsInitiated"
+  | "equipMagicUsed"
+  | "pureMagicUsed"
+  | "trapsTriggered"
+  | "remainingCards"
+  | "remainingLp";
+
+export interface RankScoringFactor {
+  name: string;
+  key: RankFactorKey;
+  thresholds: number[];
+  points: number[];
+}
+
+export interface RankScoringData {
+  source: "bin-majority";
+  tableCount: number;
+  selectedCount: number;
+  variantCount: number;
+  factors: RankScoringFactor[];
+}
+
 export interface IsoFile {
   name: string;
   sector: number;

@@ -220,6 +220,7 @@ describe("processBridgeMessage", () => {
         equipBonuses: null,
         perEquipBonuses: null,
         deckLimits: null,
+        rankScoring: null,
         fieldBonusTable: null,
         artworkKey: "old-key",
       },
@@ -358,6 +359,7 @@ describe("processBridgeMessage", () => {
         equipBonuses: null,
         perEquipBonuses: null,
         deckLimits: null,
+        rankScoring: null,
         fieldBonusTable: null,
         artworkKey: "abc123def456-78c4801f",
       });
@@ -375,6 +377,33 @@ describe("processBridgeMessage", () => {
       };
       const { state: s } = process(msg);
       expect(s.gameData?.deckLimits).toEqual({ byCard: { 299: 2, 348: 1 } });
+    });
+
+    it("passes through rankScoring when present", () => {
+      const rankScoring = {
+        source: "bin-majority",
+        tableCount: 3,
+        selectedCount: 2,
+        variantCount: 2,
+        factors: [
+          {
+            name: "Cards left",
+            key: "remainingCards",
+            thresholds: [4, 8, 26, 32],
+            points: [-7, -5, 0, 20, 32],
+          },
+        ],
+      };
+      const msg = {
+        type: "gameData",
+        cards: [],
+        duelists: [],
+        fusionTable: [],
+        equipTable: [],
+        rankScoring,
+      };
+      const { state: s } = process(msg);
+      expect(s.gameData?.rankScoring).toEqual(rankScoring);
     });
 
     it("sets gameDataError on failure", () => {

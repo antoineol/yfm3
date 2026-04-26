@@ -28,6 +28,14 @@ export type RankGrade = "S" | "A" | "B" | "C" | "D";
 export type RankSkill = "POW" | "TEC";
 export type DropPool = "SA-POW" | "BCD" | "SA-TEC";
 export type RankScoringProfile = "vanilla" | "rp";
+export type RankScoringConfig = RankScoringProfile | { factors: readonly RankFactorDefinition[] };
+
+export interface RankFactorDefinition {
+  name: string;
+  key: keyof RankFactors;
+  thresholds: number[];
+  points: number[];
+}
 
 export interface RankResult {
   score: number;
@@ -57,14 +65,7 @@ export interface RankBreakdown {
 
 // ── Factor definition table ────────────────────────────────────────────────
 
-interface FactorDefinition {
-  name: string;
-  key: keyof RankFactors;
-  thresholds: number[];
-  points: number[];
-}
-
-const FACTOR_DEFINITIONS: readonly FactorDefinition[] = [
+const FACTOR_DEFINITIONS: readonly RankFactorDefinition[] = [
   { name: "Turns", key: "turns", thresholds: [5, 9, 29, 33], points: [12, 8, 0, -8, -12] },
   {
     name: "Eff. attacks",
@@ -122,7 +123,7 @@ const FACTOR_DEFINITIONS: readonly FactorDefinition[] = [
   },
 ] as const;
 
-const RP_FACTOR_DEFINITIONS: readonly FactorDefinition[] = FACTOR_DEFINITIONS.map((def) =>
+const RP_FACTOR_DEFINITIONS: readonly RankFactorDefinition[] = FACTOR_DEFINITIONS.map((def) =>
   def.key === "remainingCards"
     ? {
         ...def,
@@ -132,7 +133,7 @@ const RP_FACTOR_DEFINITIONS: readonly FactorDefinition[] = FACTOR_DEFINITIONS.ma
     : def,
 );
 
-const FACTOR_DEFINITIONS_BY_PROFILE: Record<RankScoringProfile, readonly FactorDefinition[]> = {
+const FACTOR_DEFINITIONS_BY_PROFILE: Record<RankScoringProfile, readonly RankFactorDefinition[]> = {
   vanilla: FACTOR_DEFINITIONS,
   rp: RP_FACTOR_DEFINITIONS,
 };
@@ -175,14 +176,14 @@ const RANK_THRESHOLDS: readonly RankThreshold[] = [
 export function computeRankBreakdown(
   factors: RankFactors,
   victoryType: VictoryType,
-  profile: RankScoringProfile = "vanilla",
+  scoring: RankScoringConfig = "vanilla",
 ): RankBreakdown {
   const victoryBonus = VICTORY_BONUSES[victoryType];
-  const definitions = getDefinitions(profile);
+  const definitions = getDefinitions(scoring);
 
   const factorResults = definitions.map((def, i) => {
     const rawValue = factors[def.key];
-    const pts = computeFactorPoints(i, rawValue, profile);
+    const pts = computeFactorPoints(i, rawValue, scoring);
     const sortedPoints = [...def.points].sort((a, b) => a - b);
     return {
       name: def.name,
@@ -208,14 +209,14 @@ export function computeRankBreakdown(
 export function computeRankScore(
   factors: RankFactors,
   victoryType: VictoryType,
-  profile: RankScoringProfile = "vanilla",
+  scoring: RankScoringConfig = "vanilla",
 ): number {
   let score = BASE_SCORE + VICTORY_BONUSES[victoryType];
-  const definitions = getDefinitions(profile);
+  const definitions = getDefinitions(scoring);
   for (let i = 0; i < definitions.length; i++) {
     const def = definitions[i];
     if (def) {
-      score += computeFactorPoints(i, factors[def.key], profile);
+      score += computeFactorPoints(i, factors[def.key], scoring);
     }
   }
   return score;
@@ -238,9 +239,9 @@ export function getRankFromScore(score: number): RankResult {
 export function computeFactorPoints(
   factorIndex: number,
   rawValue: number,
-  profile: RankScoringProfile = "vanilla",
+  scoring: RankScoringConfig = "vanilla",
 ): number {
-  const def = getDefinitions(profile)[factorIndex];
+  const def = getDefinitions(scoring)[factorIndex];
   if (!def) {
     throw new Error(`Invalid factor index: ${factorIndex}`);
   }
@@ -248,13 +249,10 @@ export function computeFactorPoints(
 }
 
 /** Get the factor definitions array (for UI rendering). */
-export function getFactorDefinitions(profile: RankScoringProfile = "vanilla"): Array<{
-  name: string;
-  key: keyof RankFactors;
-  thresholds: number[];
-  points: number[];
-}> {
-  return getDefinitions(profile).map((def) => ({
+export function getFactorDefinitions(
+  scoring: RankScoringConfig = "vanilla",
+): RankFactorDefinition[] {
+  return getDefinitions(scoring).map((def) => ({
     name: def.name,
     key: def.key,
     thresholds: [...def.thresholds],
@@ -264,8 +262,9 @@ export function getFactorDefinitions(profile: RankScoringProfile = "vanilla"): A
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-function getDefinitions(profile: RankScoringProfile): readonly FactorDefinition[] {
-  return FACTOR_DEFINITIONS_BY_PROFILE[profile];
+function getDefinitions(scoring: RankScoringConfig): readonly RankFactorDefinition[] {
+  if (typeof scoring !== "string") return scoring.factors;
+  return FACTOR_DEFINITIONS_BY_PROFILE[scoring];
 }
 
 /**
