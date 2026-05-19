@@ -5,7 +5,11 @@
 // Usage:
 //   bun scripts/patch-ultimate-x15.ts <input.iso> <output.iso>
 
-export { buildUltimateX15Patch, patchUltimateX15 } from "../bridge/drop-x15-patch.ts";
+export {
+  buildSlus014X15Patch,
+  buildUltimateX15Patch,
+  patchUltimateX15,
+} from "../bridge/drop-x15-patch.ts";
 
 import { patchUltimateX15 } from "../bridge/drop-x15-patch.ts";
 

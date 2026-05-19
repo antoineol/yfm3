@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { buildUltimateX15Patch } from "./patch-ultimate-x15.ts";
+import { buildSlus014X15Patch, buildUltimateX15Patch } from "./patch-ultimate-x15.ts";
 
 describe("Ultimate x15 drop patch", () => {
   test("matches the documented final hook and host bytes", () => {
     const patch = buildUltimateX15Patch();
 
+    expect(patch.id).toBe("ultimate-slus-02711");
+    expect(patch.name).toBe("Ultimate SLUS_027.11");
+    expect(patch.gameSerial).toBe("SLUS_027.11");
     expect(patch.requiredWords).toEqual([
       {
         fileOffset: 0x120ac,
@@ -68,5 +71,23 @@ describe("Ultimate x15 drop patch", () => {
       0x8c830000, 0x00000000, 0xa4620518, 0x9382025d, 0x00000000, 0x38420001, 0x00021080,
       0x00452021, 0x8c830000, 0x00000000, 0x9462051a,
     ]);
+  });
+});
+
+describe("SLUS_014.11 x15 drop patch", () => {
+  test("uses the same local award trampoline for vanilla-family executables", () => {
+    const patch = buildSlus014X15Patch();
+    const ultimatePatch = buildUltimateX15Patch();
+
+    expect(patch.id).toBe("slus-01411-local");
+    expect(patch.name).toBe("SLUS_014.11 vanilla-family");
+    expect(patch.gameSerial).toBe("SLUS_014.11");
+    expect(patch.serialPattern.test("SLUS_014.11")).toBe(true);
+    expect(patch.requiredWords).toEqual(ultimatePatch.requiredWords);
+    expect(patch.writeWords).toEqual(ultimatePatch.writeWords);
+    expect(patch.localProgramOffset).toBe(ultimatePatch.localProgramOffset);
+    expect(patch.localProgramRam).toBe(ultimatePatch.localProgramRam);
+    expect(patch.localProgramVanilla).toEqual(ultimatePatch.localProgramVanilla);
+    expect(patch.localProgram).toEqual(ultimatePatch.localProgram);
   });
 });

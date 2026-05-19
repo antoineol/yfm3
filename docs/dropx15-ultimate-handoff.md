@@ -139,6 +139,23 @@ I'd start with **(3)** as a 5-minute sanity check, then **(4)** as the actually-
 - Don't make new test-ISO filenames. Overwrite `ultimate-x15-test.iso` in place; ask the user to close DuckStation if it's locked.
 - Don't keep arguing about 5 vs 15 cards. The mods all give 15. Confirmed via raw-BIN scan of three ISOs (alpha, 15-card-mod, RP[15]) — each has 7 patched copies of the immediates at 16/16/15. The ISO9660-extracted SLUS shows 6/6/5 because the directory points to a stale logical copy; the loaded sectors are at 16/16/15. See [docs/dropx15.md](dropx15.md) for the full BIN-vs-ISO-extracted distinction.
 
+## 2026-05-19 update: SLUS_014.11 Mod 15 support
+
+`C:\jeux\ps1\Yu-gi-oh! Forbidden Memories\Yu-Gi-Oh! Mod 15\Yu-Gi-Oh! Mod 15.bin`
+uses root executable `SLUS_014.11`. It does not match the old Ghost raw
+anchor scan, but its extracted executable keeps the same local award routine
+shape as vanilla/Ultimate at:
+
+- hook: `0x80021f10` / file `0x12710`
+- local code host: `0x80021f24` / file `0x12724`
+- picker: `0x80021810`
+- card credit routine: `0x80021894`
+
+The bridge now has a dedicated `SLUS_014.11 vanilla-family` patch definition
+using the same local full-random trampoline as Ultimate, guarded by exact word
+checks. `inspectDropX15Patch` reports this Mod 15 image as supported and
+disabled before patching.
+
 ## Top-of-mind context
 
-The patch is now exposed in `Data > Edit` as a compact "Duel rewards" strip above the pool editor. The bridge supports GET/PUT `/api/active-iso/drop-x15`, creates normal ISO backups before writing, and closes DuckStation through the existing ISO-lock fallback when needed. Current scope is explicit: only the tested Ultimate `SLUS_027.11` layout is supported; other versions/mods report unsupported until a new patch definition is added.
+The patch is now exposed in `Data > Edit` as a compact "Duel rewards" strip above the pool editor. The bridge supports GET/PUT `/api/active-iso/drop-x15`, creates normal ISO backups before writing, and closes DuckStation through the existing ISO-lock fallback when needed. Current scope is explicit: tested Ultimate `SLUS_027.11` and tested `SLUS_014.11` vanilla-family local layouts are supported; other versions/mods report unsupported until a new patch definition is added.

@@ -36,6 +36,7 @@ export interface InstructionPatch {
 export interface DropX15PatchDefinition {
   id: string;
   name: string;
+  gameSerial: string;
   serialPattern: RegExp;
   requiredWords: readonly InstructionPatch[];
   writeWords: readonly InstructionPatch[];
@@ -67,10 +68,34 @@ export interface PatchDropX15Result {
 }
 
 export function buildUltimateX15Patch(): DropX15PatchDefinition {
-  return {
+  return buildLocalX15Patch({
     id: "ultimate-slus-02711",
     name: "Ultimate SLUS_027.11",
+    gameSerial: "SLUS_027.11",
     serialPattern: /^SLUS_027\.11/,
+  });
+}
+
+export function buildSlus014X15Patch(): DropX15PatchDefinition {
+  return buildLocalX15Patch({
+    id: "slus-01411-local",
+    name: "SLUS_014.11 vanilla-family",
+    gameSerial: "SLUS_014.11",
+    serialPattern: /^SLUS_014\.11/,
+  });
+}
+
+function buildLocalX15Patch(opts: {
+  id: string;
+  name: string;
+  gameSerial: string;
+  serialPattern: RegExp;
+}): DropX15PatchDefinition {
+  return {
+    id: opts.id,
+    name: opts.name,
+    gameSerial: opts.gameSerial,
+    serialPattern: opts.serialPattern,
     requiredWords: [
       {
         fileOffset: CREDIT_INCREMENT_OFFSET,
@@ -119,7 +144,7 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
       supported: false,
       enabled: false,
       gameSerial: slusEntry.name,
-      reason: "Only the tested Ultimate SLUS_027.11 executable is supported for 15-card drops.",
+      reason: unsupportedDiscReason(),
     };
   }
   return inspectPatchState(image, slusEntry.sector, format, definition);
@@ -133,9 +158,7 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
     candidate.serialPattern.test(slusEntry.name),
   );
   if (!definition) {
-    throw new Error(
-      "Only the tested Ultimate SLUS_027.11 executable is supported for 15-card drops.",
-    );
+    throw new Error(unsupportedDiscReason());
   }
 
   const before = inspectPatchState(image, slusEntry.sector, format, definition);
@@ -192,7 +215,7 @@ function inspectPatchState(
       enabled: true,
       definitionId: definition.id,
       definitionName: definition.name,
-      gameSerial: serialFromDefinition(definition),
+      gameSerial: definition.gameSerial,
     };
   }
 
@@ -202,16 +225,15 @@ function inspectPatchState(
       enabled: false,
       definitionId: definition.id,
       definitionName: definition.name,
-      gameSerial: serialFromDefinition(definition),
+      gameSerial: definition.gameSerial,
     };
   }
 
   return {
     supported: false,
     enabled: false,
-    gameSerial: serialFromDefinition(definition),
-    reason:
-      "This SLUS_027.11 executable does not match the tested Ultimate layout or is partially patched.",
+    gameSerial: definition.gameSerial,
+    reason: `This ${definition.name} executable does not match the tested 15-card-drop layout or is partially patched.`,
   };
 }
 
@@ -340,8 +362,8 @@ function writeU32LeAt(
   }
 }
 
-function serialFromDefinition(definition: DropX15PatchDefinition): string {
-  return definition.id === "ultimate-slus-02711" ? "SLUS_027.11" : definition.id;
+function unsupportedDiscReason(): string {
+  return "Only tested Ultimate SLUS_027.11 and SLUS_014.11 vanilla-family executables are supported for 15-card drops.";
 }
 
 function mipsNop(): number {
@@ -435,4 +457,4 @@ const REG = {
   s1: 17,
 } as const;
 
-const DROP_X15_PATCH_DEFINITIONS = [buildUltimateX15Patch()] as const;
+const DROP_X15_PATCH_DEFINITIONS = [buildUltimateX15Patch(), buildSlus014X15Patch()] as const;
