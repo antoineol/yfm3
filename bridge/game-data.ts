@@ -133,7 +133,7 @@ export async function acquireGameData(
   const dirKey = artworkCacheKey(gameDataHash, match.binPath);
   const artworkDir = join(cacheDir, "artwork", dirKey);
 
-  const cached = readGameDataCache(artworkDir);
+  const cached = readGameDataCache(artworkDir, match.binPath);
   if (cached) {
     console.log(
       `Game data loaded from cache (${dirKey}) — disc: ${match.binPath} — total ${ms(performance.now() - t0)}`,
@@ -148,7 +148,7 @@ export async function acquireGameData(
   if (result.kind === "none") return { kind: "none" };
 
   const { data } = result;
-  writeGameDataCache(artworkDir, {
+  writeGameDataCache(artworkDir, data.discPath, {
     gameSerial: data.gameSerial,
     cards: data.cards,
     duelists: data.duelists,
@@ -179,7 +179,7 @@ function buildGameDataFromCache(
     gameDataHash,
     gameSerial: cached.gameSerial,
     cardStats,
-    cards: cached.cards,
+    cards: applyRamCardStats(cached.cards, cardStats),
     duelists: cached.duelists,
     fusionTable: cached.fusionTable,
     equipTable: cached.equipTable,
@@ -197,6 +197,30 @@ function buildGameDataFromCache(
 /** SHA-256 hex digest of the card stats table. */
 export function computeGameDataHash(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/**
+ * RAM is the authority for the currently running mod's packed card stats.
+ * Some mods keep stale or decoy copies in the executable. Preserve
+ * disc-extracted text/type metadata, but always publish ATK/DEF from the
+ * live 722-entry RAM table.
+ */
+export function applyRamCardStats(cards: CardStats[], cardStats: Uint8Array): CardStats[] {
+  if (cardStats.length < CARD_STATS_SIZE) return cards;
+  return cards.map((card) => {
+    const offset = (card.id - 1) * 4;
+    if (offset < 0 || offset + 4 > cardStats.length) return card;
+    const raw =
+      (cardStats[offset] ?? 0) |
+      ((cardStats[offset + 1] ?? 0) << 8) |
+      ((cardStats[offset + 2] ?? 0) << 16) |
+      ((cardStats[offset + 3] ?? 0) << 24);
+    return {
+      ...card,
+      atk: (raw & 0x1ff) * 10,
+      def: ((raw >>> 9) & 0x1ff) * 10,
+    };
+  });
 }
 
 /**
@@ -380,14 +404,9 @@ function extractFromWinner(
     const langIdx = langIdxForSerial(discSerial);
     const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);
     const waMrgTextBlocks = exeLayout.nameOffsetTable === -1 ? findAllWaMrgTextBlocks(waMrg) : [];
-    const cards = extractCards(
-      slus,
-      waMrg,
-      exeLayout,
-      waMrgLayout,
-      cardAttributes,
-      waMrgTextBlocks,
-      langIdx,
+    const cards = applyRamCardStats(
+      extractCards(slus, waMrg, exeLayout, waMrgLayout, cardAttributes, waMrgTextBlocks, langIdx),
+      cardStats,
     );
     const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
     const fusions = extractFusions(waMrg, waMrgLayout);

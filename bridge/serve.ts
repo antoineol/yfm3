@@ -239,7 +239,7 @@ function describeDiscAmbiguity(candidates: readonly string[]): string {
 // from cache.
 function persistGameDataCache(data: GameData): void {
   const artworkDir = join(__dirname, "artwork", artworkCacheKey(data.gameDataHash, data.discPath));
-  writeGameDataCache(artworkDir, {
+  writeGameDataCache(artworkDir, data.discPath, {
     gameSerial: data.gameSerial,
     cards: data.cards,
     duelists: data.duelists,
