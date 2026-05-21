@@ -3,29 +3,39 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
-  buildSlus014X15Patch,
+  buildLocalX15Patch,
+  type DropX15PatchDefinition,
   inspectDropX15Image,
   patchDropX15DiscInPlace,
 } from "./drop-x15-patch.ts";
 import { SECTOR_DATA_SIZE } from "./extract/iso9660.ts";
 
 describe("drop x15 patch inspection", () => {
-  test("supports unpatched SLUS_014.11 vanilla-family executables", () => {
-    const image = makeDiscImage("SLUS_014.11");
+  test.each([
+    "SLUS_014.11",
+    "SLUS_000.04",
+    "SLUS_999.99",
+    "SLES_039.48",
+  ])("supports unpatched local x15-compatible %s executables", (serial) => {
+    const image = makeDiscImage(serial);
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
-      definitionId: "slus-01411-local",
-      definitionName: "SLUS_014.11 vanilla-family",
-      gameSerial: "SLUS_014.11",
+      definitionId: "local-award-trampoline",
+      definitionName: "Local x15-compatible layout",
+      gameSerial: serial,
     });
   });
 
-  test("patches SLUS_014.11 vanilla-family executables in place", () => {
+  test.each([
+    "SLUS_014.11",
+    "SLUS_000.04",
+    "SLUS_999.99",
+  ])("patches %s executables in place", (serial) => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
-    const discPath = join(dir, "mod15.iso");
-    writeFileSync(discPath, makeDiscImage("SLUS_014.11"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makeDiscImage(serial));
 
     try {
       const result = patchDropX15DiscInPlace(discPath);
@@ -35,18 +45,30 @@ describe("drop x15 patch inspection", () => {
       expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "slus-01411-local",
+        definitionId: "local-award-trampoline",
       });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("rejects unknown executables when the local x15 layout does not match", () => {
+    const image = makeDiscImage("SLUS_999.99", false);
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: false,
+      enabled: false,
+      gameSerial: "SLUS_999.99",
+      reason:
+        "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
+    });
+  });
 });
 
-function makeDiscImage(serial: string): Buffer {
+function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
   const rootSector = 20;
-  const patch = buildSlus014X15Patch();
+  const patch = buildLocalX15Patch(serial);
   const slusSize = patch.localProgramOffset + patch.localProgram.length * 4 + 0x100;
   const image = Buffer.alloc(
     (slusSector + Math.ceil(slusSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
@@ -54,7 +76,7 @@ function makeDiscImage(serial: string): Buffer {
 
   writePrimaryVolumeDescriptor(image, rootSector);
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
-  seedUnpatchedExecutable(image, slusSector, patch);
+  if (seed) seedUnpatchedExecutable(image, slusSector, patch);
 
   return image;
 }
@@ -90,7 +112,7 @@ function writeRootDirectory(
 function seedUnpatchedExecutable(
   image: Buffer,
   slusSector: number,
-  patch: ReturnType<typeof buildSlus014X15Patch>,
+  patch: DropX15PatchDefinition,
 ): void {
   for (const word of patch.requiredWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);

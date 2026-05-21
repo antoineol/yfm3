@@ -111,5 +111,5 @@ function statusDetail(status: DropX15Status | null, loading: boolean): string {
   if (!status) return "Patch state could not be read.";
   if (!status.supported) return status.reason;
   if (status.enabled) return `${status.discFilename} is already patched.`;
-  return `${status.discFilename} matches ${status.definitionName}.`;
+  return `${status.discFilename} is ready for 15 drops.`;
 }

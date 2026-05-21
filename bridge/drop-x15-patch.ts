@@ -37,7 +37,6 @@ export interface DropX15PatchDefinition {
   id: string;
   name: string;
   gameSerial: string;
-  serialPattern: RegExp;
   requiredWords: readonly InstructionPatch[];
   writeWords: readonly InstructionPatch[];
   localProgramOffset: number;
@@ -67,35 +66,11 @@ export interface PatchDropX15Result {
   status: Extract<DropX15PatchStatus, { supported: true }>;
 }
 
-export function buildUltimateX15Patch(): DropX15PatchDefinition {
-  return buildLocalX15Patch({
-    id: "ultimate-slus-02711",
-    name: "Ultimate SLUS_027.11",
-    gameSerial: "SLUS_027.11",
-    serialPattern: /^SLUS_027\.11/,
-  });
-}
-
-export function buildSlus014X15Patch(): DropX15PatchDefinition {
-  return buildLocalX15Patch({
-    id: "slus-01411-local",
-    name: "SLUS_014.11 vanilla-family",
-    gameSerial: "SLUS_014.11",
-    serialPattern: /^SLUS_014\.11/,
-  });
-}
-
-function buildLocalX15Patch(opts: {
-  id: string;
-  name: string;
-  gameSerial: string;
-  serialPattern: RegExp;
-}): DropX15PatchDefinition {
+export function buildLocalX15Patch(gameSerial: string): DropX15PatchDefinition {
   return {
-    id: opts.id,
-    name: opts.name,
-    gameSerial: opts.gameSerial,
-    serialPattern: opts.serialPattern,
+    id: "local-award-trampoline",
+    name: "Local x15-compatible layout",
+    gameSerial,
     requiredWords: [
       {
         fileOffset: CREDIT_INCREMENT_OFFSET,
@@ -135,31 +110,16 @@ export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
 
 export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const format = detectDiscFormat(image);
-  const slusEntry = findSlusEntry(image, format);
-  const definition = DROP_X15_PATCH_DEFINITIONS.find((candidate) =>
-    candidate.serialPattern.test(slusEntry.name),
-  );
-  if (!definition) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: slusEntry.name,
-      reason: unsupportedDiscReason(),
-    };
-  }
+  const slusEntry = findExecutableEntry(image, format);
+  const definition = buildLocalX15Patch(slusEntry.name);
   return inspectPatchState(image, slusEntry.sector, format, definition);
 }
 
 export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   const image = readFileSync(discPath);
   const format = detectDiscFormat(image);
-  const slusEntry = findSlusEntry(image, format);
-  const definition = DROP_X15_PATCH_DEFINITIONS.find((candidate) =>
-    candidate.serialPattern.test(slusEntry.name),
-  );
-  if (!definition) {
-    throw new Error(unsupportedDiscReason());
-  }
+  const slusEntry = findExecutableEntry(image, format);
+  const definition = buildLocalX15Patch(slusEntry.name);
 
   const before = inspectPatchState(image, slusEntry.sector, format, definition);
   if (!before.supported) throw new Error(before.reason);
@@ -233,7 +193,8 @@ function inspectPatchState(
     supported: false,
     enabled: false,
     gameSerial: definition.gameSerial,
-    reason: `This ${definition.name} executable does not match the tested 15-card-drop layout or is partially patched.`,
+    reason:
+      "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
   };
 }
 
@@ -316,7 +277,7 @@ function buildLocalProgramVanillaWords(): readonly number[] {
   ];
 }
 
-function findSlusEntry(image: Buffer, format: DiscFormat): IsoFile {
+function findExecutableEntry(image: Buffer, format: DiscFormat): IsoFile {
   const pvd = readSector(image, PVD_SECTOR, format);
   const root = pvd.subarray(156, 190);
   const rootData = readSectors(
@@ -326,10 +287,10 @@ function findSlusEntry(image: Buffer, format: DiscFormat): IsoFile {
     format,
   );
   const rootFiles = parseDirectory(rootData, root.readUInt32LE(10));
-  const slusEntry = rootFiles.find((file) => /^SLUS_\d{3}\.\d{2}/.test(file.name));
+  const slusEntry = rootFiles.find((file) => /^S[A-Z]{3}_\d{3}\.\d{2}/.test(file.name));
   if (!slusEntry) {
     throw new Error(
-      `Could not find SLUS_*.* in root directory: ${rootFiles.map((file) => file.name).join(", ")}`,
+      `Could not find PSX executable in root directory: ${rootFiles.map((file) => file.name).join(", ")}`,
     );
   }
   return slusEntry;
@@ -360,10 +321,6 @@ function writeU32LeAt(
   for (let i = 0; i < 4; i++) {
     image[discOffset(fileStartSector, fileOffset + i, format)] = (value >>> (i * 8)) & 0xff;
   }
-}
-
-function unsupportedDiscReason(): string {
-  return "Only tested Ultimate SLUS_027.11 and SLUS_014.11 vanilla-family executables are supported for 15-card drops.";
 }
 
 function mipsNop(): number {
@@ -456,5 +413,3 @@ const REG = {
   s0: 16,
   s1: 17,
 } as const;
-
-const DROP_X15_PATCH_DEFINITIONS = [buildUltimateX15Patch(), buildSlus014X15Patch()] as const;

@@ -59,6 +59,7 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 |----------------------------------------------------|------------------|----------------------------------|--------------|
 | `15 card mod/…uibak` (US vanilla BIN)              | `SLUS_014.11`    | Oui, 8× (1 dans WA_MRG+7 EXE)    | ✅           |
 | `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Non — layout vanilla-family au site d'award local | ✅ via trampoline local |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ✅ via trampoline local |
 | `FMR Remastered Perfected[15].bin`                 | `SLUS_014.11`    | Oui, 1× (vestige) + 7× déjà patchées | ✅ (déjà patchée) |
 | `FMR Vanilla Remastered 1.3.bin`                   | `SLUS_014.11`    | Identique au cas ci-dessus       | ✅           |
 | `Alpha Mod (Drop x15).iso`                         | `SLUS_014.11`    | Déjà patchée (7 occurrences x15) | ✅ (déjà patchée) |
@@ -69,14 +70,11 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 recompilé/différent** (serial customisé `SLUS_027.11`). Nos patterns exacts
 ne matchent pas. Le PAL français a aussi un binaire différent.
 
-Pour la v1, le support robuste concerne **SLUS_014.11 vanilla + dérivés
-FMR**. En plus du scan Ghost historique, l'app expose maintenant un patch
-local trampoline pour les exécutables `SLUS_014.11` qui gardent le site
-d'award vanilla (`0x80021f10`) et le code hôte libre (`0x80021f24`), testé
-contre `Yu-Gi-Oh! Mod 15.bin`. Ultimate a sa propre définition locale.
-PAL demanderait une investigation séparée (diff pre-patch / post-patch
-équivalent pour produire ses propres patterns, ou bien un matcher MIPS plus
-structurel).
+Pour la v1, le support robuste concerne les exécutables qui gardent le site
+d'award vanilla (`0x80021f10`) et le code hôte libre (`0x80021f24`). L'app ne
+gate plus par serial : la compatibilité est détectée par exact word checks sur
+le hook, la routine de crédit et le code hôte. PAL demanderait une validation
+in-game séparée si ces bytes matchent sur une image réelle.
 
 ## Cibles
 

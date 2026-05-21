@@ -151,11 +151,33 @@ shape as vanilla/Ultimate at:
 - picker: `0x80021810`
 - card credit routine: `0x80021894`
 
-The bridge now has a dedicated `SLUS_014.11 vanilla-family` patch definition
-using the same local full-random trampoline as Ultimate, guarded by exact word
-checks. `inspectDropX15Patch` reports this Mod 15 image as supported and
-disabled before patching.
+The feature-detected local full-random trampoline supports this layout through
+exact word checks. `inspectDropX15Patch` reports this Mod 15 image as
+supported and disabled before patching.
+
+## 2026-05-21 update: Gold SLUS_000.04 support
+
+`C:\jeux\ps1\Yu-gi-oh! Forbidden Memories\Yu-Gi-Oh! Forbidden Memories Gold\Yu-Gi-Oh! Forbidden Memories Gold.bin`
+uses root executable `SLUS_000.04`. The serial is custom, but the executable
+keeps the same local award routine and host bytes as the local trampoline
+patch:
+
+- hook: `0x80021f10` / file `0x12710`
+- local code host: `0x80021f24` / file `0x12724`
+- picker: `0x80021810`
+- card credit routine: `0x80021894`
+
+The feature-detected local full-random trampoline supports this layout through
+exact word checks. `inspectDropX15Patch` reports the Gold image as supported
+and disabled before patching.
+
+## 2026-05-21 update: feature-detected local layout
+
+Serials are no longer part of the patch decision. If a PSX-style root
+executable (`Sxxx_000.00`) has the same local x15-compatible hook/host bytes,
+the bridge reports it as `Local x15-compatible layout` and enables the patch.
+If the bytes do not match exactly, the disc remains unsupported.
 
 ## Top-of-mind context
 
-The patch is now exposed in `Data > Edit` as a compact "Duel rewards" strip above the pool editor. The bridge supports GET/PUT `/api/active-iso/drop-x15`, creates normal ISO backups before writing, and closes DuckStation through the existing ISO-lock fallback when needed. Current scope is explicit: tested Ultimate `SLUS_027.11` and tested `SLUS_014.11` vanilla-family local layouts are supported; other versions/mods report unsupported until a new patch definition is added.
+The patch is now exposed in `Data > Edit` as a compact "Duel rewards" strip above the pool editor. The bridge supports GET/PUT `/api/active-iso/drop-x15`, creates normal ISO backups before writing, and closes DuckStation through the existing ISO-lock fallback when needed. Current scope is exact-byte local-layout detection, manually checked against Ultimate `SLUS_027.11`, Mod 15 `SLUS_014.11`, and Gold `SLUS_000.04`.

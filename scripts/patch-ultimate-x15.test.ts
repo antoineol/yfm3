@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { buildSlus014X15Patch, buildUltimateX15Patch } from "./patch-ultimate-x15.ts";
+import { buildLocalX15Patch } from "./patch-ultimate-x15.ts";
 
-describe("Ultimate x15 drop patch", () => {
+describe("local x15 drop patch", () => {
   test("matches the documented final hook and host bytes", () => {
-    const patch = buildUltimateX15Patch();
+    const patch = buildLocalX15Patch("SLUS_027.11");
 
-    expect(patch.id).toBe("ultimate-slus-02711");
-    expect(patch.name).toBe("Ultimate SLUS_027.11");
+    expect(patch.id).toBe("local-award-trampoline");
+    expect(patch.name).toBe("Local x15-compatible layout");
     expect(patch.gameSerial).toBe("SLUS_027.11");
     expect(patch.requiredWords).toEqual([
       {
@@ -65,29 +65,29 @@ describe("Ultimate x15 drop patch", () => {
   });
 
   test("verifies the overwritten local host bytes against unpatched Ultimate", () => {
-    expect(buildUltimateX15Patch().localProgramVanilla).toEqual([
+    expect(buildLocalX15Patch("SLUS_027.11").localProgramVanilla).toEqual([
       0x9382025d, 0x278502d0, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518,
       0x00000000, 0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f,
       0x8c830000, 0x00000000, 0xa4620518, 0x9382025d, 0x00000000, 0x38420001, 0x00021080,
       0x00452021, 0x8c830000, 0x00000000, 0x9462051a,
     ]);
   });
-});
+  test.each([
+    "SLUS_014.11",
+    "SLUS_000.04",
+    "SLUS_999.99",
+  ])("uses the same local award trampoline for %s", (serial) => {
+    const patch = buildLocalX15Patch(serial);
+    const referencePatch = buildLocalX15Patch("SLUS_027.11");
 
-describe("SLUS_014.11 x15 drop patch", () => {
-  test("uses the same local award trampoline for vanilla-family executables", () => {
-    const patch = buildSlus014X15Patch();
-    const ultimatePatch = buildUltimateX15Patch();
-
-    expect(patch.id).toBe("slus-01411-local");
-    expect(patch.name).toBe("SLUS_014.11 vanilla-family");
-    expect(patch.gameSerial).toBe("SLUS_014.11");
-    expect(patch.serialPattern.test("SLUS_014.11")).toBe(true);
-    expect(patch.requiredWords).toEqual(ultimatePatch.requiredWords);
-    expect(patch.writeWords).toEqual(ultimatePatch.writeWords);
-    expect(patch.localProgramOffset).toBe(ultimatePatch.localProgramOffset);
-    expect(patch.localProgramRam).toBe(ultimatePatch.localProgramRam);
-    expect(patch.localProgramVanilla).toEqual(ultimatePatch.localProgramVanilla);
-    expect(patch.localProgram).toEqual(ultimatePatch.localProgram);
+    expect(patch.id).toBe("local-award-trampoline");
+    expect(patch.name).toBe("Local x15-compatible layout");
+    expect(patch.gameSerial).toBe(serial);
+    expect(patch.requiredWords).toEqual(referencePatch.requiredWords);
+    expect(patch.writeWords).toEqual(referencePatch.writeWords);
+    expect(patch.localProgramOffset).toBe(referencePatch.localProgramOffset);
+    expect(patch.localProgramRam).toBe(referencePatch.localProgramRam);
+    expect(patch.localProgramVanilla).toEqual(referencePatch.localProgramVanilla);
+    expect(patch.localProgram).toEqual(referencePatch.localProgram);
   });
 });

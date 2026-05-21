@@ -6,8 +6,7 @@
 //   bun scripts/patch-ultimate-x15.ts <input.iso> <output.iso>
 
 export {
-  buildSlus014X15Patch,
-  buildUltimateX15Patch,
+  buildLocalX15Patch,
   patchUltimateX15,
 } from "../bridge/drop-x15-patch.ts";
 
