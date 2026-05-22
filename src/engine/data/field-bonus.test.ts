@@ -14,6 +14,7 @@ describe("fieldBonus", () => {
 
   it("returns +500 for boosted types", () => {
     // Forest (1)
+    expect(fieldBonus(1, "BeastWarrior")).toBe(500);
     expect(fieldBonus(1, "Beast-Warrior")).toBe(500);
     expect(fieldBonus(1, "Insect")).toBe(500);
     expect(fieldBonus(1, "Plant")).toBe(500);
@@ -24,6 +25,7 @@ describe("fieldBonus", () => {
     expect(fieldBonus(2, "Rock")).toBe(500);
     // Mountain (3)
     expect(fieldBonus(3, "Dragon")).toBe(500);
+    expect(fieldBonus(3, "WingedBeast")).toBe(500);
     expect(fieldBonus(3, "Winged Beast")).toBe(500);
     expect(fieldBonus(3, "Thunder")).toBe(500);
     // Meadow (4)

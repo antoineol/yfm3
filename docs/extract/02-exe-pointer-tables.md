@@ -54,7 +54,7 @@ Since pointer tables don't exist, the approach was adapted to **structural scann
 
 ### 1. PS-X EXE header parsing
 
-`parsePsxExeHeader(exe)` validates the "PS-X EXE" magic and extracts the load address and text size.  This is called at the start of `detectExeLayout()` as a basic sanity check.
+`parsePsxExeHeader(exe)` validates the "PS-X EXE" magic and extracts the load address and text size. This is called at the start of EXE layout detection as a basic sanity check.
 
 ### 2. Structural scanning for text offset tables
 

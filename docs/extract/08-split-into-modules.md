@@ -42,7 +42,7 @@ scripts/extract/
 1. `types.ts` — Extract all interfaces (ExeLayout, WaMrgLayout, CardStats, Fusion, EquipEntry, etc.)
 2. `iso9660.ts` — Move disc reading, sector parsing, ISO directory parsing
 3. `text-decoding.ts` — Move CHAR_TABLE, decodeTblString, isTblString
-4. `detect-exe.ts` — Move isValidCardStat, isValidLevelAttrTable, detectExeLayout, detectTextOffsets, detectAttributeMapping
+4. `detect-exe.ts` — Move isValidCardStat, isValidLevelAttrTable, EXE layout detection, detectTextOffsets, detectAttributeMapping
 5. `detect-wamrg.ts` — Move KNOWN_WAMRG_LAYOUTS, detectWaMrgLayout, isValidWaMrgLayout, and structural validators (isValidFusionHeader, isValidStarchipTable, isValidDuelistBlock, isValidEquipStart)
 6. `extract-cards.ts` — Move extractCardTexts, extractCardDescriptions, extractCards, extractStarchips
 7. `extract-fusions.ts` — Move extractFusions

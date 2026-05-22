@@ -7,38 +7,24 @@
 // game's icon sheet.
 // ---------------------------------------------------------------------------
 
-const TYPE_NAMES: ReadonlySet<string> = new Set([
-  "Dragon",
-  "Spellcaster",
-  "Zombie",
-  "Warrior",
-  "Beast-Warrior",
-  "Beast",
-  "Winged Beast",
-  "Fiend",
-  "Fairy",
-  "Insect",
-  "Dinosaur",
-  "Reptile",
-  "Fish",
-  "Sea Serpent",
-  "Machine",
-  "Thunder",
-  "Aqua",
-  "Pyro",
-  "Rock",
-  "Plant",
-  "Magic",
-  "Trap",
-  "Ritual",
-  "Equip",
-]);
+import {
+  displayCardType,
+  isCardType,
+  normalizeCardType,
+} from "../../engine/data/card-type-names.ts";
+import { cardTypes } from "../../engine/data/rp-types.ts";
+
+const TYPE_NAMES: ReadonlySet<string> = new Set(
+  cardTypes.flatMap((type) => [type, displayCardType(type)]),
+);
 
 /** Asset URL for a type icon — extracted from the alpha-mod WA_MRG.MRG sprite
  *  sheet at build time and served from `public/images/type-icons/`. */
 export function iconUrlForType(name: string): string | undefined {
   if (!TYPE_NAMES.has(name)) return undefined;
-  const slug = name.toLowerCase().replace(/\s+/g, "-");
+  const type = normalizeCardType(name);
+  if (!isCardType(type)) return undefined;
+  const slug = displayCardType(type).toLowerCase().replace(/\s+/g, "-");
   return `/images/type-icons/${slug}.png`;
 }
 

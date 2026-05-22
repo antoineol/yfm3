@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
+import { displayCardType } from "../../../engine/data/card-type-names.ts";
 import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { GameCard } from "../../components/GameCard.tsx";
@@ -210,9 +211,7 @@ function GuardianStarRow({ star }: { star: string }) {
 }
 
 function formatKind(kind: string): string {
-  if (kind === "WingedBeast") return "Winged Beast";
-  if (kind === "SeaSerpent") return "Sea Serpent";
-  return kind;
+  return displayCardType(kind);
 }
 
 function capitalize(s: string): string {

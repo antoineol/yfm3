@@ -13,6 +13,7 @@
  * you can identify which column corresponds to the active field card.
  */
 
+import { cardTypes } from "../../src/engine/data/rp-types.ts";
 import {
   DEFAULT_PROFILE,
   findDuckStationPids,
@@ -24,28 +25,7 @@ import {
   scanFieldBonusTableCandidates,
 } from "../memory.ts";
 
-const TYPE_NAMES = [
-  "Dragon",
-  "Spellcaster",
-  "Zombie",
-  "Warrior",
-  "Beast-Warrior",
-  "Beast",
-  "Winged Beast",
-  "Fiend",
-  "Fairy",
-  "Insect",
-  "Dinosaur",
-  "Reptile",
-  "Fish",
-  "Sea Serpent",
-  "Machine",
-  "Thunder",
-  "Aqua",
-  "Pyro",
-  "Rock",
-  "Plant",
-];
+const TYPE_NAMES = cardTypes.slice(0, 20);
 
 function formatMatrix(table: number[], highlightTerrain?: number): string {
   const header = `${"Type".padEnd(14)} | T1    T2    T3    T4    T5    T6`;

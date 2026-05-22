@@ -9,7 +9,7 @@
  *   cd bridge && bun debug/terrain-label-probe.ts ../gamedata/rp-bin/*.bin
  */
 
-import { detectExeLayout } from "../extract/detect-exe.ts";
+import { detectDiscExeLayout } from "../extract/detect-exe.ts";
 import { loadDiscData } from "../extract/index.ts";
 import {
   CHAR_TABLE,
@@ -143,13 +143,13 @@ function probe(path: string): void {
 
   let cardStats = -1;
   try {
-    const layout = detectExeLayout(slus);
+    const layout = detectDiscExeLayout(slus);
     cardStats = layout.cardStats;
     console.log(
       `cardStats=0x${cardStats.toString(16)} typeNames=0x${layout.typeNamesTable.toString(16)} gsNames=0x${layout.gsNamesTable.toString(16)}`,
     );
   } catch (err) {
-    console.log(`detectExeLayout failed: ${(err as Error).message}`);
+    console.log(`detectDiscExeLayout failed: ${(err as Error).message}`);
   }
 
   probeWithTable(slus, "SLUS", CHAR_TABLE, "CHAR_TABLE", cardStats);

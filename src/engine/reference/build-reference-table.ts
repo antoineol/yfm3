@@ -4,8 +4,9 @@ import {
   type GuardianStar,
   nonMonsterTypes,
 } from "../data/card-model.ts";
+import { normalizeCardType } from "../data/card-type-names.ts";
 import { addCard, type CardDb, createCardDb } from "../data/game-db.ts";
-import { cardKinds, type colors, excludedKinds, guardianStars } from "../data/rp-types.ts";
+import { cardKinds, type colors, guardianStars } from "../data/rp-types.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "../types/constants.ts";
 
 export interface ReferenceTableData {
@@ -52,9 +53,7 @@ export interface RefDuelistCard {
 }
 
 const typeToKind = new Map<string, CardKind>([...cardKinds].map((k) => [k, k] as const));
-typeToKind.set("Winged Beast", "WingedBeast");
-typeToKind.set("Sea Serpent", "SeaSerpent");
-typeToKind.set("Beast-Warrior", "Beast");
+typeToKind.set("BeastWarrior", "Beast");
 
 const validColors = new Set<string>([
   "blue",
@@ -97,16 +96,17 @@ export function buildReferenceTableData(rows: {
   }
   for (const c of rows.cards) {
     if (c.id < 1 || c.id >= MAX_CARD_ID) throw new Error(`cardId ${c.id} out of range`);
-    const kind = typeToKind.get(c.type);
-    const isExcluded = (excludedKinds as readonly string[]).includes(c.type);
+    const normalizedType = normalizeCardType(c.type);
+    const kind = typeToKind.get(normalizedType);
+    const isMonster = !nonMonsterTypes.has(c.type);
     addCard(cardDb, {
       id: c.id,
       name: c.name,
       attack: c.atk,
       defense: c.def,
-      kinds: kind && !isExcluded ? [kind] : [],
+      kinds: kind && isMonster ? [kind] : [],
       cardType: c.type || undefined,
-      isMonster: !nonMonsterTypes.has(c.type),
+      isMonster,
       color: parseColor(c.color),
       guardianStar1: parseGuardianStar(c.guardianStar1),
       guardianStar2: parseGuardianStar(c.guardianStar2),

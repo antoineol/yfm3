@@ -2,6 +2,7 @@
 // Card stats, names, descriptions, starchip/password extraction
 // ---------------------------------------------------------------------------
 
+import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
 import { PAL_CHAR_TABLE } from "./char-tables.ts";
 import {
   CHAR_TABLE,
@@ -30,50 +31,9 @@ const CARD_COLORS: Record<number, string> = {
 };
 
 const NUM_TYPE_NAMES = 24;
-const NUM_GS_NAMES = 11;
-
-/** Fallback guardian star names (English) for when exe extraction is unavailable. */
-const DEFAULT_GUARDIAN_STARS: Record<number, string> = {
-  0: "None",
-  1: "Mars",
-  2: "Jupiter",
-  3: "Saturn",
-  4: "Uranus",
-  5: "Pluto",
-  6: "Neptune",
-  7: "Mercury",
-  8: "Sun",
-  9: "Moon",
-  10: "Venus",
-};
-
-/** Fallback card type names (English) for when exe extraction is unavailable. */
-const DEFAULT_CARD_TYPES: Record<number, string> = {
-  0: "Dragon",
-  1: "Spellcaster",
-  2: "Zombie",
-  3: "Warrior",
-  4: "Beast-Warrior",
-  5: "Beast",
-  6: "Winged Beast",
-  7: "Fiend",
-  8: "Fairy",
-  9: "Insect",
-  10: "Dinosaur",
-  11: "Reptile",
-  12: "Fish",
-  13: "Sea Serpent",
-  14: "Machine",
-  15: "Thunder",
-  16: "Aqua",
-  17: "Pyro",
-  18: "Rock",
-  19: "Plant",
-  20: "Magic",
-  21: "Trap",
-  22: "Ritual",
-  23: "Equip",
-};
+const DEFAULT_CARD_TYPES = indexedNames(cardTypes);
+const DEFAULT_GUARDIAN_STARS = indexedNames(guardianStars);
+const STORED_GUARDIAN_STARS = guardianStars.slice(1);
 
 /** WA_MRG text block layout: skip 2 header strings before card descriptions. */
 const WAMRG_DESC_CARD_START = 2;
@@ -111,12 +71,7 @@ export function extractCards(
     NUM_TYPE_NAMES,
     DEFAULT_CARD_TYPES,
   );
-  let gsNames = extractNameTable(
-    slus,
-    exeLayout.gsNamesTable,
-    NUM_GS_NAMES,
-    DEFAULT_GUARDIAN_STARS,
-  );
+  let gsNames = extractGuardianStarNames(slus, exeLayout.gsNamesTable, DEFAULT_GUARDIAN_STARS);
 
   // PAL: override type & GS names from the WA_MRG name block (correct language)
   const blockIdx = langIdx ?? 0;
@@ -201,6 +156,42 @@ function extractNameTable(
     }
   }
   return defaults;
+}
+
+function extractGuardianStarNames(
+  exe: Buffer,
+  offset: number,
+  defaults: Record<number, string>,
+): Record<number, string> {
+  if (offset === -1) return defaults;
+  const indexedNames = extractWaMrgStrings(
+    exe,
+    offset,
+    STORED_GUARDIAN_STARS.length + 1,
+    CHAR_TABLE,
+  );
+  if (
+    indexedNames.length === STORED_GUARDIAN_STARS.length + 1 &&
+    indexedNames.every((name) => name && name === name.trim() && !name.includes("{")) &&
+    !indexedNames
+      .slice(0, STORED_GUARDIAN_STARS.length)
+      .every((name, i) => name === STORED_GUARDIAN_STARS[i])
+  ) {
+    const result: Record<number, string> = {};
+    for (let i = 0; i < indexedNames.length; i++) result[i] = indexedNames[i] as string;
+    return result;
+  }
+  const names = indexedNames.slice(0, STORED_GUARDIAN_STARS.length);
+  if (!names.every((name, i) => name === STORED_GUARDIAN_STARS[i])) return defaults;
+  const result: Record<number, string> = { 0: defaults[0] ?? "None" };
+  for (let i = 0; i < names.length; i++) result[i + 1] = names[i] as string;
+  return result;
+}
+
+function indexedNames(names: readonly string[]): Record<number, string> {
+  const result: Record<number, string> = {};
+  for (let i = 0; i < names.length; i++) result[i] = names[i] as string;
+  return result;
 }
 
 export function extractCardTexts(

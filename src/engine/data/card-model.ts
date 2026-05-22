@@ -1,4 +1,5 @@
 import type { cardKinds, colors, guardianStars } from "./rp-types.ts";
+import { nonMonsterCardTypes } from "./rp-types.ts";
 
 export type CardKind = (typeof cardKinds)[number];
 export type Color = (typeof colors)[number];
@@ -12,11 +13,7 @@ export type Collection = ReadonlyMap<CardId, number>;
 
 // The immutable definition of a card
 export const nonMonsterTypes = new Set([
-  // English (RP mod)
-  "Magic",
-  "Equip",
-  "Trap",
-  "Ritual",
+  ...nonMonsterCardTypes,
   // French (vanilla / original game)
   "Magie",
   "Équipement",

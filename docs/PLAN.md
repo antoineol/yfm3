@@ -88,7 +88,7 @@ Return best deck + exact expected ATK
 | P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
-| **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Overlay game-data ATK/DEF from live RAM and reject stale same-path BIN caches |
+| **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale same-path BIN caches |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
 | **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |

@@ -267,7 +267,7 @@ All implemented in `bridge/game-data.ts` (new module):
 
 - ✅ **Step 1: gameDataHash** — `readCardStats(view)` in `memory.ts`, `computeGameDataHash(cardStats)` in `game-data.ts` (SHA-256 hex)
 - ✅ **Step 2: .bin path resolution** — `findDuckStationDataDir()` in `settings.ts`, `parseGamelistCache(buf, serial)` parses DuckStation's binary gamelist cache, `resolveBinPath(cuePath)` parses .cue → .bin, disambiguates via card stats hash when multiple candidates share a serial
-- ✅ **Step 3: .bin extraction** — imports `scripts/extract/` modules directly (TypeScript, shared codebase): `loadDiscData()`, `detectExeLayout()`, `detectWaMrgLayout()`, `extractCards()`, `extractFusions()`, `extractEquips()`. Card extraction uses `langIdxForSerial()` to select the correct PAL language block.
+- ✅ **Step 3: .bin extraction** — imports `scripts/extract/` modules directly (TypeScript, shared codebase): `loadDiscData()`, EXE layout detection, `detectWaMrgLayout()`, `extractCards()`, `extractFusions()`, `extractEquips()`. Card extraction uses `langIdxForSerial()` to select the correct PAL language block.
 - ✅ **Step 5: Disk cache** — single-entry JSON cache at `bridge/game-data-cache.json`, keyed by gameDataHash. Cache check on every call; write on successful extraction. Includes full card data.
 
 Main entry point: `acquireGameData(cardStats, serial, cacheDir)` — orchestrates hash → cache check → .bin resolution → extraction → cache write.

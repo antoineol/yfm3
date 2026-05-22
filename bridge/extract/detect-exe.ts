@@ -2,34 +2,56 @@
 // PS1 executable layout detection (card stats, level/attr, attribute mapping)
 // ---------------------------------------------------------------------------
 
+import { createHash } from "node:crypto";
+import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
 import { detectTextOffsetsByDeltas, detectTextTables } from "./detect-exe-text.ts";
 import { byte } from "./iso9660.ts";
-import { isTblString } from "./text-decoding.ts";
+import { CHAR_TABLE, extractWaMrgStrings, isTblString } from "./text-decoding.ts";
 import type { EquipBonusConfig, ExeLayout, PsxExeHeader } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
 
-export function detectExeLayout(exe: Buffer): ExeLayout {
+type ActiveCardStatsSource =
+  | { cardStats: Uint8Array; cardStatsHash?: never }
+  | { cardStats?: never; cardStatsHash: string };
+
+interface CardStatsCandidate {
+  addr: number;
+}
+
+/** Runtime path: resolve the executable layout for the game currently loaded
+ * in DuckStation. The RAM card-stats table is the authority for which EXE
+ * copy is active; if no EXE table matches it, extraction must fail instead of
+ * guessing. */
+export function detectActiveExeLayout(exe: Buffer, source: ActiveCardStatsSource): ExeLayout {
   parsePsxExeHeader(exe);
+  const candidates = findCardStatsCandidates(exe);
+  const cardStats = selectActiveCardStats(exe, candidates, source);
+  return buildExeLayout(exe, cardStats);
+}
 
-  let cardStats = -1;
-  let levelAttr = -1;
+/** Offline path: best-effort layout detection for scripts/debug tools that
+ * inspect a disc without a running emulator. Do not use this for autosync or
+ * active-ISO refreshes, where RAM stats are available. */
+export function detectDiscExeLayout(exe: Buffer): ExeLayout {
+  parsePsxExeHeader(exe);
+  const candidates = findCardStatsCandidates(exe);
+  const cardStats = selectDiscCardStats(exe, candidates);
+  return buildExeLayout(exe, cardStats);
+}
+
+function findCardStatsCandidates(exe: Buffer): CardStatsCandidate[] {
   const tableBytes = NUM_CARDS * 4;
-
+  const candidates: CardStatsCandidate[] = [];
   const searchStart = PSX_EXE_HEADER_SIZE;
   for (let addr = searchStart; addr <= exe.length - tableBytes; addr += 4) {
     if (!isCardStatsCandidate(exe, addr)) continue;
-
-    const la = findLevelAttrNear(exe, addr);
-    if (la !== -1) {
-      // Strong match: card stats + nearby level/attr table
-      cardStats = addr;
-      levelAttr = la;
-      break;
-    }
-    // Card stats found but no nearby level/attr — accept as fallback
-    if (cardStats === -1) cardStats = addr;
+    candidates.push({ addr });
   }
-  if (cardStats === -1) throw new Error("Could not locate card stats table in executable");
+  return candidates;
+}
+
+function buildExeLayout(exe: Buffer, cardStats: number): ExeLayout {
+  const levelAttr = findLevelAttrNear(exe, cardStats);
 
   let text =
     levelAttr >= 0
@@ -45,10 +67,8 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
     text = detectTextOffsetsByDeltas(exe, cardStats);
   }
 
-  const TypeNamesDelta = 0x488a;
-  const GsNamesDelta = 0x493c;
-  const typeCandidate = cardStats + TypeNamesDelta;
-  const gsCandidate = cardStats + GsNamesDelta;
+  const typeNamesTable = findKnownNameRun(exe, cardStats, cardTypes);
+  const gsNamesTable = findKnownNameRun(exe, cardStats, guardianStars.slice(1));
 
   return {
     cardStats,
@@ -58,9 +78,75 @@ export function detectExeLayout(exe: Buffer): ExeLayout {
     descOffsetTable: text.descOffsetTable,
     descTextPoolBase: text.descTextPoolBase,
     duelistNames: text.duelistNames,
-    typeNamesTable: isValidTblStringRun(exe, typeCandidate, 5) ? typeCandidate : -1,
-    gsNamesTable: isValidTblStringRun(exe, gsCandidate, 5) ? gsCandidate : -1,
+    typeNamesTable,
+    gsNamesTable,
   };
+}
+
+function selectActiveCardStats(
+  exe: Buffer,
+  candidates: CardStatsCandidate[],
+  source: ActiveCardStatsSource,
+): number {
+  if (source.cardStats) {
+    const match = candidates.find((candidate) =>
+      sameCardStats(exe, candidate.addr, source.cardStats),
+    );
+    if (match) return match.addr;
+  }
+  if (source.cardStatsHash) {
+    const match = candidates.find(
+      (candidate) => cardStatsHash(exe, candidate.addr) === source.cardStatsHash,
+    );
+    if (match) return match.addr;
+  }
+  throw new Error(
+    `Could not locate active card stats table in executable (${candidates.length} candidate${candidates.length === 1 ? "" : "s"} scanned)`,
+  );
+}
+
+function selectDiscCardStats(exe: Buffer, candidates: CardStatsCandidate[]): number {
+  for (const candidate of candidates) {
+    if (findLevelAttrNear(exe, candidate.addr) !== -1) return candidate.addr;
+  }
+  const first = candidates[0];
+  if (first) return first.addr;
+  throw new Error("Could not locate card stats table in executable");
+}
+
+function sameCardStats(exe: Buffer, addr: number, expected: Uint8Array): boolean {
+  if (expected.length < NUM_CARDS * 4) return false;
+  for (let i = 0; i < NUM_CARDS * 4; i++) {
+    if (exe[addr + i] !== expected[i]) return false;
+  }
+  return true;
+}
+
+function cardStatsHash(exe: Buffer, addr: number): string {
+  return createHash("sha256")
+    .update(exe.subarray(addr, addr + NUM_CARDS * 4))
+    .digest("hex");
+}
+
+function findKnownNameRun(exe: Buffer, cardStats: number, expected: readonly string[]): number {
+  const searchStart = Math.max(PSX_EXE_HEADER_SIZE, cardStats + 0x3000);
+  const searchEnd = Math.min(exe.length, cardStats + 0x7000);
+  const expectedNames = expected.map(normalizeName);
+  for (let offset = searchStart; offset < searchEnd; offset++) {
+    if (!isTblString(exe, offset, 50)) continue;
+    const names = extractWaMrgStrings(exe, offset, expected.length, CHAR_TABLE);
+    if (names.length !== expected.length) continue;
+    if (
+      names.every((name, i) => name === name.trim() && normalizeName(name) === expectedNames[i])
+    ) {
+      return offset;
+    }
+  }
+  return -1;
+}
+
+function normalizeName(name: string): string {
+  return name.replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
 /** Per-language attribute names for PAL discs (indexed by langIdx). */
@@ -244,19 +330,4 @@ function findLevelAttrNear(exe: Buffer, cardStatsAddr: number): number {
     if (isValidLevelAttrTable(exe, addr, cardStatsAddr)) return addr;
   }
   return -1;
-}
-
-/** Check that `offset` starts a run of consecutive 0xFF-terminated TBL strings.
- *  At least 80% of the first `sampleCount` entries must be valid. */
-function isValidTblStringRun(exe: Buffer, offset: number, sampleCount: number): boolean {
-  if (offset < 0 || offset >= exe.length) return false;
-  let valid = 0;
-  let pos = offset;
-  for (let i = 0; i < sampleCount && pos < exe.length; i++) {
-    if (isTblString(exe, pos, 50)) valid++;
-    const end = exe.indexOf(0xff, pos);
-    if (end === -1 || end - pos > 50) break;
-    pos = end + 1;
-  }
-  return valid >= Math.ceil(sampleCount * 0.8);
 }

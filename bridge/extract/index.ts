@@ -4,7 +4,7 @@
 
 import fs from "node:fs";
 import { cardsToCsv, deckLimitsToCsv, duelistsToCsv, equipsToCsv, fusionsToCsv } from "./csv.ts";
-import { detectAttributeMapping, detectExeLayout } from "./detect-exe.ts";
+import { detectAttributeMapping, detectDiscExeLayout } from "./detect-exe.ts";
 import { detectWaMrgLayout } from "./detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./detect-wamrg-text.ts";
 import { extractCards } from "./extract-cards.ts";
@@ -262,7 +262,7 @@ export function extractAllCsvs(
   waMrg: Buffer,
   langIdx?: number,
 ): Record<string, string> {
-  const exeLayout = detectExeLayout(slus);
+  const exeLayout = detectDiscExeLayout(slus);
   const waMrgLayout = detectWaMrgLayout(waMrg);
   const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);
   const waMrgTextBlocks = exeLayout.nameOffsetTable === -1 ? findAllWaMrgTextBlocks(waMrg) : [];

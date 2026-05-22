@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { detectAttributeMapping, parsePsxExeHeader } from "./detect-exe.ts";
+import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
+import { CHAR_TABLE } from "./char-tables.ts";
+import {
+  detectActiveExeLayout,
+  detectAttributeMapping,
+  detectDiscExeLayout,
+  parsePsxExeHeader,
+} from "./detect-exe.ts";
 import type { ExeLayout } from "./types.ts";
 
 describe("parsePsxExeHeader", () => {
@@ -27,6 +34,38 @@ describe("parsePsxExeHeader", () => {
     const buf = Buffer.alloc(0x800);
     buf.write("NOT-A-EXE", 0, "ascii");
     expect(() => parsePsxExeHeader(buf)).toThrow("Not a PS-X EXE");
+  });
+});
+
+describe("detectActiveExeLayout", () => {
+  it("selects the card stats table that matches live RAM and detects its name tables", () => {
+    const exe = makeExeWithTwoCardStatTables();
+    const expected = exe.subarray(0x2000, 0x2000 + 722 * 4);
+
+    const layout = detectActiveExeLayout(exe, { cardStats: expected });
+
+    expect(layout.cardStats).toBe(0x2000);
+    expect(layout.typeNamesTable).toBe(0x7000);
+    expect(layout.gsNamesTable).toBeGreaterThan(0x7000);
+  });
+
+  it("throws instead of guessing when no candidate matches live RAM", () => {
+    const exe = makeExeWithTwoCardStatTables();
+    const unknownStats = Buffer.alloc(722 * 4, 0xff);
+
+    expect(() => detectActiveExeLayout(exe, { cardStats: unknownStats })).toThrow(
+      "Could not locate active card stats table",
+    );
+  });
+});
+
+describe("detectDiscExeLayout", () => {
+  it("is the explicit best-effort path for offline disc-only extraction", () => {
+    const exe = makeExeWithTwoCardStatTables();
+
+    const layout = detectDiscExeLayout(exe);
+
+    expect(layout.cardStats).toBe(0x1000);
   });
 });
 
@@ -113,3 +152,51 @@ describe("detectAttributeMapping", () => {
     });
   });
 });
+
+function makeExeWithTwoCardStatTables(): Buffer {
+  const exe = Buffer.alloc(0x9000);
+  exe.write("PS-X EXE", 0, "ascii");
+  exe.writeUInt32LE(0x80010000, 0x18);
+  exe.writeUInt32LE(0x8800, 0x1c);
+
+  writeCardStatsTable(exe, 0x1000, 21);
+  writeLevelAttrTable(exe, 0x3000);
+
+  writeCardStatsTable(exe, 0x2000, 1);
+  writeLevelAttrTable(exe, 0x4000);
+
+  let pos = 0x7000;
+  for (const name of [...cardTypes, ...guardianStars.slice(1)]) {
+    pos = writeTblString(exe, pos, name);
+  }
+
+  return exe;
+}
+
+function writeCardStatsTable(exe: Buffer, offset: number, card2Type: number): void {
+  for (let i = 0; i < 722; i++) {
+    const type = i >= 600 ? 20 : 0;
+    const atk = i >= 600 ? 0 : 100;
+    const def = i >= 600 ? 0 : 100;
+    exe.writeUInt32LE(encodeCardStat(atk, def, type), offset + i * 4);
+  }
+  exe.writeUInt32LE(encodeCardStat(80, 200, card2Type), offset + 4);
+}
+
+function writeLevelAttrTable(exe: Buffer, offset: number): void {
+  for (let i = 0; i < 722; i++) exe[offset + i] = i >= 600 ? 0 : 4;
+}
+
+function encodeCardStat(atk10: number, def10: number, type: number): number {
+  return atk10 | (def10 << 9) | (1 << 18) | (1 << 22) | (type << 26);
+}
+
+function writeTblString(exe: Buffer, offset: number, value: string): number {
+  for (let i = 0; i < value.length; i++) {
+    const b = CHAR_TABLE.indexOf(value[i] ?? "");
+    if (b === -1) throw new Error(`Missing TBL char ${value[i]}`);
+    exe[offset + i] = b;
+  }
+  exe[offset + value.length] = 0xff;
+  return offset + value.length + 1;
+}

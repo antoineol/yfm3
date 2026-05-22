@@ -2,7 +2,7 @@
 // reports the top-attack entries. Tells us which ISO the UI edits actually
 // landed on.
 
-import { detectAttributeMapping, detectExeLayout } from "../bridge/extract/detect-exe.ts";
+import { detectAttributeMapping, detectDiscExeLayout } from "../bridge/extract/detect-exe.ts";
 import { detectWaMrgLayout } from "../bridge/extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "../bridge/extract/detect-wamrg-text.ts";
 import { extractCards } from "../bridge/extract/extract-cards.ts";
@@ -17,7 +17,7 @@ const ISOS = [
 for (const path of ISOS) {
   console.log(`\n=== ${path.split("/").pop()} ===`);
   const { slus, waMrg, serial } = loadDiscData(path);
-  const exeLayout = detectExeLayout(slus);
+  const exeLayout = detectDiscExeLayout(slus);
   const waMrgLayout = detectWaMrgLayout(waMrg);
   const langIdx = langIdxForSerial(serial);
   const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);

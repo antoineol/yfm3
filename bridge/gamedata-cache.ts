@@ -19,7 +19,7 @@ import type {
   RankScoringData,
 } from "./extract/types.ts";
 
-const CACHE_VERSION = 6;
+const CACHE_VERSION = 7;
 const CACHE_FILENAME = "gamedata.json";
 
 interface DiscCacheSignature {

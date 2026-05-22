@@ -25,7 +25,7 @@ import {
   inspectDropX15Patch,
   patchDropX15DiscInPlace,
 } from "./drop-x15-patch.ts";
-import { detectAttributeMapping, detectExeLayout } from "./extract/detect-exe.ts";
+import { detectActiveExeLayout, detectAttributeMapping } from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
 import { extractDuelists } from "./extract/extract-duelists.ts";
@@ -309,9 +309,9 @@ function pruneOldBackups(discPath: string): void {
  * untouched by pool edits — this keeps the post-save refresh under a few
  * hundred ms even on a cold disk cache.
  */
-export function reReadDuelists(discPath: string): DuelistData[] {
+export function reReadDuelists(discPath: string, cardStats: Uint8Array): DuelistData[] {
   const { slus, waMrg, serial } = loadDiscData(discPath);
-  const exeLayout = detectExeLayout(slus);
+  const exeLayout = detectActiveExeLayout(slus, { cardStats });
   const waMrgLayout = detectWaMrgLayout(waMrg);
   const langIdx = langIdxForSerial(serial);
   // Attribute mapping is unused for duelist pools but the text-block detector

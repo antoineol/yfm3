@@ -1,5 +1,7 @@
 import { getConfig } from "../config.ts";
 import type { CardSpec } from "./card-model.ts";
+import { normalizeCardType } from "./card-type-names.ts";
+import { monsterCardTypes } from "./rp-types.ts";
 
 /** Vanilla field power bonus amount (flat, applied to both ATK and DEF). */
 const FIELD_BONUS = 500;
@@ -10,34 +12,15 @@ const FIELD_BONUS = 500;
  * scanned from RAM. Type names are stable across vanilla/RP/Alpha mods.
  */
 export const CARD_TYPE_INDEX: Readonly<Record<string, number>> = {
-  Dragon: 0,
-  Spellcaster: 1,
-  Zombie: 2,
-  Warrior: 3,
-  "Beast-Warrior": 4,
-  Beast: 5,
-  "Winged Beast": 6,
-  Fiend: 7,
-  Fairy: 8,
-  Insect: 9,
-  Dinosaur: 10,
-  Reptile: 11,
-  Fish: 12,
-  "Sea Serpent": 13,
-  Machine: 14,
-  Thunder: 15,
-  Aqua: 16,
-  Pyro: 17,
-  Rock: 18,
-  Plant: 19,
+  ...Object.fromEntries(monsterCardTypes.map((name, i) => [name, i])),
 };
 
 /** Vanilla fallback: terrain ID → cardType strings that receive +500. */
 const VANILLA_BOOST: Record<number, Set<string>> = {
-  1: new Set(["Beast-Warrior", "Insect", "Plant", "Beast"]), // Forest
+  1: new Set(["BeastWarrior", "Insect", "Plant", "Beast"]), // Forest
   2: new Set(["Zombie", "Dinosaur", "Rock"]), // Wasteland
-  3: new Set(["Dragon", "Winged Beast", "Thunder"]), // Mountain
-  4: new Set(["Warrior", "Beast-Warrior"]), // Meadow
+  3: new Set(["Dragon", "WingedBeast", "Thunder"]), // Mountain
+  4: new Set(["Warrior", "BeastWarrior"]), // Meadow
   5: new Set(["Aqua", "Thunder"]), // Sea
   6: new Set(["Spellcaster", "Fiend"]), // Dark
 };
@@ -62,10 +45,11 @@ function vanillaBonus(terrain: number, cardType: string): number {
  */
 export function fieldBonus(terrain: number, cardType: string | undefined): number {
   if (!cardType || terrain < 1 || terrain > 6) return 0;
+  const normalizedType = normalizeCardType(cardType);
   const table = getConfig().fieldBonusTable;
-  const typeIndex = CARD_TYPE_INDEX[cardType];
+  const typeIndex = CARD_TYPE_INDEX[normalizedType];
   if (table && typeIndex !== undefined) return table[typeIndex * 6 + (terrain - 1)] ?? 0;
-  return vanillaBonus(terrain, cardType);
+  return vanillaBonus(terrain, normalizedType);
 }
 
 /** Apply field power bonus to a base stat, floored at 0. */

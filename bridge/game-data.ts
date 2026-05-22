@@ -12,9 +12,9 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { startArtworkExtraction } from "./artwork-extraction.ts";
 import {
+  detectActiveExeLayout,
   detectAttributeMapping,
   detectEquipBonuses,
-  detectExeLayout,
 } from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
@@ -179,7 +179,7 @@ function buildGameDataFromCache(
     gameDataHash,
     gameSerial: cached.gameSerial,
     cardStats,
-    cards: applyRamCardStats(cached.cards, cardStats),
+    cards: cached.cards,
     duelists: cached.duelists,
     fusionTable: cached.fusionTable,
     equipTable: cached.equipTable,
@@ -197,30 +197,6 @@ function buildGameDataFromCache(
 /** SHA-256 hex digest of the card stats table. */
 export function computeGameDataHash(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
-}
-
-/**
- * RAM is the authority for the currently running mod's packed card stats.
- * Some mods keep stale or decoy copies in the executable. Preserve
- * disc-extracted text/type metadata, but always publish ATK/DEF from the
- * live 722-entry RAM table.
- */
-export function applyRamCardStats(cards: CardStats[], cardStats: Uint8Array): CardStats[] {
-  if (cardStats.length < CARD_STATS_SIZE) return cards;
-  return cards.map((card) => {
-    const offset = (card.id - 1) * 4;
-    if (offset < 0 || offset + 4 > cardStats.length) return card;
-    const raw =
-      (cardStats[offset] ?? 0) |
-      ((cardStats[offset + 1] ?? 0) << 8) |
-      ((cardStats[offset + 2] ?? 0) << 16) |
-      ((cardStats[offset + 3] ?? 0) << 24);
-    return {
-      ...card,
-      atk: (raw & 0x1ff) * 10,
-      def: ((raw >>> 9) & 0x1ff) * 10,
-    };
-  });
 }
 
 /**
@@ -399,14 +375,19 @@ function extractFromWinner(
 
   try {
     const { slus, waMrg, serial: discSerial } = loadDiscData(match.binPath);
-    const exeLayout = detectExeLayout(slus);
+    const exeLayout = detectActiveExeLayout(slus, { cardStats });
     const waMrgLayout = detectWaMrgLayout(waMrg);
     const langIdx = langIdxForSerial(discSerial);
     const cardAttributes = detectAttributeMapping(slus, exeLayout, langIdx);
     const waMrgTextBlocks = exeLayout.nameOffsetTable === -1 ? findAllWaMrgTextBlocks(waMrg) : [];
-    const cards = applyRamCardStats(
-      extractCards(slus, waMrg, exeLayout, waMrgLayout, cardAttributes, waMrgTextBlocks, langIdx),
-      cardStats,
+    const cards = extractCards(
+      slus,
+      waMrg,
+      exeLayout,
+      waMrgLayout,
+      cardAttributes,
+      waMrgTextBlocks,
+      langIdx,
     );
     const duelists = extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
     const fusions = extractFusions(waMrg, waMrgLayout);
@@ -616,7 +597,7 @@ function disambiguateDisc(
 ): { discSerial: string; exeSerial: string | null } | null {
   try {
     const { slus, serial: discSerial } = readDiscExe(binPath);
-    const exeLayout = detectExeLayout(slus);
+    const exeLayout = detectActiveExeLayout(slus, { cardStatsHash: gameDataHash });
     const binStats = slus.subarray(exeLayout.cardStats, exeLayout.cardStats + CARD_STATS_SIZE);
     const binHash = computeGameDataHash(binStats);
     if (binHash !== gameDataHash) {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { displayCardType } from "../../src/engine/data/card-type-names.ts";
+import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
 import { CHAR_TABLE } from "./char-tables.ts";
 import { extractCards } from "./extract-cards.ts";
 import type { ExeLayout, WaMrgLayout } from "./types.ts";
@@ -259,32 +261,7 @@ function makeSlusWithTables(
 }
 
 describe("extractCards — type name extraction from exe", () => {
-  const typeNames = [
-    "Dragon",
-    "Spellcaster",
-    "Zombie",
-    "Warrior",
-    "Beast-Warrior",
-    "Beast",
-    "Winged Beast",
-    "Fiend",
-    "Fairy",
-    "Insect",
-    "Dinosaur",
-    "Reptile",
-    "Fish",
-    "Sea Serpent",
-    "Machine",
-    "Thunder",
-    "Aqua",
-    "Pyro",
-    "Rock",
-    "Plant",
-    "Magic",
-    "Trap",
-    "Ritual",
-    "Equip",
-  ];
+  const typeNames = cardTypes.map(displayCardType);
 
   it("reads type names from exe when typeNamesTable is set", () => {
     const tblData = encodeTblStrings(typeNames);
@@ -323,19 +300,7 @@ describe("extractCards — type name extraction from exe", () => {
 });
 
 describe("extractCards — GS name extraction from exe", () => {
-  const gsNames = [
-    "None",
-    "Mars",
-    "Jupiter",
-    "Saturn",
-    "Uranus",
-    "Pluto",
-    "Neptune",
-    "Mercury",
-    "Sun",
-    "Moon",
-    "Venus",
-  ];
+  const gsNames: string[] = [...guardianStars];
 
   it("reads GS names from exe when gsNamesTable is set", () => {
     const tblData = encodeTblStrings(gsNames);

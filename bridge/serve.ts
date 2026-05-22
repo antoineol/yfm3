@@ -738,7 +738,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
 
       // Refresh in-memory state so other clients see the new pool, then
       // re-broadcast so anything reading `gameData.duelists` updates live.
-      const duelists = reReadDuelists(discPath);
+      const duelists = reReadDuelists(discPath, currentGameData.cardStats);
       currentGameData = { ...currentGameData, duelists };
       persistGameDataCache(currentGameData);
       broadcast(buildGameDataMessage(currentGameData));
@@ -821,7 +821,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     const backupFilename = decodeURIComponent(restoreMatch[1] ?? "");
     try {
       const preRestore = restoreIsoBackup(discPath, backupFilename);
-      const duelists = reReadDuelists(discPath);
+      const duelists = reReadDuelists(discPath, currentGameData.cardStats);
       currentGameData = { ...currentGameData, duelists };
       persistGameDataCache(currentGameData);
       broadcast(buildGameDataMessage(currentGameData));
