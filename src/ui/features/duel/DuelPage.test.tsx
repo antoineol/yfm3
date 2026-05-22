@@ -127,22 +127,12 @@ vi.mock("./OpponentHandGrid.tsx", () => ({
   OpponentHandGrid: () => <div data-testid="opponent-hand-grid" />,
 }));
 
-vi.mock("../hand/use-post-duel-suggestion.ts", () => ({
-  usePostDuelSuggestion: vi.fn(() => ({
-    state: "idle",
-    progress: 0,
-    liveBestScore: 0,
-    result: null,
-    currentDeck: [],
-    dismiss: vi.fn(),
-  })),
-}));
-
 vi.mock("../hand/PostDuelSuggestion.tsx", () => ({
   PostDuelSuggestion: () => <div data-testid="post-duel-suggestion" />,
 }));
 
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
+import type { PostDuelSuggestion as PostDuelSuggestionState } from "../hand/use-post-duel-suggestion.ts";
 import { DuelPage } from "./DuelPage.tsx";
 
 afterEach(() => {
@@ -158,9 +148,22 @@ function inDuelBridge(phase: string) {
   });
 }
 
+const idlePostDuel: PostDuelSuggestionState = {
+  state: "idle",
+  progress: 0,
+  liveBestScore: 0,
+  result: null,
+  currentDeck: [],
+  dismiss: vi.fn(),
+};
+
+function duelPage() {
+  return <DuelPage postDuel={idlePostDuel} />;
+}
+
 describe("DuelPage", () => {
   it("hydrates source mode from preferences and persists toggle changes", () => {
-    render(<DuelPage />);
+    render(duelPage());
 
     fireEvent.click(screen.getByText("All cards"));
 
@@ -185,7 +188,7 @@ describe("DuelPage", () => {
       }),
     );
 
-    render(<DuelPage />);
+    render(duelPage());
 
     expect(screen.getByTestId("emulator-bridge-bar")).toBeTruthy();
     expect(screen.queryByTestId("hand-card-selector")).toBeNull();
@@ -193,7 +196,7 @@ describe("DuelPage", () => {
   });
 
   it("hides bridge bar when disconnected", () => {
-    render(<DuelPage />);
+    render(duelPage());
 
     expect(screen.queryByTestId("emulator-bridge-bar")).toBeNull();
     expect(screen.getByTestId("hand-card-selector")).toBeTruthy();
@@ -205,11 +208,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatView).mockReturnValue("player");
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "opponent" });
     });
@@ -219,11 +222,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatView).mockReturnValue("opponent");
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("hand"));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "player" });
     });
@@ -232,11 +235,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatMode).mockReturnValue(false);
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -245,11 +248,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatMode).mockReturnValue(true);
       mockBridge.mockReturnValue(defaultBridge({ phase: "hand", inDuel: false }));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(defaultBridge({ phase: "opponent", inDuel: false }));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -258,11 +261,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatMode).mockReturnValue(true);
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("other"));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -272,11 +275,11 @@ describe("DuelPage", () => {
       vi.mocked(useCheatView).mockReturnValue("opponent");
       mockBridge.mockReturnValue(inDuelBridge("hand"));
 
-      const { rerender } = render(<DuelPage />);
+      const { rerender } = render(duelPage());
       mockUpdatePreferences.mockClear();
 
       mockBridge.mockReturnValue(inDuelBridge("opponent"));
-      rerender(<DuelPage />);
+      rerender(duelPage());
 
       expect(mockUpdatePreferences).not.toHaveBeenCalled();
     });
@@ -293,7 +296,7 @@ describe("DuelPage", () => {
       }),
     );
 
-    render(<DuelPage />);
+    render(duelPage());
 
     const lastCall = fusionResultsProps.mock.calls.at(-1)?.[0];
     expect(lastCall).toBeDefined();

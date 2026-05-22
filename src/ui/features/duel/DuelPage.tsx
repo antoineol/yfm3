@@ -1,9 +1,7 @@
-import { useMemo } from "react";
-import { useDeck } from "../../db/use-deck.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { PostDuelSuggestion } from "../hand/PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "../hand/use-auto-sync-hand.ts";
-import { usePostDuelSuggestion } from "../hand/use-post-duel-suggestion.ts";
+import type { PostDuelSuggestion as PostDuelSuggestionState } from "../hand/use-post-duel-suggestion.ts";
 import { DeckAnalyzer } from "./DeckAnalyzer.tsx";
 import { SyncedShell } from "./SyncedShell.tsx";
 
@@ -11,16 +9,13 @@ import { SyncedShell } from "./SyncedShell.tsx";
  * Duel tab entry. Dispatches between <DeckAnalyzer> (bridge disconnected, manual
  * hand/field builder) and <SyncedShell> (bridge connected, live duel HUD).
  *
- * Cross-mode concerns — hand auto-sync and post-duel suggestion hydration/display —
- * live here so they survive bridge disconnects and short reconnect gaps.
+ * Hand auto-sync and post-duel suggestion display live here; the post-duel
+ * detector itself is app-wide so it keeps watching while another tab is active.
  */
-export function DuelPage() {
+export function DuelPage({ postDuel }: { postDuel: PostDuelSuggestionState }) {
   const bridge = useBridge();
-  const deck = useDeck();
-  const deckCardIds = useMemo(() => deck?.map((d) => d.cardId), [deck]);
 
   useAutoSyncHand(bridge);
-  const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
 
   const hasPostDuelContent =
     postDuel.state === "optimizing" ||

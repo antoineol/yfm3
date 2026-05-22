@@ -1,10 +1,11 @@
 import { Tabs } from "@base-ui/react/tabs";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { setConfig } from "../engine/config.ts";
 import { modIdForFingerprint } from "../engine/mods.ts";
 import { BottomTabBar } from "./components/BottomTabBar.tsx";
 import { PanelCard } from "./components/panel-chrome.tsx";
 import { RequireReferenceData } from "./components/RequireReferenceData.tsx";
+import { useDeck } from "./db/use-deck.ts";
 import { useBridgeAutoSync } from "./db/use-user-preferences.ts";
 import { Header } from "./features/auth/Header.tsx";
 import { GameDataErrorBanner } from "./features/bridge/GameDataErrorBanner.tsx";
@@ -17,6 +18,7 @@ import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DECK_SUB_TABS, type DeckSubTab, DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { DuelPage } from "./features/duel/DuelPage.tsx";
 import { FarmPanelWrapper } from "./features/farm/FarmPanel.tsx";
+import { usePostDuelSuggestion } from "./features/hand/use-post-duel-suggestion.ts";
 import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
@@ -45,6 +47,9 @@ export default function App() {
 function MainApp({ tab }: { tab: string }) {
   const bridgeAutoSync = useBridgeAutoSync();
   const bridge = useEmulatorBridge(bridgeAutoSync);
+  const deck = useDeck();
+  const deckCardIds = useMemo(() => deck?.map((d) => d.cardId), [deck]);
+  const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
   const modId = useSelectedMod();
 
   useHydrateBridgeSnapshot(modId);
@@ -81,7 +86,7 @@ function MainApp({ tab }: { tab: string }) {
           <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-6 overflow-y-auto" value="duel">
             <TabOnboardingGate>
               <RequireReferenceData>
-                <DuelPage />
+                <DuelPage postDuel={postDuel} />
               </RequireReferenceData>
             </TabOnboardingGate>
           </Tabs.Panel>
