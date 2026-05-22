@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     bridge,
+    useHasReferenceData: vi.fn(() => true),
     usePostDuelSuggestion: vi.fn(() => ({
       state: "idle",
       progress: 0,
@@ -73,7 +74,7 @@ vi.mock("./lib/use-tab-from-hash.ts", () => ({
 vi.mock("./lib/bridge-snapshot-atoms.ts", () => ({ useHydrateBridgeSnapshot: vi.fn() }));
 vi.mock("./lib/fusion-table-context.tsx", () => ({
   FusionTableProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useHasReferenceData: vi.fn(() => true),
+  useHasReferenceData: mocks.useHasReferenceData,
 }));
 vi.mock("./features/collection/use-auto-sync-collection.ts", () => ({
   useAutoSyncCollection: vi.fn(),
@@ -115,6 +116,7 @@ import App from "./App.tsx";
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mocks.useHasReferenceData.mockReturnValue(true);
 });
 
 describe("App", () => {
@@ -122,5 +124,13 @@ describe("App", () => {
     render(<App />);
 
     expect(mocks.usePostDuelSuggestion).toHaveBeenCalledWith(mocks.bridge, [42, 7]);
+  });
+
+  it("does not start post-duel detection before card data providers are ready", () => {
+    mocks.useHasReferenceData.mockReturnValue(false);
+
+    render(<App />);
+
+    expect(mocks.usePostDuelSuggestion).not.toHaveBeenCalled();
   });
 });

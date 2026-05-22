@@ -18,12 +18,15 @@ import { DeckPanel } from "./features/deck/DeckPanel.tsx";
 import { DECK_SUB_TABS, type DeckSubTab, DeckSubTabs } from "./features/deck/DeckSubTabs.tsx";
 import { DuelPage } from "./features/duel/DuelPage.tsx";
 import { FarmPanelWrapper } from "./features/farm/FarmPanel.tsx";
-import { usePostDuelSuggestion } from "./features/hand/use-post-duel-suggestion.ts";
+import {
+  type PostDuelSuggestion,
+  usePostDuelSuggestion,
+} from "./features/hand/use-post-duel-suggestion.ts";
 import { ManualSetupModal } from "./features/onboarding/ManualSetupModal.tsx";
 import { TabOnboardingGate, useShowOnboarding } from "./features/onboarding/TabOnboardingGate.tsx";
 import { ResultPanel } from "./features/result/ResultPanel.tsx";
 import { SavesPanel } from "./features/saves/SavesPanel.tsx";
-import { BridgeProvider } from "./lib/bridge-context.tsx";
+import { BridgeProvider, useBridge } from "./lib/bridge-context.tsx";
 import { useHydrateBridgeSnapshot } from "./lib/bridge-snapshot-atoms.ts";
 import { FusionTableProvider, useHasReferenceData } from "./lib/fusion-table-context.tsx";
 import { writeLocal } from "./lib/local-store.ts";
@@ -32,6 +35,15 @@ import { LOCAL_MOD_KEY, useSelectedMod } from "./lib/use-selected-mod.ts";
 import { useSubTabFromHash, useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "duel", "data"] as const;
+
+const EMPTY_POST_DUEL: PostDuelSuggestion = {
+  state: "idle",
+  progress: 0,
+  liveBestScore: 0,
+  result: null,
+  currentDeck: [],
+  dismiss: () => {},
+};
 
 function CardDetailModalWhenReady() {
   const hasData = useHasReferenceData();
@@ -47,9 +59,6 @@ export default function App() {
 function MainApp({ tab }: { tab: string }) {
   const bridgeAutoSync = useBridgeAutoSync();
   const bridge = useEmulatorBridge(bridgeAutoSync);
-  const deck = useDeck();
-  const deckCardIds = useMemo(() => deck?.map((d) => d.cardId), [deck]);
-  const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
   const modId = useSelectedMod();
 
   useHydrateBridgeSnapshot(modId);
@@ -77,33 +86,54 @@ function MainApp({ tab }: { tab: string }) {
   return (
     <BridgeProvider bridge={bridge}>
       <FusionTableProvider>
-        <Tabs.Root className="h-dvh flex flex-col overflow-hidden" value={tab}>
-          <Header />
-          <ModMismatchBanner />
-          <GameDataErrorBanner />
-          <DeckTabPanel />
-
-          <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-6 overflow-y-auto" value="duel">
-            <TabOnboardingGate>
-              <RequireReferenceData>
-                <DuelPage postDuel={postDuel} />
-              </RequireReferenceData>
-            </TabOnboardingGate>
-          </Tabs.Panel>
-
-          <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-3 overflow-y-auto" value="data">
-            <TabOnboardingGate>
-              <RequireReferenceData>
-                <DataPanel />
-              </RequireReferenceData>
-            </TabOnboardingGate>
-          </Tabs.Panel>
-          <BottomTabBar />
-          <ManualSetupModal />
-          <CardDetailModalWhenReady />
-        </Tabs.Root>
+        <MainAppContent tab={tab} />
       </FusionTableProvider>
     </BridgeProvider>
+  );
+}
+
+function MainAppContent({ tab }: { tab: string }) {
+  const hasData = useHasReferenceData();
+  if (!hasData) return <MainAppLayout postDuel={EMPTY_POST_DUEL} tab={tab} />;
+  return <MainAppContentWithData tab={tab} />;
+}
+
+function MainAppContentWithData({ tab }: { tab: string }) {
+  const bridge = useBridge();
+  const deck = useDeck();
+  const deckCardIds = useMemo(() => deck?.map((d) => d.cardId), [deck]);
+  const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
+
+  return <MainAppLayout postDuel={postDuel} tab={tab} />;
+}
+
+function MainAppLayout({ tab, postDuel }: { tab: string; postDuel: PostDuelSuggestion }) {
+  return (
+    <Tabs.Root className="h-dvh flex flex-col overflow-hidden" value={tab}>
+      <Header />
+      <ModMismatchBanner />
+      <GameDataErrorBanner />
+      <DeckTabPanel />
+
+      <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-6 overflow-y-auto" value="duel">
+        <TabOnboardingGate>
+          <RequireReferenceData>
+            <DuelPage postDuel={postDuel} />
+          </RequireReferenceData>
+        </TabOnboardingGate>
+      </Tabs.Panel>
+
+      <Tabs.Panel className="flex-1 min-h-0 px-3 pt-2 pb-3 overflow-y-auto" value="data">
+        <TabOnboardingGate>
+          <RequireReferenceData>
+            <DataPanel />
+          </RequireReferenceData>
+        </TabOnboardingGate>
+      </Tabs.Panel>
+      <BottomTabBar />
+      <ManualSetupModal />
+      <CardDetailModalWhenReady />
+    </Tabs.Root>
   );
 }
 
