@@ -1,25 +1,41 @@
 # droptool / dropx15 — specs (brouillon)
 
-Statut : **actif pour le bridge**. La recette préférée reste la recette
-communautaire Ghost/FMR par limites de boucle. Pour Gold/Ultimate/PAL-like, où ces
-ancres n'existent pas, le bridge utilise un patch local plus proche du modèle
-communautaire : il intercepte le picker original pendant que le vrai sélecteur
-de pool est encore vivant, bufferise les 15 cartes choisies, puis crédite cette
-liste à la fin du duel.
+Statut : **actif pour le bridge**. Le bridge n'installe plus les trampolines
+locaux expérimentaux. Il suit la recette communautaire Ghost/FMR :
+
+- si l'image contient déjà l'expansion Ghost, il ajuste les 3 limites de boucle
+  `6/6/5 -> 16/16/15`;
+- si l'image est encore propre mais correspond aux hooks Ghost, il injecte
+  l'expansion `Drop More Cards` dans `SLUS` + `DATA/WA_MRG.MRG`.
 
 ## Objectif
 
-Outil standalone CLI qui patche une image disc PSX de *Yu-Gi-Oh! Forbidden
-Memories* pour qu'à la fin d'un duel le joueur reçoive plus de cartes.
+Outil standalone CLI qui patche une image disc PSX de _Yu-Gi-Oh! Forbidden
+Memories_ pour qu'à la fin d'un duel le joueur reçoive plus de cartes.
 
 La sémantique exacte du patch est celle du mod communautaire « Drop More
-Cards » de Ghost / FMR x15 : il augmente la limite haute d'un *counter* MIPS
-utilisé dans trois loops du code de fin de duel. Empiriquement, ça se
-traduit par « jusqu'à N cartes gagnées par duel » (au lieu de 1–6 en
-vanilla). La UI n'est pas modifiée — le jeu affiche toujours l'animation
-d'une seule carte, mais la collection est créditée de N entrées.
+Cards » de Ghost / FMR x15 : il injecte une expansion MIPS de fin de duel et
+fixe trois limites de boucle à **16/16/15**, ce qui donne 15 cartes gagnées.
 
 ## Recette de patch — **IDENTIFIÉE** (pour SLUS_014.11 / US vanilla)
+
+Source communautaire vérifiée le 2026-05-23 :
+<https://hippochan.nl/multi-card-drop/> distribue l'outil
+`YGOFMDROPMORECARDSBYGHOST.exe` et documente que la recette officielle prend
+à la fois `SLUS_014.11` et `DATA/WA_MRG.MRG`, limite la valeur à 15, et ne
+vise que NTSC-U/C.
+
+Décompilation IL de l'EXE Ghost :
+
+- injecte le blob MIPS à `SLUS:0x19b440`;
+- injecte le même blob dans 7 copies `WA_MRG:0xb4bf00 + i*0x75800`, `i=1..7`;
+- installe les hooks `SLUS:0x12034`, `0x1246c`, `0x12710`, `0x285fc`;
+- écrit les limites de boucle `16`, `16`, `15` dans chaque copie WA_MRG.
+
+Le bridge écrit seulement les mots de hook nécessaires (`j`/`nop`, plus le
+delay-slot neutralisé du hook renderer) et laisse les instructions de
+continuation intactes. C'est équivalent sur vanilla et évite d'écraser une
+instruction locale de Gold à `SLUS:0x1247c`.
 
 Trois instructions MIPS `addiu $s7, $zero, imm` dans l'EXE SLUS_014.11 (US
 NTSC, vanilla), à immediates proches. Le mod canonique x15 (Ghost tool)
@@ -27,11 +43,11 @@ bumpe chaque immediate de **+10**.
 
 **Offsets EXE (file offsets dans SLUS_014.11) :**
 
-| # | Offset EXE | Vanilla | x15 mod | Contexte ancre (vanilla, 16 bytes LE)                                  |
-|---|------------|---------|---------|------------------------------------------------------------------------|
-| 1 | `0x19b478` | `06`    | `10`    | `2000 a0a3 2000 b693 0000 0000 0100 d626 06 00 1724 1d00 d712 ...`     |
-| 2 | `0x19b574` | `06`    | `10`    | `2000 40a2 2000 5692 0000 0000 0100 d626 06 00 1724 0c00 d712 ...`     |
-| 3 | `0x19b5ec` | `05`    | `0F`    | `0800 44ac 2000 5690 0000 0000 0100 d626 05 00 1724 0200 d712 ...`     |
+| #   | Offset EXE | Vanilla | x15 mod | Contexte ancre (vanilla, 16 bytes LE)                              |
+| --- | ---------- | ------- | ------- | ------------------------------------------------------------------ |
+| 1   | `0x19b478` | `06`    | `10`    | `2000 a0a3 2000 b693 0000 0000 0100 d626 06 00 1724 1d00 d712 ...` |
+| 2   | `0x19b574` | `06`    | `10`    | `2000 40a2 2000 5692 0000 0000 0100 d626 06 00 1724 0c00 d712 ...` |
+| 3   | `0x19b5ec` | `05`    | `0F`    | `0800 44ac 2000 5690 0000 0000 0100 d626 05 00 1724 0200 d712 ...` |
 
 Chaque triplet forme une boucle `for (i=1; i<imm; i++) { ... }` dans le code
 de fin de duel. Les immediates vanilla 6/6/5 deviennent 16/16/15
@@ -47,6 +63,7 @@ fonctionnel).
 redondantes** des 3 bytes (toutes espacées de 235 secteurs = 552 720 bytes).
 Cause exacte non élucidée (possible duplication de secteurs EXE dans le
 layout ISO). Pour notre outil, deux options équivalentes :
+
 - **(a) Patcher le fichier SLUS_014.11 au niveau ISO** : on extrait le file
   SLUS_014.11 via l'ISO9660 directory, on patche l'EXE, on le réinjecte.
   L'ISO9660 re-write écrasera toutes les copies logiques du fichier.
@@ -58,16 +75,16 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 
 ## Portabilité confirmée / à investiguer
 
-| Image                                              | Serial EXE       | Patterns vanilla présents ?     | Support v1 ? |
-|----------------------------------------------------|------------------|----------------------------------|--------------|
-| `15 card mod/…uibak` (US vanilla BIN)              | `SLUS_014.11`    | Oui, 8× (1 dans WA_MRG+7 EXE)    | ✅           |
-| `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Legacy trampoline local installé | ✅ upgrade buffered-picker |
-| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ✅ via buffered-picker |
-| `FMR Remastered Perfected[15].bin`                 | `SLUS_014.11`    | Oui, 1× (vestige) + 7× déjà patchées | ✅ (déjà patchée) |
-| `FMR Vanilla Remastered 1.3.bin`                   | `SLUS_014.11`    | Identique au cas ci-dessus       | ✅           |
-| `Alpha Mod (Drop x15).iso`                         | `SLUS_014.11`    | Déjà patchée (7 occurrences x15) | ✅ (déjà patchée) |
-| `Yu-Gi-Oh! Forbidden Memories (Ultimate).iso`      | **`SLUS_027.11`** | Non — layout vanilla-family au site d'award local | ✅ via buffered-picker |
-| `Vanilla/…(France).bin` (PAL FR)                   | `SLES_039.48`    | Non — layout PAL décalé de `+0xbc` | ✅ via buffered-picker |
+| Image                                         | Serial EXE        | Patterns vanilla présents ?                              | Support v1 ?                 |
+| --------------------------------------------- | ----------------- | -------------------------------------------------------- | ---------------------------- |
+| `15 card mod/…uibak` (US vanilla BIN)         | `SLUS_014.11`     | Oui, 8× (1 dans WA_MRG+7 EXE)                            | ✅                           |
+| `Yu-Gi-Oh! Mod 15.bin`                        | `SLUS_014.11`     | Legacy trampoline local installé                         | ❌ restaurer/repatcher Ghost |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`       | `SLUS_000.04`     | Hooks Ghost compatibles, continuation locale à préserver | ✅ via Ghost expansion       |
+| `FMR Remastered Perfected[15].bin`            | `SLUS_014.11`     | Oui, 1× (vestige) + 7× déjà patchées                     | ✅ (déjà patchée)            |
+| `FMR Vanilla Remastered 1.3.bin`              | `SLUS_014.11`     | Identique au cas ci-dessus                               | ✅                           |
+| `Alpha Mod (Drop x15).iso`                    | `SLUS_014.11`     | Déjà patchée (7 occurrences x15)                         | ✅ (déjà patchée)            |
+| `Yu-Gi-Oh! Forbidden Memories (Ultimate).iso` | **`SLUS_027.11`** | Non — layout recompilé                                   | ❌ non supporté              |
+| `Vanilla/…(France).bin` (PAL FR)              | `SLES_039.48`     | Non — PAL hors scope Ghost                               | ❌ non supporté              |
 
 **Conséquence importante** : l'image **Ultimate est un mod à binaire
 recompilé/différent** (serial customisé `SLUS_027.11`). Nos patterns exacts
@@ -84,31 +101,11 @@ trampoline local historique qui recomputait un pool tardivement. Cette variante
 a produit des récompenses impossibles ou désynchronisées sur Gold; elle est
 donc traitée comme état legacy à restaurer, pas comme patch activable.
 
-Le remplacement Gold/Ultimate/PAL-compatible supporté est
-`buffered-picker-x15` :
-
-1. Hook `0x80021c60` (`jal FUN_80021810`) vers `0x80021f24`.
-2. La routine appelée reçoit le sélecteur réel dans `a0`, appelle le picker
-   original 15 fois, stocke les IDs dans `0x801aac00`, et retourne la première
-   carte dans `v0` pour que l'UI normale affiche la même carte.
-3. Hook `0x80021f10` vers `0x80021f98`.
-4. La routine de crédit relit les 15 IDs bufferisés et appelle `FUN_80021894`
-   pour chacun, puis saute à `0x8002209c`.
-
-Différence clé avec le trampoline rejeté : on ne reconstruit plus le sélecteur
-depuis l'état de résultat après coup; on utilise celui que le jeu vient de
-calculer pour le reward affiché.
-
-Pour `SLES_039.48` (PAL France), les mêmes sites sont décalés de `+0xbc`
-dans l'exécutable :
-
-- Picker: `0x800218cc`, hook file `0x1251c`.
-- Credit: `0x80021950`, award hook file `0x127cc`.
-- Local host: `0x80021fe0`, file `0x127e0`.
-- Return: `0x80022158`.
-
-Le bridge vérifie les bytes exacts de cette variante avant d'activer ou
-d'écrire le patch.
+Les variantes locales `local-award-trampoline`, `freeze-selector` et
+`buffered-picker-x15` sont considérées non sûres. Les deux premières ont
+produit des pools désynchronisés; la troisième a produit des récompenses
+impossibles et un crash sur Gold. Le bridge les refuse au lieu de les
+« upgrader ».
 
 ## Cibles
 
@@ -166,7 +163,7 @@ dépendance au rank du duel). `DROP_BONUS` est la vraie grandeur manipulée.
 4. **Pas de recalcul ECC/EDC** en MODE2 (voir section dédiée).
 5. Rapport final : offsets patchés, nombre total de modifications.
 
-Détection « déjà patchée » : si les patterns *patched* (imm = vanilla + 10)
+Détection « déjà patchée » : si les patterns _patched_ (imm = vanilla + 10)
 matchent tous, ne rien faire, signaler à l'utilisateur.
 
 Détection « pattern absent » : si les patterns vanilla sont absents ET les
@@ -176,6 +173,7 @@ binaire recompilé type Ultimate).
 ## Format d'image : lecture et écriture
 
 Détection auto via CD001. L'écriture se fait :
+
 - MODE1/2048 : écrire les bytes patchés directement à l'offset trouvé.
 - MODE2/2352 : écrire les bytes patchés directement à l'offset trouvé dans
   la data area. Les patterns ancre étant courts (8 bytes) et les matches
@@ -188,6 +186,7 @@ Chaque secteur MODE2/2352 se termine par 4 bytes EDC (CRC-32 sur data) et
 276 bytes ECC (parité Reed-Solomon).
 
 Trade-off :
+
 - **Skip (ne pas recalculer)** : DuckStation, PCSX-Redux, Mednafen tolèrent
   les EDC/ECC invalides. Ghost tool ne recalcule probablement pas non plus
   — la plupart des diffs observés dans son patch sont déjà des
@@ -219,6 +218,6 @@ reste du projet). Ajouter recalcul si besoin ressenti.
 4. **Les 7 copies redondantes dans le BIN** : origine pas élucidée mais le
    scan-and-patch-all les gère sans problème.
 5. **Reverse-engineer les 3 loops pour preuve ultime** : on a confirmé
-   empiriquement (diff tool pre/post). On n'a pas à 100% prouvé *pourquoi*
+   empiriquement (diff tool pre/post). On n'a pas à 100% prouvé _pourquoi_
    ces 3 immediates contrôlent le nombre de drops. Si besoin de plus de
    garanties, investigation MIPS supplémentaire.

@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
-  buildBufferedPickerX15Patch,
   buildLocalX15Patch,
   type DropX15PatchDefinition,
   inspectDropX15Image,
@@ -69,46 +68,45 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("supports the clean buffered original-picker layout used by Gold-like executables", () => {
-    const image = makeDiscImage("SLUS_000.04");
+  test.each([
+    "SLUS_014.11",
+    "SLUS_000.04",
+  ])("supports the clean Ghost Drop More Cards layout used by %s", (serial) => {
+    const image = makeGhostToolDiscImage(serial);
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
-      definitionId: "buffered-picker-x15",
-      definitionName: "Buffered original-picker x15",
-      gameSerial: "SLUS_000.04",
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x15",
+      gameSerial: serial,
     });
   });
 
-  test("supports the shifted PAL France buffered original-picker layout", () => {
+  test("rejects the shifted PAL France local layout instead of installing a custom trampoline", () => {
     const image = makeDiscImage("SLES_039.48");
 
-    expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
+    expect(inspectDropX15Image(image)).toMatchObject({
+      supported: false,
       enabled: false,
-      definitionId: "buffered-picker-x15",
-      definitionName: "Buffered original-picker x15",
       gameSerial: "SLES_039.48",
     });
   });
 
-  test("treats legacy local trampoline images as upgradeable to buffered picker x15", () => {
+  test("rejects legacy local trampoline images instead of upgrading them", () => {
     const image = makeDiscImage("SLUS_014.11");
     seedLegacyLocalPatch(image, 21);
 
     expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
+      supported: false,
       enabled: false,
-      definitionId: "buffered-picker-x15",
-      definitionName: "Buffered original-picker x15",
       gameSerial: "SLUS_014.11",
       reason:
-        "A legacy local x15 patch is installed; enabling 15-card drops will upgrade it to the buffered original-picker patch.",
+        "This disc has the legacy local x15 trampoline installed. It is no longer treated as safe; use a Ghost/FMR loop-limit x15 image or restore an unpatched backup.",
     });
   });
 
-  test("upgrades legacy local trampoline images to buffered picker x15", () => {
+  test("does not patch legacy local trampoline images", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
     const image = makeDiscImage("SLUS_014.11");
@@ -116,38 +114,38 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, image);
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
-
-      expect(result.changed).toBe(true);
-      expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
-        supported: true,
-        enabled: true,
-        definitionId: "buffered-picker-x15",
-      });
+      expect(() => patchDropX15DiscInPlace(discPath)).toThrow(
+        "This disc has the legacy local x15 trampoline installed.",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  test("patches the buffered original-picker layout in place", () => {
+  test("patches the Ghost Drop More Cards layout in place and preserves Gold continuation code", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
-    writeFileSync(discPath, makeDiscImage("SLUS_000.04"));
+    writeFileSync(discPath, makeGhostToolDiscImage("SLUS_000.04", 0x24050101));
 
     try {
       const result = patchDropX15DiscInPlace(discPath);
+      const patched = readFileSync(discPath);
 
       expect(result.changed).toBe(true);
       expect(result.status).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "buffered-picker-x15",
+        definitionId: "ghost-loop-limits",
       });
-      expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
+      expect(inspectDropX15Image(patched)).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "buffered-picker-x15",
+        definitionId: "ghost-loop-limits",
       });
+      expect(readU32(patched, 21, 0x1247c)).toBe(0x24050101);
+      expect(patched[waOffset(0xbc1778)]).toBe(16);
+      expect(patched[waOffset(0xbc1874)]).toBe(16);
+      expect(patched[waOffset(0xbc18ec)]).toBe(15);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -165,19 +163,17 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("treats the unsafe freeze-selector patch as upgradeable to buffered picker x15", () => {
+  test("rejects the unsafe freeze-selector patch", () => {
     const serial = "SLUS_000.04";
     const image = makeDiscImage(serial);
     seedUnsafeFreezeSelectorPatch(image, 21);
 
     expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
+      supported: false,
       enabled: false,
-      definitionId: "buffered-picker-x15",
-      definitionName: "Buffered original-picker x15",
       gameSerial: serial,
       reason:
-        "A legacy local x15 patch is installed; enabling 15-card drops will upgrade it to the buffered original-picker patch.",
+        "An unsafe legacy 15-card-drop patch is installed. Restore an unpatched backup or use a Ghost/FMR loop-limit x15 image.",
     });
   });
 });
@@ -199,12 +195,7 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
   const rootSector = 20;
   const patch = buildLocalX15Patch(serial);
-  const bufferedPatch = buildBufferedPickerX15Patch(serial);
-  const slusSize =
-    Math.max(
-      patch.localProgramOffset + patch.localProgram.length * 4,
-      bufferedPatch.localProgramOffset + bufferedPatch.localProgram.length * 4,
-    ) + 0x100;
+  const slusSize = patch.localProgramOffset + patch.localProgram.length * 4 + 0x100;
   const image = Buffer.alloc(
     (slusSector + Math.ceil(slusSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
   );
@@ -213,6 +204,29 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
   if (seed) seedUnpatchedExecutable(image, slusSector, patch);
 
+  return image;
+}
+
+function makeGhostToolDiscImage(serial: string, continuationWord = 0x00021400): Buffer {
+  const rootSector = 20;
+  const slusSector = 21;
+  const dataSector = 1000;
+  const waSector = 1001;
+  const slusSize = 0x19b800;
+  const waSize = 0xe84000;
+  const image = Buffer.alloc(
+    (waSector + Math.ceil(waSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
+  );
+
+  writePrimaryVolumeDescriptor(image, rootSector);
+  writeRootDirectoryWithData(image, rootSector, slusSector, slusSize, serial, dataSector);
+  writeDirRecord(image, dataSector * SECTOR_DATA_SIZE, {
+    extent: waSector,
+    size: waSize,
+    flags: 0,
+    name: "WA_MRG.MRG;1",
+  });
+  seedGhostToolHooks(image, slusSector, continuationWord);
   return image;
 }
 
@@ -257,28 +271,57 @@ function writeRootDirectory(
   });
 }
 
+function writeRootDirectoryWithData(
+  image: Buffer,
+  rootSector: number,
+  slusSector: number,
+  slusSize: number,
+  serial: string,
+  dataSector: number,
+): void {
+  let offset = rootSector * SECTOR_DATA_SIZE;
+  writeDirRecord(image, offset, {
+    extent: slusSector,
+    size: slusSize,
+    flags: 0,
+    name: `${serial};1`,
+  });
+  offset += image[offset] ?? 0;
+  writeDirRecord(image, offset, {
+    extent: dataSector,
+    size: SECTOR_DATA_SIZE,
+    flags: 0x02,
+    name: "DATA",
+  });
+}
+
+function seedGhostToolHooks(image: Buffer, slusSector: number, continuationWord: number): void {
+  writeBytes(image, slusSector, 0x12034, "1880023C8C874224");
+  writeBytes(image, slusSector, 0x1246c, "1D80033C0A80013C");
+  writeU32(image, slusSector, 0x12474, 0xa422b338);
+  writeU32(image, slusSector, 0x12478, 0xa482003c);
+  writeU32(image, slusSector, 0x1247c, continuationWord);
+  writeBytes(image, slusSector, 0x12710, "3C0044842586000C");
+  writeBytes(image, slusSector, 0x285fc, "30048387C7DF000821286200");
+}
+
 function seedUnpatchedExecutable(
   image: Buffer,
   slusSector: number,
   patch: DropX15PatchDefinition,
 ): void {
-  const bufferedPatch = buildBufferedPickerX15Patch(patch.gameSerial);
-
   for (const word of patch.requiredWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
   }
-  for (const word of bufferedPatch.requiredWords) {
+  for (const word of patch.writeWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
   }
-  for (const word of bufferedPatch.writeWords) {
-    writeU32(image, slusSector, word.fileOffset, word.vanilla);
-  }
-  for (let i = 0; i < bufferedPatch.localProgramVanilla.length; i++) {
+  for (let i = 0; i < patch.localProgramVanilla.length; i++) {
     writeU32(
       image,
       slusSector,
-      bufferedPatch.localProgramOffset + i * 4,
-      bufferedPatch.localProgramVanilla[i] ?? 0,
+      patch.localProgramOffset + i * 4,
+      patch.localProgramVanilla[i] ?? 0,
     );
   }
 }
@@ -334,4 +377,17 @@ function writeDirRecord(
 
 function writeU32(image: Buffer, slusSector: number, fileOffset: number, value: number): void {
   image.writeUInt32LE(value, slusSector * SECTOR_DATA_SIZE + fileOffset);
+}
+
+function readU32(image: Buffer, slusSector: number, fileOffset: number): number {
+  return image.readUInt32LE(slusSector * SECTOR_DATA_SIZE + fileOffset);
+}
+
+function writeBytes(image: Buffer, slusSector: number, fileOffset: number, hex: string): void {
+  Buffer.from(hex, "hex").copy(image, slusSector * SECTOR_DATA_SIZE + fileOffset);
+}
+
+function waOffset(fileOffset: number): number {
+  const waSector = 1001;
+  return waSector * SECTOR_DATA_SIZE + fileOffset;
 }

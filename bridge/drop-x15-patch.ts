@@ -32,9 +32,53 @@ const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
 const BUFFERED_PICKER_DEFINITION_ID = "buffered-picker-x15";
 const BUFFERED_PICKER_DEFINITION_NAME = "Buffered original-picker x15";
-const REWARD_BUFFER_RAM = 0x801aac00;
+const LOCAL_STATE_OFFSET_FROM_PROGRAM = 0x110;
 const BUFFERED_DROP_COUNT = 15;
 const PAL_FR_EXECUTABLE_SHIFT = 0xbc;
+
+const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
+const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
+const GHOST_TOOL_COPY_OFFSET = 0xb4bf00;
+const GHOST_TOOL_COPY_STRIDE = 0x75800;
+const GHOST_TOOL_COPY_COUNT = 7;
+const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b440;
+const GHOST_TOOL_DROP_COUNT = 15;
+const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
+const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
+const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
+const GHOST_TOOL_WA_EXTRA_LIMITS = [
+  { offset: 0xbc1888, value: GHOST_TOOL_FIRST_LIMIT },
+  { offset: 0xbc13f4, value: GHOST_TOOL_FIRST_LIMIT },
+  { offset: 0xbc19fc, value: GHOST_TOOL_LAST_LIMIT },
+] as const;
+
+const GHOST_TOOL_SLUS_HOOKS = [
+  {
+    offset: 0x12034,
+    vanilla: Buffer.from("1880023C8C874224", "hex"),
+    patched: Buffer.from("95AB060800000000", "hex"),
+  },
+  {
+    offset: 0x1246c,
+    vanilla: Buffer.from("1D80033C0A80013C", "hex"),
+    patched: Buffer.from("10AB060800000000", "hex"),
+  },
+  {
+    offset: 0x12710,
+    vanilla: Buffer.from("3C0044842586000C", "hex"),
+    patched: Buffer.from("53AB060800000000", "hex"),
+  },
+  {
+    offset: 0x285fc,
+    vanilla: Buffer.from("30048387C7DF000821286200", "hex"),
+    patched: Buffer.from("9DAB06080000000000000000", "hex"),
+  },
+] as const;
+
+const GHOST_TOOL_EXPANSION = Buffer.from(
+  "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001B001D3C00ACBD270000A2AF0400A3AF0800B0AF0C00A4AF1000A5AF1400BFAF1800B6AF1C00B7AF2000A0A32000B693000000000100D626100017241D00D7122000A0A32000B6A31B80103C50AE108E00000000A8AB060800000000FF0742300100452421200000211880000000029600000000212082002A108500060040100100622401006324D2026228F7FF40140200102621100000020017241800F60212B8000021B8B7032000E2A61BAB0608000000000000A28F000000000400A38F000000000800B08F000000000C00A48F000000001000A58F000000001400BF8F000000001800B68F000000001C00B78F0000000020801D3C1D80033C0A80013C28FFBD271D870008000000001B80043C00AC8424000092AC21908000040056AE080057AE200040A220005692000000000100D626100017240C00D712200040A2200056A2020017241800F60212B8000021B857022000E496000000002586000C000000005AAB0608000000000400568E000000000800578E000000000000528E00000000C6870008000000001B80023C00AC4224000056AC040057AC080044AC20005690000000000100D6260F0017240200D712200040A0200056A0020017241800F60212B8000021B857002000F796000000001D80043C300497A7A85697A40000568C000000000400578C000000000800448C00000000008002343004838700000000C7DF0008212862000000000020801D3C1B80033C50AE63241880023C8C87422421800202000070AC0F860008000000002080023CA0FE422406004810008002343004838700000000C7DF0008212862000000000073AB0608000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C0000000027AB06080000000000000000000000000000000000000000",
+  "hex",
+);
 
 const GHOST_LOOP_PATTERNS = [
   {
@@ -83,6 +127,7 @@ export interface BufferedPickerX15PatchDefinition {
   returnRam: number;
   localProgramRam: number;
   creditHookRam: number;
+  localStateRam: number;
   requiredWords: readonly InstructionPatch[];
   writeWords: readonly InstructionPatch[];
   localProgramOffset: number;
@@ -155,6 +200,7 @@ export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX
   const returnRam = RETURN_RAM + shift;
   const localProgramRam = LOCAL_PROGRAM_RAM + shift;
   const creditHookRam = localProgramRam + buildBufferedPickHookWords().length * 4;
+  const localStateRam = localProgramRam + LOCAL_STATE_OFFSET_FROM_PROGRAM;
 
   return {
     id: BUFFERED_PICKER_DEFINITION_ID,
@@ -165,6 +211,7 @@ export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX
     returnRam,
     localProgramRam,
     creditHookRam,
+    localStateRam,
     requiredWords: [
       {
         fileOffset: CREDIT_INCREMENT_OFFSET + shift,
@@ -205,6 +252,7 @@ export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX
       returnRam,
       localProgramRam,
       creditHookRam,
+      localStateRam,
     }),
   };
 }
@@ -222,14 +270,8 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
     return ghostState;
   }
 
-  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
-  const bufferedState = inspectBufferedPickerPatchState(
-    image,
-    slusEntry.sector,
-    format,
-    bufferedDefinition,
-  );
-  if (bufferedState.supported) return bufferedState;
+  const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
+  if (ghostToolState.supported) return ghostToolState;
 
   const definition = buildLocalX15Patch(slusEntry.name);
   return inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
@@ -241,17 +283,25 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   const slusEntry = findExecutableEntry(image, format);
 
   const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
-  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
-  const before = ghostState.supported
-    ? ghostState
-    : inspectBufferedPickerPatchState(image, slusEntry.sector, format, bufferedDefinition);
+  let before: DropX15PatchStatus = ghostState;
+  if (!before.supported) {
+    before = inspectGhostToolPatchState(image, slusEntry, format);
+  }
+  if (!before.supported) {
+    before = inspectLegacyLocalPatchState(
+      image,
+      slusEntry.sector,
+      format,
+      buildLocalX15Patch(slusEntry.name),
+    );
+  }
   if (!before.supported) throw new Error(before.reason);
   if (before.enabled) return { changed: false, status: before };
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
     writeGhostLoopPatch(image);
   } else {
-    writeBufferedPickerPatch(image, slusEntry.sector, format, bufferedDefinition);
+    writeGhostToolPatch(image, slusEntry, format);
   }
   writeFileSync(discPath, image);
 
@@ -264,6 +314,188 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
 export function patchUltimateX15(src: string, dst: string): PatchDropX15Result {
   copyFileSync(src, dst);
   return patchDropX15DiscInPlace(dst);
+}
+
+function inspectGhostToolPatchState(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+): DropX15PatchStatus {
+  const waEntry = findWaMrgEntry(image, format);
+  if (!waEntry) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: slusEntry.name,
+      reason: "DATA/WA_MRG.MRG was not found; Ghost Drop More Cards requires both SLUS and WA_MRG.",
+    };
+  }
+
+  const hooksVanilla = GHOST_TOOL_SLUS_HOOKS.every((hook) =>
+    bytesMatchAt(image, slusEntry.sector, hook.offset, hook.vanilla, format),
+  );
+  const hooksPatched = GHOST_TOOL_SLUS_HOOKS.every((hook) =>
+    bytesMatchAt(image, slusEntry.sector, hook.offset, hook.patched, format),
+  );
+  const slusExpansionPatched = bytesMatchAt(
+    image,
+    slusEntry.sector,
+    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+    GHOST_TOOL_EXPANSION,
+    format,
+  );
+  const waExpansionPatched = ghostToolWaCopiesPatched(image, waEntry, format);
+
+  if (hooksPatched && slusExpansionPatched && waExpansionPatched) {
+    return {
+      supported: true,
+      enabled: true,
+      definitionId: GHOST_TOOL_DEFINITION_ID,
+      definitionName: GHOST_TOOL_DEFINITION_NAME,
+      gameSerial: slusEntry.name,
+    };
+  }
+
+  if (hooksVanilla && ghostToolWaCopiesInRange(waEntry)) {
+    return {
+      supported: true,
+      enabled: false,
+      definitionId: GHOST_TOOL_DEFINITION_ID,
+      definitionName: GHOST_TOOL_DEFINITION_NAME,
+      gameSerial: slusEntry.name,
+    };
+  }
+
+  return {
+    supported: false,
+    enabled: false,
+    gameSerial: slusEntry.name,
+    reason:
+      "The executable does not match the Ghost Drop More Cards hook layout; refusing the unverified x15 patch.",
+  };
+}
+
+function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscFormat): void {
+  const waEntry = findWaMrgEntry(image, format);
+  if (!waEntry) throw new Error("DATA/WA_MRG.MRG was not found.");
+
+  for (const hook of GHOST_TOOL_SLUS_HOOKS) {
+    writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
+  }
+  writeBytesAt(
+    image,
+    slusEntry.sector,
+    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+    GHOST_TOOL_EXPANSION,
+    format,
+  );
+
+  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
+    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
+    writeBytesAt(image, waEntry.sector, copyOffset, GHOST_TOOL_EXPANSION, format);
+    writeGhostToolWaLimit(
+      image,
+      waEntry,
+      format,
+      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[0],
+      GHOST_TOOL_FIRST_LIMIT,
+    );
+    writeGhostToolWaLimit(
+      image,
+      waEntry,
+      format,
+      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[1],
+      GHOST_TOOL_FIRST_LIMIT,
+    );
+    writeGhostToolWaLimit(
+      image,
+      waEntry,
+      format,
+      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[2],
+      GHOST_TOOL_LAST_LIMIT,
+    );
+  }
+  for (const limit of GHOST_TOOL_WA_EXTRA_LIMITS) {
+    writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
+  }
+}
+
+function ghostToolWaCopiesPatched(image: Buffer, waEntry: IsoFile, format: DiscFormat): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry)) return false;
+  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
+    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
+    if (!bytesMatchAt(image, waEntry.sector, copyOffset, GHOST_TOOL_EXPANSION, format))
+      return false;
+  }
+  return GHOST_TOOL_WA_EXTRA_LIMITS.every(
+    (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === limit.value,
+  );
+}
+
+function ghostToolWaCopiesInRange(waEntry: IsoFile): boolean {
+  const lastCopyOffset = GHOST_TOOL_COPY_OFFSET + GHOST_TOOL_COPY_COUNT * GHOST_TOOL_COPY_STRIDE;
+  const lastExtraOffset = Math.max(...GHOST_TOOL_WA_EXTRA_LIMITS.map((limit) => limit.offset));
+  return (
+    lastCopyOffset + GHOST_TOOL_EXPANSION.length <= waEntry.size && lastExtraOffset < waEntry.size
+  );
+}
+
+function writeGhostToolWaLimit(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  offset: number,
+  value: number,
+): void {
+  image[discOffset(waEntry.sector, offset, format)] = value;
+}
+
+function findWaMrgEntry(image: Buffer, format: DiscFormat): IsoFile | null {
+  const pvd = readSector(image, PVD_SECTOR, format);
+  const root = pvd.subarray(156, 190);
+  const rootData = readSectors(
+    image,
+    root.readUInt32LE(2),
+    Math.ceil(root.readUInt32LE(10) / SECTOR_DATA_SIZE),
+    format,
+  );
+  const rootFiles = parseDirectory(rootData, root.readUInt32LE(10));
+  const dataDir = rootFiles.find((file) => file.isDir && file.name === "DATA");
+  if (!dataDir) return null;
+  const dataDirData = readSectors(
+    image,
+    dataDir.sector,
+    Math.ceil(dataDir.size / SECTOR_DATA_SIZE),
+    format,
+  );
+  return (
+    parseDirectory(dataDirData, dataDir.size).find((file) => file.name === "WA_MRG.MRG") ?? null
+  );
+}
+
+function bytesMatchAt(
+  image: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  expected: Buffer,
+  format: DiscFormat,
+): boolean {
+  for (let i = 0; i < expected.length; i++) {
+    if (image[discOffset(fileStartSector, fileOffset + i, format)] !== expected[i]) return false;
+  }
+  return true;
+}
+
+function writeBytesAt(
+  image: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  bytes: Buffer,
+  format: DiscFormat,
+): void {
+  for (let i = 0; i < bytes.length; i++) {
+    image[discOffset(fileStartSector, fileOffset + i, format)] = bytes[i] ?? 0;
+  }
 }
 
 function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15PatchStatus {
@@ -322,112 +554,6 @@ function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
     offset = matchOffset + 1;
   }
   return offsets;
-}
-
-function inspectBufferedPickerPatchState(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: BufferedPickerX15PatchDefinition,
-): DropX15PatchStatus {
-  const hooksVanilla = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.vanilla,
-  );
-  const hooksPatched = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const requiredOk = definition.requiredWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const hostVanilla = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgramVanilla,
-  );
-  const hostPatched = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgram,
-  );
-  const legacyLocalPatch = isLegacyLocalPatch(image, slusSector, format);
-  const unsafeFreezeSelectorPatch = isUnsafeFreezeSelectorPatch(
-    image,
-    slusSector,
-    format,
-    buildLocalX15Patch(definition.gameSerial),
-  );
-
-  if (requiredOk && hooksPatched && hostPatched) {
-    return {
-      supported: true,
-      enabled: true,
-      definitionId: definition.id,
-      definitionName: definition.name,
-      gameSerial: definition.gameSerial,
-    };
-  }
-
-  if (requiredOk && hooksVanilla && hostVanilla) {
-    return {
-      supported: true,
-      enabled: false,
-      definitionId: definition.id,
-      definitionName: definition.name,
-      gameSerial: definition.gameSerial,
-    };
-  }
-
-  if (requiredOk && (legacyLocalPatch || unsafeFreezeSelectorPatch)) {
-    return {
-      supported: true,
-      enabled: false,
-      definitionId: definition.id,
-      definitionName: definition.name,
-      gameSerial: definition.gameSerial,
-      reason:
-        "A legacy local x15 patch is installed; enabling 15-card drops will upgrade it to the buffered original-picker patch.",
-    };
-  }
-
-  return {
-    supported: false,
-    enabled: false,
-    gameSerial: definition.gameSerial,
-    reason: "The active executable does not match the buffered original-picker x15 layout.",
-  };
-}
-
-function isLegacyLocalPatch(image: Buffer, slusSector: number, format: DiscFormat): boolean {
-  return (
-    readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format) === mipsJal(PICK_DROP_RAM) &&
-    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET, format) === mipsJ(LOCAL_PROGRAM_RAM) &&
-    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET + 4, format) === mipsNop() &&
-    wordsMatch(image, slusSector, format, LOCAL_PROGRAM_OFFSET, buildLocalProgramWords())
-  );
-}
-
-function writeBufferedPickerPatch(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: BufferedPickerX15PatchDefinition,
-): void {
-  for (const word of definition.writeWords) {
-    writeU32LeAt(image, slusSector, word.fileOffset, word.patched, format);
-  }
-  for (let i = 0; i < definition.localProgram.length; i++) {
-    writeU32LeAt(
-      image,
-      slusSector,
-      definition.localProgramOffset + i * 4,
-      definition.localProgram[i] ?? 0,
-      format,
-    );
-  }
 }
 
 function inspectLegacyLocalPatchState(
@@ -594,6 +720,7 @@ interface BufferedPickerProgramAddresses {
   returnRam: number;
   localProgramRam: number;
   creditHookRam: number;
+  localStateRam: number;
 }
 
 function buildBufferedPickerProgramWords(
@@ -606,37 +733,20 @@ function buildBufferedPickHookWords(
   addresses: Partial<BufferedPickerProgramAddresses> = {},
 ): readonly number[] {
   const pickDropRam = addresses.pickDropRam ?? PICK_DROP_RAM;
-  const localProgramRam = addresses.localProgramRam ?? LOCAL_PROGRAM_RAM;
-  const loopRam = localProgramRam + 40;
-  const loopBranchRam = localProgramRam + 84;
+  const localStateRam =
+    addresses.localStateRam ?? LOCAL_PROGRAM_RAM + LOCAL_STATE_OFFSET_FROM_PROGRAM;
 
   return [
     mipsAddiu(REG.sp, REG.sp, -32),
     mipsSw(REG.ra, 28, REG.sp),
-    mipsSw(REG.a0, 24, REG.sp),
+    mipsLui(REG.t0, upper16(localStateRam)),
+    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
+    mipsSh(REG.a0, 0, REG.t0),
     mipsJal(pickDropRam),
     mipsNop(),
-    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
-    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
-    mipsSh(REG.v0, 0, REG.t0),
-    mipsAddiu(REG.t1, REG.zero, 1),
-    mipsSw(REG.t1, 16, REG.sp),
-    mipsLw(REG.a0, 24, REG.sp),
-    mipsJal(pickDropRam),
-    mipsNop(),
-    mipsLw(REG.t1, 16, REG.sp),
-    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
-    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
-    mipsSll(REG.t2, REG.t1, 1),
-    mipsAddu(REG.t0, REG.t0, REG.t2),
-    mipsSh(REG.v0, 0, REG.t0),
-    mipsAddiu(REG.t1, REG.t1, 1),
-    mipsSltiu(REG.t2, REG.t1, BUFFERED_DROP_COUNT),
-    mipsBne(REG.t2, REG.zero, loopRam, loopBranchRam),
-    mipsSw(REG.t1, 16, REG.sp),
-    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
-    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
-    mipsLhu(REG.v0, 0, REG.t0),
+    mipsLui(REG.t0, upper16(localStateRam)),
+    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
+    mipsSh(REG.v0, 2, REG.t0),
     mipsLw(REG.ra, 28, REG.sp),
     mipsJr(REG.ra),
     mipsAddiu(REG.sp, REG.sp, 32),
@@ -646,25 +756,32 @@ function buildBufferedPickHookWords(
 function buildBufferedCreditHookWords(
   addresses: BufferedPickerProgramAddresses,
 ): readonly number[] {
-  const loopRam = addresses.creditHookRam + 16;
-  const loopBranchRam = addresses.creditHookRam + 52;
+  const loopRam = addresses.creditHookRam + 48;
+  const loopBranchRam = addresses.creditHookRam + 84;
 
   return [
     mipsAddiu(REG.sp, REG.sp, -24),
     mipsSw(REG.ra, 20, REG.sp),
     mipsSw(REG.s0, 16, REG.sp),
-    mipsAddiu(REG.s0, REG.zero, 0),
-    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
-    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
-    mipsSll(REG.t1, REG.s0, 1),
-    mipsAddu(REG.t0, REG.t0, REG.t1),
-    mipsLhu(REG.a0, 0, REG.t0),
+    mipsSw(REG.s1, 12, REG.sp),
+    mipsLui(REG.t0, upper16(addresses.localStateRam)),
+    mipsOri(REG.t0, REG.t0, lower16(addresses.localStateRam)),
+    mipsLhu(REG.s1, 0, REG.t0),
+    mipsLhu(REG.a0, 2, REG.t0),
+    mipsJal(addresses.creditCardRam),
+    mipsNop(),
+    mipsAddiu(REG.s0, REG.zero, 1),
+    mipsAddu(REG.a0, REG.s1, REG.zero),
+    mipsJal(addresses.pickDropRam),
+    mipsNop(),
+    mipsAddu(REG.a0, REG.v0, REG.zero),
     mipsJal(addresses.creditCardRam),
     mipsNop(),
     mipsAddiu(REG.s0, REG.s0, 1),
     mipsSltiu(REG.t2, REG.s0, BUFFERED_DROP_COUNT),
     mipsBne(REG.t2, REG.zero, loopRam, loopBranchRam),
     mipsNop(),
+    mipsLw(REG.s1, 12, REG.sp),
     mipsLw(REG.s0, 16, REG.sp),
     mipsLw(REG.ra, 20, REG.sp),
     mipsJ(addresses.returnRam),
@@ -769,18 +886,6 @@ function readU32LeAt(
       ((image[discOffset(fileStartSector, fileOffset + 3, format)] ?? 0) << 24)) >>>
     0
   );
-}
-
-function writeU32LeAt(
-  image: Buffer,
-  fileStartSector: number,
-  fileOffset: number,
-  value: number,
-  format: DiscFormat,
-): void {
-  for (let i = 0; i < 4; i++) {
-    image[discOffset(fileStartSector, fileOffset + i, format)] = (value >>> (i * 8)) & 0xff;
-  }
 }
 
 function mipsNop(): number {

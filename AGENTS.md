@@ -40,4 +40,5 @@ When choosing a solution, apply these principles:
 
 - `api.deck.getDeck` currently sorts returned rows by `cardId`, not by the fractional `order` field from the schema. If deck order matters for a change, do not assume the query preserves it.
 - Rank scoring thresholds live in repeated loaded executable copies in the raw BIN, not reliably in the ISO9660-extracted `SLUS_014.11`. RP 1.3 patches 39 of 40 copies of the cards-used row; scanning only the extracted executable shows zeroed runtime data and misses the active rank table.
+- The community x15 drop recipe is Ghost's `Drop More Cards` approach: patch both the root executable and `DATA/WA_MRG.MRG`. Do not reintroduce local reward trampolines. Gold is close to vanilla but has a local continuation instruction at `SLUS:0x1247c`; preserve it by writing only the necessary hook words.
 - Use `bun run test`, not raw `bun test`: the test suite relies on Vitest features and environment directives such as `vi.hoisted` and `happy-dom`.
