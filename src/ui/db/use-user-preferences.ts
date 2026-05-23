@@ -13,7 +13,7 @@ import {
   localCpuSwapsAtom,
   localSettingsAtom,
 } from "../lib/bridge-snapshot-atoms.ts";
-import { useCardDb } from "../lib/card-db-context.tsx";
+import { useOptionalCardDb } from "../lib/card-db-context.tsx";
 
 type UserSettings = Doc<"userSettings">;
 
@@ -53,11 +53,11 @@ export function useDeckSize() {
   const localSettings = useAtomValue(localSettingsAtom);
   const prefs = useUserModSettings();
   const bridgeDeck = useAtomValue(bridgeDeckAtom);
-  const cardDb = useCardDb();
+  const cardDb = useOptionalCardDb();
   if (autoSync) {
     if (localSettings.deckSizeOverride != null) return localSettings.deckSizeOverride;
     const preserve = localSettings.preserveUtilityCards ?? true;
-    if (preserve && bridgeDeck) {
+    if (preserve && bridgeDeck && cardDb) {
       const filtered = bridgeDeck.filter((id) => id > 0);
       return DECK_SIZE - countUtilityCards(filtered, cardDb.cardsById);
     }

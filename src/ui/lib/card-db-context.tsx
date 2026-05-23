@@ -12,3 +12,7 @@ export function useCardDb(): CardDb {
   if (!db) throw new Error("useCardDb must be used within a CardDbProvider");
   return db;
 }
+
+export function useOptionalCardDb(): CardDb | null {
+  return useContext(CardDbContext);
+}
