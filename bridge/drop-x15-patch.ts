@@ -32,8 +32,12 @@ const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
 const BUFFERED_PICKER_DEFINITION_ID = "buffered-picker-x15";
 const BUFFERED_PICKER_DEFINITION_NAME = "Buffered original-picker x15";
+const GOLD_EXPANSION_PICKER_DEFINITION_ID = "gold-expansion-picker-x15";
+const GOLD_EXPANSION_PICKER_DEFINITION_NAME = "Gold expansion original-picker x15";
 const LOCAL_STATE_OFFSET_FROM_PROGRAM = 0x110;
 const BUFFERED_DROP_COUNT = 15;
+const GOLD_EXPANSION_PROGRAM_OFFSET = 0x19b440;
+const GOLD_EXPANSION_PROGRAM_RAM = 0x801aac40;
 const PAL_FR_EXECUTABLE_SHIFT = 0xbc;
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
@@ -41,7 +45,7 @@ const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
 const GHOST_TOOL_COPY_OFFSET = 0xb4bf00;
 const GHOST_TOOL_COPY_STRIDE = 0x75800;
 const GHOST_TOOL_COPY_COUNT = 7;
-const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b440;
+const GHOST_TOOL_SLUS_EXPANSION_OFFSET = GOLD_EXPANSION_PROGRAM_OFFSET;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
@@ -257,6 +261,125 @@ export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX
   };
 }
 
+export function buildGoldExpansionPickerX15Patch(
+  gameSerial: string,
+): BufferedPickerX15PatchDefinition {
+  const pickDropRam = PICK_DROP_RAM;
+  const creditCardRam = CREDIT_CARD_RAM;
+  const returnRam = RETURN_RAM;
+  const localProgramRam = GOLD_EXPANSION_PROGRAM_RAM;
+  const creditHookRam = localProgramRam + buildGoldExpansionPickHookWords().length * 4;
+  const localStateRam = localProgramRam + LOCAL_STATE_OFFSET_FROM_PROGRAM;
+  const localProgram = buildGoldExpansionProgramWords({
+    pickDropRam,
+    creditCardRam,
+    returnRam,
+    localProgramRam,
+    creditHookRam,
+    localStateRam,
+  });
+
+  return {
+    id: GOLD_EXPANSION_PICKER_DEFINITION_ID,
+    name: GOLD_EXPANSION_PICKER_DEFINITION_NAME,
+    gameSerial,
+    pickDropRam,
+    creditCardRam,
+    returnRam,
+    localProgramRam,
+    creditHookRam,
+    localStateRam,
+    requiredWords: [
+      {
+        fileOffset: CREDIT_INCREMENT_OFFSET,
+        ram: CREDIT_INCREMENT_RAM,
+        vanilla: VANILLA_CREDIT_INCREMENT,
+        patched: VANILLA_CREDIT_INCREMENT,
+        label: "card-credit increment remains +1",
+      },
+    ],
+    writeWords: [
+      {
+        fileOffset: VISIBLE_PICK_HOOK_OFFSET,
+        ram: 0x80021c60,
+        vanilla: mipsJal(pickDropRam),
+        patched: mipsJal(localProgramRam),
+        label: "reward picker->Gold expansion x15 picker",
+      },
+      {
+        fileOffset: AWARD_HOOK_OFFSET,
+        ram: AWARD_HOOK_RAM,
+        vanilla: 0x8444003c,
+        patched: mipsJ(creditHookRam),
+        label: "award.lh->j Gold expansion x15 credit routine",
+      },
+      {
+        fileOffset: AWARD_HOOK_OFFSET + 4,
+        ram: AWARD_HOOK_RAM + 4,
+        vanilla: mipsJal(creditCardRam),
+        patched: mipsNop(),
+        label: "award.jal->nop",
+      },
+    ],
+    localProgramOffset: GOLD_EXPANSION_PROGRAM_OFFSET,
+    localProgramVanilla: new Array(localProgram.length).fill(0),
+    localProgram,
+  };
+}
+
+function buildGoldExpansionProgramWords(
+  addresses: BufferedPickerProgramAddresses,
+): readonly number[] {
+  return [
+    ...buildGoldExpansionPickHookWords(addresses),
+    ...buildGoldExpansionCreditHookWords(addresses),
+  ];
+}
+
+function buildGoldExpansionPickHookWords(
+  addresses: Partial<BufferedPickerProgramAddresses> = {},
+): readonly number[] {
+  const pickDropRam = addresses.pickDropRam ?? PICK_DROP_RAM;
+  const localStateRam =
+    addresses.localStateRam ?? GOLD_EXPANSION_PROGRAM_RAM + LOCAL_STATE_OFFSET_FROM_PROGRAM;
+
+  return [
+    mipsLui(REG.t0, upper16(localStateRam)),
+    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
+    mipsJ(pickDropRam),
+    mipsSh(REG.a0, 0, REG.t0),
+  ];
+}
+
+function buildGoldExpansionCreditHookWords(
+  addresses: BufferedPickerProgramAddresses,
+): readonly number[] {
+  const loopRam = addresses.creditHookRam + 32;
+  const loopBranchRam = addresses.creditHookRam + 60;
+
+  return [
+    mipsLw(REG.v0, 0x02e0, REG.gp),
+    mipsLh(REG.a0, 0x003c, REG.v0),
+    mipsJal(addresses.creditCardRam),
+    mipsNop(),
+    mipsLui(REG.t0, upper16(addresses.localStateRam)),
+    mipsOri(REG.t0, REG.t0, lower16(addresses.localStateRam)),
+    mipsLhu(REG.s1, 0, REG.t0),
+    mipsAddiu(REG.s0, REG.zero, EXTRA_RANDOM_DROPS),
+    mipsAddu(REG.a0, REG.s1, REG.zero),
+    mipsJal(addresses.pickDropRam),
+    mipsNop(),
+    mipsAddu(REG.a0, REG.v0, REG.zero),
+    mipsJal(addresses.creditCardRam),
+    mipsNop(),
+    mipsAddiu(REG.s0, REG.s0, -1),
+    mipsBne(REG.s0, REG.zero, loopRam, loopBranchRam),
+    mipsNop(),
+    mipsJ(addresses.returnRam),
+    mipsNop(),
+  ];
+}
+
 export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
   const image = readFileSync(discPath);
   return inspectDropX15Image(image);
@@ -273,17 +396,21 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
   if (ghostToolState.supported) return ghostToolState;
 
-  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
-  const bufferedState = inspectBufferedPickerPatchState(
+  const definition = buildLocalX15Patch(slusEntry.name);
+  const legacyState = inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
+  if (isSpecificLegacyPatchState(legacyState)) return legacyState;
+
+  const goldExpansionDefinition = buildGoldExpansionPickerX15Patch(slusEntry.name);
+  const goldExpansionState = inspectGoldExpansionPickerPatchState(
     image,
     slusEntry.sector,
     format,
-    bufferedDefinition,
+    goldExpansionDefinition,
   );
-  if (bufferedState.supported) return bufferedState;
+  if (goldExpansionState.supported) return goldExpansionState;
+  if (isDisabledGoldPatchState(goldExpansionState)) return goldExpansionState;
 
-  const definition = buildLocalX15Patch(slusEntry.name);
-  return inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
+  return legacyState;
 }
 
 export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
@@ -297,10 +424,6 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
     before = inspectGhostToolPatchState(image, slusEntry, format);
   }
   if (!before.supported) {
-    const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
-    before = inspectBufferedPickerPatchState(image, slusEntry.sector, format, bufferedDefinition);
-  }
-  if (!before.supported) {
     before = inspectLegacyLocalPatchState(
       image,
       slusEntry.sector,
@@ -308,17 +431,28 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
       buildLocalX15Patch(slusEntry.name),
     );
   }
+  if (!before.supported && isSpecificLegacyPatchState(before)) throw new Error(before.reason);
+  if (!before.supported) {
+    const goldExpansionDefinition = buildGoldExpansionPickerX15Patch(slusEntry.name);
+    before = inspectGoldExpansionPickerPatchState(
+      image,
+      slusEntry.sector,
+      format,
+      goldExpansionDefinition,
+    );
+  }
+  if (!before.supported && isDisabledGoldPatchState(before)) throw new Error(before.reason);
   if (!before.supported) throw new Error(before.reason);
   if (before.enabled) return { changed: false, status: before };
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
     writeGhostLoopPatch(image);
-  } else if (before.definitionId === BUFFERED_PICKER_DEFINITION_ID) {
-    writeBufferedPickerPatch(
+  } else if (before.definitionId === GOLD_EXPANSION_PICKER_DEFINITION_ID) {
+    writeGoldExpansionPickerPatch(
       image,
       slusEntry.sector,
       format,
-      buildBufferedPickerX15Patch(slusEntry.name),
+      buildGoldExpansionPickerX15Patch(slusEntry.name),
     );
   } else {
     writeGhostToolPatch(image, slusEntry, format);
@@ -329,6 +463,23 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   if (!after.supported) throw new Error(after.reason);
   if (!after.enabled) throw new Error("15-card drop patch did not persist after writing.");
   return { changed: true, status: after };
+}
+
+function isDisabledGoldPatchState(status: DropX15PatchStatus): boolean {
+  return (
+    !status.supported &&
+    status.gameSerial === "SLUS_000.04" &&
+    status.reason.startsWith("Gold x15 patching is disabled")
+  );
+}
+
+function isSpecificLegacyPatchState(status: DropX15PatchStatus): boolean {
+  return (
+    !status.supported &&
+    (status.reason.startsWith("This disc has the legacy local x15 trampoline installed.") ||
+      status.reason.startsWith("This executable matches the legacy local x15 layout,") ||
+      status.reason.startsWith("An unsafe legacy 15-card-drop patch is installed."))
+  );
 }
 
 export function patchUltimateX15(src: string, dst: string): PatchDropX15Result {
@@ -586,18 +737,32 @@ function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
   return offsets;
 }
 
-function inspectBufferedPickerPatchState(
+function inspectGoldExpansionPickerPatchState(
   image: Buffer,
   slusSector: number,
   format: DiscFormat,
   definition: BufferedPickerX15PatchDefinition,
 ): DropX15PatchStatus {
+  void image;
+  void slusSector;
+  void format;
+
+  if (definition.gameSerial === "SLUS_000.04") {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: definition.gameSerial,
+      reason:
+        "Gold x15 patching is disabled until a crash-free recipe is proven. The previous expansion picker crashed entering the result screen.",
+    };
+  }
+
   if (definition.gameSerial !== "SLUS_000.04") {
     return {
       supported: false,
       enabled: false,
       gameSerial: definition.gameSerial,
-      reason: "The local-state x15 picker is only verified for Gold SLUS_000.04.",
+      reason: "The Gold expansion x15 picker is only verified for Gold SLUS_000.04.",
     };
   }
 
@@ -649,11 +814,11 @@ function inspectBufferedPickerPatchState(
     supported: false,
     enabled: false,
     gameSerial: definition.gameSerial,
-    reason: "The executable does not match the verified Gold local-state x15 layout.",
+    reason: "The executable does not match the verified Gold expansion x15 layout.",
   };
 }
 
-function writeBufferedPickerPatch(
+function writeGoldExpansionPickerPatch(
   image: Buffer,
   slusSector: number,
   format: DiscFormat,

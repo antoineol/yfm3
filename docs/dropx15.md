@@ -11,10 +11,15 @@ Ghost/FMR pour les images `SLUS_014.11` compatibles :
 Exception Gold `SLUS_000.04` : ne pas injecter la recette Ghost dans
 `DATA/WA_MRG.MRG`. Les blocs WA_MRG actifs de Gold diffèrent de vanilla, et
 cette injection a provoqué un crash dès le début du duel après le tirage de la
-main. Gold utilise à la place `buffered-picker-x15`, un patch limité au root
-executable qui capture le sélecteur de pool au premier appel du picker, crédite
-la carte affichée, puis relance 14 fois le picker original avec le même
-sélecteur.
+main. La décompilation C Ghidra de Gold confirme le flux vanilla-like :
+`FUN_80021810(selector)` choisit une carte, `FUN_80021894(card)` la crédite, et
+`FUN_800218f0` choisit la carte affichée à l'entrée de l'écran de résultat puis
+la crédite plus tard au site `0x80021f10`. Gold branche aussi dans le code
+original à `0x80021f24`, donc ce bloc ne doit pas être traité comme espace libre
+général. Les variantes buffered/extension testées (`0x80021f24` avec hook
+visible, puis `SLUS:0x19b440` / RAM `0x801aac40`) ont crashé à l'entrée de
+l'écran de résultat. Gold x15 est donc désactivé jusqu'à recette testée
+manuellement.
 
 ## Objectif
 
@@ -87,7 +92,7 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 | --------------------------------------------- | ----------------- | -------------------------------------------------------- | ---------------------------- |
 | `15 card mod/…uibak` (US vanilla BIN)         | `SLUS_014.11`     | Oui, 8× (1 dans WA_MRG+7 EXE)                            | ✅                           |
 | `Yu-Gi-Oh! Mod 15.bin`                        | `SLUS_014.11`     | Legacy trampoline local installé                         | ❌ restaurer/repatcher Ghost |
-| `Yu-Gi-Oh! Forbidden Memories Gold.bin`       | `SLUS_000.04`     | Layout local vérifié, WA_MRG différent de vanilla        | ✅ via `buffered-picker-x15` |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`       | `SLUS_000.04`     | WA_MRG différent, buffered/extension crashent            | ❌ désactivé                 |
 | `FMR Remastered Perfected[15].bin`            | `SLUS_014.11`     | Oui, 1× (vestige) + 7× déjà patchées                     | ✅ (déjà patchée)            |
 | `FMR Vanilla Remastered 1.3.bin`              | `SLUS_014.11`     | Identique au cas ci-dessus                               | ✅                           |
 | `Alpha Mod (Drop x15).iso`                    | `SLUS_014.11`     | Déjà patchée (7 occurrences x15)                         | ✅ (déjà patchée)            |
@@ -109,11 +114,19 @@ trampoline local historique qui recomputait un pool tardivement. Cette variante
 a produit des récompenses impossibles ou désynchronisées sur Gold; elle est
 donc traitée comme état legacy à restaurer, pas comme patch activable.
 
-La variante `freeze-selector` reste explicitement refusée. `buffered-picker-x15`
-est autorisée uniquement pour Gold `SLUS_000.04`; elle doit boucler vers le
-rechargement du sélecteur capturé avant chaque appel au picker. Boucler
-directement vers l'appel au picker réutilise la carte précédente comme
-sélecteur et peut produire des récompenses impossibles.
+La variante `freeze-selector` reste explicitement refusée. Le local-host
+`buffered-picker-x15` à `0x80021f24` est également refusé après crash confirmé
+à l'entrée de l'écran de résultat. Son dernier bug connu avant désactivation :
+il doit boucler vers le rechargement du sélecteur capturé avant chaque appel au
+picker. Boucler directement vers l'appel au picker réutilise la carte
+précédente comme sélecteur et peut produire des récompenses impossibles.
+
+Piste suivante pour Gold : tester isolément un candidat no-stack au seul site
+d'award, c'est-à-dire créditer la carte affichée puis faire 14 appels
+supplémentaires à `FUN_80021810(selector)` + `FUN_80021894(card)` avant de
+revenir à `0x8002209c`. La recette doit préserver le flux affichage/résultat
+de `FUN_800218f0`; le point à vérifier empiriquement est que les champs
+`result+0x38/0x39` conservent le bon sélecteur POW/TEC jusqu'au crédit.
 
 ## Cibles
 

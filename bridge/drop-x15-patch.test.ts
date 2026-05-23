@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
-  type BufferedPickerX15PatchDefinition,
   buildBufferedPickerX15Patch,
+  buildGoldExpansionPickerX15Patch,
   buildLocalX15Patch,
   type DropX15PatchDefinition,
   inspectDropX15Image,
@@ -92,19 +92,17 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("supports clean Gold with the verified buffered original-picker layout", () => {
+  test("rejects clean Gold until a crash-free x15 recipe is proven", () => {
     const image = makeDiscImage("SLUS_000.04");
 
-    expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
+    expect(inspectDropX15Image(image)).toMatchObject({
+      supported: false,
       enabled: false,
-      definitionId: "buffered-picker-x15",
-      definitionName: "Buffered original-picker x15",
       gameSerial: "SLUS_000.04",
     });
   });
 
-  test("patches clean Gold through SLUS only and leaves WA_MRG unchanged", () => {
+  test("does not patch clean Gold while the Gold recipe is disabled", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
     const image = makeBufferedDiscImageWithWa("SLUS_000.04");
@@ -112,28 +110,23 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, image);
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
+      expect(() => patchDropX15DiscInPlace(discPath)).toThrow(
+        "Gold x15 patching is disabled until a crash-free recipe is proven.",
+      );
       const patched = readFileSync(discPath);
 
-      expect(result.changed).toBe(true);
-      expect(result.status).toMatchObject({
-        supported: true,
-        enabled: true,
-        definitionId: "buffered-picker-x15",
-      });
       expect(Buffer.compare(patched.subarray(waOffset(0), waOffset(0xe84000)), beforeWa)).toBe(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  test("Gold buffered extra rolls keep reloading the captured selector", () => {
-    const patch = buildBufferedPickerX15Patch("SLUS_000.04");
-    const sltiuIndex = patch.localProgram.indexOf(0x2e0a000f);
+  test("Gold expansion extra rolls keep reloading the captured selector", () => {
+    const patch = buildGoldExpansionPickerX15Patch("SLUS_000.04");
+    const branchIndex = patch.localProgram.indexOf(0x1600fff8);
 
-    expect(sltiuIndex).toBeGreaterThan(0);
-    expect(patch.localProgram[sltiuIndex - 7]).toBe(0x02202021);
-    expect(patch.localProgram[sltiuIndex + 1]).toBe(0x1540fff7);
+    expect(branchIndex).toBeGreaterThan(0);
+    expect(patch.localProgram[branchIndex - 7]).toBe(0x02202021);
   });
 
   test("rejects the shifted PAL France local layout instead of installing a custom trampoline", () => {
@@ -248,10 +241,13 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   const rootSector = 20;
   const patch = buildLocalX15Patch(serial);
   const bufferedPatch = buildBufferedPickerX15Patch(serial);
+  const goldExpansionPatch = buildGoldExpansionPickerX15Patch(serial);
   const localEnd = patch.localProgramOffset + patch.localProgram.length * 4;
   const bufferedEnd =
     bufferedPatch.localProgramOffset + bufferedPatch.localProgramVanilla.length * 4;
-  const slusSize = Math.max(localEnd, bufferedEnd) + 0x100;
+  const goldExpansionEnd =
+    goldExpansionPatch.localProgramOffset + goldExpansionPatch.localProgramVanilla.length * 4;
+  const slusSize = Math.max(localEnd, bufferedEnd, goldExpansionEnd) + 0x100;
   const image = Buffer.alloc(
     (slusSector + Math.ceil(slusSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
   );
@@ -259,7 +255,11 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   writePrimaryVolumeDescriptor(image, rootSector);
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
   if (seed)
-    seedUnpatchedExecutable(image, slusSector, serial === "SLUS_000.04" ? bufferedPatch : patch);
+    seedUnpatchedExecutable(
+      image,
+      slusSector,
+      serial === "SLUS_000.04" ? goldExpansionPatch : patch,
+    );
 
   return image;
 }
@@ -269,7 +269,7 @@ function makeBufferedDiscImageWithWa(serial: string): Buffer {
   const slusSector = 21;
   const dataSector = 1000;
   const waSector = 1001;
-  const patch = buildBufferedPickerX15Patch(serial);
+  const patch = buildGoldExpansionPickerX15Patch(serial);
   const slusSize = patch.localProgramOffset + patch.localProgramVanilla.length * 4 + 0x100;
   const waSize = 0xe84000;
   const image = Buffer.alloc(
@@ -390,7 +390,7 @@ function seedGhostToolHooks(image: Buffer, slusSector: number, continuationWord:
 function seedUnpatchedExecutable(
   image: Buffer,
   slusSector: number,
-  patch: DropX15PatchDefinition | BufferedPickerX15PatchDefinition,
+  patch: DropX15PatchDefinition | ReturnType<typeof buildBufferedPickerX15Patch>,
 ): void {
   for (const word of patch.requiredWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
