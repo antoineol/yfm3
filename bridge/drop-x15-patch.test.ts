@@ -64,10 +64,10 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("treats the older runtime-selector patch as upgradeable", () => {
+  test("treats the unsafe freeze-selector patch as upgradeable", () => {
     const serial = "SLUS_000.04";
     const image = makeDiscImage(serial);
-    seedLegacyRuntimeSelectorPatch(image, 21);
+    seedUnsafeFreezeSelectorPatch(image, 21);
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
@@ -76,7 +76,7 @@ describe("drop x15 patch inspection", () => {
       definitionName: "Local x15-compatible layout",
       gameSerial: serial,
       reason:
-        "An older 15-card-drop patch is installed; re-enable the patch to keep all 15 rewards in the displayed rank pool.",
+        "An unsafe 15-card-drop patch is installed; re-enable the patch to restore the tested reward routine.",
     });
   });
 });
@@ -146,14 +146,15 @@ function seedUnpatchedExecutable(
   }
 }
 
-function seedLegacyRuntimeSelectorPatch(image: Buffer, slusSector: number): void {
+function seedUnsafeFreezeSelectorPatch(image: Buffer, slusSector: number): void {
+  writeU32(image, slusSector, 0x12460, 0x0c0087da);
   writeU32(image, slusSector, 0x12710, 0x080087c9);
   writeU32(image, slusSector, 0x12714, 0x00000000);
 
   const words = [
-    0x8f8202e0, 0x8444003c, 0x0c008625, 0x00000000, 0x8f8402e0, 0x90830039, 0x90820038, 0x0003182b,
-    0x00038840, 0x2c420003, 0x10400002, 0x00000000, 0x24110001, 0x2410000e, 0x02202021, 0x0c008604,
+    0x8f8202e0, 0x8444003c, 0x0c008625, 0x00000000, 0x9051003b, 0x2410000e, 0x02202021, 0x0c008604,
     0x00000000, 0x00402021, 0x0c008625, 0x00000000, 0x2610ffff, 0x1600fff8, 0x00000000, 0x08008827,
+    0x00000000, 0x03e08821, 0x8f8302e0, 0x0c008604, 0xa064003b, 0x02200008, 0x00000000, 0x00000000,
     0x00000000,
   ];
   for (let i = 0; i < words.length; i++) {

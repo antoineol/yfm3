@@ -19,13 +19,6 @@ describe("local x15 drop patch", () => {
     ]);
     expect(patch.writeWords).toEqual([
       {
-        fileOffset: 0x12460,
-        ram: 0x80021c60,
-        vanilla: 0x0c008604,
-        patched: 0x0c0087da,
-        label: "visible-pick.jal->freeze pool wrapper",
-      },
-      {
         fileOffset: 0x12710,
         ram: 0x80021f10,
         vanilla: 0x8444003c,
@@ -47,7 +40,15 @@ describe("local x15 drop patch", () => {
       0x8444003c, // lh a0, 0x003c(v0)
       0x0c008625, // jal 0x80021894
       0x00000000, // nop
-      0x9051003b, // lbu s1, 0x003b(v0)
+      0x8f8402e0, // lw a0, 0x02e0(gp)
+      0x90830039, // lbu v1, 0x0039(a0)
+      0x90820038, // lbu v0, 0x0038(a0)
+      0x0003182b, // sltu v1, zero, v1
+      0x00038840, // sll s1, v1, 1
+      0x2c420003, // sltiu v0, v0, 3
+      0x10400002, // beq v0, zero, useComputedPool
+      0x00000000, // nop
+      0x24110001, // addiu s1, zero, 1
       0x2410000e, // addiu s0, zero, 14
       0x02202021, // addu a0, s1, zero
       0x0c008604, // jal 0x80021810
@@ -59,14 +60,6 @@ describe("local x15 drop patch", () => {
       0x1600fff8, // bne s0, zero, extraLoop
       0x00000000, // nop
       0x08008827, // j 0x8002209c
-      0x00000000, // nop
-      0x03e08821, // addu s1, ra, zero
-      0x8f8302e0, // lw v1, 0x02e0(gp)
-      0x0c008604, // jal 0x80021810
-      0xa064003b, // sb a0, 0x003b(v1)
-      0x02200008, // jr s1
-      0x00000000, // nop
-      0x00000000, // nop
       0x00000000, // nop
     ]);
   });

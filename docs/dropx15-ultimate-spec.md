@@ -34,11 +34,10 @@ All offsets below are for the extracted `SLUS_027.11` executable within the Ulti
 
 ## Patch Sites
 
-Patch the visible-card picker and the award hook:
+Patch only the award hook instructions:
 
 | File offset | RAM | Vanilla word | Patched word | Meaning |
 |---:|---:|---:|---:|---|
-| `0x12460` | `0x80021c60` | `0x0c008604` | `0x0c0087da` | `jal 0x80021f68` |
 | `0x12710` | `0x80021f10` | `0x8444003c` | `0x080087c9` | `j 0x80021f24` |
 | `0x12714` | `0x80021f14` | `0x0c008625` | `0x00000000` | remove original `jal FUN_80021894` |
 
@@ -60,37 +59,36 @@ Write these 25 words at file offset `0x12724` / RAM `0x80021f24`:
 | `0x80021f28` | `0x8444003c` | `lh a0, 0x003c(v0)` |
 | `0x80021f2c` | `0x0c008625` | `jal 0x80021894` |
 | `0x80021f30` | `0x00000000` | `nop` |
-| `0x80021f34` | `0x9051003b` | `lbu s1, 0x003b(v0)` |
-| `0x80021f38` | `0x2410000e` | `addiu s0, zero, 14` |
-| `0x80021f3c` | `0x02202021` | `addu a0, s1, zero` |
-| `0x80021f40` | `0x0c008604` | `jal 0x80021810` |
-| `0x80021f44` | `0x00000000` | `nop` |
-| `0x80021f48` | `0x00402021` | `addu a0, v0, zero` |
-| `0x80021f4c` | `0x0c008625` | `jal 0x80021894` |
+| `0x80021f34` | `0x8f8402e0` | `lw a0, 0x02e0(gp)` |
+| `0x80021f38` | `0x90830039` | `lbu v1, 0x0039(a0)` |
+| `0x80021f3c` | `0x90820038` | `lbu v0, 0x0038(a0)` |
+| `0x80021f40` | `0x0003182b` | `sltu v1, zero, v1` |
+| `0x80021f44` | `0x00038840` | `sll s1, v1, 1` |
+| `0x80021f48` | `0x2c420003` | `sltiu v0, v0, 3` |
+| `0x80021f4c` | `0x10400002` | `beq v0, zero, 0x80021f58` |
 | `0x80021f50` | `0x00000000` | `nop` |
-| `0x80021f54` | `0x2610ffff` | `addiu s0, s0, -1` |
-| `0x80021f58` | `0x1600fff8` | `bne s0, zero, 0x80021f3c` |
-| `0x80021f5c` | `0x00000000` | `nop` |
-| `0x80021f60` | `0x08008827` | `j 0x8002209c` |
+| `0x80021f54` | `0x24110001` | `addiu s1, zero, 1` |
+| `0x80021f58` | `0x2410000e` | `addiu s0, zero, 14` |
+| `0x80021f5c` | `0x02202021` | `addu a0, s1, zero` |
+| `0x80021f60` | `0x0c008604` | `jal 0x80021810` |
 | `0x80021f64` | `0x00000000` | `nop` |
-| `0x80021f68` | `0x03e08821` | `addu s1, ra, zero` |
-| `0x80021f6c` | `0x8f8302e0` | `lw v1, 0x02e0(gp)` |
-| `0x80021f70` | `0x0c008604` | `jal 0x80021810` |
-| `0x80021f74` | `0xa064003b` | `sb a0, 0x003b(v1)` |
-| `0x80021f78` | `0x02200008` | `jr s1` |
+| `0x80021f68` | `0x00402021` | `addu a0, v0, zero` |
+| `0x80021f6c` | `0x0c008625` | `jal 0x80021894` |
+| `0x80021f70` | `0x00000000` | `nop` |
+| `0x80021f74` | `0x2610ffff` | `addiu s0, s0, -1` |
+| `0x80021f78` | `0x1600fff8` | `bne s0, zero, 0x80021f5c` |
 | `0x80021f7c` | `0x00000000` | `nop` |
-| `0x80021f80` | `0x00000000` | `nop` |
+| `0x80021f80` | `0x08008827` | `j 0x8002209c` |
 | `0x80021f84` | `0x00000000` | `nop` |
 
 ## Routine Behavior
 
-1. When the visible result card is picked, store its already-computed pool selector in reward-context byte `+0x3b`.
-2. Credit the displayed reward card once via `FUN_80021894`.
-3. Read the stored selector from `+0x3b`.
-4. Loop 14 times:
+1. Credit the displayed reward card once via `FUN_80021894`.
+2. Recompute the drop-pool selector from `*(gp + 0x02e0) + 0x38/0x39`.
+3. Loop 14 times:
    - call `FUN_80021810(poolSelector)` to choose a reward card,
    - call `FUN_80021894(cardId)` so the normal collection count and recent/new list are updated.
-5. Jump to `0x8002209c`, the original function tail.
+4. Jump to `0x8002209c`, the original function tail.
 
 This gives 15 total grants and lets the game maintain its own latest/new bookkeeping.
 
