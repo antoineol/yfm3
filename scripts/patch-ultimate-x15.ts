@@ -1,14 +1,11 @@
-// Patch Yu-Gi-Oh! Forbidden Memories Ultimate (SLUS_027.11) so a won duel
-// grants 15 cards. The exact formula is documented in
-// docs/dropx15-ultimate-spec.md.
+// Patch a compatible Yu-Gi-Oh! Forbidden Memories disc image so a won duel
+// grants 15 cards. The bridge patcher accepts only Ghost/FMR-compatible
+// layouts; legacy local trampolines are refused.
 //
 // Usage:
 //   bun scripts/patch-ultimate-x15.ts <input.iso> <output.iso>
 
-export {
-  buildLocalX15Patch,
-  patchUltimateX15,
-} from "../bridge/drop-x15-patch.ts";
+export { patchUltimateX15 } from "../bridge/drop-x15-patch.ts";
 
 import { patchUltimateX15 } from "../bridge/drop-x15-patch.ts";
 

@@ -11,46 +11,44 @@ import {
 import type { IsoFile } from "./extract/types.ts";
 import { discOffset } from "./extract/write-iso.ts";
 
-const CREDIT_INCREMENT_OFFSET = 0x120ac;
-const CREDIT_INCREMENT_RAM = 0x800218ac;
-const VANILLA_CREDIT_INCREMENT = 0x24420001;
-
 const AWARD_HOOK_OFFSET = 0x12710;
-const AWARD_HOOK_RAM = 0x80021f10;
 const VISIBLE_PICK_HOOK_OFFSET = 0x12460;
 const LOCAL_PROGRAM_OFFSET = 0x12724;
-const LOCAL_PROGRAM_RAM = 0x80021f24;
-
-const CREDIT_CARD_RAM = 0x80021894;
-const PICK_DROP_RAM = 0x80021810;
-const RETURN_RAM = 0x8002209c;
-const EXTRA_RANDOM_DROPS = 14;
 
 const GHOST_LOOP_DEFINITION_ID = "ghost-loop-limits";
 const GHOST_LOOP_DEFINITION_NAME = "Ghost/FMR loop-limit x15";
 const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
-const BUFFERED_PICKER_DEFINITION_ID = "buffered-picker-x15";
-const BUFFERED_PICKER_DEFINITION_NAME = "Buffered original-picker x15";
-const GOLD_EXPANSION_PICKER_DEFINITION_ID = "gold-expansion-picker-x15";
-const GOLD_EXPANSION_PICKER_DEFINITION_NAME = "Gold expansion original-picker x15";
-const LOCAL_STATE_OFFSET_FROM_PROGRAM = 0x110;
-const BUFFERED_DROP_COUNT = 15;
-const GOLD_EXPANSION_PROGRAM_OFFSET = 0x19b440;
-const GOLD_EXPANSION_PROGRAM_RAM = 0x801aac40;
-const PAL_FR_EXECUTABLE_SHIFT = 0xbc;
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
 const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
 const GHOST_TOOL_COPY_OFFSET = 0xb4c400;
 const GHOST_TOOL_COPY_STRIDE = 0x75800;
 const GHOST_TOOL_COPY_COUNT = 7;
-const GHOST_TOOL_SLUS_EXPANSION_OFFSET = GOLD_EXPANSION_PROGRAM_OFFSET;
+const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b440;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_EXTRA_LIMITS = [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }] as const;
+const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+
+const LEGACY_LOCAL_VISIBLE_PICK = 0x0c008604;
+const LEGACY_FREEZE_SELECTOR_VISIBLE_PICK = 0x0c0087da;
+const LEGACY_LOCAL_AWARD_JUMP = 0x080087c9;
+const LEGACY_LOCAL_AWARD_DELAY = 0x00000000;
+const LEGACY_LOCAL_PROGRAM_WORDS = [
+  0x8f8202e0, 0x8444003c, 0x0c008625, 0x00000000, 0x8f8402e0, 0x90830039, 0x90820038, 0x0003182b,
+  0x00038840, 0x2c420003, 0x10400002, 0x00000000, 0x24110001, 0x2410000e, 0x02202021, 0x0c008604,
+  0x00000000, 0x00402021, 0x0c008625, 0x00000000, 0x2610ffff, 0x1600fff8, 0x00000000, 0x08008827,
+  0x00000000,
+] as const;
+const LEGACY_FREEZE_SELECTOR_PROGRAM_WORDS = [
+  0x8f8202e0, 0x8444003c, 0x0c008625, 0x00000000, 0x9051003b, 0x2410000e, 0x02202021, 0x0c008604,
+  0x00000000, 0x00402021, 0x0c008625, 0x00000000, 0x2610ffff, 0x1600fff8, 0x00000000, 0x08008827,
+  0x00000000, 0x03e08821, 0x8f8302e0, 0x0c008604, 0xa064003b, 0x02200008, 0x00000000, 0x00000000,
+  0x00000000,
+] as const;
 
 const GHOST_TOOL_SLUS_HOOKS = [
   {
@@ -98,43 +96,6 @@ const GHOST_LOOP_PATTERNS = [
   },
 ] as const;
 
-export interface InstructionPatch {
-  fileOffset: number;
-  ram: number;
-  vanilla: number;
-  patched: number;
-  label: string;
-}
-
-export interface DropX15PatchDefinition {
-  id: string;
-  name: string;
-  gameSerial: string;
-  requiredWords: readonly InstructionPatch[];
-  writeWords: readonly InstructionPatch[];
-  localProgramOffset: number;
-  localProgramRam: number;
-  localProgramVanilla: readonly number[];
-  localProgram: readonly number[];
-}
-
-export interface BufferedPickerX15PatchDefinition {
-  id: string;
-  name: string;
-  gameSerial: string;
-  pickDropRam: number;
-  creditCardRam: number;
-  returnRam: number;
-  localProgramRam: number;
-  creditHookRam: number;
-  localStateRam: number;
-  requiredWords: readonly InstructionPatch[];
-  writeWords: readonly InstructionPatch[];
-  localProgramOffset: number;
-  localProgramVanilla: readonly number[];
-  localProgram: readonly number[];
-}
-
 export type DropX15PatchStatus =
   | {
       supported: true;
@@ -156,226 +117,6 @@ export interface PatchDropX15Result {
   status: Extract<DropX15PatchStatus, { supported: true }>;
 }
 
-export function buildLocalX15Patch(gameSerial: string): DropX15PatchDefinition {
-  return {
-    id: "local-award-trampoline",
-    name: "Local x15-compatible layout",
-    gameSerial,
-    requiredWords: [
-      {
-        fileOffset: CREDIT_INCREMENT_OFFSET,
-        ram: CREDIT_INCREMENT_RAM,
-        vanilla: VANILLA_CREDIT_INCREMENT,
-        patched: VANILLA_CREDIT_INCREMENT,
-        label: "card-credit increment remains +1",
-      },
-    ],
-    writeWords: [
-      {
-        fileOffset: AWARD_HOOK_OFFSET,
-        ram: AWARD_HOOK_RAM,
-        vanilla: 0x8444003c,
-        patched: mipsJ(LOCAL_PROGRAM_RAM),
-        label: "award.lh->j local x15 routine",
-      },
-      {
-        fileOffset: AWARD_HOOK_OFFSET + 4,
-        ram: AWARD_HOOK_RAM + 4,
-        vanilla: 0x0c008625,
-        patched: mipsNop(),
-        label: "award.jal->nop",
-      },
-    ],
-    localProgramOffset: LOCAL_PROGRAM_OFFSET,
-    localProgramRam: LOCAL_PROGRAM_RAM,
-    localProgramVanilla: buildLocalProgramVanillaWords(),
-    localProgram: buildLocalProgramWords(),
-  };
-}
-
-export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX15PatchDefinition {
-  const shift = bufferedPickerShift(gameSerial);
-  const pickDropRam = PICK_DROP_RAM + shift;
-  const creditCardRam = CREDIT_CARD_RAM + shift;
-  const returnRam = RETURN_RAM + shift;
-  const localProgramRam = LOCAL_PROGRAM_RAM + shift;
-  const creditHookRam = localProgramRam + buildBufferedPickHookWords().length * 4;
-  const localStateRam = localProgramRam + LOCAL_STATE_OFFSET_FROM_PROGRAM;
-
-  return {
-    id: BUFFERED_PICKER_DEFINITION_ID,
-    name: BUFFERED_PICKER_DEFINITION_NAME,
-    gameSerial,
-    pickDropRam,
-    creditCardRam,
-    returnRam,
-    localProgramRam,
-    creditHookRam,
-    localStateRam,
-    requiredWords: [
-      {
-        fileOffset: CREDIT_INCREMENT_OFFSET + shift,
-        ram: CREDIT_INCREMENT_RAM + shift,
-        vanilla: VANILLA_CREDIT_INCREMENT,
-        patched: VANILLA_CREDIT_INCREMENT,
-        label: "card-credit increment remains +1",
-      },
-    ],
-    writeWords: [
-      {
-        fileOffset: VISIBLE_PICK_HOOK_OFFSET + shift,
-        ram: 0x80021c60 + shift,
-        vanilla: mipsJal(pickDropRam),
-        patched: mipsJal(localProgramRam),
-        label: "reward picker->buffered x15 picker",
-      },
-      {
-        fileOffset: AWARD_HOOK_OFFSET + shift,
-        ram: AWARD_HOOK_RAM + shift,
-        vanilla: 0x8444003c,
-        patched: mipsJ(creditHookRam),
-        label: "award.lh->j buffered x15 credit routine",
-      },
-      {
-        fileOffset: AWARD_HOOK_OFFSET + shift + 4,
-        ram: AWARD_HOOK_RAM + shift + 4,
-        vanilla: mipsJal(creditCardRam),
-        patched: mipsNop(),
-        label: "award.jal->nop",
-      },
-    ],
-    localProgramOffset: LOCAL_PROGRAM_OFFSET + shift,
-    localProgramVanilla: buildBufferedPickerProgramVanillaWords(shift),
-    localProgram: buildBufferedPickerProgramWords({
-      pickDropRam,
-      creditCardRam,
-      returnRam,
-      localProgramRam,
-      creditHookRam,
-      localStateRam,
-    }),
-  };
-}
-
-export function buildGoldExpansionPickerX15Patch(
-  gameSerial: string,
-): BufferedPickerX15PatchDefinition {
-  const pickDropRam = PICK_DROP_RAM;
-  const creditCardRam = CREDIT_CARD_RAM;
-  const returnRam = RETURN_RAM;
-  const localProgramRam = GOLD_EXPANSION_PROGRAM_RAM;
-  const creditHookRam = localProgramRam + buildGoldExpansionPickHookWords().length * 4;
-  const localStateRam = localProgramRam + LOCAL_STATE_OFFSET_FROM_PROGRAM;
-  const localProgram = buildGoldExpansionProgramWords({
-    pickDropRam,
-    creditCardRam,
-    returnRam,
-    localProgramRam,
-    creditHookRam,
-    localStateRam,
-  });
-
-  return {
-    id: GOLD_EXPANSION_PICKER_DEFINITION_ID,
-    name: GOLD_EXPANSION_PICKER_DEFINITION_NAME,
-    gameSerial,
-    pickDropRam,
-    creditCardRam,
-    returnRam,
-    localProgramRam,
-    creditHookRam,
-    localStateRam,
-    requiredWords: [
-      {
-        fileOffset: CREDIT_INCREMENT_OFFSET,
-        ram: CREDIT_INCREMENT_RAM,
-        vanilla: VANILLA_CREDIT_INCREMENT,
-        patched: VANILLA_CREDIT_INCREMENT,
-        label: "card-credit increment remains +1",
-      },
-    ],
-    writeWords: [
-      {
-        fileOffset: VISIBLE_PICK_HOOK_OFFSET,
-        ram: 0x80021c60,
-        vanilla: mipsJal(pickDropRam),
-        patched: mipsJal(localProgramRam),
-        label: "reward picker->Gold expansion x15 picker",
-      },
-      {
-        fileOffset: AWARD_HOOK_OFFSET,
-        ram: AWARD_HOOK_RAM,
-        vanilla: 0x8444003c,
-        patched: mipsJ(creditHookRam),
-        label: "award.lh->j Gold expansion x15 credit routine",
-      },
-      {
-        fileOffset: AWARD_HOOK_OFFSET + 4,
-        ram: AWARD_HOOK_RAM + 4,
-        vanilla: mipsJal(creditCardRam),
-        patched: mipsNop(),
-        label: "award.jal->nop",
-      },
-    ],
-    localProgramOffset: GOLD_EXPANSION_PROGRAM_OFFSET,
-    localProgramVanilla: new Array(localProgram.length).fill(0),
-    localProgram,
-  };
-}
-
-function buildGoldExpansionProgramWords(
-  addresses: BufferedPickerProgramAddresses,
-): readonly number[] {
-  return [
-    ...buildGoldExpansionPickHookWords(addresses),
-    ...buildGoldExpansionCreditHookWords(addresses),
-  ];
-}
-
-function buildGoldExpansionPickHookWords(
-  addresses: Partial<BufferedPickerProgramAddresses> = {},
-): readonly number[] {
-  const pickDropRam = addresses.pickDropRam ?? PICK_DROP_RAM;
-  const localStateRam =
-    addresses.localStateRam ?? GOLD_EXPANSION_PROGRAM_RAM + LOCAL_STATE_OFFSET_FROM_PROGRAM;
-
-  return [
-    mipsLui(REG.t0, upper16(localStateRam)),
-    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
-    mipsJ(pickDropRam),
-    mipsSh(REG.a0, 0, REG.t0),
-  ];
-}
-
-function buildGoldExpansionCreditHookWords(
-  addresses: BufferedPickerProgramAddresses,
-): readonly number[] {
-  const loopRam = addresses.creditHookRam + 32;
-  const loopBranchRam = addresses.creditHookRam + 60;
-
-  return [
-    mipsLw(REG.v0, 0x02e0, REG.gp),
-    mipsLh(REG.a0, 0x003c, REG.v0),
-    mipsJal(addresses.creditCardRam),
-    mipsNop(),
-    mipsLui(REG.t0, upper16(addresses.localStateRam)),
-    mipsOri(REG.t0, REG.t0, lower16(addresses.localStateRam)),
-    mipsLhu(REG.s1, 0, REG.t0),
-    mipsAddiu(REG.s0, REG.zero, EXTRA_RANDOM_DROPS),
-    mipsAddu(REG.a0, REG.s1, REG.zero),
-    mipsJal(addresses.pickDropRam),
-    mipsNop(),
-    mipsAddu(REG.a0, REG.v0, REG.zero),
-    mipsJal(addresses.creditCardRam),
-    mipsNop(),
-    mipsAddiu(REG.s0, REG.s0, -1),
-    mipsBne(REG.s0, REG.zero, loopRam, loopBranchRam),
-    mipsNop(),
-    mipsJ(addresses.returnRam),
-    mipsNop(),
-  ];
-}
-
 export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
   const image = readFileSync(discPath);
   return inspectDropX15Image(image);
@@ -392,21 +133,10 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
   if (ghostToolState.supported) return ghostToolState;
 
-  const definition = buildLocalX15Patch(slusEntry.name);
-  const legacyState = inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
+  const legacyState = inspectLegacyUnsafePatchState(image, slusEntry, format);
   if (isSpecificLegacyPatchState(legacyState)) return legacyState;
 
-  const goldExpansionDefinition = buildGoldExpansionPickerX15Patch(slusEntry.name);
-  const goldExpansionState = inspectGoldExpansionPickerPatchState(
-    image,
-    slusEntry.sector,
-    format,
-    goldExpansionDefinition,
-  );
-  if (goldExpansionState.supported) return goldExpansionState;
-  if (isDisabledGoldPatchState(goldExpansionState)) return goldExpansionState;
-
-  return legacyState;
+  return ghostToolState;
 }
 
 export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
@@ -420,36 +150,15 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
     before = inspectGhostToolPatchState(image, slusEntry, format);
   }
   if (!before.supported) {
-    before = inspectLegacyLocalPatchState(
-      image,
-      slusEntry.sector,
-      format,
-      buildLocalX15Patch(slusEntry.name),
-    );
+    const legacyState = inspectLegacyUnsafePatchState(image, slusEntry, format);
+    if (isSpecificLegacyPatchState(legacyState)) before = legacyState;
   }
   if (!before.supported && isSpecificLegacyPatchState(before)) throw new Error(before.reason);
-  if (!before.supported) {
-    const goldExpansionDefinition = buildGoldExpansionPickerX15Patch(slusEntry.name);
-    before = inspectGoldExpansionPickerPatchState(
-      image,
-      slusEntry.sector,
-      format,
-      goldExpansionDefinition,
-    );
-  }
-  if (!before.supported && isDisabledGoldPatchState(before)) throw new Error(before.reason);
   if (!before.supported) throw new Error(before.reason);
   if (before.enabled) return { changed: false, status: before };
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
     writeGhostLoopPatch(image);
-  } else if (before.definitionId === GOLD_EXPANSION_PICKER_DEFINITION_ID) {
-    writeGoldExpansionPickerPatch(
-      image,
-      slusEntry.sector,
-      format,
-      buildGoldExpansionPickerX15Patch(slusEntry.name),
-    );
   } else {
     writeGhostToolPatch(image, slusEntry, format);
   }
@@ -461,19 +170,10 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   return { changed: true, status: after };
 }
 
-function isDisabledGoldPatchState(status: DropX15PatchStatus): boolean {
-  return (
-    !status.supported &&
-    status.gameSerial === "SLUS_000.04" &&
-    status.reason.startsWith("Gold x15 patching is disabled")
-  );
-}
-
 function isSpecificLegacyPatchState(status: DropX15PatchStatus): boolean {
   return (
     !status.supported &&
     (status.reason.startsWith("This disc has the legacy local x15 trampoline installed.") ||
-      status.reason.startsWith("This executable matches the legacy local x15 layout,") ||
       status.reason.startsWith("An unsafe legacy 15-card-drop patch is installed."))
   );
 }
@@ -488,25 +188,7 @@ function inspectGhostToolPatchState(
   slusEntry: IsoFile,
   format: DiscFormat,
 ): DropX15PatchStatus {
-  if (slusEntry.name !== "SLUS_014.11" && slusEntry.name !== "SLUS_000.04") {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: slusEntry.name,
-      reason:
-        "Ghost Drop More Cards injection is only verified for NTSC-U SLUS_014.11 and Gold SLUS_000.04. This mod needs a separately proven x15 recipe.",
-    };
-  }
-
   const waEntry = findWaMrgEntry(image, format);
-  if (!waEntry) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: slusEntry.name,
-      reason: "DATA/WA_MRG.MRG was not found; Ghost Drop More Cards requires both SLUS and WA_MRG.",
-    };
-  }
 
   const hooksVanilla = GHOST_TOOL_SLUS_HOOKS.every((hook) =>
     bytesMatchAt(image, slusEntry.sector, hook.offset, hook.vanilla, format),
@@ -521,7 +203,7 @@ function inspectGhostToolPatchState(
     GHOST_TOOL_EXPANSION,
     format,
   );
-  const waExpansionPatched = ghostToolWaCopiesPatched(image, waEntry, format);
+  const waExpansionPatched = waEntry ? ghostToolWaCopiesPatched(image, waEntry, format) : false;
 
   if (hooksPatched && slusExpansionPatched && waExpansionPatched) {
     return {
@@ -533,13 +215,31 @@ function inspectGhostToolPatchState(
     };
   }
 
-  if (hooksVanilla && ghostToolWaCopiesInRange(waEntry)) {
+  if (hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format)) {
     return {
       supported: true,
       enabled: false,
       definitionId: GHOST_TOOL_DEFINITION_ID,
       definitionName: GHOST_TOOL_DEFINITION_NAME,
       gameSerial: slusEntry.name,
+    };
+  }
+
+  if ((hooksVanilla || hooksPatched) && !waEntry) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: slusEntry.name,
+      reason: "DATA/WA_MRG.MRG was not found; Ghost Drop More Cards requires both SLUS and WA_MRG.",
+    };
+  }
+
+  if (hooksVanilla && waEntry && ghostToolWaCopiesInRange(waEntry)) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: slusEntry.name,
+      reason: "DATA/WA_MRG.MRG does not match the verified Ghost Drop More Cards injection layout.",
     };
   }
 
@@ -607,6 +307,17 @@ function ghostToolWaCopiesPatched(image: Buffer, waEntry: IsoFile, format: DiscF
   return GHOST_TOOL_WA_EXTRA_LIMITS.every(
     (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === limit.value,
   );
+}
+
+function ghostToolWaTargetsClean(image: Buffer, waEntry: IsoFile, format: DiscFormat): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry)) return false;
+  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
+    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
+    if (!bytesMatchAt(image, waEntry.sector, copyOffset, GHOST_TOOL_WA_CLEAN_PREFIX, format)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function ghostToolWaCopiesInRange(waEntry: IsoFile): boolean {
@@ -733,170 +444,47 @@ function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
   return offsets;
 }
 
-function inspectGoldExpansionPickerPatchState(
+function inspectLegacyUnsafePatchState(
   image: Buffer,
-  slusSector: number,
+  slusEntry: IsoFile,
   format: DiscFormat,
-  definition: BufferedPickerX15PatchDefinition,
 ): DropX15PatchStatus {
-  void image;
-  void slusSector;
-  void format;
+  const slusSector = slusEntry.sector;
+  const visiblePick = readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format);
+  const awardJump = readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET, format);
+  const awardDelay = readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET + 4, format);
+  const legacyAwardHook =
+    awardJump === LEGACY_LOCAL_AWARD_JUMP && awardDelay === LEGACY_LOCAL_AWARD_DELAY;
 
-  if (definition.gameSerial === "SLUS_000.04") {
+  if (
+    legacyAwardHook &&
+    visiblePick === LEGACY_LOCAL_VISIBLE_PICK &&
+    wordsMatch(image, slusSector, format, LOCAL_PROGRAM_OFFSET, LEGACY_LOCAL_PROGRAM_WORDS)
+  ) {
     return {
       supported: false,
       enabled: false,
-      gameSerial: definition.gameSerial,
-      reason:
-        "Gold x15 patching is disabled until a crash-free recipe is proven. The previous expansion picker crashed entering the result screen.",
-    };
-  }
-
-  if (definition.gameSerial !== "SLUS_000.04") {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: definition.gameSerial,
-      reason: "The Gold expansion x15 picker is only verified for Gold SLUS_000.04.",
-    };
-  }
-
-  const requiredOk = definition.requiredWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const hooksVanilla = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.vanilla,
-  );
-  const hooksPatched = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const hostVanilla = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgramVanilla,
-  );
-  const hostPatched = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgram,
-  );
-
-  if (requiredOk && hooksPatched && hostPatched) {
-    return {
-      supported: true,
-      enabled: true,
-      definitionId: definition.id,
-      definitionName: definition.name,
-      gameSerial: definition.gameSerial,
-    };
-  }
-
-  if (requiredOk && hooksVanilla && hostVanilla) {
-    return {
-      supported: true,
-      enabled: false,
-      definitionId: definition.id,
-      definitionName: definition.name,
-      gameSerial: definition.gameSerial,
-    };
-  }
-
-  return {
-    supported: false,
-    enabled: false,
-    gameSerial: definition.gameSerial,
-    reason: "The executable does not match the verified Gold expansion x15 layout.",
-  };
-}
-
-function writeGoldExpansionPickerPatch(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: BufferedPickerX15PatchDefinition,
-): void {
-  for (const word of definition.writeWords) {
-    writeU32LeAt(image, slusSector, word.fileOffset, word.patched, format);
-  }
-  for (let i = 0; i < definition.localProgram.length; i++) {
-    writeU32LeAt(
-      image,
-      slusSector,
-      definition.localProgramOffset + i * 4,
-      definition.localProgram[i] ?? 0,
-      format,
-    );
-  }
-}
-
-function inspectLegacyLocalPatchState(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: DropX15PatchDefinition,
-): DropX15PatchStatus {
-  const requiredOk = definition.requiredWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const hooksVanilla = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.vanilla,
-  );
-  const hooksPatched = definition.writeWords.every(
-    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
-  );
-  const hostVanilla = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgramVanilla,
-  );
-  const hostPatched = wordsMatch(
-    image,
-    slusSector,
-    format,
-    definition.localProgramOffset,
-    definition.localProgram,
-  );
-  const visiblePickVanilla =
-    readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format) === mipsJal(PICK_DROP_RAM);
-  const unsafeFreezeSelectorPatched = isUnsafeFreezeSelectorPatch(
-    image,
-    slusSector,
-    format,
-    definition,
-  );
-
-  if (requiredOk && hooksPatched && hostPatched && visiblePickVanilla) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: definition.gameSerial,
+      gameSerial: slusEntry.name,
       reason:
         "This disc has the legacy local x15 trampoline installed. It is no longer treated as safe; use a Ghost/FMR loop-limit x15 image or restore an unpatched backup.",
     };
   }
 
-  if (requiredOk && hooksVanilla && hostVanilla) {
+  if (
+    legacyAwardHook &&
+    visiblePick === LEGACY_FREEZE_SELECTOR_VISIBLE_PICK &&
+    wordsMatch(
+      image,
+      slusSector,
+      format,
+      LOCAL_PROGRAM_OFFSET,
+      LEGACY_FREEZE_SELECTOR_PROGRAM_WORDS,
+    )
+  ) {
     return {
       supported: false,
       enabled: false,
-      gameSerial: definition.gameSerial,
-      reason:
-        "This executable matches the legacy local x15 layout, but no Ghost/FMR loop-limit anchors were found. The bridge will not install the legacy trampoline.",
-    };
-  }
-
-  if (requiredOk && unsafeFreezeSelectorPatched) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: definition.gameSerial,
+      gameSerial: slusEntry.name,
       reason:
         "An unsafe legacy 15-card-drop patch is installed. Restore an unpatched backup or use a Ghost/FMR loop-limit x15 image.",
     };
@@ -905,37 +493,10 @@ function inspectLegacyLocalPatchState(
   return {
     supported: false,
     enabled: false,
-    gameSerial: definition.gameSerial,
+    gameSerial: slusEntry.name,
     reason:
-      "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
+      "No compatible 15-card drop patch layout was found. Supported layouts are Ghost/FMR loop limits and Ghost Drop More Cards.",
   };
-}
-
-function isUnsafeFreezeSelectorPatch(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: DropX15PatchDefinition,
-): boolean {
-  const visibleHookUnsafe =
-    readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format) === mipsJal(0x80021f68);
-  const awardHookOld =
-    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET, format) === mipsJ(LOCAL_PROGRAM_RAM);
-  const awardDelayPatched =
-    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET + 4, format) === mipsNop();
-
-  return (
-    visibleHookUnsafe &&
-    awardHookOld &&
-    awardDelayPatched &&
-    wordsMatch(
-      image,
-      slusSector,
-      format,
-      definition.localProgramOffset,
-      buildUnsafeFreezeSelectorProgramWords(),
-    )
-  );
 }
 
 function wordsMatch(
@@ -951,185 +512,6 @@ function wordsMatch(
     }
   }
   return true;
-}
-
-function buildLocalProgramWords(): readonly number[] {
-  const useComputedPoolRam = LOCAL_PROGRAM_RAM + 52;
-  const poolBranchRam = LOCAL_PROGRAM_RAM + 40;
-  const extraLoopRam = LOCAL_PROGRAM_RAM + 56;
-  const loopBranchRam = LOCAL_PROGRAM_RAM + 84;
-
-  return [
-    mipsLw(REG.v0, 0x02e0, REG.gp),
-    mipsLh(REG.a0, 0x003c, REG.v0),
-    mipsJal(CREDIT_CARD_RAM),
-    mipsNop(),
-    mipsLw(REG.a0, 0x02e0, REG.gp),
-    mipsLbu(REG.v1, 0x0039, REG.a0),
-    mipsLbu(REG.v0, 0x0038, REG.a0),
-    mipsSltu(REG.v1, REG.zero, REG.v1),
-    mipsSll(REG.s1, REG.v1, 1),
-    mipsSltiu(REG.v0, REG.v0, 3),
-    mipsBeq(REG.v0, REG.zero, useComputedPoolRam, poolBranchRam),
-    mipsNop(),
-    mipsAddiu(REG.s1, REG.zero, 1),
-    mipsAddiu(REG.s0, REG.zero, EXTRA_RANDOM_DROPS),
-    mipsAddu(REG.a0, REG.s1, REG.zero),
-    mipsJal(PICK_DROP_RAM),
-    mipsNop(),
-    mipsAddu(REG.a0, REG.v0, REG.zero),
-    mipsJal(CREDIT_CARD_RAM),
-    mipsNop(),
-    mipsAddiu(REG.s0, REG.s0, -1),
-    mipsBne(REG.s0, REG.zero, extraLoopRam, loopBranchRam),
-    mipsNop(),
-    mipsJ(RETURN_RAM),
-    mipsNop(),
-  ];
-}
-
-function bufferedPickerShift(gameSerial: string): number {
-  return gameSerial === "SLES_039.48" ? PAL_FR_EXECUTABLE_SHIFT : 0;
-}
-
-interface BufferedPickerProgramAddresses {
-  pickDropRam: number;
-  creditCardRam: number;
-  returnRam: number;
-  localProgramRam: number;
-  creditHookRam: number;
-  localStateRam: number;
-}
-
-function buildBufferedPickerProgramWords(
-  addresses: BufferedPickerProgramAddresses,
-): readonly number[] {
-  return [...buildBufferedPickHookWords(addresses), ...buildBufferedCreditHookWords(addresses)];
-}
-
-function buildBufferedPickHookWords(
-  addresses: Partial<BufferedPickerProgramAddresses> = {},
-): readonly number[] {
-  const pickDropRam = addresses.pickDropRam ?? PICK_DROP_RAM;
-  const localStateRam =
-    addresses.localStateRam ?? LOCAL_PROGRAM_RAM + LOCAL_STATE_OFFSET_FROM_PROGRAM;
-
-  return [
-    mipsAddiu(REG.sp, REG.sp, -32),
-    mipsSw(REG.ra, 28, REG.sp),
-    mipsLui(REG.t0, upper16(localStateRam)),
-    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
-    mipsSh(REG.a0, 0, REG.t0),
-    mipsJal(pickDropRam),
-    mipsNop(),
-    mipsLui(REG.t0, upper16(localStateRam)),
-    mipsOri(REG.t0, REG.t0, lower16(localStateRam)),
-    mipsSh(REG.v0, 2, REG.t0),
-    mipsLw(REG.ra, 28, REG.sp),
-    mipsJr(REG.ra),
-    mipsAddiu(REG.sp, REG.sp, 32),
-  ];
-}
-
-function buildBufferedCreditHookWords(
-  addresses: BufferedPickerProgramAddresses,
-): readonly number[] {
-  const loopRam = addresses.creditHookRam + 44;
-  const loopBranchRam = addresses.creditHookRam + 76;
-
-  return [
-    mipsAddiu(REG.sp, REG.sp, -24),
-    mipsSw(REG.ra, 20, REG.sp),
-    mipsSw(REG.s0, 16, REG.sp),
-    mipsSw(REG.s1, 12, REG.sp),
-    mipsLui(REG.t0, upper16(addresses.localStateRam)),
-    mipsOri(REG.t0, REG.t0, lower16(addresses.localStateRam)),
-    mipsLhu(REG.s1, 0, REG.t0),
-    mipsLhu(REG.a0, 2, REG.t0),
-    mipsJal(addresses.creditCardRam),
-    mipsNop(),
-    mipsAddiu(REG.s0, REG.zero, 1),
-    mipsAddu(REG.a0, REG.s1, REG.zero),
-    mipsJal(addresses.pickDropRam),
-    mipsNop(),
-    mipsAddu(REG.a0, REG.v0, REG.zero),
-    mipsJal(addresses.creditCardRam),
-    mipsNop(),
-    mipsAddiu(REG.s0, REG.s0, 1),
-    mipsSltiu(REG.t2, REG.s0, BUFFERED_DROP_COUNT),
-    mipsBne(REG.t2, REG.zero, loopRam, loopBranchRam),
-    mipsNop(),
-    mipsLw(REG.s1, 12, REG.sp),
-    mipsLw(REG.s0, 16, REG.sp),
-    mipsLw(REG.ra, 20, REG.sp),
-    mipsJ(addresses.returnRam),
-    mipsAddiu(REG.sp, REG.sp, 24),
-  ];
-}
-
-function buildUnsafeFreezeSelectorProgramWords(): readonly number[] {
-  const extraLoopRam = LOCAL_PROGRAM_RAM + 24;
-  const loopBranchRam = LOCAL_PROGRAM_RAM + 52;
-
-  return [
-    mipsLw(REG.v0, 0x02e0, REG.gp),
-    mipsLh(REG.a0, 0x003c, REG.v0),
-    mipsJal(CREDIT_CARD_RAM),
-    mipsNop(),
-    mipsLbu(REG.s1, 0x003b, REG.v0),
-    mipsAddiu(REG.s0, REG.zero, EXTRA_RANDOM_DROPS),
-    mipsAddu(REG.a0, REG.s1, REG.zero),
-    mipsJal(PICK_DROP_RAM),
-    mipsNop(),
-    mipsAddu(REG.a0, REG.v0, REG.zero),
-    mipsJal(CREDIT_CARD_RAM),
-    mipsNop(),
-    mipsAddiu(REG.s0, REG.s0, -1),
-    mipsBne(REG.s0, REG.zero, extraLoopRam, loopBranchRam),
-    mipsNop(),
-    mipsJ(RETURN_RAM),
-    mipsNop(),
-    mipsAddu(REG.s1, REG.ra, REG.zero),
-    mipsLw(REG.v1, 0x02e0, REG.gp),
-    mipsJal(PICK_DROP_RAM),
-    mipsSb(REG.a0, 0x003b, REG.v1),
-    mipsJr(REG.s1),
-    mipsNop(),
-    mipsNop(),
-    mipsNop(),
-  ];
-}
-
-function buildLocalProgramVanillaWords(): readonly number[] {
-  return [
-    0x9382025d, 0x278502d0, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518, 0x00000000,
-    0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f, 0x8c830000, 0x00000000,
-    0xa4620518, 0x9382025d, 0x00000000, 0x38420001, 0x00021080, 0x00452021, 0x8c830000, 0x00000000,
-    0x9462051a,
-  ];
-}
-
-function buildBufferedPickerProgramVanillaWords(shift: number): readonly number[] {
-  if (shift === PAL_FR_EXECUTABLE_SHIFT) {
-    return [
-      0x938202ec, 0x27850260, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518,
-      0x00000000, 0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f,
-      0x8c830000, 0x00000000, 0xa4620518, 0x938202ec, 0x00000000, 0x38420001, 0x00021080,
-      0x00452021, 0x8c830000, 0x00000000, 0x9462051a, 0x00000000, 0x24420001, 0xa462051a,
-      0x3042ffff, 0x2c422710, 0x1440003f, 0x2402270f, 0x8c830000, 0x08008856, 0xa462051a,
-      0x3c02800a, 0x9442c728, 0x00000000, 0x3042a000, 0x1040002a, 0x00000000, 0x8f820270,
-      0x00000000, 0x90430037, 0x00000000, 0x24630001, 0xa0430037, 0x3c02800a,
-    ];
-  }
-
-  return [
-    0x9382025d, 0x278502d0, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518, 0x00000000,
-    0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f, 0x8c830000, 0x00000000,
-    0xa4620518, 0x9382025d, 0x00000000, 0x38420001, 0x00021080, 0x00452021, 0x8c830000, 0x00000000,
-    0x9462051a, 0x00000000, 0x24420001, 0xa462051a, 0x3042ffff, 0x2c422710, 0x1440003f, 0x2402270f,
-    0x8c830000, 0x08008827, 0xa462051a, 0x3c02800a, 0x9442b394, 0x00000000, 0x3042a000, 0x1040002a,
-    0x00000000, 0x8f8202e0, 0x00000000, 0x90430037, 0x00000000, 0x24630001, 0xa0430037, 0x3c02800a,
-  ];
 }
 
 function findExecutableEntry(image: Buffer, format: DiscFormat): IsoFile {
@@ -1165,149 +547,3 @@ function readU32LeAt(
     0
   );
 }
-
-function writeU32LeAt(
-  image: Buffer,
-  fileStartSector: number,
-  fileOffset: number,
-  value: number,
-  format: DiscFormat,
-): void {
-  const offset = discOffset(fileStartSector, fileOffset, format);
-  image[offset] = value & 0xff;
-  image[offset + 1] = (value >>> 8) & 0xff;
-  image[offset + 2] = (value >>> 16) & 0xff;
-  image[offset + 3] = (value >>> 24) & 0xff;
-}
-
-function mipsNop(): number {
-  return 0;
-}
-
-function mipsAddiu(rt: number, rs: number, imm: number): number {
-  return mipsI(0x09, rs, rt, imm);
-}
-
-function mipsLw(rt: number, imm: number, rs: number): number {
-  return mipsI(0x23, rs, rt, imm);
-}
-
-function mipsLh(rt: number, imm: number, rs: number): number {
-  return mipsI(0x21, rs, rt, imm);
-}
-
-function mipsLbu(rt: number, imm: number, rs: number): number {
-  return mipsI(0x24, rs, rt, imm);
-}
-
-function mipsLhu(rt: number, imm: number, rs: number): number {
-  return mipsI(0x25, rs, rt, imm);
-}
-
-function mipsSw(rt: number, imm: number, rs: number): number {
-  return mipsI(0x2b, rs, rt, imm);
-}
-
-function mipsSh(rt: number, imm: number, rs: number): number {
-  return mipsI(0x29, rs, rt, imm);
-}
-
-function mipsSb(rt: number, imm: number, rs: number): number {
-  return mipsI(0x28, rs, rt, imm);
-}
-
-function mipsLui(rt: number, imm: number): number {
-  return mipsI(0x0f, 0, rt, imm);
-}
-
-function mipsOri(rt: number, rs: number, imm: number): number {
-  return mipsI(0x0d, rs, rt, imm);
-}
-
-function mipsSltu(rd: number, rs: number, rt: number): number {
-  return mipsR(rs, rt, rd, 0, 0x2b);
-}
-
-function mipsSll(rd: number, rt: number, shamt: number): number {
-  return mipsR(0, rt, rd, shamt, 0);
-}
-
-function mipsSltiu(rt: number, rs: number, imm: number): number {
-  return mipsI(0x0b, rs, rt, imm);
-}
-
-function mipsBne(rs: number, rt: number, targetRam: number, pc: number): number {
-  return mipsBranch(0x05, rs, rt, targetRam, pc);
-}
-
-function mipsBeq(rs: number, rt: number, targetRam: number, pc: number): number {
-  return mipsBranch(0x04, rs, rt, targetRam, pc);
-}
-
-function mipsAddu(rd: number, rs: number, rt: number): number {
-  return mipsR(rs, rt, rd, 0, 0x21);
-}
-
-function mipsJal(targetRam: number): number {
-  return mipsJType(0x03, targetRam);
-}
-
-function mipsJ(targetRam: number): number {
-  return mipsJType(0x02, targetRam);
-}
-
-function mipsJr(rs: number): number {
-  return mipsR(rs, 0, 0, 0, 0x08);
-}
-
-function mipsBranch(op: number, rs: number, rt: number, targetRam: number, pc: number): number {
-  const offset = (targetRam - (pc + 4)) / 4;
-  if (!Number.isInteger(offset) || offset < -0x8000 || offset > 0x7fff) {
-    throw new Error(
-      `Branch target 0x${targetRam.toString(16)} is out of range from 0x${pc.toString(16)}`,
-    );
-  }
-  return mipsI(op, rs, rt, offset);
-}
-
-function mipsI(op: number, rs: number, rt: number, imm: number): number {
-  return (((op & 0x3f) << 26) | ((rs & 0x1f) << 21) | ((rt & 0x1f) << 16) | (imm & 0xffff)) >>> 0;
-}
-
-function mipsR(rs: number, rt: number, rd: number, shamt: number, funct: number): number {
-  return (
-    (((rs & 0x1f) << 21) |
-      ((rt & 0x1f) << 16) |
-      ((rd & 0x1f) << 11) |
-      ((shamt & 0x1f) << 6) |
-      funct) >>>
-    0
-  );
-}
-
-function mipsJType(op: number, targetRam: number): number {
-  return (((op & 0x3f) << 26) | ((targetRam >>> 2) & 0x03ff_ffff)) >>> 0;
-}
-
-function upper16(value: number): number {
-  return (value >>> 16) & 0xffff;
-}
-
-function lower16(value: number): number {
-  return value & 0xffff;
-}
-
-const REG = {
-  zero: 0,
-  v0: 2,
-  v1: 3,
-  a0: 4,
-  t0: 8,
-  t1: 9,
-  t2: 10,
-  sp: 29,
-  ra: 31,
-  gp: 28,
-  s0: 16,
-  s1: 17,
-} as const;

@@ -2,14 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import {
-  buildBufferedPickerX15Patch,
-  buildGoldExpansionPickerX15Patch,
-  buildLocalX15Patch,
-  type DropX15PatchDefinition,
-  inspectDropX15Image,
-  patchDropX15DiscInPlace,
-} from "./drop-x15-patch.ts";
+import { inspectDropX15Image, patchDropX15DiscInPlace } from "./drop-x15-patch.ts";
 import { SECTOR_DATA_SIZE } from "./extract/iso9660.ts";
 
 describe("drop x15 patch inspection", () => {
@@ -70,27 +63,19 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("supports the clean Ghost Drop More Cards layout used by NTSC-U", () => {
-    const image = makeGhostToolDiscImage("SLUS_014.11");
+  test.each([
+    "SLUS_014.11",
+    "SLUS_000.04",
+    "SLUS_999.99",
+  ])("supports the clean Ghost Drop More Cards layout by structure for %s", (serial) => {
+    const image = makeGhostToolDiscImage(serial);
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
       definitionName: "Ghost Drop More Cards x15",
-      gameSerial: "SLUS_014.11",
-    });
-  });
-
-  test("supports the clean Ghost Drop More Cards layout used by Gold", () => {
-    const image = makeGhostToolDiscImage("SLUS_000.04", 0x24050101);
-
-    expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
-      enabled: false,
-      definitionId: "ghost-drop-more-cards",
-      definitionName: "Ghost Drop More Cards x15",
-      gameSerial: "SLUS_000.04",
+      gameSerial: serial,
     });
   });
 
@@ -198,7 +183,7 @@ describe("drop x15 patch inspection", () => {
     }
   });
 
-  test("rejects unknown executables when the local x15 layout does not match", () => {
+  test("rejects unknown executables without a compatible Ghost layout", () => {
     const image = makeDiscImage("SLUS_999.99", false);
 
     expect(inspectDropX15Image(image)).toEqual({
@@ -206,7 +191,7 @@ describe("drop x15 patch inspection", () => {
       enabled: false,
       gameSerial: "SLUS_999.99",
       reason:
-        "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
+        "The executable does not match the Ghost Drop More Cards hook layout; refusing the unverified x15 patch.",
     });
   });
 
@@ -241,27 +226,14 @@ const GHOST_LOOP_PATTERN_BYTES = {
 function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
   const rootSector = 20;
-  const patch = buildLocalX15Patch(serial);
-  const bufferedPatch = buildBufferedPickerX15Patch(serial);
-  const goldExpansionPatch = buildGoldExpansionPickerX15Patch(serial);
-  const localEnd = patch.localProgramOffset + patch.localProgram.length * 4;
-  const bufferedEnd =
-    bufferedPatch.localProgramOffset + bufferedPatch.localProgramVanilla.length * 4;
-  const goldExpansionEnd =
-    goldExpansionPatch.localProgramOffset + goldExpansionPatch.localProgramVanilla.length * 4;
-  const slusSize = Math.max(localEnd, bufferedEnd, goldExpansionEnd) + 0x100;
+  const slusSize = 0x19b800;
   const image = Buffer.alloc(
     (slusSector + Math.ceil(slusSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
   );
 
   writePrimaryVolumeDescriptor(image, rootSector);
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
-  if (seed)
-    seedUnpatchedExecutable(
-      image,
-      slusSector,
-      serial === "SLUS_000.04" ? goldExpansionPatch : patch,
-    );
+  if (seed) seedGhostToolHooks(image, slusSector);
 
   return image;
 }
@@ -286,6 +258,7 @@ function makeGhostToolDiscImage(serial: string, continuationWord = 0x00021400): 
     name: "WA_MRG.MRG;1",
   });
   seedGhostToolHooks(image, slusSector, continuationWord);
+  seedGhostToolWaCleanPrefixes(image);
   return image;
 }
 
@@ -354,7 +327,11 @@ function writeRootDirectoryWithData(
   });
 }
 
-function seedGhostToolHooks(image: Buffer, slusSector: number, continuationWord: number): void {
+function seedGhostToolHooks(
+  image: Buffer,
+  slusSector: number,
+  continuationWord = 0x00021400,
+): void {
   writeBytes(image, slusSector, 0x12034, "1880023C8C874224");
   writeBytes(image, slusSector, 0x1246c, "1D80033C0A80013C");
   writeU32(image, slusSector, 0x12474, 0xa422b338);
@@ -362,27 +339,6 @@ function seedGhostToolHooks(image: Buffer, slusSector: number, continuationWord:
   writeU32(image, slusSector, 0x1247c, continuationWord);
   writeBytes(image, slusSector, 0x12710, "3C0044842586000C");
   writeBytes(image, slusSector, 0x285fc, "30048387C7DF000821286200");
-}
-
-function seedUnpatchedExecutable(
-  image: Buffer,
-  slusSector: number,
-  patch: DropX15PatchDefinition | ReturnType<typeof buildBufferedPickerX15Patch>,
-): void {
-  for (const word of patch.requiredWords) {
-    writeU32(image, slusSector, word.fileOffset, word.vanilla);
-  }
-  for (const word of patch.writeWords) {
-    writeU32(image, slusSector, word.fileOffset, word.vanilla);
-  }
-  for (let i = 0; i < patch.localProgramVanilla.length; i++) {
-    writeU32(
-      image,
-      slusSector,
-      patch.localProgramOffset + i * 4,
-      patch.localProgramVanilla[i] ?? 0,
-    );
-  }
 }
 
 function seedUnsafeFreezeSelectorPatch(image: Buffer, slusSector: number): void {
@@ -398,6 +354,13 @@ function seedUnsafeFreezeSelectorPatch(image: Buffer, slusSector: number): void 
   ];
   for (let i = 0; i < words.length; i++) {
     writeU32(image, slusSector, 0x12724 + i * 4, words[i] ?? 0);
+  }
+}
+
+function seedGhostToolWaCleanPrefixes(image: Buffer): void {
+  const prefix = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+  for (let copy = 1; copy <= 7; copy++) {
+    prefix.copy(image, waOffset(0xb4c400 + copy * 0x75800));
   }
 }
 

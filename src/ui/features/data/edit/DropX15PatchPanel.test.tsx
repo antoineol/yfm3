@@ -37,10 +37,10 @@ describe("DropX15PatchPanel", () => {
     fetchDropX15StatusMock.mockResolvedValue({
       supported: true,
       enabled: true,
-      definitionId: "local-award-trampoline",
-      definitionName: "Local x15-compatible layout",
-      gameSerial: "SLUS_027.11",
-      discFilename: "Ultimate.iso",
+      definitionId: "ghost-loop-limits",
+      definitionName: "Ghost/FMR loop-limit x15",
+      gameSerial: "SLUS_014.11",
+      discFilename: "Compatible.iso",
     });
 
     render(<DropX15PatchPanel />);
@@ -56,13 +56,13 @@ describe("DropX15PatchPanel", () => {
       gameSerial: "SLES_039.48",
       discFilename: "PAL.iso",
       reason:
-        "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
+        "No compatible 15-card drop patch layout was found. Supported layouts are Ghost/FMR loop limits and Ghost Drop More Cards.",
     });
 
     render(<DropX15PatchPanel />);
 
     expect(await screen.findByText("Unsupported")).toBeDefined();
-    expect(screen.getByText(/does not match the tested local 15-card-drop layout/)).toBeDefined();
+    expect(screen.getByText(/No compatible 15-card drop patch layout/)).toBeDefined();
     expect(button("Enable 15 drops").disabled).toBe(true);
   });
 
@@ -71,10 +71,10 @@ describe("DropX15PatchPanel", () => {
     fetchDropX15StatusMock.mockResolvedValue({
       supported: true,
       enabled: false,
-      definitionId: "local-award-trampoline",
-      definitionName: "Local x15-compatible layout",
-      gameSerial: "SLUS_027.11",
-      discFilename: "Ultimate.iso",
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x15",
+      gameSerial: "SLUS_014.11",
+      discFilename: "Compatible.iso",
     });
     putDropX15PatchMock.mockResolvedValue({
       ok: true,
@@ -88,15 +88,15 @@ describe("DropX15PatchPanel", () => {
       status: {
         supported: true,
         enabled: true,
-        definitionId: "local-award-trampoline",
-        definitionName: "Local x15-compatible layout",
-        gameSerial: "SLUS_027.11",
+        definitionId: "ghost-loop-limits",
+        definitionName: "Ghost/FMR loop-limit x15",
+        gameSerial: "SLUS_014.11",
       },
     });
 
     render(<DropX15PatchPanel />);
 
-    expect(await screen.findByText("Ultimate.iso is ready for 15 drops.")).toBeDefined();
+    expect(await screen.findByText("Compatible.iso is ready for 15 drops.")).toBeDefined();
     fireEvent.click(await screen.findByRole("button", { name: "Enable 15 drops" }));
 
     await waitFor(() => expect(putDropX15PatchMock).toHaveBeenCalledTimes(1));
