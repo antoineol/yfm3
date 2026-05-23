@@ -42,7 +42,7 @@ const PAL_FR_EXECUTABLE_SHIFT = 0xbc;
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
 const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
-const GHOST_TOOL_COPY_OFFSET = 0xb4bf00;
+const GHOST_TOOL_COPY_OFFSET = 0xb4c400;
 const GHOST_TOOL_COPY_STRIDE = 0x75800;
 const GHOST_TOOL_COPY_COUNT = 7;
 const GHOST_TOOL_SLUS_EXPANSION_OFFSET = GOLD_EXPANSION_PROGRAM_OFFSET;
@@ -50,11 +50,7 @@ const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
-const GHOST_TOOL_WA_EXTRA_LIMITS = [
-  { offset: 0xbc1888, value: GHOST_TOOL_FIRST_LIMIT },
-  { offset: 0xbc13f4, value: GHOST_TOOL_FIRST_LIMIT },
-  { offset: 0xbc19fc, value: GHOST_TOOL_LAST_LIMIT },
-] as const;
+const GHOST_TOOL_WA_EXTRA_LIMITS = [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }] as const;
 
 const GHOST_TOOL_SLUS_HOOKS = [
   {
@@ -492,13 +488,13 @@ function inspectGhostToolPatchState(
   slusEntry: IsoFile,
   format: DiscFormat,
 ): DropX15PatchStatus {
-  if (slusEntry.name !== "SLUS_014.11") {
+  if (slusEntry.name !== "SLUS_014.11" && slusEntry.name !== "SLUS_000.04") {
     return {
       supported: false,
       enabled: false,
       gameSerial: slusEntry.name,
       reason:
-        "Ghost Drop More Cards injection is only verified for NTSC-U SLUS_014.11. This mod needs a separately proven x15 recipe.",
+        "Ghost Drop More Cards injection is only verified for NTSC-U SLUS_014.11 and Gold SLUS_000.04. This mod needs a separately proven x15 recipe.",
     };
   }
 

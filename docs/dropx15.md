@@ -8,18 +8,19 @@ Ghost/FMR pour les images `SLUS_014.11` compatibles :
 - si l'image est encore propre mais correspond aux hooks Ghost, il injecte
   l'expansion `Drop More Cards` dans `SLUS` + `DATA/WA_MRG.MRG`.
 
-Exception Gold `SLUS_000.04` : ne pas injecter la recette Ghost dans
-`DATA/WA_MRG.MRG`. Les blocs WA_MRG actifs de Gold diffèrent de vanilla, et
-cette injection a provoqué un crash dès le début du duel après le tirage de la
-main. La décompilation C Ghidra de Gold confirme le flux vanilla-like :
+Gold `SLUS_000.04` suit aussi cette recette Ghost, avec une précaution : ne
+patcher que les mots de hook nécessaires dans le SLUS pour préserver
+l'instruction locale de Gold à `SLUS:0x1247c`. Le précédent crash au début du
+duel venait d'une mauvaise adresse d'injection `WA_MRG.MRG` (`0xb4bf00` au lieu
+de `0xb4c400` comme base du blob complet). La décompilation C Ghidra de Gold
+confirme le flux vanilla-like :
 `FUN_80021810(selector)` choisit une carte, `FUN_80021894(card)` la crédite, et
 `FUN_800218f0` choisit la carte affichée à l'entrée de l'écran de résultat puis
 la crédite plus tard au site `0x80021f10`. Gold branche aussi dans le code
 original à `0x80021f24`, donc ce bloc ne doit pas être traité comme espace libre
-général. Les variantes buffered/extension testées (`0x80021f24` avec hook
-visible, puis `SLUS:0x19b440` / RAM `0x801aac40`) ont crashé à l'entrée de
-l'écran de résultat. Gold x15 est donc désactivé jusqu'à recette testée
-manuellement.
+général. Les variantes buffered/extension custom testées (`0x80021f24` avec
+hook visible, puis `SLUS:0x19b440` / RAM `0x801aac40`) ont crashé à l'entrée de
+l'écran de résultat ou produit des cartes impossibles.
 
 ## Objectif
 
@@ -41,14 +42,15 @@ vise que NTSC-U/C.
 Décompilation IL de l'EXE Ghost :
 
 - injecte le blob MIPS à `SLUS:0x19b440`;
-- injecte le même blob dans 7 copies `WA_MRG:0xb4bf00 + i*0x75800`, `i=1..7`;
+- injecte le même blob dans 7 copies `WA_MRG:0xb4c400 + i*0x75800`, `i=1..7`;
 - installe les hooks `SLUS:0x12034`, `0x1246c`, `0x12710`, `0x285fc`;
 - écrit les limites de boucle `16`, `16`, `15` dans chaque copie WA_MRG.
 
-Le bridge écrit seulement les mots de hook nécessaires (`j`/`nop`, plus le
-delay-slot neutralisé du hook renderer) et laisse les instructions de
-continuation intactes. C'est équivalent sur vanilla et évite d'écraser une
-instruction locale de Gold à `SLUS:0x1247c`.
+Le blob `WA_MRG` inclut 0x40 octets initiaux nuls ; le code MIPS commence donc
+à `0xb4c440 + i*0x75800`. Le bridge écrit seulement les mots de hook
+nécessaires (`j`/`nop`, plus le delay-slot neutralisé du hook renderer) et
+laisse les instructions de continuation intactes. C'est équivalent sur vanilla
+et évite d'écraser une instruction locale de Gold à `SLUS:0x1247c`.
 
 Trois instructions MIPS `addiu $s7, $zero, imm` dans l'EXE SLUS_014.11 (US
 NTSC, vanilla), à immediates proches. Le mod canonique x15 (Ghost tool)
@@ -92,7 +94,7 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 | --------------------------------------------- | ----------------- | -------------------------------------------------------- | ---------------------------- |
 | `15 card mod/…uibak` (US vanilla BIN)         | `SLUS_014.11`     | Oui, 8× (1 dans WA_MRG+7 EXE)                            | ✅                           |
 | `Yu-Gi-Oh! Mod 15.bin`                        | `SLUS_014.11`     | Legacy trampoline local installé                         | ❌ restaurer/repatcher Ghost |
-| `Yu-Gi-Oh! Forbidden Memories Gold.bin`       | `SLUS_000.04`     | WA_MRG différent, buffered/extension crashent            | ❌ désactivé                 |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`       | `SLUS_000.04`     | Hooks Ghost + WA_MRG identiques aux ancres vanilla       | ✅                           |
 | `FMR Remastered Perfected[15].bin`            | `SLUS_014.11`     | Oui, 1× (vestige) + 7× déjà patchées                     | ✅ (déjà patchée)            |
 | `FMR Vanilla Remastered 1.3.bin`              | `SLUS_014.11`     | Identique au cas ci-dessus                               | ✅                           |
 | `Alpha Mod (Drop x15).iso`                    | `SLUS_014.11`     | Déjà patchée (7 occurrences x15)                         | ✅ (déjà patchée)            |
@@ -121,12 +123,31 @@ il doit boucler vers le rechargement du sélecteur capturé avant chaque appel a
 picker. Boucler directement vers l'appel au picker réutilise la carte
 précédente comme sélecteur et peut produire des récompenses impossibles.
 
-Piste suivante pour Gold : tester isolément un candidat no-stack au seul site
-d'award, c'est-à-dire créditer la carte affichée puis faire 14 appels
-supplémentaires à `FUN_80021810(selector)` + `FUN_80021894(card)` avant de
-revenir à `0x8002209c`. La recette doit préserver le flux affichage/résultat
-de `FUN_800218f0`; le point à vérifier empiriquement est que les champs
-`result+0x38/0x39` conservent le bon sélecteur POW/TEC jusqu'au crédit.
+Le candidat no-stack au seul site d'award est stable mais incorrect : il
+crédite bien 15 cartes sans crash, mais les 14 cartes cachées peuvent utiliser
+un sélecteur S-Tec alors que la carte affichée et le rang in-game sont S-Pow.
+Donc `result+0x38/0x39` ne sont pas une source fiable au moment du crédit.
+
+Ne pas corriger cela en hookant le roll visible vers `0x80021f24` : ce bloc est
+aussi une cible de branche de `FUN_800218f0`. Le candidat
+`captured-selector no-stack` a provoqué une boucle de sync collection/toasts,
+probablement parce que la branche de fin de résultat ré-entrait dans le hook de
+capture visible. Les candidats en zone d'expansion `SLUS:0x19b440` ont aussi
+crashé à l'entrée de l'écran de résultat.
+
+Le patch inline qui capturait le sélecteur visible dans `result+0x3b` puis
+relançait le picker au site d'award est aussi invalide : il ne crashe pas, mais
+il peut produire des cartes impossibles comme `#1/#2/#3` chez Meadow Mage. Le
+problème de fond est que la vanilla appelle `FUN_80021810(selector)` pendant
+l'initialisation de l'écran de résultat, puis crédite plus tard la carte déjà
+tirée. Un patch qui relance `FUN_80021810` au site d'award ne respecte donc pas
+le flux vanilla et dépend d'un contexte de drop-table qui n'est plus prouvé
+stable.
+
+Conclusion pour Gold : utiliser la recette communautaire corrigée. Elle fait
+tirer/stocker toutes les récompenses au moment où la vanilla tire déjà la
+récompense. Ne pas rajouter d'autre trampoline qui choisit les cartes au site
+d'award.
 
 ## Cibles
 
@@ -135,6 +156,7 @@ Priorité 1 (à reconsidérer) :
 différent, patterns non trouvés. À discuter avec l'utilisateur.
 
 Priorité repli (fonctionne avec la recette actuelle) :
+`Yu-Gi-Oh! Forbidden Memories Gold.bin`
 `15 card mod/yu-gi-oh!_-_forbidden_memories - Copy.bin.uibak`
 (US vanilla NTSC BIN) — sert aussi de fixture de test.
 
@@ -147,7 +169,7 @@ Cible FMR :
 - Produit une nouvelle image au même format, dans un fichier voisin (suffixe
   avant l'extension, ex. `.dropx15`).
 - CLI uniquement. Pas d'UI web.
-- v1 = SLUS_014.11-base (US vanilla + FMR). Ultimate / PAL = v2.
+- v1 = SLUS_014.11-base (US vanilla + FMR) + Gold SLUS_000.04. Ultimate / PAL = v2.
 
 ## Architecture
 

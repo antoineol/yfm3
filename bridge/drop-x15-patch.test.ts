@@ -82,17 +82,19 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("rejects Gold even though it resembles the Ghost hook layout", () => {
+  test("supports the clean Ghost Drop More Cards layout used by Gold", () => {
     const image = makeGhostToolDiscImage("SLUS_000.04", 0x24050101);
 
-    expect(inspectDropX15Image(image)).toMatchObject({
-      supported: false,
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: true,
       enabled: false,
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x15",
       gameSerial: "SLUS_000.04",
     });
   });
 
-  test("rejects clean Gold until a crash-free x15 recipe is proven", () => {
+  test("rejects Gold when DATA/WA_MRG.MRG is unavailable", () => {
     const image = makeDiscImage("SLUS_000.04");
 
     expect(inspectDropX15Image(image)).toMatchObject({
@@ -102,31 +104,30 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("does not patch clean Gold while the Gold recipe is disabled", () => {
+  test("patches Gold with the Ghost Drop More Cards layout and preserves its continuation", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
-    const image = makeBufferedDiscImageWithWa("SLUS_000.04");
-    const beforeWa = Buffer.from(image.subarray(waOffset(0), waOffset(0xe84000)));
+    const image = makeGhostToolDiscImage("SLUS_000.04", 0x24050101);
     writeFileSync(discPath, image);
 
     try {
-      expect(() => patchDropX15DiscInPlace(discPath)).toThrow(
-        "Gold x15 patching is disabled until a crash-free recipe is proven.",
-      );
+      const result = patchDropX15DiscInPlace(discPath);
       const patched = readFileSync(discPath);
 
-      expect(Buffer.compare(patched.subarray(waOffset(0), waOffset(0xe84000)), beforeWa)).toBe(0);
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-loop-limits",
+      });
+      expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x1247c)).toBe(0x24050101);
+      expect(patched[waOffset(0xbc1c78)]).toBe(16);
+      expect(patched[waOffset(0xbc1d74)]).toBe(16);
+      expect(patched[waOffset(0xbc1dec)]).toBe(15);
+      expect(patched[waOffset(0xbc17e4)]).toBe(16);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
-
-  test("Gold expansion extra rolls keep reloading the captured selector", () => {
-    const patch = buildGoldExpansionPickerX15Patch("SLUS_000.04");
-    const branchIndex = patch.localProgram.indexOf(0x1600fff8);
-
-    expect(branchIndex).toBeGreaterThan(0);
-    expect(patch.localProgram[branchIndex - 7]).toBe(0x02202021);
   });
 
   test("rejects the shifted PAL France local layout instead of installing a custom trampoline", () => {
@@ -188,9 +189,10 @@ describe("drop x15 patch inspection", () => {
         enabled: true,
         definitionId: "ghost-loop-limits",
       });
-      expect(patched[waOffset(0xbc1778)]).toBe(16);
-      expect(patched[waOffset(0xbc1874)]).toBe(16);
-      expect(patched[waOffset(0xbc18ec)]).toBe(15);
+      expect(patched[waOffset(0xbc1c78)]).toBe(16);
+      expect(patched[waOffset(0xbc1d74)]).toBe(16);
+      expect(patched[waOffset(0xbc1dec)]).toBe(15);
+      expect(patched[waOffset(0xbc17e4)]).toBe(16);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -261,31 +263,6 @@ function makeDiscImage(serial: string, seed = true): Buffer {
       serial === "SLUS_000.04" ? goldExpansionPatch : patch,
     );
 
-  return image;
-}
-
-function makeBufferedDiscImageWithWa(serial: string): Buffer {
-  const rootSector = 20;
-  const slusSector = 21;
-  const dataSector = 1000;
-  const waSector = 1001;
-  const patch = buildGoldExpansionPickerX15Patch(serial);
-  const slusSize = patch.localProgramOffset + patch.localProgramVanilla.length * 4 + 0x100;
-  const waSize = 0xe84000;
-  const image = Buffer.alloc(
-    (waSector + Math.ceil(waSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
-  );
-
-  writePrimaryVolumeDescriptor(image, rootSector);
-  writeRootDirectoryWithData(image, rootSector, slusSector, slusSize, serial, dataSector);
-  writeDirRecord(image, dataSector * SECTOR_DATA_SIZE, {
-    extent: waSector,
-    size: waSize,
-    flags: 0,
-    name: "WA_MRG.MRG;1",
-  });
-  seedUnpatchedExecutable(image, slusSector, patch);
-  image.fill(0xa5, waOffset(0), waOffset(waSize));
   return image;
 }
 
