@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  type BufferedPickerX15PatchDefinition,
+  buildBufferedPickerX15Patch,
   buildLocalX15Patch,
   type DropX15PatchDefinition,
   inspectDropX15Image,
@@ -68,19 +70,70 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test.each([
-    "SLUS_014.11",
-    "SLUS_000.04",
-  ])("supports the clean Ghost Drop More Cards layout used by %s", (serial) => {
-    const image = makeGhostToolDiscImage(serial);
+  test("supports the clean Ghost Drop More Cards layout used by NTSC-U", () => {
+    const image = makeGhostToolDiscImage("SLUS_014.11");
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
       definitionName: "Ghost Drop More Cards x15",
-      gameSerial: serial,
+      gameSerial: "SLUS_014.11",
     });
+  });
+
+  test("rejects Gold even though it resembles the Ghost hook layout", () => {
+    const image = makeGhostToolDiscImage("SLUS_000.04", 0x24050101);
+
+    expect(inspectDropX15Image(image)).toMatchObject({
+      supported: false,
+      enabled: false,
+      gameSerial: "SLUS_000.04",
+    });
+  });
+
+  test("supports clean Gold with the verified buffered original-picker layout", () => {
+    const image = makeDiscImage("SLUS_000.04");
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: true,
+      enabled: false,
+      definitionId: "buffered-picker-x15",
+      definitionName: "Buffered original-picker x15",
+      gameSerial: "SLUS_000.04",
+    });
+  });
+
+  test("patches clean Gold through SLUS only and leaves WA_MRG unchanged", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    const image = makeBufferedDiscImageWithWa("SLUS_000.04");
+    const beforeWa = Buffer.from(image.subarray(waOffset(0), waOffset(0xe84000)));
+    writeFileSync(discPath, image);
+
+    try {
+      const result = patchDropX15DiscInPlace(discPath);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "buffered-picker-x15",
+      });
+      expect(Buffer.compare(patched.subarray(waOffset(0), waOffset(0xe84000)), beforeWa)).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("Gold buffered extra rolls keep reloading the captured selector", () => {
+    const patch = buildBufferedPickerX15Patch("SLUS_000.04");
+    const sltiuIndex = patch.localProgram.indexOf(0x2e0a000f);
+
+    expect(sltiuIndex).toBeGreaterThan(0);
+    expect(patch.localProgram[sltiuIndex - 7]).toBe(0x02202021);
+    expect(patch.localProgram[sltiuIndex + 1]).toBe(0x1540fff7);
   });
 
   test("rejects the shifted PAL France local layout instead of installing a custom trampoline", () => {
@@ -122,10 +175,10 @@ describe("drop x15 patch inspection", () => {
     }
   });
 
-  test("patches the Ghost Drop More Cards layout in place and preserves Gold continuation code", () => {
+  test("patches the Ghost Drop More Cards layout in place", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
-    writeFileSync(discPath, makeGhostToolDiscImage("SLUS_000.04", 0x24050101));
+    writeFileSync(discPath, makeGhostToolDiscImage("SLUS_014.11"));
 
     try {
       const result = patchDropX15DiscInPlace(discPath);
@@ -142,7 +195,6 @@ describe("drop x15 patch inspection", () => {
         enabled: true,
         definitionId: "ghost-loop-limits",
       });
-      expect(readU32(patched, 21, 0x1247c)).toBe(0x24050101);
       expect(patched[waOffset(0xbc1778)]).toBe(16);
       expect(patched[waOffset(0xbc1874)]).toBe(16);
       expect(patched[waOffset(0xbc18ec)]).toBe(15);
@@ -195,15 +247,45 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
   const rootSector = 20;
   const patch = buildLocalX15Patch(serial);
-  const slusSize = patch.localProgramOffset + patch.localProgram.length * 4 + 0x100;
+  const bufferedPatch = buildBufferedPickerX15Patch(serial);
+  const localEnd = patch.localProgramOffset + patch.localProgram.length * 4;
+  const bufferedEnd =
+    bufferedPatch.localProgramOffset + bufferedPatch.localProgramVanilla.length * 4;
+  const slusSize = Math.max(localEnd, bufferedEnd) + 0x100;
   const image = Buffer.alloc(
     (slusSector + Math.ceil(slusSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
   );
 
   writePrimaryVolumeDescriptor(image, rootSector);
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
-  if (seed) seedUnpatchedExecutable(image, slusSector, patch);
+  if (seed)
+    seedUnpatchedExecutable(image, slusSector, serial === "SLUS_000.04" ? bufferedPatch : patch);
 
+  return image;
+}
+
+function makeBufferedDiscImageWithWa(serial: string): Buffer {
+  const rootSector = 20;
+  const slusSector = 21;
+  const dataSector = 1000;
+  const waSector = 1001;
+  const patch = buildBufferedPickerX15Patch(serial);
+  const slusSize = patch.localProgramOffset + patch.localProgramVanilla.length * 4 + 0x100;
+  const waSize = 0xe84000;
+  const image = Buffer.alloc(
+    (waSector + Math.ceil(waSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
+  );
+
+  writePrimaryVolumeDescriptor(image, rootSector);
+  writeRootDirectoryWithData(image, rootSector, slusSector, slusSize, serial, dataSector);
+  writeDirRecord(image, dataSector * SECTOR_DATA_SIZE, {
+    extent: waSector,
+    size: waSize,
+    flags: 0,
+    name: "WA_MRG.MRG;1",
+  });
+  seedUnpatchedExecutable(image, slusSector, patch);
+  image.fill(0xa5, waOffset(0), waOffset(waSize));
   return image;
 }
 
@@ -308,7 +390,7 @@ function seedGhostToolHooks(image: Buffer, slusSector: number, continuationWord:
 function seedUnpatchedExecutable(
   image: Buffer,
   slusSector: number,
-  patch: DropX15PatchDefinition,
+  patch: DropX15PatchDefinition | BufferedPickerX15PatchDefinition,
 ): void {
   for (const word of patch.requiredWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
@@ -377,10 +459,6 @@ function writeDirRecord(
 
 function writeU32(image: Buffer, slusSector: number, fileOffset: number, value: number): void {
   image.writeUInt32LE(value, slusSector * SECTOR_DATA_SIZE + fileOffset);
-}
-
-function readU32(image: Buffer, slusSector: number, fileOffset: number): number {
-  return image.readUInt32LE(slusSector * SECTOR_DATA_SIZE + fileOffset);
 }
 
 function writeBytes(image: Buffer, slusSector: number, fileOffset: number, hex: string): void {

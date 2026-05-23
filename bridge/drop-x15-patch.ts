@@ -273,6 +273,15 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
   if (ghostToolState.supported) return ghostToolState;
 
+  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
+  const bufferedState = inspectBufferedPickerPatchState(
+    image,
+    slusEntry.sector,
+    format,
+    bufferedDefinition,
+  );
+  if (bufferedState.supported) return bufferedState;
+
   const definition = buildLocalX15Patch(slusEntry.name);
   return inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
 }
@@ -288,6 +297,10 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
     before = inspectGhostToolPatchState(image, slusEntry, format);
   }
   if (!before.supported) {
+    const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
+    before = inspectBufferedPickerPatchState(image, slusEntry.sector, format, bufferedDefinition);
+  }
+  if (!before.supported) {
     before = inspectLegacyLocalPatchState(
       image,
       slusEntry.sector,
@@ -300,6 +313,13 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
     writeGhostLoopPatch(image);
+  } else if (before.definitionId === BUFFERED_PICKER_DEFINITION_ID) {
+    writeBufferedPickerPatch(
+      image,
+      slusEntry.sector,
+      format,
+      buildBufferedPickerX15Patch(slusEntry.name),
+    );
   } else {
     writeGhostToolPatch(image, slusEntry, format);
   }
@@ -321,6 +341,16 @@ function inspectGhostToolPatchState(
   slusEntry: IsoFile,
   format: DiscFormat,
 ): DropX15PatchStatus {
+  if (slusEntry.name !== "SLUS_014.11") {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: slusEntry.name,
+      reason:
+        "Ghost Drop More Cards injection is only verified for NTSC-U SLUS_014.11. This mod needs a separately proven x15 recipe.",
+    };
+  }
+
   const waEntry = findWaMrgEntry(image, format);
   if (!waEntry) {
     return {
@@ -556,6 +586,93 @@ function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
   return offsets;
 }
 
+function inspectBufferedPickerPatchState(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  definition: BufferedPickerX15PatchDefinition,
+): DropX15PatchStatus {
+  if (definition.gameSerial !== "SLUS_000.04") {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial: definition.gameSerial,
+      reason: "The local-state x15 picker is only verified for Gold SLUS_000.04.",
+    };
+  }
+
+  const requiredOk = definition.requiredWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
+  );
+  const hooksVanilla = definition.writeWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.vanilla,
+  );
+  const hooksPatched = definition.writeWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
+  );
+  const hostVanilla = wordsMatch(
+    image,
+    slusSector,
+    format,
+    definition.localProgramOffset,
+    definition.localProgramVanilla,
+  );
+  const hostPatched = wordsMatch(
+    image,
+    slusSector,
+    format,
+    definition.localProgramOffset,
+    definition.localProgram,
+  );
+
+  if (requiredOk && hooksPatched && hostPatched) {
+    return {
+      supported: true,
+      enabled: true,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+    };
+  }
+
+  if (requiredOk && hooksVanilla && hostVanilla) {
+    return {
+      supported: true,
+      enabled: false,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+    };
+  }
+
+  return {
+    supported: false,
+    enabled: false,
+    gameSerial: definition.gameSerial,
+    reason: "The executable does not match the verified Gold local-state x15 layout.",
+  };
+}
+
+function writeBufferedPickerPatch(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  definition: BufferedPickerX15PatchDefinition,
+): void {
+  for (const word of definition.writeWords) {
+    writeU32LeAt(image, slusSector, word.fileOffset, word.patched, format);
+  }
+  for (let i = 0; i < definition.localProgram.length; i++) {
+    writeU32LeAt(
+      image,
+      slusSector,
+      definition.localProgramOffset + i * 4,
+      definition.localProgram[i] ?? 0,
+      format,
+    );
+  }
+}
+
 function inspectLegacyLocalPatchState(
   image: Buffer,
   slusSector: number,
@@ -756,8 +873,8 @@ function buildBufferedPickHookWords(
 function buildBufferedCreditHookWords(
   addresses: BufferedPickerProgramAddresses,
 ): readonly number[] {
-  const loopRam = addresses.creditHookRam + 48;
-  const loopBranchRam = addresses.creditHookRam + 84;
+  const loopRam = addresses.creditHookRam + 44;
+  const loopBranchRam = addresses.creditHookRam + 76;
 
   return [
     mipsAddiu(REG.sp, REG.sp, -24),
@@ -886,6 +1003,20 @@ function readU32LeAt(
       ((image[discOffset(fileStartSector, fileOffset + 3, format)] ?? 0) << 24)) >>>
     0
   );
+}
+
+function writeU32LeAt(
+  image: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  value: number,
+  format: DiscFormat,
+): void {
+  const offset = discOffset(fileStartSector, fileOffset, format);
+  image[offset] = value & 0xff;
+  image[offset + 1] = (value >>> 8) & 0xff;
+  image[offset + 2] = (value >>> 16) & 0xff;
+  image[offset + 3] = (value >>> 24) & 0xff;
 }
 
 function mipsNop(): number {
