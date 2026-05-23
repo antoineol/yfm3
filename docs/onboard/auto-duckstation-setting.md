@@ -26,6 +26,9 @@ ExportSharedMemory = true
 - File is read-only — error logged, manual instructions shown
 - CRLF vs LF line endings — preserved
 - Documents folder redirected (e.g. OneDrive) — resolved via `[Environment]::GetFolderPath('MyDocuments')`
+- Auto-sync mode never falls back to static CSV data. Labels, colors, fusions,
+  and equips must come from bridge `gameData`; missing `gameData` stays visible
+  as an incomplete setup/data-acquisition state.
 
 ### Migration note
 

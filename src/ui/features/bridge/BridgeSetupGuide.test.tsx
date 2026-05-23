@@ -108,6 +108,31 @@ describe("BridgeSetupGuide", () => {
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 
+  it("keeps ready as game loaded while bridge gameData is still missing", () => {
+    mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "ready" }));
+    render(<BridgeSetupGuide />);
+
+    expect(screen.getByText("Connected")).toBeDefined();
+    expect(screen.getByText("Game loaded — reading game data")).toBeDefined();
+    expect(screen.getByText(/Auto-sync will not use CSV fallback data/)).toBeDefined();
+    expect(screen.queryByText(/Start or load a game/)).toBeNull();
+  });
+
+  it("shows gameData errors without claiming the game is missing", () => {
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        detail: "ready",
+        gameDataError: "Could not find or read game disc image",
+      }),
+    );
+    render(<BridgeSetupGuide />);
+
+    expect(screen.getByText("Game loaded — game data unavailable")).toBeDefined();
+    expect(screen.getByText("Could not find or read game disc image")).toBeDefined();
+    expect(screen.queryByText(/Start or load a game/)).toBeNull();
+  });
+
   it("shows restart button when settingsPatched and resets on restartFailed", () => {
     const bridge = defaultBridge({
       status: "connected",

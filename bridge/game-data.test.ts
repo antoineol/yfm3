@@ -41,6 +41,11 @@ describe("decideDiscMatch", () => {
     expect(result).toMatchObject({ kind: "winner", binPath: DISC_A, candidateCount: 1 });
   });
 
+  it("returns winner from a unique hash match even when RAM serial is missing", () => {
+    const result = decideDiscMatch([DISC_A, DISC_B], new Set(), [candidate(DISC_A)], null);
+    expect(result).toMatchObject({ kind: "winner", binPath: DISC_A, candidateCount: 1 });
+  });
+
   it("returns none when no candidates match", () => {
     const result = decideDiscMatch([DISC_A], new Set(), [], "SLUS_027.11");
     expect(result).toEqual({ kind: "none" });
@@ -85,6 +90,16 @@ describe("decideDiscMatch", () => {
       kind: "ambiguous",
       candidates: [DISC_A, DISC_B, DISC_C],
     });
+  });
+
+  it("returns ambiguous for multiple hash candidates when RAM serial is missing", () => {
+    const result = decideDiscMatch(
+      [DISC_A, DISC_B],
+      new Set(),
+      [candidate(DISC_A, "SLUS_027.11"), candidate(DISC_B, "SLES_039.48")],
+      null,
+    );
+    expect(result).toEqual({ kind: "ambiguous", candidates: [DISC_A, DISC_B] });
   });
 
   it("ignores locks that point outside the candidate set", () => {

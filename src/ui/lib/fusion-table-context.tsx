@@ -20,12 +20,14 @@ export function FusionTableProvider({ children }: { children: ReactNode }) {
   const bridge = useBridge();
 
   useEffect(() => {
-    // Bridge/auto-sync mode: all data comes from the emulator, never from CSV.
-    // Wait for bridge.gameData — don't fall back to CSV while the bridge connects.
+    // Auto-sync mode must never load static CSV reference data. The active
+    // game's labels, colors, fusions, and equips all come from bridge gameData.
     if (autoSync) {
       if (bridge.gameData) {
         setData(buildReferenceTableData(bridgeGameDataToReference(bridge.gameData)));
+        return;
       }
+      setData(null);
       return;
     }
     // Manual mode: load from CSV once the Convex mod preference has settled.

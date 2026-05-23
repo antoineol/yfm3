@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { EXTRA_GAME_VARIANTS, MODS } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
-import type { BridgeDetail } from "../../lib/bridge-message-processor.ts";
 import {
   BIOS_EU_URL,
   BIOS_US_URL,
@@ -21,22 +20,9 @@ import {
   Troubleshooting,
 } from "./setup-steps.tsx";
 
-/**
- * Bridge "ready" means shared-memory card-stats are non-zero — not that disc
- * extraction finished. Until `gameData` actually arrives, we keep step 8
- * ("Load the game") active: the user hasn't completed the flow, whether
- * because the emulator is between loads (stale shared memory) or extraction
- * is still running in the background.
- */
-function effectiveDetail(detail: BridgeDetail, hasGameData: boolean): BridgeDetail {
-  if (detail === "ready" && !hasGameData) return "waiting_for_game";
-  return detail;
-}
-
 export function BridgeSetupGuide() {
   const bridge = useBridge();
   const updatePreferences = useUpdatePreferences();
-  const detail = effectiveDetail(bridge.detail, bridge.gameData !== null);
 
   const handleSwitchMode = useCallback(() => {
     updatePreferences({ bridgeAutoSync: null });
@@ -44,13 +30,14 @@ export function BridgeSetupGuide() {
 
   return (
     <div className="max-w-lg mx-auto space-y-4">
-      {detail !== "waiting_for_game" && (
+      {bridge.detail !== "waiting_for_game" && (
         <StatusBanner
-          detail={detail}
+          detail={bridge.detail}
           detailMessage={bridge.detailMessage}
           settingsPatched={bridge.settingsPatched}
         />
       )}
+      <GameDataStatus />
       <SetupSteps />
       <Troubleshooting />
       <SwitchModeLink onClick={handleSwitchMode} />
@@ -61,8 +48,7 @@ export function BridgeSetupGuide() {
 function SetupSteps() {
   const bridge = useBridge();
   const [downloaded, setDownloaded] = useState(false);
-  const detail = effectiveDetail(bridge.detail, bridge.gameData !== null);
-  const states = stepStatesForDetail(detail);
+  const states = stepStatesForDetail(bridge.detail);
 
   const step4 = downloaded && states[3] === STEP_ACTIVE ? STEP_DONE : states[3];
   const step7 = bridge.settingsPatched ? STEP_DONE : states[6];
@@ -128,6 +114,27 @@ function SetupSteps() {
       </Step>
 
       <Step number={8} state={states[7]} title="Load the game in DuckStation" />
+    </div>
+  );
+}
+
+function GameDataStatus() {
+  const bridge = useBridge();
+  if (bridge.detail !== "ready" || bridge.gameData) return null;
+
+  const hasError = Boolean(bridge.gameDataError);
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-950/20">
+      <span className="mt-0.5 inline-block size-2.5 rounded-full shrink-0 bg-yellow-400 animate-pulse" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-yellow-400/90">
+          {hasError ? "Game loaded — game data unavailable" : "Game loaded — reading game data"}
+        </p>
+        <p className="mt-1 text-xs text-text-muted">
+          {bridge.gameDataError ??
+            "Waiting for bridge gameData from the active disc. Auto-sync will not use CSV fallback data."}
+        </p>
+      </div>
     </div>
   );
 }

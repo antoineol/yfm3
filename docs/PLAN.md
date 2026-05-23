@@ -93,6 +93,6 @@ Return best deck + exact expected ATK
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide, including before reference data is ready, and buffer detected rewards until deck definition and auto-sync game data are available |
 | **Campaign Reward Pool Evidence** (CURRENT) | — | Capture rank counters, reward selector evidence, inferred credited-card fit, prefer the community Ghost/FMR x15 routine, and keep Gold x15 disabled until an isolated no-stack award-site candidate is manually proven |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
-| **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |
+| **Onboarding Flow** (DONE) | [`docs/onboard/auto-duckstation-setting.md`](onboard/auto-duckstation-setting.md) | Mode chooser, prerequisite steps, shared-memory auto-patch, and bridge-only data in auto-sync mode |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |
 | **Rank Scoring Profiles** (CURRENT) | [`docs/steps/rank-scoring-profiles.md`](steps/rank-scoring-profiles.md) | Extract rank tables from the active disc image, with vanilla/RP profiles as fallback |

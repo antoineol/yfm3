@@ -1855,16 +1855,15 @@ async function poll(): Promise<void> {
         const shouldAcquire =
           fingerprint !== gameDataFingerprint ||
           (gameDataRetryAt !== null && Date.now() >= gameDataRetryAt);
-        if (shouldAcquire && serial === null) {
-          // EXE not fully loaded into RAM yet — cardStats hash is transient
-          // garbage and would mismatch every disc. Defer until the serial
-          // appears, which is a strong "game is ready" signal.
+        if (shouldAcquire) {
           if (!waitingForSerialLogged) {
-            console.log("Game serial not yet in RAM — deferring data acquisition");
-            waitingForSerialLogged = true;
+            if (serial === null) {
+              console.log(
+                "Game serial not found in RAM — acquiring game data by lock/card-stats hash",
+              );
+              waitingForSerialLogged = true;
+            }
           }
-        } else if (shouldAcquire) {
-          waitingForSerialLogged = false;
           gameDataFingerprint = fingerprint;
           gameDataRetryAt = null;
           try {
