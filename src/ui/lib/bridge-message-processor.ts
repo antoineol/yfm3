@@ -192,7 +192,21 @@ function eqStats(a: DuelStats | null, b: DuelStats | null): boolean {
     a.fusions === b.fusions &&
     a.terrain === b.terrain &&
     a.duelistId === b.duelistId &&
-    eqNumArr(a.rankCounters, b.rankCounters)
+    eqNumArr(a.rankCounters, b.rankCounters) &&
+    eqRewardPoolContext(a.rewardPoolContext, b.rewardPoolContext)
+  );
+}
+
+function eqRewardPoolContext(
+  a: DuelStats["rewardPoolContext"],
+  b: DuelStats["rewardPoolContext"],
+): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return (
+    a.cardCountMode === b.cardCountMode &&
+    a.skillFlag === b.skillFlag &&
+    a.computedPool === b.computedPool
   );
 }
 

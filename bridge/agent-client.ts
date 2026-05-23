@@ -62,6 +62,11 @@ export interface AgentGameState {
   cpuShuffledDeck: number[];
   duelistUnlock: number[];
   rankCounters: number[] | null;
+  rewardPoolContext: {
+    cardCountMode: number;
+    skillFlag: number;
+    computedPool: number;
+  } | null;
 }
 
 export interface CommandResult {

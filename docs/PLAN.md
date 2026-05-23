@@ -90,6 +90,7 @@ Return best deck + exact expected ATK
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
 | **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale same-path BIN caches |
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide so auto-sync optimization is not tied to the visible tab lifecycle |
+| **Campaign Reward Pool Evidence** (CURRENT) | — | Capture rank counters, runtime reward selector bytes, and credited-card fit after a duel, including the local x15 path of 1 visible rank-pool card plus 14 hidden selector-pool cards |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
 | **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |

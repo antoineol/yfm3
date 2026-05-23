@@ -1,9 +1,45 @@
 import { useEffect, useRef } from "react";
+import type { DropPool, RankFactors } from "../../../engine/ranking/rank-scoring.ts";
+import { computeRankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
+import type { BridgeDuelist, BridgeGameData } from "../../../engine/worker/messages.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
+import type { DuelStats } from "../../lib/bridge-state-interpreter.ts";
 
 export interface CollectionSnapshot {
   collection: Record<number, number>;
   deck: number[];
+  rewardEvidence: RewardEvidence | null;
+}
+
+export interface RewardEvidence {
+  duelistId: number;
+  rankLabel: string | null;
+  rankDropPool: DropPool | null;
+  selectorDropPool: DropPool | null;
+  selectorContext: {
+    cardCountMode: number;
+    skillFlag: number;
+    computedPool: number;
+  } | null;
+  gainedCards: Array<{ cardId: number; qty: number }>;
+  poolMatches: Array<{
+    dropPool: DropPool;
+    possible: boolean;
+    matchedCards: number;
+    totalCards: number;
+    logProbability: number | null;
+    impossibleCardIds: number[];
+  }>;
+  bestDropPool: DropPool | null;
+  x15Match: {
+    visiblePool: DropPool;
+    hiddenPool: DropPool;
+    possible: boolean;
+    matchedCards: number;
+    totalCards: number;
+    logProbability: number | null;
+    possibleVisibleCardIds: number[];
+  } | null;
 }
 
 /**
@@ -52,25 +88,29 @@ export function useDuelCollectionTracker(
   }, [bridge.inDuel, bridge.phase, bridge.collection, modMismatch]);
 
   // ── Detect collection changes during duel ─────────────────────
+  const { collection, deckDefinition, gameData, stats } = bridge;
   useEffect(() => {
     if (hasFiredRef.current) return;
     if (modMismatch) return;
-    if (!bridge.collection || !preDuelCollectionRef.current) return;
+    if (!collection || !preDuelCollectionRef.current) return;
 
-    const newCards = findNewCards(preDuelCollectionRef.current, bridge.collection);
-    if (newCards.length === 0) return;
+    const gainedCards = findNewCardQuantities(preDuelCollectionRef.current, collection);
+    if (gainedCards.length === 0) return;
 
     console.log(
-      `[PostDuel] Collection changed during duel: ${String(newCards.length)} new card(s)`,
+      `[PostDuel] Collection changed during duel: ${String(
+        gainedCards.reduce((sum, c) => sum + c.qty, 0),
+      )} new card(s)`,
     );
     hasFiredRef.current = true;
-    if (bridge.deckDefinition) {
+    if (deckDefinition) {
       onNewCardsRef.current({
-        collection: { ...bridge.collection },
-        deck: [...bridge.deckDefinition],
+        collection: { ...collection },
+        deck: [...deckDefinition],
+        rewardEvidence: buildRewardEvidence(stats, gameData, gainedCards),
       });
     }
-  }, [bridge.collection, bridge.deckDefinition, modMismatch]);
+  }, [collection, deckDefinition, gameData, stats, modMismatch]);
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */
@@ -78,13 +118,197 @@ export function findNewCards(
   before: Record<number, number>,
   after: Record<number, number>,
 ): number[] {
-  const newCards: number[] = [];
+  return findNewCardQuantities(before, after).map((card) => card.cardId);
+}
+
+export function findNewCardQuantities(
+  before: Record<number, number>,
+  after: Record<number, number>,
+): Array<{ cardId: number; qty: number }> {
+  const newCards: Array<{ cardId: number; qty: number }> = [];
   for (const [idStr, qty] of Object.entries(after)) {
     const id = Number(idStr);
     const prevQty = before[id] ?? 0;
     if (qty > prevQty) {
-      newCards.push(id);
+      newCards.push({ cardId: id, qty: qty - prevQty });
     }
   }
   return newCards;
+}
+
+const RANK_COUNTER_KEYS: readonly (keyof RankFactors)[] = [
+  "turns",
+  "effectiveAttacks",
+  "defensiveWins",
+  "faceDownPlays",
+  "fusionsInitiated",
+  "equipMagicUsed",
+  "pureMagicUsed",
+  "trapsTriggered",
+  "remainingCards",
+  "remainingLp",
+];
+
+const DROP_POOLS: readonly DropPool[] = ["SA-POW", "BCD", "SA-TEC"];
+
+export function buildRewardEvidence(
+  stats: DuelStats | null,
+  gameData: BridgeGameData | null,
+  gainedCards: Array<{ cardId: number; qty: number }>,
+): RewardEvidence | null {
+  const duelistId = stats?.duelistId ?? 0;
+  if (!gameData || duelistId < 1) return null;
+
+  const duelist = gameData.duelists[duelistId - 1];
+  if (!duelist) return null;
+
+  const rank = rankFromCounters(stats, gameData);
+  const selectorDropPool = dropPoolFromSelector(stats?.rewardPoolContext?.computedPool);
+  const poolMatches = buildPoolMatches(duelist, gainedCards);
+  const bestDropPool = findBestPool(poolMatches);
+  const x15Match = buildX15Match(duelist, rank?.dropPool ?? null, selectorDropPool, gainedCards);
+
+  return {
+    duelistId,
+    rankLabel: rank?.label ?? null,
+    rankDropPool: rank?.dropPool ?? null,
+    selectorDropPool,
+    selectorContext: stats?.rewardPoolContext ?? null,
+    gainedCards,
+    poolMatches,
+    bestDropPool,
+    x15Match,
+  };
+}
+
+function rankFromCounters(
+  stats: DuelStats | null,
+  gameData: BridgeGameData,
+): { label: string; dropPool: DropPool } | null {
+  const counters = stats?.rankCounters;
+  if (!counters || counters.length !== RANK_COUNTER_KEYS.length) return null;
+
+  const values: Record<string, number> = {};
+  for (let i = 0; i < RANK_COUNTER_KEYS.length; i++) {
+    const key = RANK_COUNTER_KEYS[i];
+    if (key) values[key] = counters[i] ?? 0;
+  }
+
+  return computeRankBreakdown(
+    values as unknown as RankFactors,
+    "normal",
+    gameData.rankScoring ?? "vanilla",
+  ).rank;
+}
+
+function buildPoolMatches(
+  duelist: BridgeDuelist,
+  gainedCards: Array<{ cardId: number; qty: number }>,
+): RewardEvidence["poolMatches"] {
+  return DROP_POOLS.map((dropPool) => {
+    const weights = weightsForDropPool(duelist, dropPool);
+    let matchedCards = 0;
+    let logProbability = 0;
+    const impossibleCardIds: number[] = [];
+
+    for (const card of gainedCards) {
+      const weight = weights[card.cardId - 1] ?? 0;
+      if (weight <= 0) {
+        impossibleCardIds.push(card.cardId);
+        continue;
+      }
+      matchedCards += card.qty;
+      logProbability += Math.log(weight / 2048) * card.qty;
+    }
+
+    const totalCards = gainedCards.reduce((sum, card) => sum + card.qty, 0);
+    const possible = impossibleCardIds.length === 0;
+    return {
+      dropPool,
+      possible,
+      matchedCards,
+      totalCards,
+      logProbability: possible ? logProbability : null,
+      impossibleCardIds,
+    };
+  });
+}
+
+function weightsForDropPool(duelist: BridgeDuelist, dropPool: DropPool): number[] {
+  if (dropPool === "SA-POW") return duelist.saPow;
+  if (dropPool === "SA-TEC") return duelist.saTec;
+  return duelist.bcd;
+}
+
+function findBestPool(matches: RewardEvidence["poolMatches"]): DropPool | null {
+  const possible = matches.filter((match) => match.possible);
+  if (possible.length === 0) {
+    const best = [...matches].sort((a, b) => b.matchedCards - a.matchedCards)[0];
+    return best?.dropPool ?? null;
+  }
+  possible.sort((a, b) => (b.logProbability ?? -Infinity) - (a.logProbability ?? -Infinity));
+  return possible[0]?.dropPool ?? null;
+}
+
+function buildX15Match(
+  duelist: BridgeDuelist,
+  visiblePool: DropPool | null,
+  hiddenPool: DropPool | null,
+  gainedCards: Array<{ cardId: number; qty: number }>,
+): RewardEvidence["x15Match"] {
+  if (!visiblePool || !hiddenPool) return null;
+
+  const visibleWeights = weightsForDropPool(duelist, visiblePool);
+  const hiddenWeights = weightsForDropPool(duelist, hiddenPool);
+  const totalCards = gainedCards.reduce((sum, card) => sum + card.qty, 0);
+  let bestMatchedCards = 0;
+  let bestLogProbability: number | null = null;
+  const possibleVisibleCardIds: number[] = [];
+
+  for (const visibleCard of gainedCards) {
+    const visibleWeight = visibleWeights[visibleCard.cardId - 1] ?? 0;
+    if (visibleWeight <= 0) continue;
+
+    let matchedCards = 1;
+    let logProbability = Math.log(visibleWeight / 2048);
+    let possible = true;
+
+    for (const card of gainedCards) {
+      const hiddenQty = card.cardId === visibleCard.cardId ? card.qty - 1 : card.qty;
+      if (hiddenQty <= 0) continue;
+
+      const hiddenWeight = hiddenWeights[card.cardId - 1] ?? 0;
+      if (hiddenWeight <= 0) {
+        possible = false;
+        continue;
+      }
+      matchedCards += hiddenQty;
+      logProbability += Math.log(hiddenWeight / 2048) * hiddenQty;
+    }
+
+    if (matchedCards > bestMatchedCards) bestMatchedCards = matchedCards;
+    if (possible) {
+      possibleVisibleCardIds.push(visibleCard.cardId);
+      if (bestLogProbability === null || logProbability > bestLogProbability) {
+        bestLogProbability = logProbability;
+      }
+    }
+  }
+
+  return {
+    visiblePool,
+    hiddenPool,
+    possible: possibleVisibleCardIds.length > 0,
+    matchedCards: possibleVisibleCardIds.length > 0 ? totalCards : bestMatchedCards,
+    totalCards,
+    logProbability: bestLogProbability,
+    possibleVisibleCardIds,
+  };
+}
+
+function dropPoolFromSelector(selector: number | undefined): DropPool | null {
+  if (selector === 0) return "SA-POW";
+  if (selector === 1) return "BCD";
+  if (selector === 2) return "SA-TEC";
+  return null;
 }

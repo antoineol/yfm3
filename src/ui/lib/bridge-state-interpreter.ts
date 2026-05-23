@@ -15,6 +15,13 @@ export type DuelStats = {
   duelistId: number;
   /** Raw rank counter bytes from RAM (10 values matching scoring table order), null if unavailable. */
   rankCounters: number[] | null;
+  rewardPoolContext: RewardPoolContext | null;
+};
+
+export type RewardPoolContext = {
+  cardCountMode: number;
+  skillFlag: number;
+  computedPool: number;
 };
 
 /** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
@@ -42,6 +49,8 @@ export type RawBridgeState = {
   duelistId: number | null;
   /** Raw rank counter bytes from RAM (10 values in scoring table order). */
   rankCounters?: number[] | null;
+  /** Drop-pool selector context bytes from RAM. */
+  rewardPoolContext?: RewardPoolContext | null;
   /** Hand slot indices (u8[5]): deal index or 0xFF = card left hand. Null if profile unavailable. */
   handSlots: number[] | null;
   // Universal fields — always available.
@@ -116,6 +125,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
           terrain: raw.terrain ?? 0,
           duelistId: raw.duelistId ?? 0,
           rankCounters: Array.isArray(raw.rankCounters) ? raw.rankCounters : null,
+          rewardPoolContext: raw.rewardPoolContext ?? null,
         }
       : null;
 

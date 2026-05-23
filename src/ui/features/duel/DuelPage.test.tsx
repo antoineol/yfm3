@@ -154,6 +154,7 @@ const idlePostDuel: PostDuelSuggestionState = {
   liveBestScore: 0,
   result: null,
   currentDeck: [],
+  rewardEvidence: null,
   dismiss: vi.fn(),
 };
 
@@ -184,7 +185,13 @@ describe("DuelPage", () => {
         phase: "hand",
         inDuel: true,
         lp: [9900, 9900],
-        stats: { fusions: 2, terrain: 0, duelistId: 1, rankCounters: null },
+        stats: {
+          fusions: 2,
+          terrain: 0,
+          duelistId: 1,
+          rankCounters: null,
+          rewardPoolContext: null,
+        },
       }),
     );
 

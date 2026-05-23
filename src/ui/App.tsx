@@ -42,6 +42,7 @@ const EMPTY_POST_DUEL: PostDuelSuggestion = {
   liveBestScore: 0,
   result: null,
   currentDeck: [],
+  rewardEvidence: null,
   dismiss: () => {},
 };
 

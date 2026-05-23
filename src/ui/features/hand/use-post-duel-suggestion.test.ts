@@ -30,9 +30,11 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
 }));
 
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
+import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
-import { findNewCards } from "./use-duel-collection-tracker.ts";
+import type { DuelStats } from "../../lib/bridge-state-interpreter.ts";
+import { buildRewardEvidence, findNewCards } from "./use-duel-collection-tracker.ts";
 import {
   decksMatch,
   scoringDeckApplied,
@@ -115,6 +117,35 @@ describe("findNewCards", () => {
     const before = {};
     const after = { 1: 1, 2: 1 };
     expect(findNewCards(before, after)).toEqual([1, 2]);
+  });
+});
+
+describe("buildRewardEvidence", () => {
+  it("detects local x15 rewards split between visible rank pool and hidden selector pool", () => {
+    const saPow = makePool({ 1: 2048 });
+    const saTec = makePool({ 2: 2048 });
+    const gameData = makeRewardGameData({ saPow, saTec });
+    const stats = makeRewardStats({
+      rewardPoolContext: { cardCountMode: 5, skillFlag: 1, computedPool: 2 },
+    });
+
+    const evidence = buildRewardEvidence(stats, gameData, [
+      { cardId: 1, qty: 1 },
+      { cardId: 2, qty: 14 },
+    ]);
+
+    expect(evidence?.rankLabel).toBe("S-POW");
+    expect(evidence?.rankDropPool).toBe("SA-POW");
+    expect(evidence?.selectorDropPool).toBe("SA-TEC");
+    expect(evidence?.bestDropPool).toBe("SA-TEC");
+    expect(evidence?.x15Match).toMatchObject({
+      visiblePool: "SA-POW",
+      hiddenPool: "SA-TEC",
+      possible: true,
+      matchedCards: 15,
+      totalCards: 15,
+      possibleVisibleCardIds: [1],
+    });
   });
 });
 
@@ -684,6 +715,53 @@ describe("usePostDuelSuggestion", () => {
     expect(store.get(postDuelStateAtom)).toBe("result");
   });
 });
+
+function makePool(weights: Record<number, number> = {}): number[] {
+  const pool = new Array(722).fill(0) as number[];
+  for (const [cardId, weight] of Object.entries(weights)) {
+    pool[Number(cardId) - 1] = weight;
+  }
+  return pool;
+}
+
+function makeRewardGameData(pools: {
+  saPow?: number[];
+  bcd?: number[];
+  saTec?: number[];
+}): BridgeGameData {
+  return {
+    cards: [],
+    duelists: [
+      {
+        id: 1,
+        name: "Test Duelist",
+        deck: makePool(),
+        saPow: pools.saPow ?? makePool(),
+        bcd: pools.bcd ?? makePool(),
+        saTec: pools.saTec ?? makePool(),
+      },
+    ],
+    fusionTable: [],
+    equipTable: [],
+    equipBonuses: null,
+    perEquipBonuses: null,
+    deckLimits: null,
+    rankScoring: null,
+    fieldBonusTable: null,
+    artworkKey: "test",
+  };
+}
+
+function makeRewardStats(overrides: Partial<DuelStats> = {}): DuelStats {
+  return {
+    fusions: 0,
+    terrain: 0,
+    duelistId: 1,
+    rankCounters: [1, 1, 0, 0, 0, 0, 0, 0, 35, 8000],
+    rewardPoolContext: null,
+    ...overrides,
+  };
+}
 
 describe("scoringDeckApplied", () => {
   it("returns true when full deck contains all scoring cards", () => {
