@@ -41,7 +41,7 @@ All 722 cards with stats, descriptions, starchip costs, and passwords.
 | guardian_star_1 | Primary guardian star (Mars, Jupiter, Saturn, etc.) |
 | guardian_star_2 | Secondary guardian star |
 | type | Card type (Dragon, Spellcaster, Magic, Trap, Equip, etc.) |
-| color | UI color (yellow, blue, green, purple, orange, red, or empty) |
+| color | UI color (yellow, blue, green, purple, orange, red, pink, or empty) |
 | level | Card level (0 for spells/traps, 1-12 for monsters) |
 | attribute | Card attribute (Light, Dark, Water, Fire, Earth, Wind, or empty) |
 | starchip_cost | Starchip cost to purchase |
@@ -132,7 +132,7 @@ All PAL languages use a shared frequency-ordered TBL (`PAL_CHAR_TABLE` in the sc
 
 ## Text Encoding
 
-The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color.
+The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color. Gold/Ultimate uses both `0x04` and `0x07` for purple card-name frames. Gold also stores rendered card-frame colors in a packed 4-bit EXE table when names have no color prefix: `0` yellow, `1` green, `2` pink trap-style, `3` blue, `4` purple, `5` orange.
 
 **NTSC-U TBL** (used in SLUS executable): `0x00`=space, `0x01`=e, `0x02`=t, `0x03`=a, ...
 **PAL TBL** (used in WA_MRG text blocks): `0x00`=space, `0x01`=e, `0x02`=a, `0x03`=i, `0x04`=n, `0x05`=r, ...

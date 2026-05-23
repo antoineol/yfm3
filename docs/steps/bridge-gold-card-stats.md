@@ -24,9 +24,9 @@
 - Type and guardian-star name tables are detected by their own known string runs instead of by fixed deltas from the selected card-stat table.
 - The ordered raw card type and guardian-star lists are shared from `src/engine/data/rp-types.ts`; compact/display card-type conversion lives in `src/engine/data/card-type-names.ts`, so bridge extraction, reference loading, field-bonus indexing, card detail display, and description icon parsing no longer carry separate copies.
 - Disc extraction remains responsible for all card metadata, fusions, equips, duelists, rank data, and artwork. In autosync mode, every runtime refresh, including post-ISO-edit duelist refresh, uses the active RAM-selected layout. There is no post-extraction ATK/DEF overlay.
-- Card frame colors are extracted from the `{F8 0A XX}` card-name prefix in the active text table and carried through bridge/reference data into full-card, mini-card, and list-border rendering. Existing no-color caches are invalidated by game-data cache version 9.
+- Card frame colors are extracted from the `{F8 0A XX}` card-name prefix when present, otherwise from Gold's packed 4-bit EXE frame-color table. Gold frame code `2` is treated as the trap-style pink/purple frame, not true red. The bridge carries the resolved color through reference data into full-card, mini-card, and list-border rendering. Existing no-color caches are invalidated by game-data cache version 12.
 - Game-data cache files now record the source disc size and mtime. If the BIN changes at the same path, the bridge rejects the old cache and re-extracts WA_MRG-derived data.
-- Game-data cache version 9 also rejects impossible card metadata before serving cached data: cards with ATK/DEF cannot be tagged as Magic/Trap/Ritual/Equip, and guardian-star fields must use known guardian-star names rather than card type labels or truncated text.
+- Game-data cache validation also rejects impossible card metadata before serving cached data: cards with ATK/DEF cannot be tagged as Magic/Trap/Ritual/Equip, and guardian-star fields must use known guardian-star names rather than card type labels or truncated text.
 
 ## Next Steps
 

@@ -21,7 +21,7 @@ import type {
 } from "./extract/types.ts";
 import { NUM_CARDS } from "./extract/types.ts";
 
-const CACHE_VERSION = 9;
+const CACHE_VERSION = 12;
 const CACHE_FILENAME = "gamedata.json";
 const CARD_TYPE_NAMES = new Set<string>(cardTypes);
 const GUARDIAN_STAR_NAMES = new Set<string>(guardianStars);

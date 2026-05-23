@@ -28,7 +28,30 @@ const CARD_COLORS: Record<number, string> = {
   4: "purple",
   5: "orange",
   6: "red",
+  7: "purple",
 };
+
+/** Packed frame color table codes used by Gold's card renderer. */
+const FRAME_COLORS: Record<number, string> = {
+  0: "yellow",
+  1: "green",
+  2: "pink",
+  3: "blue",
+  4: "purple",
+  5: "orange",
+};
+
+const FRAME_COLOR_TABLE_BYTES = Math.ceil(NUM_CARDS / 2);
+const FRAME_COLOR_PROBES: readonly [cardId: number, code: number][] = [
+  [1, 0],
+  [2, 0],
+  [301, 1],
+  [329, 2],
+  [356, 3],
+  [380, 4],
+  [613, 4],
+  [716, 3],
+];
 
 const NUM_TYPE_NAMES = 24;
 const DEFAULT_CARD_TYPES = indexedNames(cardTypes);
@@ -113,6 +136,7 @@ export function extractCards(
     langIdx,
     iconNames,
   );
+  const frameColors = extractFrameColors(slus);
   const starchips = extractStarchips(waMrg, waMrgLayout);
   const cards: CardStats[] = [];
 
@@ -129,7 +153,7 @@ export function extractCards(
       gs1: gsNames[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
       gs2: gsNames[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
       type: cardTypes[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
-      color: text.color,
+      color: text.color || frameColors[i] || "",
       level: levelAttr & 0xf,
       attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
       description: descriptions[i] ?? "",
@@ -139,6 +163,46 @@ export function extractCards(
   }
 
   return cards;
+}
+
+function extractFrameColors(exe: Buffer): string[] {
+  const table = findPackedFrameColorTable(exe);
+  if (table === -1) return [];
+  return Array.from(
+    { length: NUM_CARDS },
+    (_, i) => FRAME_COLORS[readFrameColorCode(exe, table, i)] ?? "",
+  );
+}
+
+function findPackedFrameColorTable(exe: Buffer): number {
+  for (let offset = 0; offset <= exe.length - FRAME_COLOR_TABLE_BYTES; offset++) {
+    if (isPackedFrameColorTable(exe, offset)) return offset;
+  }
+  return -1;
+}
+
+function isPackedFrameColorTable(exe: Buffer, offset: number): boolean {
+  const counts = Array(Object.keys(FRAME_COLORS).length).fill(0) as number[];
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const code = readFrameColorCode(exe, offset, i);
+    if (!(code in FRAME_COLORS)) return false;
+    counts[code] = (counts[code] ?? 0) + 1;
+  }
+  for (const [cardId, code] of FRAME_COLOR_PROBES) {
+    if (readFrameColorCode(exe, offset, cardId - 1) !== code) return false;
+  }
+  return (
+    (counts[0] ?? 0) > 500 &&
+    (counts[1] ?? 0) > 50 &&
+    (counts[2] ?? 0) > 5 &&
+    (counts[3] ?? 0) > 5 &&
+    (counts[4] ?? 0) > 20
+  );
+}
+
+function readFrameColorCode(exe: Buffer, offset: number, index: number): number {
+  const packed = exe[offset + Math.floor(index / 2)] ?? 0;
+  return index % 2 === 0 ? packed >> 4 : packed & 0xf;
 }
 
 function extractNameTable(

@@ -89,7 +89,7 @@ Return best deck + exact expected ATK
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
 | **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale or impossible metadata caches |
-| **Bridge Gold Card Colors** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Extract `{F8 0A XX}` card frame colors from active card-name text and render them in card UI |
+| **Bridge Gold Card Colors** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Extract card frame colors from name prefixes or Gold's packed EXE frame-color table and render them in card UI |
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide, including before reference data is ready, and buffer detected rewards until deck definition and auto-sync game data are available |
 | **Campaign Reward Pool Evidence** (DONE) | — | Capture rank counters and credited-card fit evidence; use the community Ghost/FMR x15 routine for compatible images, including Gold |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |

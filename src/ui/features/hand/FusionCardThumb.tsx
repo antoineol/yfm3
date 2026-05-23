@@ -1,29 +1,7 @@
 import type { CardSpec } from "../../../engine/data/card-model.ts";
+import { framePaletteForCard } from "../../components/card-frame-palettes.ts";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
-
-interface FramePalette {
-  lo: string;
-  mid: string;
-  hi: string;
-  border: string;
-  text: string;
-}
-
-const monsterPalette: FramePalette = {
-  lo: "#6a5020",
-  mid: "#b89838",
-  hi: "#d4b850",
-  border: "#8a7028",
-  text: "#2a1e0a",
-};
-
-const cardTypePalettes: Record<string, FramePalette> = {
-  Magic: { lo: "#1a5020", mid: "#308838", hi: "#50a858", border: "#246828", text: "#0a2a0e" },
-  Equip: { lo: "#1a5020", mid: "#308838", hi: "#50a858", border: "#246828", text: "#0a2a0e" },
-  Trap: { lo: "#802058", mid: "#c04888", hi: "#d868a8", border: "#a03070", text: "#2a0a1e" },
-  Ritual: { lo: "#183880", mid: "#2858c0", hi: "#4070e0", border: "#1e3090", text: "#0a0e2a" },
-};
 
 const attributeOrb: Record<string, string> = {
   Light: "#e8c840",
@@ -40,8 +18,7 @@ export function FusionCardThumb({ card }: { card: CardSpec }) {
   const resolveArtwork = useArtworkSrc();
   const artSrc = resolveArtwork(card.id);
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
-  const ct = card.cardType ?? "";
-  const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;
+  const p = framePaletteForCard(card);
 
   return (
     <button

@@ -56,7 +56,7 @@ export const cardKinds: readonly (CardKindCardType | FusionOnlyKind)[] = [
   ...fusionOnlyKinds,
 ];
 
-export const colors = ["blue", "yellow", "orange", "red", "purple", "green"] as const;
+export const colors = ["blue", "yellow", "orange", "red", "purple", "green", "pink"] as const;
 
 export const guardianStars = [
   "None",

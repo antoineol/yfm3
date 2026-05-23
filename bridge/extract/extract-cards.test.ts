@@ -274,6 +274,27 @@ function makeSlusWithTables(
   return buf;
 }
 
+function makeGoldFrameColorTable(): Buffer {
+  const codes = Array(NUM_CARDS).fill(0) as number[];
+  for (let id = 301; id <= 387; id++) codes[id - 1] = 1;
+  for (let id = 329; id <= 342; id++) codes[id - 1] = 2;
+  for (const id of [
+    356, 357, 364, 365, 701, 702, 704, 709, 710, 715, 716, 717, 718, 719, 720, 722,
+  ]) {
+    codes[id - 1] = 3;
+  }
+  for (let id = 400; id <= 439; id++) codes[id - 1] = 4;
+  codes[380 - 1] = 4;
+  codes[613 - 1] = 4;
+  codes[21 - 1] = 5;
+
+  const buf = Buffer.alloc(Math.ceil(NUM_CARDS / 2));
+  for (let i = 0; i < NUM_CARDS; i += 2) {
+    buf[i / 2] = ((codes[i] ?? 0) << 4) | (codes[i + 1] ?? 0);
+  }
+  return buf;
+}
+
 describe("extractCards — card name colors", () => {
   it("extracts F8 0A name-prefix colors from the EXE text pool", () => {
     const stat = encodeCardStat(255, 215, 4, 9, 3);
@@ -343,6 +364,50 @@ describe("extractCards — card name colors", () => {
 
     expect(cards[0]?.name).toBe("Twin-headed Thunder Dragon");
     expect(cards[0]?.color).toBe("purple");
+  });
+
+  it("maps Gold color code 7 to purple", () => {
+    const stat = encodeCardStat(450, 380, 10, 8, 0);
+    const nameTableOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const textPoolBase = nameTableOffset + NUM_CARDS * 2 + 100;
+    const nameOffsets = Buffer.alloc(NUM_CARDS * 2);
+    const name = Buffer.concat([
+      Buffer.from([0xf8, 0x0a, 0x07]),
+      encodeTblStrings(["Blue-eyes Ultimate Dragon"]),
+    ]);
+    const slus = makeSlusWithTables(
+      [stat],
+      [12],
+      [
+        { offset: nameTableOffset, data: nameOffsets },
+        { offset: textPoolBase, data: name },
+      ],
+    );
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, nameOffsetTable: nameTableOffset, textPoolBase };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+
+    expect(cards[0]?.name).toBe("Blue-eyes Ultimate Dragon");
+    expect(cards[0]?.color).toBe("purple");
+  });
+
+  it("extracts Gold packed frame colors when card names have no color prefix", () => {
+    const frameColorOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const slus = makeSlusWithTables(
+      [encodeCardStat(300, 250, 1, 8, 0)],
+      [8],
+      [{ offset: frameColorOffset, data: makeGoldFrameColorTable() }],
+    );
+    const waMrg = makeWaMrg([]);
+
+    const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
+
+    expect(cards[0]?.color).toBe("yellow");
+    expect(cards[328]?.color).toBe("pink");
+    expect(cards[379]?.color).toBe("purple");
+    expect(cards[612]?.color).toBe("purple");
+    expect(cards[715]?.color).toBe("blue");
   });
 });
 

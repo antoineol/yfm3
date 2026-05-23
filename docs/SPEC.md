@@ -13,7 +13,7 @@ YFM2 is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remastered Pe
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Card**         | A monster with an ID, name, attack, defense, one or more kinds (Dragon, Warrior, etc.), and an optional color.                                                                                                          |
 | **Kind**         | One of 22 monster types: Dragon, Fairy, Beast, Fiend, Warrior, Zombie, WingedBeast, Machine, Rock, Plant, Dinosaur, Spellcaster, Pyro, Reptile, Aqua, Insect, Thunder, Fish, Female, MothInsect, SharkFish, SeaSerpent. |
-| **Color**        | One of: blue, yellow, orange, red. A card has at most one color. Colors can qualify fusion ingredients (see section 3.2).                                                                                               |
+| **Color**        | One of the extracted frame colors such as blue, yellow, orange, red, purple, green, or pink. A card has at most one color. Colors can qualify fusion ingredients (see section 3.2).                                    |
 | **Collection**   | The set of cards a player owns, each with a quantity (e.g., 3 copies of Blue-Eyes).                                                                                                                                     |
 | **Deck**         | A list of exactly 40 card IDs drawn from the collection, respecting ownership quantities.                                                                                                                               |
 | **Hand**         | 5 cards drawn uniformly at random (without replacement) from the deck.                                                                                                                                                  |
@@ -214,4 +214,3 @@ must be adapted to match the implementation's scoring strategy, but the qualitat
 - Multiplayer or opponent modeling
 - Card draw order beyond the initial 5-card hand
 - Deck ordering effects (only composition matters for scoring)
-

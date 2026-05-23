@@ -62,6 +62,7 @@ const validColors = new Set<string>([
   "red",
   "purple",
   "green",
+  "pink",
 ] satisfies (typeof colors)[number][]);
 
 function parseColor(raw?: string): Color | undefined {

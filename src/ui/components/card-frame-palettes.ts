@@ -61,18 +61,19 @@ const colorPalettes: Record<Color, FramePalette> = {
     border: "#982424",
     text: "#2a0606",
   },
-};
-
-const cardTypePalettes: Record<string, FramePalette> = {
-  Magic: colorPalettes.green,
-  Equip: colorPalettes.green,
-  Trap: {
+  pink: {
     lo: "#802058",
     mid: "#c04888",
     hi: "#d868a8",
     border: "#a03070",
     text: "#2a0a1e",
   },
+};
+
+const cardTypePalettes: Record<string, FramePalette> = {
+  Magic: colorPalettes.green,
+  Equip: colorPalettes.green,
+  Trap: colorPalettes.pink,
   Ritual: colorPalettes.blue,
 };
 
