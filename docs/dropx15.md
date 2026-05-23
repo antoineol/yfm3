@@ -1,7 +1,7 @@
 # droptool / dropx15 — specs (brouillon)
 
 Statut : **actif pour le bridge**. La recette préférée reste la recette
-communautaire Ghost/FMR par limites de boucle. Pour Gold/Ultimate-like, où ces
+communautaire Ghost/FMR par limites de boucle. Pour Gold/Ultimate/PAL-like, où ces
 ancres n'existent pas, le bridge utilise un patch local plus proche du modèle
 communautaire : il intercepte le picker original pendant que le vrai sélecteur
 de pool est encore vivant, bufferise les 15 cartes choisies, puis crédite cette
@@ -61,13 +61,13 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 | Image                                              | Serial EXE       | Patterns vanilla présents ?     | Support v1 ? |
 |----------------------------------------------------|------------------|----------------------------------|--------------|
 | `15 card mod/…uibak` (US vanilla BIN)              | `SLUS_014.11`    | Oui, 8× (1 dans WA_MRG+7 EXE)    | ✅           |
-| `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Non — layout vanilla-family au site d'award local | ❌ bridge v2.0.68+ |
+| `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Legacy trampoline local installé | ✅ upgrade buffered-picker |
 | `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ✅ via buffered-picker |
 | `FMR Remastered Perfected[15].bin`                 | `SLUS_014.11`    | Oui, 1× (vestige) + 7× déjà patchées | ✅ (déjà patchée) |
 | `FMR Vanilla Remastered 1.3.bin`                   | `SLUS_014.11`    | Identique au cas ci-dessus       | ✅           |
 | `Alpha Mod (Drop x15).iso`                         | `SLUS_014.11`    | Déjà patchée (7 occurrences x15) | ✅ (déjà patchée) |
-| `Yu-Gi-Oh! Forbidden Memories (Ultimate).iso`      | **`SLUS_027.11`** | **Non**                          | ❌ à part    |
-| `Vanilla/…(France).bin` (PAL FR)                   | `SLES_039.48`    | Non                              | ❌ à part    |
+| `Yu-Gi-Oh! Forbidden Memories (Ultimate).iso`      | **`SLUS_027.11`** | Non — layout vanilla-family au site d'award local | ✅ via buffered-picker |
+| `Vanilla/…(France).bin` (PAL FR)                   | `SLES_039.48`    | Non — layout PAL décalé de `+0xbc` | ✅ via buffered-picker |
 
 **Conséquence importante** : l'image **Ultimate est un mod à binaire
 recompilé/différent** (serial customisé `SLUS_027.11`). Nos patterns exacts
@@ -84,7 +84,8 @@ trampoline local historique qui recomputait un pool tardivement. Cette variante
 a produit des récompenses impossibles ou désynchronisées sur Gold; elle est
 donc traitée comme état legacy à restaurer, pas comme patch activable.
 
-Le remplacement Gold-compatible supporté est `buffered-picker-x15` :
+Le remplacement Gold/Ultimate/PAL-compatible supporté est
+`buffered-picker-x15` :
 
 1. Hook `0x80021c60` (`jal FUN_80021810`) vers `0x80021f24`.
 2. La routine appelée reçoit le sélecteur réel dans `a0`, appelle le picker
@@ -97,6 +98,17 @@ Le remplacement Gold-compatible supporté est `buffered-picker-x15` :
 Différence clé avec le trampoline rejeté : on ne reconstruit plus le sélecteur
 depuis l'état de résultat après coup; on utilise celui que le jeu vient de
 calculer pour le reward affiché.
+
+Pour `SLES_039.48` (PAL France), les mêmes sites sont décalés de `+0xbc`
+dans l'exécutable :
+
+- Picker: `0x800218cc`, hook file `0x1251c`.
+- Credit: `0x80021950`, award hook file `0x127cc`.
+- Local host: `0x80021fe0`, file `0x127e0`.
+- Return: `0x80022158`.
+
+Le bridge vérifie les bytes exacts de cette variante avant d'activer ou
+d'écrire le patch.
 
 ## Cibles
 

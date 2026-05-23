@@ -32,10 +32,9 @@ const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
 const BUFFERED_PICKER_DEFINITION_ID = "buffered-picker-x15";
 const BUFFERED_PICKER_DEFINITION_NAME = "Buffered original-picker x15";
-const PICK_HOOK_RAM = LOCAL_PROGRAM_RAM;
-const CREDIT_HOOK_RAM = 0x80021f98;
 const REWARD_BUFFER_RAM = 0x801aac00;
 const BUFFERED_DROP_COUNT = 15;
+const PAL_FR_EXECUTABLE_SHIFT = 0xbc;
 
 const GHOST_LOOP_PATTERNS = [
   {
@@ -79,6 +78,12 @@ export interface BufferedPickerX15PatchDefinition {
   id: string;
   name: string;
   gameSerial: string;
+  pickDropRam: number;
+  creditCardRam: number;
+  returnRam: number;
+  localProgramRam: number;
+  creditHookRam: number;
+  requiredWords: readonly InstructionPatch[];
   writeWords: readonly InstructionPatch[];
   localProgramOffset: number;
   localProgramVanilla: readonly number[];
@@ -144,36 +149,63 @@ export function buildLocalX15Patch(gameSerial: string): DropX15PatchDefinition {
 }
 
 export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX15PatchDefinition {
+  const shift = bufferedPickerShift(gameSerial);
+  const pickDropRam = PICK_DROP_RAM + shift;
+  const creditCardRam = CREDIT_CARD_RAM + shift;
+  const returnRam = RETURN_RAM + shift;
+  const localProgramRam = LOCAL_PROGRAM_RAM + shift;
+  const creditHookRam = localProgramRam + buildBufferedPickHookWords().length * 4;
+
   return {
     id: BUFFERED_PICKER_DEFINITION_ID,
     name: BUFFERED_PICKER_DEFINITION_NAME,
     gameSerial,
+    pickDropRam,
+    creditCardRam,
+    returnRam,
+    localProgramRam,
+    creditHookRam,
+    requiredWords: [
+      {
+        fileOffset: CREDIT_INCREMENT_OFFSET + shift,
+        ram: CREDIT_INCREMENT_RAM + shift,
+        vanilla: VANILLA_CREDIT_INCREMENT,
+        patched: VANILLA_CREDIT_INCREMENT,
+        label: "card-credit increment remains +1",
+      },
+    ],
     writeWords: [
       {
-        fileOffset: VISIBLE_PICK_HOOK_OFFSET,
-        ram: 0x80021c60,
-        vanilla: mipsJal(PICK_DROP_RAM),
-        patched: mipsJal(PICK_HOOK_RAM),
+        fileOffset: VISIBLE_PICK_HOOK_OFFSET + shift,
+        ram: 0x80021c60 + shift,
+        vanilla: mipsJal(pickDropRam),
+        patched: mipsJal(localProgramRam),
         label: "reward picker->buffered x15 picker",
       },
       {
-        fileOffset: AWARD_HOOK_OFFSET,
-        ram: AWARD_HOOK_RAM,
+        fileOffset: AWARD_HOOK_OFFSET + shift,
+        ram: AWARD_HOOK_RAM + shift,
         vanilla: 0x8444003c,
-        patched: mipsJ(CREDIT_HOOK_RAM),
+        patched: mipsJ(creditHookRam),
         label: "award.lh->j buffered x15 credit routine",
       },
       {
-        fileOffset: AWARD_HOOK_OFFSET + 4,
-        ram: AWARD_HOOK_RAM + 4,
-        vanilla: 0x0c008625,
+        fileOffset: AWARD_HOOK_OFFSET + shift + 4,
+        ram: AWARD_HOOK_RAM + shift + 4,
+        vanilla: mipsJal(creditCardRam),
         patched: mipsNop(),
         label: "award.jal->nop",
       },
     ],
-    localProgramOffset: LOCAL_PROGRAM_OFFSET,
-    localProgramVanilla: buildBufferedPickerProgramVanillaWords(),
-    localProgram: buildBufferedPickerProgramWords(),
+    localProgramOffset: LOCAL_PROGRAM_OFFSET + shift,
+    localProgramVanilla: buildBufferedPickerProgramVanillaWords(shift),
+    localProgram: buildBufferedPickerProgramWords({
+      pickDropRam,
+      creditCardRam,
+      returnRam,
+      localProgramRam,
+      creditHookRam,
+    }),
   };
 }
 
@@ -304,6 +336,9 @@ function inspectBufferedPickerPatchState(
   const hooksPatched = definition.writeWords.every(
     (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
   );
+  const requiredOk = definition.requiredWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
+  );
   const hostVanilla = wordsMatch(
     image,
     slusSector,
@@ -318,8 +353,15 @@ function inspectBufferedPickerPatchState(
     definition.localProgramOffset,
     definition.localProgram,
   );
+  const legacyLocalPatch = isLegacyLocalPatch(image, slusSector, format);
+  const unsafeFreezeSelectorPatch = isUnsafeFreezeSelectorPatch(
+    image,
+    slusSector,
+    format,
+    buildLocalX15Patch(definition.gameSerial),
+  );
 
-  if (hooksPatched && hostPatched) {
+  if (requiredOk && hooksPatched && hostPatched) {
     return {
       supported: true,
       enabled: true,
@@ -329,7 +371,7 @@ function inspectBufferedPickerPatchState(
     };
   }
 
-  if (hooksVanilla && hostVanilla) {
+  if (requiredOk && hooksVanilla && hostVanilla) {
     return {
       supported: true,
       enabled: false,
@@ -339,12 +381,33 @@ function inspectBufferedPickerPatchState(
     };
   }
 
+  if (requiredOk && (legacyLocalPatch || unsafeFreezeSelectorPatch)) {
+    return {
+      supported: true,
+      enabled: false,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+      reason:
+        "A legacy local x15 patch is installed; enabling 15-card drops will upgrade it to the buffered original-picker patch.",
+    };
+  }
+
   return {
     supported: false,
     enabled: false,
     gameSerial: definition.gameSerial,
     reason: "The active executable does not match the buffered original-picker x15 layout.",
   };
+}
+
+function isLegacyLocalPatch(image: Buffer, slusSector: number, format: DiscFormat): boolean {
+  return (
+    readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format) === mipsJal(PICK_DROP_RAM) &&
+    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET, format) === mipsJ(LOCAL_PROGRAM_RAM) &&
+    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET + 4, format) === mipsNop() &&
+    wordsMatch(image, slusSector, format, LOCAL_PROGRAM_OFFSET, buildLocalProgramWords())
+  );
 }
 
 function writeBufferedPickerPatch(
@@ -521,19 +584,37 @@ function buildLocalProgramWords(): readonly number[] {
   ];
 }
 
-function buildBufferedPickerProgramWords(): readonly number[] {
-  return [...buildBufferedPickHookWords(), ...buildBufferedCreditHookWords()];
+function bufferedPickerShift(gameSerial: string): number {
+  return gameSerial === "SLES_039.48" ? PAL_FR_EXECUTABLE_SHIFT : 0;
 }
 
-function buildBufferedPickHookWords(): readonly number[] {
-  const loopRam = PICK_HOOK_RAM + 40;
-  const loopBranchRam = PICK_HOOK_RAM + 84;
+interface BufferedPickerProgramAddresses {
+  pickDropRam: number;
+  creditCardRam: number;
+  returnRam: number;
+  localProgramRam: number;
+  creditHookRam: number;
+}
+
+function buildBufferedPickerProgramWords(
+  addresses: BufferedPickerProgramAddresses,
+): readonly number[] {
+  return [...buildBufferedPickHookWords(addresses), ...buildBufferedCreditHookWords(addresses)];
+}
+
+function buildBufferedPickHookWords(
+  addresses: Partial<BufferedPickerProgramAddresses> = {},
+): readonly number[] {
+  const pickDropRam = addresses.pickDropRam ?? PICK_DROP_RAM;
+  const localProgramRam = addresses.localProgramRam ?? LOCAL_PROGRAM_RAM;
+  const loopRam = localProgramRam + 40;
+  const loopBranchRam = localProgramRam + 84;
 
   return [
     mipsAddiu(REG.sp, REG.sp, -32),
     mipsSw(REG.ra, 28, REG.sp),
     mipsSw(REG.a0, 24, REG.sp),
-    mipsJal(PICK_DROP_RAM),
+    mipsJal(pickDropRam),
     mipsNop(),
     mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
     mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
@@ -541,7 +622,7 @@ function buildBufferedPickHookWords(): readonly number[] {
     mipsAddiu(REG.t1, REG.zero, 1),
     mipsSw(REG.t1, 16, REG.sp),
     mipsLw(REG.a0, 24, REG.sp),
-    mipsJal(PICK_DROP_RAM),
+    mipsJal(pickDropRam),
     mipsNop(),
     mipsLw(REG.t1, 16, REG.sp),
     mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
@@ -562,9 +643,11 @@ function buildBufferedPickHookWords(): readonly number[] {
   ];
 }
 
-function buildBufferedCreditHookWords(): readonly number[] {
-  const loopRam = CREDIT_HOOK_RAM + 16;
-  const loopBranchRam = CREDIT_HOOK_RAM + 52;
+function buildBufferedCreditHookWords(
+  addresses: BufferedPickerProgramAddresses,
+): readonly number[] {
+  const loopRam = addresses.creditHookRam + 16;
+  const loopBranchRam = addresses.creditHookRam + 52;
 
   return [
     mipsAddiu(REG.sp, REG.sp, -24),
@@ -576,7 +659,7 @@ function buildBufferedCreditHookWords(): readonly number[] {
     mipsSll(REG.t1, REG.s0, 1),
     mipsAddu(REG.t0, REG.t0, REG.t1),
     mipsLhu(REG.a0, 0, REG.t0),
-    mipsJal(CREDIT_CARD_RAM),
+    mipsJal(addresses.creditCardRam),
     mipsNop(),
     mipsAddiu(REG.s0, REG.s0, 1),
     mipsSltiu(REG.t2, REG.s0, BUFFERED_DROP_COUNT),
@@ -584,7 +667,7 @@ function buildBufferedCreditHookWords(): readonly number[] {
     mipsNop(),
     mipsLw(REG.s0, 16, REG.sp),
     mipsLw(REG.ra, 20, REG.sp),
-    mipsJ(RETURN_RAM),
+    mipsJ(addresses.returnRam),
     mipsAddiu(REG.sp, REG.sp, 24),
   ];
 }
@@ -631,7 +714,19 @@ function buildLocalProgramVanillaWords(): readonly number[] {
   ];
 }
 
-function buildBufferedPickerProgramVanillaWords(): readonly number[] {
+function buildBufferedPickerProgramVanillaWords(shift: number): readonly number[] {
+  if (shift === PAL_FR_EXECUTABLE_SHIFT) {
+    return [
+      0x938202ec, 0x27850260, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518,
+      0x00000000, 0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f,
+      0x8c830000, 0x00000000, 0xa4620518, 0x938202ec, 0x00000000, 0x38420001, 0x00021080,
+      0x00452021, 0x8c830000, 0x00000000, 0x9462051a, 0x00000000, 0x24420001, 0xa462051a,
+      0x3042ffff, 0x2c422710, 0x1440003f, 0x2402270f, 0x8c830000, 0x08008856, 0xa462051a,
+      0x3c02800a, 0x9442c728, 0x00000000, 0x3042a000, 0x1040002a, 0x00000000, 0x8f820270,
+      0x00000000, 0x90430037, 0x00000000, 0x24630001, 0xa0430037, 0x3c02800a,
+    ];
+  }
+
   return [
     0x9382025d, 0x278502d0, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518, 0x00000000,
     0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f, 0x8c830000, 0x00000000,
