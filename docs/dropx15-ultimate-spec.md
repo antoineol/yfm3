@@ -1,5 +1,11 @@
 # Ultimate x15 Drop Patch Spec
 
+Status: historical/legacy. This local trampoline formula was useful to prove
+that a duel can credit 15 cards without the Alpha expansion region, but it is
+not the production bridge patch anymore. The bridge now supports only the
+community Ghost/FMR loop-limit x15 anchors and reports installed local
+trampolines as legacy unsafe states.
+
 ## Business Goal
 
 Patch the existing `Yu-Gi-Oh! Forbidden Memories (Ultimate).iso` (`SLUS_027.11`) so a won duel grants 15 card drops instead of one.

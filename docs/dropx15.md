@@ -1,8 +1,9 @@
 # droptool / dropx15 — specs (brouillon)
 
-Statut : **brouillon**. La recette de patch (cœur de l'outil) est maintenant
-identifiée par diff binaire. Reste à trancher le scope (quels EXE cibler) et
-quelques détails d'implémentation.
+Statut : **actif pour le bridge**. La recette de patch supportée est la
+recette communautaire Ghost/FMR par limites de boucle. Les anciens trampolines
+locaux restent documentés comme historique, mais le bridge ne les installe plus
+en production.
 
 ## Objectif
 
@@ -58,8 +59,8 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 | Image                                              | Serial EXE       | Patterns vanilla présents ?     | Support v1 ? |
 |----------------------------------------------------|------------------|----------------------------------|--------------|
 | `15 card mod/…uibak` (US vanilla BIN)              | `SLUS_014.11`    | Oui, 8× (1 dans WA_MRG+7 EXE)    | ✅           |
-| `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Non — layout vanilla-family au site d'award local | ✅ via trampoline local |
-| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ✅ via trampoline local |
+| `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Non — layout vanilla-family au site d'award local | ❌ bridge v2.0.68+ |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ❌ bridge v2.0.68+ |
 | `FMR Remastered Perfected[15].bin`                 | `SLUS_014.11`    | Oui, 1× (vestige) + 7× déjà patchées | ✅ (déjà patchée) |
 | `FMR Vanilla Remastered 1.3.bin`                   | `SLUS_014.11`    | Identique au cas ci-dessus       | ✅           |
 | `Alpha Mod (Drop x15).iso`                         | `SLUS_014.11`    | Déjà patchée (7 occurrences x15) | ✅ (déjà patchée) |
@@ -70,11 +71,16 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 recompilé/différent** (serial customisé `SLUS_027.11`). Nos patterns exacts
 ne matchent pas. Le PAL français a aussi un binaire différent.
 
-Pour la v1, le support robuste concerne les exécutables qui gardent le site
-d'award vanilla (`0x80021f10`) et le code hôte libre (`0x80021f24`). L'app ne
-gate plus par serial : la compatibilité est détectée par exact word checks sur
-le hook, la routine de crédit et le code hôte. PAL demanderait une validation
-in-game séparée si ces bytes matchent sur une image réelle.
+Pour la v1 bridge, le support robuste concerne uniquement les images qui
+contiennent les ancres Ghost/FMR ci-dessus. Le bridge scanne l'image brute, pas
+seulement l'EXE ISO9660 extrait, car les copies chargées par le jeu peuvent
+différer de la copie logique.
+
+Les exécutables qui gardent seulement le site d'award vanilla
+(`0x80021f10`) et le code hôte libre (`0x80021f24`) ne sont plus patchés par
+trampoline local. Cette variante a produit des récompenses impossibles ou
+désynchronisées sur Gold; elle est donc traitée comme état legacy à restaurer,
+pas comme patch activable.
 
 ## Cibles
 

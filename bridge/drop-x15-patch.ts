@@ -26,6 +26,29 @@ const PICK_DROP_RAM = 0x80021810;
 const RETURN_RAM = 0x8002209c;
 const EXTRA_RANDOM_DROPS = 14;
 
+const GHOST_LOOP_DEFINITION_ID = "ghost-loop-limits";
+const GHOST_LOOP_DEFINITION_NAME = "Ghost/FMR loop-limit x15";
+const GHOST_NO_ANCHORS_REASON =
+  "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
+
+const GHOST_LOOP_PATTERNS = [
+  {
+    label: "reward pick loop",
+    vanilla: Buffer.from("2000a0a32000b693000000000100d626060017241d00d712", "hex"),
+    patched: Buffer.from("2000a0a32000b693000000000100d626100017241d00d712", "hex"),
+  },
+  {
+    label: "reward transfer loop",
+    vanilla: Buffer.from("200040a220005692000000000100d626060017240c00d712", "hex"),
+    patched: Buffer.from("200040a220005692000000000100d626100017240c00d712", "hex"),
+  },
+  {
+    label: "reward display loop",
+    vanilla: Buffer.from("080044ac20005690000000000100d626050017240200d712", "hex"),
+    patched: Buffer.from("080044ac20005690000000000100d6260f0017240200d712", "hex"),
+  },
+] as const;
+
 export interface InstructionPatch {
   fileOffset: number;
   ram: number;
@@ -112,21 +135,25 @@ export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
 export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
+  const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
+  if (ghostState.supported || ghostState.reason !== GHOST_NO_ANCHORS_REASON) {
+    return ghostState;
+  }
+
   const definition = buildLocalX15Patch(slusEntry.name);
-  return inspectPatchState(image, slusEntry.sector, format, definition);
+  return inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
 }
 
 export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   const image = readFileSync(discPath);
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
-  const definition = buildLocalX15Patch(slusEntry.name);
 
-  const before = inspectPatchState(image, slusEntry.sector, format, definition);
+  const before = inspectGhostLoopPatchState(image, slusEntry.name);
   if (!before.supported) throw new Error(before.reason);
   if (before.enabled) return { changed: false, status: before };
 
-  writePatch(image, slusEntry.sector, format, definition);
+  writeGhostLoopPatch(image);
   writeFileSync(discPath, image);
 
   const after = inspectDropX15Image(readFileSync(discPath));
@@ -140,7 +167,65 @@ export function patchUltimateX15(src: string, dst: string): PatchDropX15Result {
   return patchDropX15DiscInPlace(dst);
 }
 
-function inspectPatchState(
+function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15PatchStatus {
+  const matches = GHOST_LOOP_PATTERNS.map((pattern) => ({
+    vanilla: findPatternOffsets(image, pattern.vanilla),
+    patched: findPatternOffsets(image, pattern.patched),
+  }));
+  const totals = matches.map((match) => match.vanilla.length + match.patched.length);
+  const hasAnyGhostAnchor = totals.some((total) => total > 0);
+
+  if (!hasAnyGhostAnchor) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial,
+      reason: GHOST_NO_ANCHORS_REASON,
+    };
+  }
+
+  const hasAllLoops = totals.every((total) => total > 0);
+  if (!hasAllLoops) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial,
+      reason: "Only part of the Ghost/FMR loop-limit x15 anchor set was found.",
+    };
+  }
+
+  const enabled = matches.every((match) => match.patched.length > 0 && match.vanilla.length <= 1);
+
+  return {
+    supported: true,
+    enabled,
+    definitionId: GHOST_LOOP_DEFINITION_ID,
+    definitionName: GHOST_LOOP_DEFINITION_NAME,
+    gameSerial,
+  };
+}
+
+function writeGhostLoopPatch(image: Buffer): void {
+  for (const pattern of GHOST_LOOP_PATTERNS) {
+    for (const offset of findPatternOffsets(image, pattern.vanilla)) {
+      pattern.patched.copy(image, offset);
+    }
+  }
+}
+
+function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
+  const offsets: number[] = [];
+  let offset = 0;
+  while (offset < image.length) {
+    const matchOffset = image.indexOf(pattern, offset);
+    if (matchOffset === -1) break;
+    offsets.push(matchOffset);
+    offset = matchOffset + 1;
+  }
+  return offsets;
+}
+
+function inspectLegacyLocalPatchState(
   image: Buffer,
   slusSector: number,
   format: DiscFormat,
@@ -180,33 +265,31 @@ function inspectPatchState(
 
   if (requiredOk && hooksPatched && hostPatched && visiblePickVanilla) {
     return {
-      supported: true,
-      enabled: true,
-      definitionId: definition.id,
-      definitionName: definition.name,
+      supported: false,
+      enabled: false,
       gameSerial: definition.gameSerial,
+      reason:
+        "This disc has the legacy local x15 trampoline installed. It is no longer treated as safe; use a Ghost/FMR loop-limit x15 image or restore an unpatched backup.",
     };
   }
 
   if (requiredOk && hooksVanilla && hostVanilla) {
     return {
-      supported: true,
+      supported: false,
       enabled: false,
-      definitionId: definition.id,
-      definitionName: definition.name,
       gameSerial: definition.gameSerial,
+      reason:
+        "This executable matches the legacy local x15 layout, but no Ghost/FMR loop-limit anchors were found. The bridge will not install the legacy trampoline.",
     };
   }
 
   if (requiredOk && unsafeFreezeSelectorPatched) {
     return {
-      supported: true,
+      supported: false,
       enabled: false,
-      definitionId: definition.id,
-      definitionName: definition.name,
       gameSerial: definition.gameSerial,
       reason:
-        "An unsafe 15-card-drop patch is installed; re-enable the patch to restore the tested reward routine.",
+        "An unsafe legacy 15-card-drop patch is installed. Restore an unpatched backup or use a Ghost/FMR loop-limit x15 image.",
     };
   }
 
@@ -244,27 +327,6 @@ function isUnsafeFreezeSelectorPatch(
       buildUnsafeFreezeSelectorProgramWords(),
     )
   );
-}
-
-function writePatch(
-  image: Buffer,
-  slusSector: number,
-  format: DiscFormat,
-  definition: DropX15PatchDefinition,
-): void {
-  for (const word of definition.writeWords) {
-    writeU32LeAt(image, slusSector, word.fileOffset, word.patched, format);
-  }
-  writeU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, mipsJal(PICK_DROP_RAM), format);
-  for (let i = 0; i < definition.localProgram.length; i++) {
-    writeU32LeAt(
-      image,
-      slusSector,
-      definition.localProgramOffset + i * 4,
-      definition.localProgram[i] ?? 0,
-      format,
-    );
-  }
 }
 
 function wordsMatch(
@@ -391,18 +453,6 @@ function readU32LeAt(
       ((image[discOffset(fileStartSector, fileOffset + 3, format)] ?? 0) << 24)) >>>
     0
   );
-}
-
-function writeU32LeAt(
-  image: Buffer,
-  fileStartSector: number,
-  fileOffset: number,
-  value: number,
-  format: DiscFormat,
-): void {
-  for (let i = 0; i < 4; i++) {
-    image[discOffset(fileStartSector, fileOffset + i, format)] = (value >>> (i * 8)) & 0xff;
-  }
 }
 
 function mipsNop(): number {

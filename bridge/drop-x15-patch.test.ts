@@ -15,15 +15,15 @@ describe("drop x15 patch inspection", () => {
     "SLUS_014.11",
     "SLUS_000.04",
     "SLUS_999.99",
-    "SLES_039.48",
-  ])("supports unpatched local x15-compatible %s executables", (serial) => {
-    const image = makeDiscImage(serial);
+  ])("supports unpatched Ghost/FMR loop-limit %s images", (serial) => {
+    const image = makeDiscImage(serial, false);
+    seedGhostLoopPatterns(image, "vanilla");
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
-      definitionId: "local-award-trampoline",
-      definitionName: "Local x15-compatible layout",
+      definitionId: "ghost-loop-limits",
+      definitionName: "Ghost/FMR loop-limit x15",
       gameSerial: serial,
     });
   });
@@ -35,7 +35,9 @@ describe("drop x15 patch inspection", () => {
   ])("patches %s executables in place", (serial) => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
-    writeFileSync(discPath, makeDiscImage(serial));
+    const image = makeDiscImage(serial, false);
+    seedGhostLoopPatterns(image, "vanilla");
+    writeFileSync(discPath, image);
 
     try {
       const result = patchDropX15DiscInPlace(discPath);
@@ -45,11 +47,25 @@ describe("drop x15 patch inspection", () => {
       expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "local-award-trampoline",
+        definitionId: "ghost-loop-limits",
       });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test("recognizes the common Ghost state with one stale vanilla copy and seven patched copies", () => {
+    const image = makeDiscImage("SLUS_014.11", false);
+    seedGhostLoopPatterns(image, "vanilla", 1);
+    seedGhostLoopPatterns(image, "patched", 7);
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: true,
+      enabled: true,
+      definitionId: "ghost-loop-limits",
+      definitionName: "Ghost/FMR loop-limit x15",
+      gameSerial: "SLUS_014.11",
+    });
   });
 
   test("rejects unknown executables when the local x15 layout does not match", () => {
@@ -64,22 +80,45 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
-  test("treats the unsafe freeze-selector patch as upgradeable", () => {
+  test("does not offer the legacy local trampoline on matching executables", () => {
+    const image = makeDiscImage("SLUS_000.04");
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: false,
+      enabled: false,
+      gameSerial: "SLUS_000.04",
+      reason:
+        "This executable matches the legacy local x15 layout, but no Ghost/FMR loop-limit anchors were found. The bridge will not install the legacy trampoline.",
+    });
+  });
+
+  test("reports the unsafe freeze-selector patch as legacy unsafe", () => {
     const serial = "SLUS_000.04";
     const image = makeDiscImage(serial);
     seedUnsafeFreezeSelectorPatch(image, 21);
 
     expect(inspectDropX15Image(image)).toEqual({
-      supported: true,
+      supported: false,
       enabled: false,
-      definitionId: "local-award-trampoline",
-      definitionName: "Local x15-compatible layout",
       gameSerial: serial,
       reason:
-        "An unsafe 15-card-drop patch is installed; re-enable the patch to restore the tested reward routine.",
+        "An unsafe legacy 15-card-drop patch is installed. Restore an unpatched backup or use a Ghost/FMR loop-limit x15 image.",
     });
   });
 });
+
+const GHOST_LOOP_PATTERN_BYTES = {
+  vanilla: [
+    "2000a0a32000b693000000000100d626060017241d00d712",
+    "200040a220005692000000000100d626060017240c00d712",
+    "080044ac20005690000000000100d626050017240200d712",
+  ],
+  patched: [
+    "2000a0a32000b693000000000100d626100017241d00d712",
+    "200040a220005692000000000100d626100017240c00d712",
+    "080044ac20005690000000000100d6260f0017240200d712",
+  ],
+} as const;
 
 function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
@@ -95,6 +134,19 @@ function makeDiscImage(serial: string, seed = true): Buffer {
   if (seed) seedUnpatchedExecutable(image, slusSector, patch);
 
   return image;
+}
+
+function seedGhostLoopPatterns(
+  image: Buffer,
+  mode: keyof typeof GHOST_LOOP_PATTERN_BYTES,
+  copies = 1,
+): void {
+  for (let copy = 0; copy < copies; copy++) {
+    for (let i = 0; i < GHOST_LOOP_PATTERN_BYTES[mode].length; i++) {
+      const pattern = Buffer.from(GHOST_LOOP_PATTERN_BYTES[mode][i] ?? "", "hex");
+      pattern.copy(image, 0x3000 + copy * 0x400 + i * 0x80);
+    }
+  }
 }
 
 function writePrimaryVolumeDescriptor(image: Buffer, rootSector: number): void {
