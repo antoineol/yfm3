@@ -36,16 +36,6 @@ import { useSubTabFromHash, useTabFromHash } from "./lib/use-tab-from-hash.ts";
 
 const TABS = ["deck", "duel", "data"] as const;
 
-const EMPTY_POST_DUEL: PostDuelSuggestion = {
-  state: "idle",
-  progress: 0,
-  liveBestScore: 0,
-  result: null,
-  currentDeck: [],
-  rewardEvidence: null,
-  dismiss: () => {},
-};
-
 function CardDetailModalWhenReady() {
   const hasData = useHasReferenceData();
   if (!hasData) return null;
@@ -94,17 +84,10 @@ function MainApp({ tab }: { tab: string }) {
 }
 
 function MainAppContent({ tab }: { tab: string }) {
-  const hasData = useHasReferenceData();
-  if (!hasData) return <MainAppLayout postDuel={EMPTY_POST_DUEL} tab={tab} />;
-  return <MainAppContentWithData tab={tab} />;
-}
-
-function MainAppContentWithData({ tab }: { tab: string }) {
   const bridge = useBridge();
   const deck = useDeck();
   const deckCardIds = useMemo(() => deck?.map((d) => d.cardId), [deck]);
   const postDuel = usePostDuelSuggestion(bridge, deckCardIds);
-
   return <MainAppLayout postDuel={postDuel} tab={tab} />;
 }
 

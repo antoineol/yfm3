@@ -1485,8 +1485,11 @@ function describeRewardEvidence(
   }));
   const best = [...matches].sort((a, b) => b.matched - a.matched)[0]?.pool ?? null;
   const totalGained = gained.reduce((sum, card) => sum + card.qty, 0);
-  const x15Match =
-    rank && selectorPool ? describeX15Match(duelist, rank.dropPool, selectorPool, gained) : null;
+  const x15Match = rank
+    ? selectorPool
+      ? describeX15Match(duelist, rank.dropPool, selectorPool, gained)
+      : describeBestX15Match(duelist, rank.dropPool, gained)
+    : null;
   const context = rewardState.rewardPoolContext
     ? ` context={cardCountMode:${rewardState.rewardPoolContext.cardCountMode},skillFlag:${rewardState.rewardPoolContext.skillFlag},computedPool:${rewardState.rewardPoolContext.computedPool}}`
     : "";
@@ -1578,6 +1581,25 @@ function describeX15Match(
   hiddenPool: DropPoolName,
   cards: readonly { cardId: number; qty: number }[],
 ): string {
+  const fit = computeX15Fit(duelist, visiblePool, hiddenPool, cards);
+  if (fit.possible) {
+    return `${visiblePool}+${hiddenPool}:possible visible=${fit.visibleCards.join("|")}`;
+  }
+  return `${visiblePool}+${hiddenPool}:no ${fit.matched}/${fit.total}`;
+}
+
+function computeX15Fit(
+  duelist: GameData["duelists"][number],
+  visiblePool: DropPoolName,
+  hiddenPool: DropPoolName,
+  cards: readonly { cardId: number; qty: number }[],
+): {
+  hiddenPool: DropPoolName;
+  possible: boolean;
+  matched: number;
+  total: number;
+  visibleCards: number[];
+} {
   const visibleWeights = weightsForDropPool(duelist, visiblePool);
   const hiddenWeights = weightsForDropPool(duelist, hiddenPool);
   const total = cards.reduce((sum, card) => sum + card.qty, 0);
@@ -1603,10 +1625,32 @@ function describeX15Match(
     if (possible) possibleVisibleCards.push(visibleCard.cardId);
   }
 
-  if (possibleVisibleCards.length > 0) {
-    return `${visiblePool}+${hiddenPool}:possible visible=${possibleVisibleCards.join("|")}`;
+  return {
+    hiddenPool,
+    possible: possibleVisibleCards.length > 0,
+    matched: possibleVisibleCards.length > 0 ? total : bestMatched,
+    total,
+    visibleCards: possibleVisibleCards,
+  };
+}
+
+function describeBestX15Match(
+  duelist: GameData["duelists"][number],
+  visiblePool: DropPoolName,
+  cards: readonly { cardId: number; qty: number }[],
+): string {
+  const matches = (["SA-POW", "BCD", "SA-TEC"] as const)
+    .map((hiddenPool) => computeX15Fit(duelist, visiblePool, hiddenPool, cards))
+    .sort((a, b) => {
+      if (a.possible !== b.possible) return a.possible ? -1 : 1;
+      return b.matched - a.matched;
+    });
+  const best = matches[0];
+  if (!best) return "unknown";
+  if (best.possible) {
+    return `${visiblePool}+${best.hiddenPool}:possible visible=${best.visibleCards.join("|")} inferred`;
   }
-  return `${visiblePool}+${hiddenPool}:no ${bestMatched}/${total}`;
+  return `${visiblePool}+${best.hiddenPool}:no ${best.matched}/${best.total} inferred`;
 }
 
 function weightsForDropPool(

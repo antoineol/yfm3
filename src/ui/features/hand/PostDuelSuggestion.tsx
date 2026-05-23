@@ -233,8 +233,9 @@ function RewardEvidencePanel({ evidence }: { evidence: RewardEvidence | null }) 
 function buildRewardVerdict(evidence: RewardEvidence): { text: string; className: string } {
   if (evidence.x15Match?.possible) {
     if (evidence.x15Match.visiblePool !== evidence.x15Match.hiddenPool) {
+      const source = evidence.x15Match.hiddenPoolSource === "inferred" ? "inferred " : "";
       return {
-        text: `Cards fit the local x15 path: visible card from ${evidence.x15Match.visiblePool}, hidden cards from ${evidence.x15Match.hiddenPool}.`,
+        text: `Cards fit the local x15 path: visible card from ${evidence.x15Match.visiblePool}, ${source}hidden cards from ${evidence.x15Match.hiddenPool}.`,
         className: "text-stat-atk",
       };
     }
@@ -267,7 +268,9 @@ function buildRewardVerdict(evidence: RewardEvidence): { text: string; className
 function formatX15Match(evidence: RewardEvidence): string {
   const match = evidence.x15Match;
   if (!match) return "unknown";
-  if (match.possible) return `${match.visiblePool} + ${match.hiddenPool}`;
+  if (match.possible) {
+    return `${match.visiblePool} + ${match.hiddenPool}${match.hiddenPoolSource === "inferred" ? " inferred" : ""}`;
+  }
   return `${String(match.matchedCards)}/${String(match.totalCards)}`;
 }
 

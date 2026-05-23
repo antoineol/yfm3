@@ -11,11 +11,12 @@ import {
 } from "../../lib/atoms.ts";
 
 const mockSavePreferences = vi.fn();
+let bridgeAutoSync = false;
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(() => mockSavePreferences),
 }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useBridgeAutoSync: vi.fn(() => false),
+  useBridgeAutoSync: vi.fn(() => bridgeAutoSync),
   useDeckSize: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
@@ -145,6 +146,7 @@ describe("buildRewardEvidence", () => {
     expect(evidence?.x15Match).toMatchObject({
       visiblePool: "SA-POW",
       hiddenPool: "SA-TEC",
+      hiddenPoolSource: "selector",
       possible: true,
       matchedCards: 15,
       totalCards: 15,
@@ -174,6 +176,28 @@ describe("buildRewardEvidence", () => {
     });
     expect(evidence?.x15Match?.possible).toBe(true);
   });
+
+  it("infers the hidden x15 pool from cards when the live selector is gone", () => {
+    const saPow = makePool({ 1: 60 });
+    const saTec = makePool({ 2: 170 });
+    const gameData = makeRewardGameData({ saPow, saTec });
+
+    const evidence = buildRewardEvidence(makeRewardStats(), gameData, [
+      { cardId: 1, qty: 1 },
+      { cardId: 2, qty: 14 },
+    ]);
+
+    expect(evidence?.selectorDropPool).toBeNull();
+    expect(evidence?.x15Match).toMatchObject({
+      visiblePool: "SA-POW",
+      hiddenPool: "SA-TEC",
+      hiddenPoolSource: "inferred",
+      possible: true,
+      matchedCards: 15,
+      totalCards: 15,
+      possibleVisibleCardIds: [1],
+    });
+  });
 });
 
 describe("usePostDuelSuggestion", () => {
@@ -181,6 +205,7 @@ describe("usePostDuelSuggestion", () => {
 
   beforeEach(() => {
     store = createStore();
+    bridgeAutoSync = false;
     mockOptimize.mockClear();
     mockOptimize.mockResolvedValue({
       deck: [5, 6, 7],
@@ -447,6 +472,87 @@ describe("usePostDuelSuggestion", () => {
     expect(store.get(postDuelResultAtom)).toEqual(
       expect.objectContaining({ expectedAtk: 2500, improvement: 500 }),
     );
+  });
+
+  it("waits for deck definition before consuming a collection change", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: null,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(mockOptimize).not.toHaveBeenCalled();
+
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the post-duel snapshot until auto-sync game data is ready", async () => {
+    bridgeAutoSync = true;
+
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+        gameData: null,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    expect(mockOptimize).not.toHaveBeenCalled();
+
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+        gameData: makeRewardGameData({}),
+      }),
+    });
+
+    await act(() => Promise.resolve());
+
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+    expect(store.get(postDuelStateAtom)).toBe("result");
   });
 
   it("does not trigger when collection does not change during duel", () => {

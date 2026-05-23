@@ -17,8 +17,12 @@ const VANILLA_CREDIT_INCREMENT = 0x24420001;
 
 const AWARD_HOOK_OFFSET = 0x12710;
 const AWARD_HOOK_RAM = 0x80021f10;
+const VISIBLE_PICK_HOOK_OFFSET = 0x12460;
+const VISIBLE_PICK_HOOK_RAM = 0x80021c60;
 const LOCAL_PROGRAM_OFFSET = 0x12724;
 const LOCAL_PROGRAM_RAM = 0x80021f24;
+const LOCAL_AWARD_RAM = LOCAL_PROGRAM_RAM;
+const LOCAL_VISIBLE_PICK_RAM = LOCAL_PROGRAM_RAM + 68;
 
 const CREDIT_CARD_RAM = 0x80021894;
 const PICK_DROP_RAM = 0x80021810;
@@ -82,10 +86,17 @@ export function buildLocalX15Patch(gameSerial: string): DropX15PatchDefinition {
     ],
     writeWords: [
       {
+        fileOffset: VISIBLE_PICK_HOOK_OFFSET,
+        ram: VISIBLE_PICK_HOOK_RAM,
+        vanilla: mipsJal(PICK_DROP_RAM),
+        patched: mipsJal(LOCAL_VISIBLE_PICK_RAM),
+        label: "visible-pick.jal->freeze pool wrapper",
+      },
+      {
         fileOffset: AWARD_HOOK_OFFSET,
         ram: AWARD_HOOK_RAM,
         vanilla: 0x8444003c,
-        patched: mipsJ(LOCAL_PROGRAM_RAM),
+        patched: mipsJ(LOCAL_AWARD_RAM),
         label: "award.lh->j local x15 routine",
       },
       {
@@ -168,6 +179,7 @@ function inspectPatchState(
     definition.localProgramOffset,
     definition.localProgram,
   );
+  const legacyPatched = isLegacyRuntimeSelectorPatch(image, slusSector, format, definition);
 
   if (requiredOk && hooksPatched && hostPatched) {
     return {
@@ -189,6 +201,18 @@ function inspectPatchState(
     };
   }
 
+  if (requiredOk && legacyPatched) {
+    return {
+      supported: true,
+      enabled: false,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+      reason:
+        "An older 15-card-drop patch is installed; re-enable the patch to keep all 15 rewards in the displayed rank pool.",
+    };
+  }
+
   return {
     supported: false,
     enabled: false,
@@ -196,6 +220,33 @@ function inspectPatchState(
     reason:
       "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
   };
+}
+
+function isLegacyRuntimeSelectorPatch(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  definition: DropX15PatchDefinition,
+): boolean {
+  const visibleHookVanilla =
+    readU32LeAt(image, slusSector, VISIBLE_PICK_HOOK_OFFSET, format) === mipsJal(PICK_DROP_RAM);
+  const awardHookOld =
+    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET, format) === mipsJ(LOCAL_PROGRAM_RAM);
+  const awardDelayPatched =
+    readU32LeAt(image, slusSector, AWARD_HOOK_OFFSET + 4, format) === mipsNop();
+
+  return (
+    visibleHookVanilla &&
+    awardHookOld &&
+    awardDelayPatched &&
+    wordsMatch(
+      image,
+      slusSector,
+      format,
+      definition.localProgramOffset,
+      buildLegacyRuntimeSelectorProgramWords(),
+    )
+  );
 }
 
 function writePatch(
@@ -234,6 +285,39 @@ function wordsMatch(
 }
 
 function buildLocalProgramWords(): readonly number[] {
+  const extraLoopRam = LOCAL_AWARD_RAM + 24;
+  const loopBranchRam = LOCAL_AWARD_RAM + 52;
+
+  return [
+    mipsLw(REG.v0, 0x02e0, REG.gp),
+    mipsLh(REG.a0, 0x003c, REG.v0),
+    mipsJal(CREDIT_CARD_RAM),
+    mipsNop(),
+    mipsLbu(REG.s1, 0x003b, REG.v0),
+    mipsAddiu(REG.s0, REG.zero, EXTRA_RANDOM_DROPS),
+    mipsAddu(REG.a0, REG.s1, REG.zero),
+    mipsJal(PICK_DROP_RAM),
+    mipsNop(),
+    mipsAddu(REG.a0, REG.v0, REG.zero),
+    mipsJal(CREDIT_CARD_RAM),
+    mipsNop(),
+    mipsAddiu(REG.s0, REG.s0, -1),
+    mipsBne(REG.s0, REG.zero, extraLoopRam, loopBranchRam),
+    mipsNop(),
+    mipsJ(RETURN_RAM),
+    mipsNop(),
+    mipsAddu(REG.s1, REG.ra, REG.zero),
+    mipsLw(REG.v1, 0x02e0, REG.gp),
+    mipsJal(PICK_DROP_RAM),
+    mipsSb(REG.a0, 0x003b, REG.v1),
+    mipsJr(REG.s1),
+    mipsNop(),
+    mipsNop(),
+    mipsNop(),
+  ];
+}
+
+function buildLegacyRuntimeSelectorProgramWords(): readonly number[] {
   const useComputedPoolRam = LOCAL_PROGRAM_RAM + 52;
   const poolBranchRam = LOCAL_PROGRAM_RAM + 40;
   const extraLoopRam = LOCAL_PROGRAM_RAM + 56;
@@ -343,6 +427,10 @@ function mipsLbu(rt: number, imm: number, rs: number): number {
   return mipsI(0x24, rs, rt, imm);
 }
 
+function mipsSb(rt: number, imm: number, rs: number): number {
+  return mipsI(0x28, rs, rt, imm);
+}
+
 function mipsSltu(rd: number, rs: number, rt: number): number {
   return mipsR(rs, rt, rd, 0, 0x2b);
 }
@@ -373,6 +461,10 @@ function mipsJal(targetRam: number): number {
 
 function mipsJ(targetRam: number): number {
   return mipsJType(0x02, targetRam);
+}
+
+function mipsJr(rs: number): number {
+  return mipsR(rs, 0, 0, 0, 0x08);
 }
 
 function mipsBranch(op: number, rs: number, rt: number, targetRam: number, pc: number): number {
@@ -409,6 +501,7 @@ const REG = {
   v0: 2,
   v1: 3,
   a0: 4,
+  ra: 31,
   gp: 28,
   s0: 16,
   s1: 17,

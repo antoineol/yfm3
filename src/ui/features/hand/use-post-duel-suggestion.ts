@@ -77,6 +77,7 @@ export function usePostDuelSuggestion(
   const detectedMod =
     !autoSync && bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
+  const canRunOptimization = !autoSync || bridge.gameData !== null;
 
   // Snapshot is managed here so tracker callbacks (called synchronously from
   // effects) batch state updates with Jotai atom writes in a single render.
@@ -131,7 +132,7 @@ export function usePostDuelSuggestion(
 
   const runner = useOptimizationRunner(
     optimizationSnapshot,
-    { modId, gameData: bridge.gameData },
+    { modId, gameData: bridge.gameData, enabled: canRunOptimization },
     { onComplete: handleComplete, onError: handleError },
   );
 

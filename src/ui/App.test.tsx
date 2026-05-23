@@ -126,11 +126,11 @@ describe("App", () => {
     expect(mocks.usePostDuelSuggestion).toHaveBeenCalledWith(mocks.bridge, [42, 7]);
   });
 
-  it("does not start post-duel detection before card data providers are ready", () => {
+  it("keeps post-duel detection mounted before card data providers are ready", () => {
     mocks.useHasReferenceData.mockReturnValue(false);
 
     render(<App />);
 
-    expect(mocks.usePostDuelSuggestion).not.toHaveBeenCalled();
+    expect(mocks.usePostDuelSuggestion).toHaveBeenCalledWith(mocks.bridge, [42, 7]);
   });
 });

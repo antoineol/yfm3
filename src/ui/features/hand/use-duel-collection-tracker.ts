@@ -11,6 +11,8 @@ export interface CollectionSnapshot {
   rewardEvidence: RewardEvidence | null;
 }
 
+type X15HiddenPoolSource = "selector" | "inferred";
+
 export interface RewardEvidence {
   duelistId: number;
   rankLabel: string | null;
@@ -34,6 +36,7 @@ export interface RewardEvidence {
   x15Match: {
     visiblePool: DropPool;
     hiddenPool: DropPool;
+    hiddenPoolSource: "selector" | "inferred";
     possible: boolean;
     matchedCards: number;
     totalCards: number;
@@ -43,7 +46,7 @@ export interface RewardEvidence {
 }
 
 /**
- * Watch bridge.inDuel transitions and detect collection changes during a duel.
+ * Watch bridge.inDuel transitions and detect collection changes after a duel starts.
  * Fires callbacks synchronously from effects — no internal state, just refs.
  */
 export function useDuelCollectionTracker(
@@ -89,7 +92,7 @@ export function useDuelCollectionTracker(
     }
   }, [bridge.inDuel, bridge.phase, bridge.collection, modMismatch]);
 
-  // ── Detect collection changes during duel ─────────────────────
+  // ── Detect collection changes after duel start ────────────────
   const { collection, deckDefinition, gameData, stats } = bridge;
   useEffect(() => {
     if (modMismatch) return;
@@ -105,23 +108,23 @@ export function useDuelCollectionTracker(
     const gainedCards = findNewCardQuantities(preDuelCollectionRef.current, collection);
     if (gainedCards.length === 0) return;
 
+    if (!deckDefinition) return;
+
     console.log(
-      `[PostDuel] Collection changed during duel: ${String(
+      `[PostDuel] Collection changed after duel start: ${String(
         gainedCards.reduce((sum, c) => sum + c.qty, 0),
       )} new card(s)`,
     );
     hasFiredRef.current = true;
-    if (deckDefinition) {
-      onNewCardsRef.current({
-        collection: { ...collection },
-        deck: [...deckDefinition],
-        rewardEvidence: buildRewardEvidence(
-          mergeRewardStats(latestRewardStatsRef.current, stats),
-          gameData,
-          gainedCards,
-        ),
-      });
-    }
+    onNewCardsRef.current({
+      collection: { ...collection },
+      deck: [...deckDefinition],
+      rewardEvidence: buildRewardEvidence(
+        mergeRewardStats(latestRewardStatsRef.current, stats),
+        gameData,
+        gainedCards,
+      ),
+    });
   }, [collection, deckDefinition, gameData, stats, modMismatch]);
 }
 
@@ -192,7 +195,9 @@ export function buildRewardEvidence(
   const selectorDropPool = dropPoolFromSelector(stats?.rewardPoolContext?.computedPool);
   const poolMatches = buildPoolMatches(duelist, gainedCards);
   const bestDropPool = findBestPool(poolMatches);
-  const x15Match = buildX15Match(duelist, rank?.dropPool ?? null, selectorDropPool, gainedCards);
+  const x15Match = selectorDropPool
+    ? buildX15Match(duelist, rank?.dropPool ?? null, selectorDropPool, gainedCards, "selector")
+    : inferX15Match(duelist, rank?.dropPool ?? null, gainedCards);
 
   return {
     duelistId,
@@ -281,6 +286,7 @@ function buildX15Match(
   visiblePool: DropPool | null,
   hiddenPool: DropPool | null,
   gainedCards: Array<{ cardId: number; qty: number }>,
+  hiddenPoolSource: X15HiddenPoolSource,
 ): RewardEvidence["x15Match"] {
   if (!visiblePool || !hiddenPool) return null;
 
@@ -324,12 +330,32 @@ function buildX15Match(
   return {
     visiblePool,
     hiddenPool,
+    hiddenPoolSource,
     possible: possibleVisibleCardIds.length > 0,
     matchedCards: possibleVisibleCardIds.length > 0 ? totalCards : bestMatchedCards,
     totalCards,
     logProbability: bestLogProbability,
     possibleVisibleCardIds,
   };
+}
+
+function inferX15Match(
+  duelist: BridgeDuelist,
+  visiblePool: DropPool | null,
+  gainedCards: Array<{ cardId: number; qty: number }>,
+): RewardEvidence["x15Match"] {
+  if (!visiblePool) return null;
+
+  const matches = DROP_POOLS.map((hiddenPool) =>
+    buildX15Match(duelist, visiblePool, hiddenPool, gainedCards, "inferred"),
+  ).filter((match): match is NonNullable<RewardEvidence["x15Match"]> => match !== null);
+
+  matches.sort((a, b) => {
+    if (a.possible !== b.possible) return a.possible ? -1 : 1;
+    if (a.matchedCards !== b.matchedCards) return b.matchedCards - a.matchedCards;
+    return (b.logProbability ?? -Infinity) - (a.logProbability ?? -Infinity);
+  });
+  return matches[0] ?? null;
 }
 
 function dropPoolFromSelector(selector: number | undefined): DropPool | null {

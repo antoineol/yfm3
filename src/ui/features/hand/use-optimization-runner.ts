@@ -28,7 +28,7 @@ export interface OptimizationCallbacks {
  */
 export function useOptimizationRunner(
   snapshot: CollectionSnapshot | null,
-  context: { modId: ModId; gameData: BridgeGameData | null },
+  context: { modId: ModId; gameData: BridgeGameData | null; enabled: boolean },
   callbacks: OptimizationCallbacks,
 ): { abort: () => void } {
   const deckSize = useDeckSize();
@@ -54,6 +54,7 @@ export function useOptimizationRunner(
   // ── Run optimization when snapshot is provided ──────────────────
   useEffect(() => {
     if (!snapshot) return;
+    if (!context.enabled) return;
 
     let totalCards = 0;
     for (const count of Object.values(snapshot.collection)) {
@@ -113,6 +114,7 @@ export function useOptimizationRunner(
     terrain,
     context.modId,
     context.gameData,
+    context.enabled,
     setProgress,
     setLiveBestScore,
   ]);
