@@ -220,7 +220,7 @@ function DesktopCardRow<T extends CardEntry>({
   resolveArtwork: (cardId: number) => string;
 }) {
   const c = diffColors(e.diffStatus);
-  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
+  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster, e.color);
   const isDimmed = e.qty === 0 || e.dimmed;
 
   return (
@@ -306,7 +306,7 @@ function MobileCardRow<T extends CardEntry>({
 }) {
   const c = diffColors(e.diffStatus);
   const hasPills = showC || showD;
-  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster);
+  const borderColor = cardTypeBorderColor(e.cardType, e.isMonster, e.color);
   const isDimmed = e.qty === 0 || e.dimmed;
 
   return (

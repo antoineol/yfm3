@@ -35,7 +35,7 @@ function DropPoolRowImpl({
 }: Props) {
   const setWeight = useSetAtom(setWeightAtom);
   const isMonster = card?.isMonster ?? false;
-  const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
+  const borderColor = cardTypeBorderColor(card?.cardType, isMonster, card?.color);
 
   return (
     <tr

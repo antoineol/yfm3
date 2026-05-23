@@ -3,7 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createBuffers } from "../types/buffers.ts";
 import { MAX_CARD_ID } from "../types/constants.ts";
+import type { BridgeCard } from "../worker/messages.ts";
 import { loadGameData, loadGameDataFromStrings } from "./load-game-data.ts";
+import { loadGameDataWithBridgeTables } from "./load-game-data-core.ts";
 
 const DATA_DIR = path.resolve(import.meta.dirname, "../../../public/data/rp");
 
@@ -59,6 +61,44 @@ describe("loadGameDataFromStrings", () => {
 
     const card41 = cards.find((c) => c.id === 41);
     expect(card41?.name).toBe("Dan, The Man");
+  });
+
+  it("parses card color from CSV rows", () => {
+    const buf = createBuffers();
+    const cards = loadGameDataFromStrings(
+      buf,
+      [
+        "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description",
+        '1,"Blue Frame",1000,1000,Mars,Jupiter,Dragon,blue,4,Light,0,,""',
+      ].join("\n"),
+      "material1_id,material2_id,result_id,result_atk\n",
+      "equip_id,monster_id\n",
+    );
+
+    expect(cards[0]?.color).toBe("blue");
+  });
+
+  it("parses card color from bridge rows", () => {
+    const buf = createBuffers();
+    const card: BridgeCard = {
+      id: 1,
+      name: "Purple Frame",
+      atk: 1000,
+      def: 1000,
+      gs1: "Mars",
+      gs2: "Jupiter",
+      type: "Dragon",
+      color: "purple",
+      level: 4,
+      attribute: "Dark",
+      description: "",
+      starchipCost: 0,
+      password: "",
+    };
+
+    const cards = loadGameDataWithBridgeTables(buf, [card], [], [], null);
+
+    expect(cards[0]?.color).toBe("purple");
   });
 
   it("populates fusion table with known binary fusions", () => {

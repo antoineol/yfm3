@@ -1,6 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { DescriptionText } from "../lib/DescriptionText.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
+import { framePaletteForCard } from "./card-frame-palettes.ts";
 
 /** Attribute orb colors — the small sphere next to the card name. */
 const attributeOrb: Record<string, string> = {
@@ -10,57 +11,6 @@ const attributeOrb: Record<string, string> = {
   Water: "#3868c8",
   Earth: "#a08030",
   Wind: "#48a048",
-};
-
-/**
- * Each card type has a specific color palette for the frame.
- * lo = shadow tone, mid = main frame, hi = highlight, border = name band border
- */
-interface FramePalette {
-  lo: string;
-  mid: string;
-  hi: string;
-  border: string;
-  text: string;
-}
-
-const monsterPalette: FramePalette = {
-  lo: "#6a5020",
-  mid: "#b89838",
-  hi: "#d4b850",
-  border: "#8a7028",
-  text: "#2a1e0a",
-};
-
-const cardTypePalettes: Record<string, FramePalette> = {
-  Magic: {
-    lo: "#1a5020",
-    mid: "#308838",
-    hi: "#50a858",
-    border: "#246828",
-    text: "#0a2a0e",
-  },
-  Equip: {
-    lo: "#1a5020",
-    mid: "#308838",
-    hi: "#50a858",
-    border: "#246828",
-    text: "#0a2a0e",
-  },
-  Trap: {
-    lo: "#802058",
-    mid: "#c04888",
-    hi: "#d868a8",
-    border: "#a03070",
-    text: "#2a0a1e",
-  },
-  Ritual: {
-    lo: "#183880",
-    mid: "#2858c0",
-    hi: "#4070e0",
-    border: "#1e3090",
-    text: "#0a0e2a",
-  },
 };
 
 function getCardTypeLabel(cardType: string): string {
@@ -83,7 +33,7 @@ export function GameCard({ card }: { card: CardSpec }) {
   const artSrc = resolveArtwork(card.id);
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
-  const p = !card.isMonster && ct ? (cardTypePalettes[ct] ?? monsterPalette) : monsterPalette;
+  const p = framePaletteForCard(card);
   const typeLabel = !card.isMonster && ct ? getCardTypeLabel(ct) : "";
 
   return (

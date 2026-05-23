@@ -205,13 +205,7 @@ export function extractCardTexts(
     const results: CardText[] = [];
     for (let i = 0; i < NUM_CARDS; i++) {
       const off = slus.readUInt16LE(exeLayout.nameOffsetTable + i * 2);
-      let addr = exeLayout.textPoolBase + off;
-      let color = "";
-      if ((slus[addr] ?? 0) === 0xf8) {
-        color = CARD_COLORS[slus[addr + 2] ?? 0] ?? "";
-        addr += 3;
-      }
-      results.push({ name: decodeTblString(slus, addr, 100), color });
+      results.push(decodeCardText(slus, exeLayout.textPoolBase + off, 100, CHAR_TABLE));
     }
     return results;
   }
@@ -223,10 +217,39 @@ export function extractCardTexts(
     const start =
       skip > 0 ? skipWaMrgEntries(waMrg, textBlock.nameBlockStart, skip) : textBlock.nameBlockStart;
     const charTable = blockIdx === 4 ? ES_CHAR_TABLE : PAL_CHAR_TABLE;
-    const names = extractWaMrgStrings(waMrg, start, NUM_CARDS, charTable);
-    return names.map((name) => ({ name, color: "" }));
+    return extractWaMrgCardTexts(waMrg, start, NUM_CARDS, charTable);
   }
   return Array.from({ length: NUM_CARDS }, () => ({ name: "", color: "" }));
+}
+
+function decodeCardText(buf: Buffer, start: number, maxLen: number, charTable: string[]): CardText {
+  if ((buf[start] ?? 0) !== 0xf8 || (buf[start + 1] ?? 0) !== 0x0a) {
+    return { name: decodeTblString(buf, start, maxLen, charTable), color: "" };
+  }
+  return {
+    name: decodeTblString(buf, start + 3, Math.max(0, maxLen - 3), charTable),
+    color: CARD_COLORS[buf[start + 2] ?? 0] ?? "",
+  };
+}
+
+function extractWaMrgCardTexts(
+  buf: Buffer,
+  offset: number,
+  count: number,
+  charTable: string[],
+): CardText[] {
+  const texts: CardText[] = [];
+  let pos = offset;
+  for (let i = 0; i < count && pos < buf.length; i++) {
+    const end = buf.indexOf(0xff, pos);
+    if (end === -1 || end - pos > 500) {
+      texts.push({ name: "", color: "" });
+      break;
+    }
+    texts.push(decodeCardText(buf, pos, end - pos, charTable));
+    pos = end + 1;
+  }
+  return texts;
 }
 
 export function extractCardDescriptions(

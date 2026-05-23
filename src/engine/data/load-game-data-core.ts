@@ -1,8 +1,9 @@
 import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID, MAX_COPIES } from "../types/constants.ts";
 import type { BridgeCard } from "../worker/messages.ts";
-import { type CardSpec, nonMonsterTypes } from "./card-model.ts";
+import { type CardSpec, type Color, nonMonsterTypes } from "./card-model.ts";
 import { addCard, createCardDb } from "./game-db.ts";
+import { colors } from "./rp-types.ts";
 
 /**
  * Load game data from CSV strings and populate buffers.
@@ -29,6 +30,7 @@ export function loadGameDataFromStrings(
     const atk = parseInt(cols[2] ?? "", 10);
     const def = parseInt(cols[3] ?? "", 10);
     const type = cols[6] ?? "";
+    const color = parseColor(cols[7]);
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
     addCard(cardDb, {
       id,
@@ -38,6 +40,7 @@ export function loadGameDataFromStrings(
       cardType: type || undefined,
       kinds: [],
       isMonster: !nonMonsterTypes.has(type),
+      color,
     });
   }
 
@@ -104,6 +107,7 @@ export function loadGameDataWithBridgeTables(
       cardType: c.type || undefined,
       kinds: [],
       isMonster: !nonMonsterTypes.has(c.type),
+      color: parseColor(c.color),
     });
   }
 
@@ -136,6 +140,12 @@ export function loadGameDataWithBridgeTables(
   populateDeckLimitsFromBridge(buf, deckLimits);
 
   return cardDb.cards;
+}
+
+const validColors = new Set<string>(colors);
+
+function parseColor(raw: string | undefined): Color | undefined {
+  return raw && validColors.has(raw) ? (raw as Color) : undefined;
 }
 
 function populateDeckLimitsFromBridge(

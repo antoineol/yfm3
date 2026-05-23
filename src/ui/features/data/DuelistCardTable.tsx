@@ -93,7 +93,7 @@ export function DuelistCardTable({
                 const isMonster = card?.isMonster ?? true;
                 const needMore =
                   showOwned && (ownedTotals[row.cardId] ?? 0) < maxCopiesFor(cardDb, row.cardId);
-                const borderColor = cardTypeBorderColor(card?.cardType, isMonster);
+                const borderColor = cardTypeBorderColor(card?.cardType, isMonster, card?.color);
                 return (
                   <tr
                     className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"

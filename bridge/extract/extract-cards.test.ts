@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { displayCardType } from "../../src/engine/data/card-type-names.ts";
 import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
-import { CHAR_TABLE } from "./char-tables.ts";
+import { CHAR_TABLE, PAL_CHAR_TABLE } from "./char-tables.ts";
 import { extractCards } from "./extract-cards.ts";
 import type { ExeLayout, WaMrgLayout } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
@@ -224,12 +224,26 @@ for (let i = 0; i < CHAR_TABLE.length; i++) {
   if (ch !== undefined && !charToByte.has(ch)) charToByte.set(ch, i);
 }
 
+const palCharToByte = new Map<string, number>();
+for (let i = 0; i < PAL_CHAR_TABLE.length; i++) {
+  const ch = PAL_CHAR_TABLE[i];
+  if (ch !== undefined && !palCharToByte.has(ch)) palCharToByte.set(ch, i);
+}
+
 /** Encode strings as consecutive 0xFF-terminated TBL byte sequences. */
 function encodeTblStrings(strings: string[]): Buffer {
+  return encodeTblStringsWith(strings, charToByte);
+}
+
+function encodePalTblStrings(strings: string[]): Buffer {
+  return encodeTblStringsWith(strings, palCharToByte);
+}
+
+function encodeTblStringsWith(strings: string[], table: ReadonlyMap<string, number>): Buffer {
   const bytes: number[] = [];
   for (const str of strings) {
     for (const ch of str) {
-      const b = charToByte.get(ch);
+      const b = table.get(ch);
       if (b !== undefined) bytes.push(b);
     }
     bytes.push(0xff);
@@ -259,6 +273,78 @@ function makeSlusWithTables(
   }
   return buf;
 }
+
+describe("extractCards — card name colors", () => {
+  it("extracts F8 0A name-prefix colors from the EXE text pool", () => {
+    const stat = encodeCardStat(255, 215, 4, 9, 3);
+    const nameTableOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const textPoolBase = nameTableOffset + NUM_CARDS * 2 + 100;
+    const nameOffsets = Buffer.alloc(NUM_CARDS * 2);
+    const name = Buffer.concat([
+      Buffer.from([0xf8, 0x0a, 0x02]),
+      encodeTblStrings(["Garma Sword"]),
+    ]);
+    const slus = makeSlusWithTables(
+      [stat],
+      [7 | (1 << 4)],
+      [
+        { offset: nameTableOffset, data: nameOffsets },
+        { offset: textPoolBase, data: name },
+      ],
+    );
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, nameOffsetTable: nameTableOffset, textPoolBase };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+
+    expect(cards[0]?.name).toBe("Garma Sword");
+    expect(cards[0]?.color).toBe("blue");
+  });
+
+  it("does not treat other F8 controls as card colors", () => {
+    const stat = encodeCardStat(280, 210, 9, 5, 15);
+    const nameTableOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const textPoolBase = nameTableOffset + NUM_CARDS * 2 + 100;
+    const nameOffsets = Buffer.alloc(NUM_CARDS * 2);
+    const name = Buffer.concat([
+      Buffer.from([0xf8, 0x0b, 0x00]),
+      encodeTblStrings(["Twin-headed Thunder Dragon"]),
+    ]);
+    const slus = makeSlusWithTables(
+      [stat],
+      [7],
+      [
+        { offset: nameTableOffset, data: nameOffsets },
+        { offset: textPoolBase, data: name },
+      ],
+    );
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, nameOffsetTable: nameTableOffset, textPoolBase };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+
+    expect(cards[0]?.name).toBe("Twin-headed Thunder Dragon");
+    expect(cards[0]?.color).toBe("");
+  });
+
+  it("extracts F8 0A name-prefix colors from WA_MRG card names", () => {
+    const stat = encodeCardStat(280, 210, 9, 5, 15);
+    const nameStart = NUM_CARDS * 8;
+    const name = Buffer.concat([
+      Buffer.from([0xf8, 0x0a, 0x04]),
+      encodePalTblStrings(["Twin-headed Thunder Dragon"]),
+    ]);
+    const waMrg = Buffer.concat([makeWaMrg([]), name]);
+    const slus = makeSlus([stat], [7]);
+
+    const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, [
+      { nameBlockStart: nameStart, descBlockStart: waMrg.length },
+    ]);
+
+    expect(cards[0]?.name).toBe("Twin-headed Thunder Dragon");
+    expect(cards[0]?.color).toBe("purple");
+  });
+});
 
 describe("extractCards — type name extraction from exe", () => {
   const typeNames = cardTypes.map(displayCardType);

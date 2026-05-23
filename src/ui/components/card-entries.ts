@@ -1,6 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { DECK_SIZE } from "../../engine/types/constants.ts";
+import { frameBorderColor } from "./card-frame-palettes.ts";
 
 export type DiffStatus = "added" | "removed" | "kept";
 
@@ -135,18 +136,10 @@ export function padWithUtilityCards(
   return [...scoringDeck, ...utilityCards];
 }
 
-/* ── Card-type border colors (matches GameCard frame palettes) ── */
-
-const typeBorderColors: Record<string, string> = {
-  Magic: "#308838",
-  Equip: "#308838",
-  Trap: "#c04888",
-  Ritual: "#2858c0",
-};
-const monsterBorderColor = "#b89838";
-
-export function cardTypeBorderColor(cardType?: string, isMonster?: boolean): string {
-  if (cardType && typeBorderColors[cardType]) return typeBorderColors[cardType];
-  if (isMonster !== false) return monsterBorderColor;
-  return monsterBorderColor;
+export function cardTypeBorderColor(
+  cardType?: string,
+  isMonster?: boolean,
+  color?: string,
+): string {
+  return frameBorderColor(color, cardType, isMonster);
 }
