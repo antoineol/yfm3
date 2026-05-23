@@ -132,7 +132,7 @@ All PAL languages use a shared frequency-ordered TBL (`PAL_CHAR_TABLE` in the sc
 
 ## Text Encoding
 
-The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color. Gold/Ultimate uses both `0x04` and `0x07` for purple card-name frames. Gold also stores rendered card-frame colors in a packed 4-bit EXE table when names have no color prefix: `0` yellow, `1` green, `2` pink trap-style, `3` blue, `4` purple, `5` orange.
+The game uses a custom single-byte encoding (Konami TBL format), frequency-ordered. `0xFE`=newline, `0xFF`=string terminator. Card names may have a `{F8 0A XX}` prefix encoding the UI color. Gold/Ultimate uses both `0x04` and `0x07` for purple card-name frames. Gold also stores a packed 4-bit EXE color-category table when names have no color prefix. For monster frames, codes `0`, `3`, and `4` map to yellow, blue, and purple. Non-monster frames are resolved from the extracted card type: Magic/Equip green, Ritual blue, Trap pink.
 
 **NTSC-U TBL** (used in SLUS executable): `0x00`=space, `0x01`=e, `0x02`=t, `0x03`=a, ...
 **PAL TBL** (used in WA_MRG text blocks): `0x00`=space, `0x01`=e, `0x02`=a, `0x03`=i, `0x04`=n, `0x05`=r, ...

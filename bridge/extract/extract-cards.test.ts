@@ -394,8 +394,18 @@ describe("extractCards — card name colors", () => {
 
   it("extracts Gold packed frame colors when card names have no color prefix", () => {
     const frameColorOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const stats: number[] = [];
+    stats[0] = encodeCardStat(300, 250, 1, 8, 0);
+    stats[20] = encodeCardStat(100, 100, 7, 7, 1);
+    stats[328] = encodeCardStat(0, 0, 0, 0, 20);
+    stats[355] = encodeCardStat(230, 210, 1, 8, 5);
+    stats[379] = encodeCardStat(450, 380, 10, 8, 0);
+    stats[612] = encodeCardStat(280, 210, 9, 5, 15);
+    stats[666] = encodeCardStat(0, 0, 0, 0, 22);
+    stats[680] = encodeCardStat(0, 0, 0, 0, 21);
+    stats[715] = encodeCardStat(255, 215, 4, 9, 3);
     const slus = makeSlusWithTables(
-      [encodeCardStat(300, 250, 1, 8, 0)],
+      stats,
       [8],
       [{ offset: frameColorOffset, data: makeGoldFrameColorTable() }],
     );
@@ -404,9 +414,13 @@ describe("extractCards — card name colors", () => {
     const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
 
     expect(cards[0]?.color).toBe("yellow");
-    expect(cards[328]?.color).toBe("pink");
+    expect(cards[20]?.color).toBe("yellow");
+    expect(cards[328]?.color).toBe("green");
+    expect(cards[355]?.color).toBe("blue");
     expect(cards[379]?.color).toBe("purple");
     expect(cards[612]?.color).toBe("purple");
+    expect(cards[666]?.color).toBe("blue");
+    expect(cards[680]?.color).toBe("pink");
     expect(cards[715]?.color).toBe("blue");
   });
 });

@@ -31,7 +31,7 @@ const CARD_COLORS: Record<number, string> = {
   7: "purple",
 };
 
-/** Packed frame color table codes used by Gold's card renderer. */
+/** Packed Gold color-category table codes. Monster codes line up with rendered frames. */
 const FRAME_COLORS: Record<number, string> = {
   0: "yellow",
   1: "green",
@@ -52,6 +52,12 @@ const FRAME_COLOR_PROBES: readonly [cardId: number, code: number][] = [
   [613, 4],
   [716, 3],
 ];
+const NON_MONSTER_FRAME_COLORS: Record<string, string> = {
+  Magic: "green",
+  Equip: "green",
+  Ritual: "blue",
+  Trap: "pink",
+};
 
 const NUM_TYPE_NAMES = 24;
 const DEFAULT_CARD_TYPES = indexedNames(cardTypes);
@@ -143,6 +149,8 @@ export function extractCards(
   for (let i = 0; i < NUM_CARDS; i++) {
     const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
     const text = texts[i] ?? { name: "", color: "" };
+    const rawType = (raw >> 26) & 0x1f;
+    const type = cardTypes[rawType] ?? String(rawType);
     const levelAttr = exeLayout.levelAttr >= 0 ? (slus[exeLayout.levelAttr + i] ?? 0) : 0;
     const sc = starchips[i] ?? { cost: 0, password: "" };
     cards.push({
@@ -152,8 +160,8 @@ export function extractCards(
       def: ((raw >> 9) & 0x1ff) * 10,
       gs1: gsNames[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
       gs2: gsNames[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
-      type: cardTypes[(raw >> 26) & 0x1f] ?? String((raw >> 26) & 0x1f),
-      color: text.color || frameColors[i] || "",
+      type,
+      color: resolveFrameColor(text.color, frameColors[i], type, rawType < 20),
       level: levelAttr & 0xf,
       attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
       description: descriptions[i] ?? "",
@@ -165,7 +173,19 @@ export function extractCards(
   return cards;
 }
 
-function extractFrameColors(exe: Buffer): string[] {
+function resolveFrameColor(
+  textColor: string,
+  frameColor: string | undefined,
+  cardType: string,
+  isMonster: boolean,
+): string {
+  if (textColor) return textColor;
+  if (!isMonster) return NON_MONSTER_FRAME_COLORS[cardType] ?? frameColor ?? "";
+  if (frameColor === "green" || frameColor === "pink" || frameColor === "orange") return "yellow";
+  return frameColor || "";
+}
+
+function extractFrameColors(exe: Buffer): (string | undefined)[] {
   const table = findPackedFrameColorTable(exe);
   if (table === -1) return [];
   return Array.from(
