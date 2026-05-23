@@ -34,7 +34,11 @@ import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import type { DuelStats } from "../../lib/bridge-state-interpreter.ts";
-import { buildRewardEvidence, findNewCards } from "./use-duel-collection-tracker.ts";
+import {
+  buildRewardEvidence,
+  findNewCards,
+  mergeRewardStats,
+} from "./use-duel-collection-tracker.ts";
 import {
   decksMatch,
   scoringDeckApplied,
@@ -146,6 +150,29 @@ describe("buildRewardEvidence", () => {
       totalCards: 15,
       possibleVisibleCardIds: [1],
     });
+  });
+
+  it("uses cached reward selector when collection changes after the live selector disappears", () => {
+    const saPow = makePool({ 1: 2048 });
+    const saTec = makePool({ 2: 2048 });
+    const gameData = makeRewardGameData({ saPow, saTec });
+    const cached = makeRewardStats({
+      rewardPoolContext: { cardCountMode: 5, skillFlag: 1, computedPool: 2 },
+    });
+    const late = makeRewardStats({ rewardPoolContext: null });
+
+    const evidence = buildRewardEvidence(mergeRewardStats(cached, late), gameData, [
+      { cardId: 1, qty: 1 },
+      { cardId: 2, qty: 14 },
+    ]);
+
+    expect(evidence?.selectorDropPool).toBe("SA-TEC");
+    expect(evidence?.selectorContext).toEqual({
+      cardCountMode: 5,
+      skillFlag: 1,
+      computedPool: 2,
+    });
+    expect(evidence?.x15Match?.possible).toBe(true);
   });
 });
 

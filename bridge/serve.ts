@@ -1354,9 +1354,18 @@ function collectionSummary(coll: number[]): { unique: number; total: number } {
 
 let lastShuffledKey = "";
 let dumpedContext = false;
+let lastRewardState: CachedRewardState | null = null;
+
+type CachedRewardState = {
+  duelistId: number | null;
+  rankCounters: number[] | null;
+  rewardPoolContext: GameState["rewardPoolContext"];
+};
 
 function logCollectionDeckState(view: DataView, state: GameState): void {
   const sceneId = state.sceneId;
+  cacheRewardState(state);
+
   // Scene ID change (only when available)
   if (sceneId != null && sceneId !== lastSceneId) {
     const prev = lastSceneId;
@@ -1384,6 +1393,7 @@ function logCollectionDeckState(view: DataView, state: GameState): void {
       collLog(`COLLECTION CHANGED (${unique} unique, ${total} total): ${diffs.join(", ")}`);
       const evidence = describeRewardEvidence(state, prevColl, coll);
       if (evidence) collLog(evidence);
+      lastRewardState = null;
     } else {
       collLog(`COLLECTION SNAPSHOT (${unique} unique, ${total} total)`);
       const owned: string[] = [];
@@ -1423,6 +1433,19 @@ function logCollectionDeckState(view: DataView, state: GameState): void {
   }
 }
 
+function cacheRewardState(state: GameState): void {
+  if (state.duelPhase === 0x01) {
+    lastRewardState = null;
+  }
+  if (!state.rankCounters && !state.rewardPoolContext) return;
+
+  lastRewardState = {
+    duelistId: state.duelistId ?? lastRewardState?.duelistId ?? null,
+    rankCounters: state.rankCounters ?? lastRewardState?.rankCounters ?? null,
+    rewardPoolContext: state.rewardPoolContext ?? lastRewardState?.rewardPoolContext ?? null,
+  };
+}
+
 type DropPoolName = "SA-POW" | "BCD" | "SA-TEC";
 
 const RANK_COUNTER_KEYS = [
@@ -1444,15 +1467,18 @@ function describeRewardEvidence(
   after: readonly number[],
 ): string | null {
   const data = currentGameData;
-  const duelistId = state.duelistId ?? 0;
+  const rewardState = mergeRewardState(state, lastRewardState);
+  const duelistId = rewardState.duelistId ?? 0;
   const duelist = data?.duelists[duelistId - 1];
   if (!data || !duelist) return null;
 
   const gained = changedCards(before, after);
   if (gained.length === 0) return null;
 
-  const rank = state.rankCounters ? rankFromCounters(state.rankCounters, data.rankScoring) : null;
-  const selectorPool = dropPoolFromSelector(state.rewardPoolContext?.computedPool);
+  const rank = rewardState.rankCounters
+    ? rankFromCounters(rewardState.rankCounters, data.rankScoring)
+    : null;
+  const selectorPool = dropPoolFromSelector(rewardState.rewardPoolContext?.computedPool);
   const matches = (["SA-POW", "BCD", "SA-TEC"] as const).map((pool) => ({
     pool,
     matched: countSupportedCards(duelist, pool, gained),
@@ -1461,8 +1487,8 @@ function describeRewardEvidence(
   const totalGained = gained.reduce((sum, card) => sum + card.qty, 0);
   const x15Match =
     rank && selectorPool ? describeX15Match(duelist, rank.dropPool, selectorPool, gained) : null;
-  const context = state.rewardPoolContext
-    ? ` context={cardCountMode:${state.rewardPoolContext.cardCountMode},skillFlag:${state.rewardPoolContext.skillFlag},computedPool:${state.rewardPoolContext.computedPool}}`
+  const context = rewardState.rewardPoolContext
+    ? ` context={cardCountMode:${rewardState.rewardPoolContext.cardCountMode},skillFlag:${rewardState.rewardPoolContext.skillFlag},computedPool:${rewardState.rewardPoolContext.computedPool}}`
     : "";
 
   return (
@@ -1473,6 +1499,14 @@ function describeRewardEvidence(
     `x15=${x15Match ?? "unknown"}` +
     context
   );
+}
+
+function mergeRewardState(state: GameState, cached: CachedRewardState | null): CachedRewardState {
+  return {
+    duelistId: state.duelistId ?? cached?.duelistId ?? null,
+    rankCounters: state.rankCounters ?? cached?.rankCounters ?? null,
+    rewardPoolContext: state.rewardPoolContext ?? cached?.rewardPoolContext ?? null,
+  };
 }
 
 function changedCards(

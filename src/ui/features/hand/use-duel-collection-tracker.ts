@@ -55,6 +55,7 @@ export function useDuelCollectionTracker(
   const wasInDuelRef = useRef(false);
   const preDuelCollectionRef = useRef<Record<number, number> | null>(null);
   const hasFiredRef = useRef(false);
+  const latestRewardStatsRef = useRef<DuelStats | null>(null);
 
   // Keep callbacks fresh without re-triggering effects.
   const onDuelStartRef = useRef(onDuelStart);
@@ -83,12 +84,19 @@ export function useDuelCollectionTracker(
       console.log(`[PostDuel] Duel started — phase: ${bridge.phase}`);
       preDuelCollectionRef.current = bridge.collection ? { ...bridge.collection } : null;
       hasFiredRef.current = false;
+      latestRewardStatsRef.current = null;
       onDuelStartRef.current();
     }
   }, [bridge.inDuel, bridge.phase, bridge.collection, modMismatch]);
 
   // ── Detect collection changes during duel ─────────────────────
   const { collection, deckDefinition, gameData, stats } = bridge;
+  useEffect(() => {
+    if (modMismatch) return;
+    if (!preDuelCollectionRef.current || !stats) return;
+    latestRewardStatsRef.current = mergeRewardStats(latestRewardStatsRef.current, stats);
+  }, [stats, modMismatch]);
+
   useEffect(() => {
     if (hasFiredRef.current) return;
     if (modMismatch) return;
@@ -107,7 +115,11 @@ export function useDuelCollectionTracker(
       onNewCardsRef.current({
         collection: { ...collection },
         deck: [...deckDefinition],
-        rewardEvidence: buildRewardEvidence(stats, gameData, gainedCards),
+        rewardEvidence: buildRewardEvidence(
+          mergeRewardStats(latestRewardStatsRef.current, stats),
+          gameData,
+          gainedCards,
+        ),
       });
     }
   }, [collection, deckDefinition, gameData, stats, modMismatch]);
@@ -134,6 +146,20 @@ export function findNewCardQuantities(
     }
   }
   return newCards;
+}
+
+export function mergeRewardStats(
+  previous: DuelStats | null,
+  current: DuelStats | null,
+): DuelStats | null {
+  if (!previous) return current;
+  if (!current) return previous;
+  return {
+    ...current,
+    duelistId: current.duelistId > 0 ? current.duelistId : previous.duelistId,
+    rankCounters: current.rankCounters ?? previous.rankCounters,
+    rewardPoolContext: current.rewardPoolContext ?? previous.rewardPoolContext,
+  };
 }
 
 const RANK_COUNTER_KEYS: readonly (keyof RankFactors)[] = [
