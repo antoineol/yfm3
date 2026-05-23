@@ -30,6 +30,12 @@ const GHOST_LOOP_DEFINITION_ID = "ghost-loop-limits";
 const GHOST_LOOP_DEFINITION_NAME = "Ghost/FMR loop-limit x15";
 const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
+const BUFFERED_PICKER_DEFINITION_ID = "buffered-picker-x15";
+const BUFFERED_PICKER_DEFINITION_NAME = "Buffered original-picker x15";
+const PICK_HOOK_RAM = LOCAL_PROGRAM_RAM;
+const CREDIT_HOOK_RAM = 0x80021f98;
+const REWARD_BUFFER_RAM = 0x801aac00;
+const BUFFERED_DROP_COUNT = 15;
 
 const GHOST_LOOP_PATTERNS = [
   {
@@ -65,6 +71,16 @@ export interface DropX15PatchDefinition {
   writeWords: readonly InstructionPatch[];
   localProgramOffset: number;
   localProgramRam: number;
+  localProgramVanilla: readonly number[];
+  localProgram: readonly number[];
+}
+
+export interface BufferedPickerX15PatchDefinition {
+  id: string;
+  name: string;
+  gameSerial: string;
+  writeWords: readonly InstructionPatch[];
+  localProgramOffset: number;
   localProgramVanilla: readonly number[];
   localProgram: readonly number[];
 }
@@ -127,6 +143,40 @@ export function buildLocalX15Patch(gameSerial: string): DropX15PatchDefinition {
   };
 }
 
+export function buildBufferedPickerX15Patch(gameSerial: string): BufferedPickerX15PatchDefinition {
+  return {
+    id: BUFFERED_PICKER_DEFINITION_ID,
+    name: BUFFERED_PICKER_DEFINITION_NAME,
+    gameSerial,
+    writeWords: [
+      {
+        fileOffset: VISIBLE_PICK_HOOK_OFFSET,
+        ram: 0x80021c60,
+        vanilla: mipsJal(PICK_DROP_RAM),
+        patched: mipsJal(PICK_HOOK_RAM),
+        label: "reward picker->buffered x15 picker",
+      },
+      {
+        fileOffset: AWARD_HOOK_OFFSET,
+        ram: AWARD_HOOK_RAM,
+        vanilla: 0x8444003c,
+        patched: mipsJ(CREDIT_HOOK_RAM),
+        label: "award.lh->j buffered x15 credit routine",
+      },
+      {
+        fileOffset: AWARD_HOOK_OFFSET + 4,
+        ram: AWARD_HOOK_RAM + 4,
+        vanilla: 0x0c008625,
+        patched: mipsNop(),
+        label: "award.jal->nop",
+      },
+    ],
+    localProgramOffset: LOCAL_PROGRAM_OFFSET,
+    localProgramVanilla: buildBufferedPickerProgramVanillaWords(),
+    localProgram: buildBufferedPickerProgramWords(),
+  };
+}
+
 export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
   const image = readFileSync(discPath);
   return inspectDropX15Image(image);
@@ -140,6 +190,15 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
     return ghostState;
   }
 
+  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
+  const bufferedState = inspectBufferedPickerPatchState(
+    image,
+    slusEntry.sector,
+    format,
+    bufferedDefinition,
+  );
+  if (bufferedState.supported) return bufferedState;
+
   const definition = buildLocalX15Patch(slusEntry.name);
   return inspectLegacyLocalPatchState(image, slusEntry.sector, format, definition);
 }
@@ -149,11 +208,19 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
 
-  const before = inspectGhostLoopPatchState(image, slusEntry.name);
+  const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
+  const bufferedDefinition = buildBufferedPickerX15Patch(slusEntry.name);
+  const before = ghostState.supported
+    ? ghostState
+    : inspectBufferedPickerPatchState(image, slusEntry.sector, format, bufferedDefinition);
   if (!before.supported) throw new Error(before.reason);
   if (before.enabled) return { changed: false, status: before };
 
-  writeGhostLoopPatch(image);
+  if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
+    writeGhostLoopPatch(image);
+  } else {
+    writeBufferedPickerPatch(image, slusEntry.sector, format, bufferedDefinition);
+  }
   writeFileSync(discPath, image);
 
   const after = inspectDropX15Image(readFileSync(discPath));
@@ -223,6 +290,81 @@ function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
     offset = matchOffset + 1;
   }
   return offsets;
+}
+
+function inspectBufferedPickerPatchState(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  definition: BufferedPickerX15PatchDefinition,
+): DropX15PatchStatus {
+  const hooksVanilla = definition.writeWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.vanilla,
+  );
+  const hooksPatched = definition.writeWords.every(
+    (word) => readU32LeAt(image, slusSector, word.fileOffset, format) === word.patched,
+  );
+  const hostVanilla = wordsMatch(
+    image,
+    slusSector,
+    format,
+    definition.localProgramOffset,
+    definition.localProgramVanilla,
+  );
+  const hostPatched = wordsMatch(
+    image,
+    slusSector,
+    format,
+    definition.localProgramOffset,
+    definition.localProgram,
+  );
+
+  if (hooksPatched && hostPatched) {
+    return {
+      supported: true,
+      enabled: true,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+    };
+  }
+
+  if (hooksVanilla && hostVanilla) {
+    return {
+      supported: true,
+      enabled: false,
+      definitionId: definition.id,
+      definitionName: definition.name,
+      gameSerial: definition.gameSerial,
+    };
+  }
+
+  return {
+    supported: false,
+    enabled: false,
+    gameSerial: definition.gameSerial,
+    reason: "The active executable does not match the buffered original-picker x15 layout.",
+  };
+}
+
+function writeBufferedPickerPatch(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  definition: BufferedPickerX15PatchDefinition,
+): void {
+  for (const word of definition.writeWords) {
+    writeU32LeAt(image, slusSector, word.fileOffset, word.patched, format);
+  }
+  for (let i = 0; i < definition.localProgram.length; i++) {
+    writeU32LeAt(
+      image,
+      slusSector,
+      definition.localProgramOffset + i * 4,
+      definition.localProgram[i] ?? 0,
+      format,
+    );
+  }
 }
 
 function inspectLegacyLocalPatchState(
@@ -379,6 +521,74 @@ function buildLocalProgramWords(): readonly number[] {
   ];
 }
 
+function buildBufferedPickerProgramWords(): readonly number[] {
+  return [...buildBufferedPickHookWords(), ...buildBufferedCreditHookWords()];
+}
+
+function buildBufferedPickHookWords(): readonly number[] {
+  const loopRam = PICK_HOOK_RAM + 40;
+  const loopBranchRam = PICK_HOOK_RAM + 84;
+
+  return [
+    mipsAddiu(REG.sp, REG.sp, -32),
+    mipsSw(REG.ra, 28, REG.sp),
+    mipsSw(REG.a0, 24, REG.sp),
+    mipsJal(PICK_DROP_RAM),
+    mipsNop(),
+    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
+    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
+    mipsSh(REG.v0, 0, REG.t0),
+    mipsAddiu(REG.t1, REG.zero, 1),
+    mipsSw(REG.t1, 16, REG.sp),
+    mipsLw(REG.a0, 24, REG.sp),
+    mipsJal(PICK_DROP_RAM),
+    mipsNop(),
+    mipsLw(REG.t1, 16, REG.sp),
+    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
+    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
+    mipsSll(REG.t2, REG.t1, 1),
+    mipsAddu(REG.t0, REG.t0, REG.t2),
+    mipsSh(REG.v0, 0, REG.t0),
+    mipsAddiu(REG.t1, REG.t1, 1),
+    mipsSltiu(REG.t2, REG.t1, BUFFERED_DROP_COUNT),
+    mipsBne(REG.t2, REG.zero, loopRam, loopBranchRam),
+    mipsSw(REG.t1, 16, REG.sp),
+    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
+    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
+    mipsLhu(REG.v0, 0, REG.t0),
+    mipsLw(REG.ra, 28, REG.sp),
+    mipsJr(REG.ra),
+    mipsAddiu(REG.sp, REG.sp, 32),
+  ];
+}
+
+function buildBufferedCreditHookWords(): readonly number[] {
+  const loopRam = CREDIT_HOOK_RAM + 16;
+  const loopBranchRam = CREDIT_HOOK_RAM + 52;
+
+  return [
+    mipsAddiu(REG.sp, REG.sp, -24),
+    mipsSw(REG.ra, 20, REG.sp),
+    mipsSw(REG.s0, 16, REG.sp),
+    mipsAddiu(REG.s0, REG.zero, 0),
+    mipsLui(REG.t0, upper16(REWARD_BUFFER_RAM)),
+    mipsOri(REG.t0, REG.t0, lower16(REWARD_BUFFER_RAM)),
+    mipsSll(REG.t1, REG.s0, 1),
+    mipsAddu(REG.t0, REG.t0, REG.t1),
+    mipsLhu(REG.a0, 0, REG.t0),
+    mipsJal(CREDIT_CARD_RAM),
+    mipsNop(),
+    mipsAddiu(REG.s0, REG.s0, 1),
+    mipsSltiu(REG.t2, REG.s0, BUFFERED_DROP_COUNT),
+    mipsBne(REG.t2, REG.zero, loopRam, loopBranchRam),
+    mipsNop(),
+    mipsLw(REG.s0, 16, REG.sp),
+    mipsLw(REG.ra, 20, REG.sp),
+    mipsJ(RETURN_RAM),
+    mipsAddiu(REG.sp, REG.sp, 24),
+  ];
+}
+
 function buildUnsafeFreezeSelectorProgramWords(): readonly number[] {
   const extraLoopRam = LOCAL_PROGRAM_RAM + 24;
   const loopBranchRam = LOCAL_PROGRAM_RAM + 52;
@@ -421,6 +631,17 @@ function buildLocalProgramVanillaWords(): readonly number[] {
   ];
 }
 
+function buildBufferedPickerProgramVanillaWords(): readonly number[] {
+  return [
+    0x9382025d, 0x278502d0, 0x00021080, 0x00452021, 0x8c830000, 0x00000000, 0x94620518, 0x00000000,
+    0x24420001, 0xa4620518, 0x3042ffff, 0x2c422710, 0x14400004, 0x2402270f, 0x8c830000, 0x00000000,
+    0xa4620518, 0x9382025d, 0x00000000, 0x38420001, 0x00021080, 0x00452021, 0x8c830000, 0x00000000,
+    0x9462051a, 0x00000000, 0x24420001, 0xa462051a, 0x3042ffff, 0x2c422710, 0x1440003f, 0x2402270f,
+    0x8c830000, 0x08008827, 0xa462051a, 0x3c02800a, 0x9442b394, 0x00000000, 0x3042a000, 0x1040002a,
+    0x00000000, 0x8f8202e0, 0x00000000, 0x90430037, 0x00000000, 0x24630001, 0xa0430037, 0x3c02800a,
+  ];
+}
+
 function findExecutableEntry(image: Buffer, format: DiscFormat): IsoFile {
   const pvd = readSector(image, PVD_SECTOR, format);
   const root = pvd.subarray(156, 190);
@@ -455,6 +676,18 @@ function readU32LeAt(
   );
 }
 
+function writeU32LeAt(
+  image: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  value: number,
+  format: DiscFormat,
+): void {
+  for (let i = 0; i < 4; i++) {
+    image[discOffset(fileStartSector, fileOffset + i, format)] = (value >>> (i * 8)) & 0xff;
+  }
+}
+
 function mipsNop(): number {
   return 0;
 }
@@ -475,8 +708,28 @@ function mipsLbu(rt: number, imm: number, rs: number): number {
   return mipsI(0x24, rs, rt, imm);
 }
 
+function mipsLhu(rt: number, imm: number, rs: number): number {
+  return mipsI(0x25, rs, rt, imm);
+}
+
+function mipsSw(rt: number, imm: number, rs: number): number {
+  return mipsI(0x2b, rs, rt, imm);
+}
+
+function mipsSh(rt: number, imm: number, rs: number): number {
+  return mipsI(0x29, rs, rt, imm);
+}
+
 function mipsSb(rt: number, imm: number, rs: number): number {
   return mipsI(0x28, rs, rt, imm);
+}
+
+function mipsLui(rt: number, imm: number): number {
+  return mipsI(0x0f, 0, rt, imm);
+}
+
+function mipsOri(rt: number, rs: number, imm: number): number {
+  return mipsI(0x0d, rs, rt, imm);
 }
 
 function mipsSltu(rd: number, rs: number, rt: number): number {
@@ -544,11 +797,23 @@ function mipsJType(op: number, targetRam: number): number {
   return (((op & 0x3f) << 26) | ((targetRam >>> 2) & 0x03ff_ffff)) >>> 0;
 }
 
+function upper16(value: number): number {
+  return (value >>> 16) & 0xffff;
+}
+
+function lower16(value: number): number {
+  return value & 0xffff;
+}
+
 const REG = {
   zero: 0,
   v0: 2,
   v1: 3,
   a0: 4,
+  t0: 8,
+  t1: 9,
+  t2: 10,
+  sp: 29,
   ra: 31,
   gp: 28,
   s0: 16,

@@ -1,10 +1,10 @@
 # Ultimate x15 Drop Patch Spec
 
-Status: historical/legacy. This local trampoline formula was useful to prove
-that a duel can credit 15 cards without the Alpha expansion region, but it is
-not the production bridge patch anymore. The bridge now supports only the
-community Ghost/FMR loop-limit x15 anchors and reports installed local
-trampolines as legacy unsafe states.
+Status: historical/legacy. This late local trampoline formula was useful to
+prove that a duel can credit 15 cards without the Alpha expansion region, but
+it is not the production bridge patch anymore. The bridge now prefers the
+community Ghost/FMR loop-limit anchors and uses `buffered-picker-x15` for
+Gold-like executables that lack those anchors.
 
 ## Business Goal
 

@@ -91,7 +91,7 @@ Return best deck + exact expected ATK
 | **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale or impossible metadata caches |
 | **Bridge Gold Card Colors** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Extract `{F8 0A XX}` card frame colors from active card-name text and render them in card UI |
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide, including before reference data is ready, and buffer detected rewards until deck definition and auto-sync game data are available |
-| **Campaign Reward Pool Evidence** (CURRENT) | — | Capture rank counters, reward selector evidence, inferred credited-card fit, and restrict x15 patching to the community Ghost/FMR loop-limit routine |
+| **Campaign Reward Pool Evidence** (CURRENT) | — | Capture rank counters, reward selector evidence, inferred credited-card fit, prefer the community Ghost/FMR x15 routine, and use buffered original-picker x15 for Gold-like layouts |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
 | **Onboarding Flow** (DONE) | [`docs/onboard/improve-onboarding.md`](onboard/improve-onboarding.md) | Mode chooser (auto-sync vs manual), prerequisite steps (game + DuckStation download), improved WaitingForDuel, "Setup guide" menu item, Duel as default tab |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |

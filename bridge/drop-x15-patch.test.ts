@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  buildBufferedPickerX15Patch,
   buildLocalX15Patch,
   type DropX15PatchDefinition,
   inspectDropX15Image,
@@ -68,6 +69,42 @@ describe("drop x15 patch inspection", () => {
     });
   });
 
+  test("supports the clean buffered original-picker layout used by Gold-like executables", () => {
+    const image = makeDiscImage("SLUS_000.04");
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: true,
+      enabled: false,
+      definitionId: "buffered-picker-x15",
+      definitionName: "Buffered original-picker x15",
+      gameSerial: "SLUS_000.04",
+    });
+  });
+
+  test("patches the buffered original-picker layout in place", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makeDiscImage("SLUS_000.04"));
+
+    try {
+      const result = patchDropX15DiscInPlace(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "buffered-picker-x15",
+      });
+      expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "buffered-picker-x15",
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("rejects unknown executables when the local x15 layout does not match", () => {
     const image = makeDiscImage("SLUS_999.99", false);
 
@@ -77,18 +114,6 @@ describe("drop x15 patch inspection", () => {
       gameSerial: "SLUS_999.99",
       reason:
         "The active executable does not match the tested local 15-card-drop layout or is partially patched.",
-    });
-  });
-
-  test("does not offer the legacy local trampoline on matching executables", () => {
-    const image = makeDiscImage("SLUS_000.04");
-
-    expect(inspectDropX15Image(image)).toEqual({
-      supported: false,
-      enabled: false,
-      gameSerial: "SLUS_000.04",
-      reason:
-        "This executable matches the legacy local x15 layout, but no Ghost/FMR loop-limit anchors were found. The bridge will not install the legacy trampoline.",
     });
   });
 
@@ -182,18 +207,20 @@ function seedUnpatchedExecutable(
   slusSector: number,
   patch: DropX15PatchDefinition,
 ): void {
+  const bufferedPatch = buildBufferedPickerX15Patch(patch.gameSerial);
+
   for (const word of patch.requiredWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
   }
-  for (const word of patch.writeWords) {
+  for (const word of bufferedPatch.writeWords) {
     writeU32(image, slusSector, word.fileOffset, word.vanilla);
   }
-  for (let i = 0; i < patch.localProgramVanilla.length; i++) {
+  for (let i = 0; i < bufferedPatch.localProgramVanilla.length; i++) {
     writeU32(
       image,
       slusSector,
-      patch.localProgramOffset + i * 4,
-      patch.localProgramVanilla[i] ?? 0,
+      bufferedPatch.localProgramOffset + i * 4,
+      bufferedPatch.localProgramVanilla[i] ?? 0,
     );
   }
 }

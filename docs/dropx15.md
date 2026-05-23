@@ -1,9 +1,11 @@
 # droptool / dropx15 — specs (brouillon)
 
-Statut : **actif pour le bridge**. La recette de patch supportée est la
-recette communautaire Ghost/FMR par limites de boucle. Les anciens trampolines
-locaux restent documentés comme historique, mais le bridge ne les installe plus
-en production.
+Statut : **actif pour le bridge**. La recette préférée reste la recette
+communautaire Ghost/FMR par limites de boucle. Pour Gold/Ultimate-like, où ces
+ancres n'existent pas, le bridge utilise un patch local plus proche du modèle
+communautaire : il intercepte le picker original pendant que le vrai sélecteur
+de pool est encore vivant, bufferise les 15 cartes choisies, puis crédite cette
+liste à la fin du duel.
 
 ## Objectif
 
@@ -60,7 +62,7 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 |----------------------------------------------------|------------------|----------------------------------|--------------|
 | `15 card mod/…uibak` (US vanilla BIN)              | `SLUS_014.11`    | Oui, 8× (1 dans WA_MRG+7 EXE)    | ✅           |
 | `Yu-Gi-Oh! Mod 15.bin`                             | `SLUS_014.11`    | Non — layout vanilla-family au site d'award local | ❌ bridge v2.0.68+ |
-| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ❌ bridge v2.0.68+ |
+| `Yu-Gi-Oh! Forbidden Memories Gold.bin`            | `SLUS_000.04`    | Non — layout vanilla-family au site d'award local | ✅ via buffered-picker |
 | `FMR Remastered Perfected[15].bin`                 | `SLUS_014.11`    | Oui, 1× (vestige) + 7× déjà patchées | ✅ (déjà patchée) |
 | `FMR Vanilla Remastered 1.3.bin`                   | `SLUS_014.11`    | Identique au cas ci-dessus       | ✅           |
 | `Alpha Mod (Drop x15).iso`                         | `SLUS_014.11`    | Déjà patchée (7 occurrences x15) | ✅ (déjà patchée) |
@@ -71,16 +73,30 @@ ISO9660 à l'écriture), et empiriquement équivalent.
 recompilé/différent** (serial customisé `SLUS_027.11`). Nos patterns exacts
 ne matchent pas. Le PAL français a aussi un binaire différent.
 
-Pour la v1 bridge, le support robuste concerne uniquement les images qui
+Pour la v1 bridge, le support robuste concerne d'abord les images qui
 contiennent les ancres Ghost/FMR ci-dessus. Le bridge scanne l'image brute, pas
 seulement l'EXE ISO9660 extrait, car les copies chargées par le jeu peuvent
 différer de la copie logique.
 
 Les exécutables qui gardent seulement le site d'award vanilla
-(`0x80021f10`) et le code hôte libre (`0x80021f24`) ne sont plus patchés par
-trampoline local. Cette variante a produit des récompenses impossibles ou
-désynchronisées sur Gold; elle est donc traitée comme état legacy à restaurer,
-pas comme patch activable.
+(`0x80021f10`) et le code hôte libre (`0x80021f24`) ne sont plus patchés par le
+trampoline local historique qui recomputait un pool tardivement. Cette variante
+a produit des récompenses impossibles ou désynchronisées sur Gold; elle est
+donc traitée comme état legacy à restaurer, pas comme patch activable.
+
+Le remplacement Gold-compatible supporté est `buffered-picker-x15` :
+
+1. Hook `0x80021c60` (`jal FUN_80021810`) vers `0x80021f24`.
+2. La routine appelée reçoit le sélecteur réel dans `a0`, appelle le picker
+   original 15 fois, stocke les IDs dans `0x801aac00`, et retourne la première
+   carte dans `v0` pour que l'UI normale affiche la même carte.
+3. Hook `0x80021f10` vers `0x80021f98`.
+4. La routine de crédit relit les 15 IDs bufferisés et appelle `FUN_80021894`
+   pour chacun, puis saute à `0x8002209c`.
+
+Différence clé avec le trampoline rejeté : on ne reconstruit plus le sélecteur
+depuis l'état de résultat après coup; on utilise celui que le jeu vient de
+calculer pour le reward affiché.
 
 ## Cibles
 
