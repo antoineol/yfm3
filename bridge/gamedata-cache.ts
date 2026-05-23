@@ -9,6 +9,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { cardTypes, guardianStars, nonMonsterCardTypes } from "../src/engine/data/rp-types.ts";
 import type { DeckLimits } from "./extract/extract-deck-limits.ts";
 import type {
   CardStats,
@@ -18,9 +19,13 @@ import type {
   Fusion,
   RankScoringData,
 } from "./extract/types.ts";
+import { NUM_CARDS } from "./extract/types.ts";
 
-const CACHE_VERSION = 7;
+const CACHE_VERSION = 8;
 const CACHE_FILENAME = "gamedata.json";
+const CARD_TYPE_NAMES = new Set<string>(cardTypes);
+const GUARDIAN_STAR_NAMES = new Set<string>(guardianStars);
+const NON_MONSTER_TYPE_NAMES = new Set<string>(nonMonsterCardTypes);
 
 interface DiscCacheSignature {
   size: number;
@@ -51,6 +56,7 @@ export function readGameDataCache(artworkDir: string, discPath: string): CachedG
     const parsed = JSON.parse(readFileSync(cachePath, "utf-8")) as CacheFile;
     if (parsed.version !== CACHE_VERSION) return null;
     if (!sameDiscSignature(parsed.disc, discSignature(discPath))) return null;
+    if (!hasUsableCardMetadata(parsed.cards)) return null;
     return {
       gameSerial: parsed.gameSerial,
       cards: parsed.cards,
@@ -67,6 +73,22 @@ export function readGameDataCache(artworkDir: string, discPath: string): CachedG
     console.warn(`Ignoring malformed gamedata cache at ${cachePath}: ${msg}`);
     return null;
   }
+}
+
+function hasUsableCardMetadata(cards: CardStats[]): boolean {
+  if (cards.length !== NUM_CARDS) return false;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    if (!card || card.id !== i + 1) return false;
+    if (hasStats(card) && NON_MONSTER_TYPE_NAMES.has(card.type)) return false;
+    if (CARD_TYPE_NAMES.has(card.gs1) || CARD_TYPE_NAMES.has(card.gs2)) return false;
+    if (!GUARDIAN_STAR_NAMES.has(card.gs1) || !GUARDIAN_STAR_NAMES.has(card.gs2)) return false;
+  }
+  return true;
+}
+
+function hasStats(card: CardStats): boolean {
+  return card.atk > 0 || card.def > 0;
 }
 
 export function writeGameDataCache(

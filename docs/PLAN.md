@@ -88,7 +88,7 @@ Return best deck + exact expected ATK
 | P8: Google Sheets Fusions | [`docs/steps/p8-google-sheets-fusions.md`](steps/p8-google-sheets-fusions.md) | Replace static fusion CSV with backend-imported Google Sheets fusion data |
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
-| **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale same-path BIN caches |
+| **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale or impossible metadata caches |
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide so auto-sync optimization is not tied to the visible tab lifecycle |
 | **Campaign Reward Pool Evidence** (CURRENT) | — | Capture rank counters, runtime reward selector bytes, and credited-card fit after a duel, including the local x15 path of 1 visible rank-pool card plus 14 hidden selector-pool cards |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
