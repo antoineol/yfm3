@@ -1,4 +1,4 @@
-import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   type DiscFormat,
   detectDiscFormat,
@@ -176,11 +176,6 @@ function isSpecificLegacyPatchState(status: DropX15PatchStatus): boolean {
     (status.reason.startsWith("This disc has the legacy local x15 trampoline installed.") ||
       status.reason.startsWith("An unsafe legacy 15-card-drop patch is installed."))
   );
-}
-
-export function patchUltimateX15(src: string, dst: string): PatchDropX15Result {
-  copyFileSync(src, dst);
-  return patchDropX15DiscInPlace(dst);
 }
 
 function inspectGhostToolPatchState(
