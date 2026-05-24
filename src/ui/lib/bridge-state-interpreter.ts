@@ -221,6 +221,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
   if (isPlayerHandCursorPhase(raw)) {
+    if (isFieldCursorViewActive(raw)) return resolveFieldPreviewTarget(cardId, raw);
     if (cardId == null || cardId <= 0) return null;
     const handTarget = firstCursorCandidate([cursorPlayerHandZone(raw)], cardId);
     if (handTarget) return handTarget;
@@ -233,6 +234,26 @@ function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCu
   if (cardId == null || cardId <= 0) return null;
 
   return firstCursorCandidate(cursorZonesByPriority(raw), cardId);
+}
+
+function resolveFieldPreviewTarget(
+  cardId: number | null,
+  raw: RawBridgeState,
+): DuelCursorTarget | null {
+  if (!("duelCursorFieldSlotIndex" in raw)) return null;
+  if (raw.duelCursorFieldSlotIndex == null) return null;
+
+  const playerIndex = findActiveSlotIndex(raw.field, cardId);
+  if (playerIndex != null) {
+    return { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
+  }
+
+  const opponentIndex = findActiveSlotIndex(raw.opponentField ?? [], cardId);
+  if (opponentIndex != null) {
+    return { zone: "opponentField", index: opponentIndex, cardId: cardId as number, hidden: true };
+  }
+
+  return null;
 }
 
 function isPlayerHandCursorPhase(raw: RawBridgeState): boolean {

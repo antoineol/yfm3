@@ -180,7 +180,7 @@ describe("interpretRawState", () => {
           duelPhase: 0x04,
           duelCursorTargetCardId: 200,
           field: [
-            { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 572, atk: 2100, def: 1700, status: 0x80 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -195,6 +195,44 @@ describe("interpretRawState", () => {
         cardId: 200,
         hidden: false,
       });
+    });
+
+    it("clears focus when field preview is on an empty slot with a stale hand target", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 200,
+          duelCursorFieldSlotIndex: null,
+          field: [
+            { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
+    it("clears focus when field preview has no matching field card for the stale target", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 200,
+          duelCursorFieldSlotIndex: 0,
+          field: [
+            { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
     });
 
     it("ignores a stale hand target once the hand slot is no longer available", () => {

@@ -240,6 +240,7 @@ function resolveCursorTargetAcrossPreview(
   confirmedPlayerHandTarget: DuelCursorTarget | null,
 ): DuelCursorTarget | null {
   if (cursorTarget) return cursorTarget;
+  if (isFieldPreviewCursorActive(raw)) return null;
   if (!isPlayerHandPhase(raw)) return null;
   if (!confirmedPlayerHandTarget || !isAvailableRawHandTarget(raw, confirmedPlayerHandTarget)) {
     return null;
@@ -264,6 +265,15 @@ function isPlayerHandPhase(raw: RawBridgeState): boolean {
       raw.duelPhase === 0x04 ||
       raw.duelPhase === 0x07 ||
       raw.duelPhase === 0x08)
+  );
+}
+
+function isFieldPreviewCursorActive(raw: RawBridgeState): boolean {
+  return (
+    isPlayerHandPhase(raw) &&
+    [...raw.field, ...(raw.opponentField ?? [])].some(
+      (slot) => slot.cardId > 0 && slot.cardId < 723 && (slot.status & 0x04) !== 0,
+    )
   );
 }
 

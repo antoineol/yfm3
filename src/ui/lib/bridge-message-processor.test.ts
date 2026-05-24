@@ -341,6 +341,20 @@ describe("processBridgeMessage", () => {
         hidden: false,
       });
 
+      const previewEmpty = process(
+        readyMsg({
+          hand,
+          handSlots: [5, 6, 8, 9, 10],
+          field: previewField,
+          opponentField: opponentPreview,
+          duelCursorTargetCardId: 387,
+          duelCursorFieldSlotIndex: null,
+        }),
+        handPoll.state,
+        handPoll.tracker,
+      );
+      expect(previewEmpty.state.cursorTarget).toBeNull();
+
       const previewPoll = process(
         readyMsg({
           hand,
@@ -350,8 +364,8 @@ describe("processBridgeMessage", () => {
           duelCursorTargetCardId: 282,
           duelCursorFieldSlotIndex: 2,
         }),
-        handPoll.state,
-        handPoll.tracker,
+        previewEmpty.state,
+        previewEmpty.tracker,
       );
       expect(previewPoll.state.cursorTarget).toEqual({
         zone: "opponentField",
