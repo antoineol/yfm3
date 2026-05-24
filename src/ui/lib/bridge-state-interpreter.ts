@@ -235,6 +235,13 @@ function resolveFieldSlotTarget(
   if (!("duelCursorFieldSlotIndex" in raw)) return undefined;
 
   const index = raw.duelCursorFieldSlotIndex;
+  const playerIndex = findActiveSlotIndex(raw.field, cardId);
+  if (playerIndex != null) {
+    return index == null
+      ? null
+      : { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
+  }
+
   const opponentIndex = findActiveSlotIndex(raw.opponentField ?? [], cardId);
   if (opponentIndex != null) {
     return index == null
@@ -242,11 +249,7 @@ function resolveFieldSlotTarget(
       : { zone: "opponentField", index: opponentIndex, cardId: cardId as number, hidden: true };
   }
 
-  if (index == null) {
-    return cardId != null && raw.field.some((slot) => slot.cardId === cardId && isActiveSlot(slot))
-      ? null
-      : undefined;
-  }
+  if (index == null) return undefined;
 
   const slot = raw.field[index];
   if (!slot) return undefined;

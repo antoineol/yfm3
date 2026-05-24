@@ -13,7 +13,7 @@ export function CheatViewSwitch() {
   const view = useCheatView();
   const save = useUpdatePreferences();
   const bridge = useBridge();
-  const visible = bridge.inDuel;
+  const visible = duelFocusRowVisible(bridge, cheatMode);
 
   return (
     <div className={`fm-cheat-switch-wrap ${visible ? "fm-cheat-switch-wrap--open" : ""}`}>
@@ -39,35 +39,19 @@ export function CheatViewSwitch() {
   );
 }
 
-export function focusedCardForDisplay(
-  bridge: BridgeState,
-  cheatMode: boolean,
-): BridgeCard | "hidden" | null {
+export function focusedCardForDisplay(bridge: BridgeState, cheatMode: boolean): BridgeCard | null {
   const target = bridge.cursorTarget;
-  if (!bridge.inDuel || !target) return null;
-  if (target.hidden && !cheatMode) return "hidden";
+  if (!bridge.inDuel || !cheatMode || !target) return null;
   return bridge.gameData?.cards.find((card) => card.id === target.cardId) ?? null;
+}
+
+export function duelFocusRowVisible(bridge: BridgeState, cheatMode: boolean): boolean {
+  return bridge.inDuel && cheatMode;
 }
 
 function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMode: boolean }) {
   const resolveArtwork = useArtworkSrc();
   const focused = focusedCardForDisplay(bridge, cheatMode);
-
-  if (focused === "hidden") {
-    return (
-      <div className="fm-duel-focused-slot">
-        <div className="fm-duel-focused-card fm-duel-focused-card--hidden">
-          <div className="fm-duel-focused-art" />
-          <div className="min-w-0">
-            <div className="fm-duel-focused-main">
-              <span className="fm-duel-focused-id">???</span>
-              <div className="fm-duel-focused-name">Hidden card</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!focused) {
     return <div aria-hidden="true" className="fm-duel-focused-slot" />;

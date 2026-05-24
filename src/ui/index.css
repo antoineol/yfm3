@@ -1613,6 +1613,7 @@ input[type="number"] {
 }
 
 .fm-cheat-switch-wrap > div {
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1782,6 +1783,7 @@ input[type="number"] {
 }
 
 .fm-cheat-banner-wrap > div {
+  min-height: 0;
   overflow: hidden;
 }
 

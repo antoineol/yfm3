@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type BridgeState, INITIAL_BRIDGE_STATE } from "../../lib/bridge-message-processor.ts";
-import { focusedCardForDisplay } from "./CheatViewSwitch.tsx";
+import { duelFocusRowVisible, focusedCardForDisplay } from "./CheatViewSwitch.tsx";
 
 function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
   return {
@@ -17,22 +17,22 @@ function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
 }
 
 describe("focusedCardForDisplay", () => {
-  it("returns the targeted player card", () => {
+  it("returns the targeted player card in cheat mode", () => {
     const bridge = bridgeWithTarget({
       cursorTarget: { zone: "playerHand", index: 2, cardId: 65, hidden: false },
     });
 
-    expect(focusedCardForDisplay(bridge, false)).toEqual(
+    expect(focusedCardForDisplay(bridge, true)).toEqual(
       expect.objectContaining({ id: 65, name: "Silver Fang" }),
     );
   });
 
-  it("does not reveal hidden opponent targets without cheat mode", () => {
+  it("returns no focused card without cheat mode", () => {
     const bridge = bridgeWithTarget({
-      cursorTarget: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
+      cursorTarget: { zone: "playerHand", index: 2, cardId: 65, hidden: false },
     });
 
-    expect(focusedCardForDisplay(bridge, false)).toBe("hidden");
+    expect(focusedCardForDisplay(bridge, false)).toBeNull();
   });
 
   it("reveals hidden opponent targets with cheat mode", () => {
@@ -47,5 +47,13 @@ describe("focusedCardForDisplay", () => {
 
   it("returns null when no card is focused", () => {
     expect(focusedCardForDisplay(bridgeWithTarget({ cursorTarget: null }), true)).toBeNull();
+  });
+});
+
+describe("duelFocusRowVisible", () => {
+  it("is visible only during a duel with cheat mode enabled", () => {
+    expect(duelFocusRowVisible(bridgeWithTarget({ inDuel: true }), true)).toBe(true);
+    expect(duelFocusRowVisible(bridgeWithTarget({ inDuel: true }), false)).toBe(false);
+    expect(duelFocusRowVisible(bridgeWithTarget({ inDuel: false }), true)).toBe(false);
   });
 });
