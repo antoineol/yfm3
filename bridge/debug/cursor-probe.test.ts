@@ -31,6 +31,7 @@ const baseState: GameState = {
   duelistUnlock: [],
   rankCounters: null,
   duelCursorTargetCardId: null,
+  duelCursorFieldSlotIndex: null,
 };
 
 const profile: OffsetProfile = {

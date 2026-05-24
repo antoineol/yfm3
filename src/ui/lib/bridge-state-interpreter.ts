@@ -67,6 +67,8 @@ export type RawBridgeState = {
   cpuShuffledDeck: number[];
   /** Suspected selected card id under the in-game cursor. */
   duelCursorTargetCardId?: number | null;
+  /** Zero-based player field slot index when an active field card is focused. */
+  duelCursorFieldSlotIndex?: number | null;
   /** Free-duel duelist unlock bitfield (raw bytes from 0x1D06F4). */
   duelistUnlock?: number[];
 };
@@ -218,9 +220,31 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 }
 
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
+  const fieldSlotTarget = resolvePlayerFieldSlotTarget(cardId, raw);
+  if (fieldSlotTarget !== undefined) return fieldSlotTarget;
   if (cardId == null || cardId <= 0) return null;
 
   return firstCursorCandidate(cursorZonesByPriority(raw), cardId);
+}
+
+function resolvePlayerFieldSlotTarget(
+  cardId: number | null,
+  raw: RawBridgeState,
+): DuelCursorTarget | null | undefined {
+  if (raw.turnIndicator !== 0 || raw.duelPhase !== PHASE_FIELD) return undefined;
+  if (!("duelCursorFieldSlotIndex" in raw)) return undefined;
+
+  const index = raw.duelCursorFieldSlotIndex;
+  if (index == null) {
+    return cardId != null && raw.field.some((slot) => slot.cardId === cardId && isActiveSlot(slot))
+      ? null
+      : undefined;
+  }
+
+  const slot = raw.field[index];
+  if (!slot) return undefined;
+  if (!isActiveSlot(slot)) return null;
+  return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
 }
 
 function cursorZonesByPriority(raw: RawBridgeState): Array<{
