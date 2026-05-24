@@ -33,7 +33,6 @@ describe("predictBattleOutcome", () => {
     const result = predictBattleOutcome(
       { card: card({ id: 1, atk: 2000 }), field: field({ cardId: 1, atk: 2000 }) },
       { card: card({ id: 2, atk: 1500 }), field: field({ cardId: 2, atk: 1500, status: 0x86 }) },
-      0,
     );
 
     expect(result?.outcome).toBe("win");
@@ -45,7 +44,6 @@ describe("predictBattleOutcome", () => {
     const result = predictBattleOutcome(
       { card: card({ id: 1, atk: 2000 }), field: field({ cardId: 1, atk: 2000 }) },
       { card: card({ id: 2, atk: 2000 }), field: field({ cardId: 2, atk: 2000, status: 0x86 }) },
-      0,
     );
 
     expect(result?.outcome).toBe("bothDestroyed");
@@ -55,7 +53,6 @@ describe("predictBattleOutcome", () => {
     const result = predictBattleOutcome(
       { card: card({ id: 1, atk: 1800 }), field: field({ cardId: 1, atk: 1800 }) },
       { card: card({ id: 2, atk: 500 }), field: field({ cardId: 2, def: 2000, status: 0xbc }) },
-      0,
     );
 
     expect(result?.outcome).toBe("lose");
@@ -63,22 +60,44 @@ describe("predictBattleOutcome", () => {
     expect(result?.defenderValue).toBe(2000);
   });
 
-  it("applies terrain and guardian-star battle bonuses", () => {
+  it("applies guardian-star battle bonuses on top of live field stats", () => {
     const result = predictBattleOutcome(
       {
         card: card({ id: 1, atk: 1400, gs1: "Mars", type: "Warrior" }),
-        field: field({ cardId: 1, atk: 1400 }),
+        field: field({ cardId: 1, atk: 1900 }),
       },
       {
         card: card({ id: 2, atk: 2300, gs1: "Jupiter", type: "Fiend" }),
         field: field({ cardId: 2, atk: 2300, status: 0x86 }),
       },
-      4,
     );
 
     expect(result?.outcome).toBe("win");
     expect(result?.attackerAtk).toBe(2400);
     expect(result?.defenderValue).toBe(2300);
+  });
+
+  it("does not add terrain again when live RAM stats already describe the field battle", () => {
+    const result = predictBattleOutcome(
+      {
+        card: card({
+          id: 571,
+          name: "B. Dragon Jungle King",
+          atk: 2100,
+          def: 1800,
+          type: "Dragon",
+        }),
+        field: field({ cardId: 571, atk: 2100, def: 1800, status: 0x84 }),
+      },
+      {
+        card: card({ id: 545, name: "Skelgon", atk: 1700, def: 1900, type: "Zombie" }),
+        field: field({ cardId: 545, atk: 1700, def: 1900, status: 0xbc }),
+      },
+    );
+
+    expect(result?.outcome).toBe("win");
+    expect(result?.attackerAtk).toBe(2100);
+    expect(result?.defenderValue).toBe(1900);
   });
 });
 
