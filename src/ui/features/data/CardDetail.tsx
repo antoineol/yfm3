@@ -5,7 +5,6 @@ import { displayCardType } from "../../../engine/data/card-type-names.ts";
 import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { cardLabelColorStyle } from "../../components/CardName.tsx";
-import { labelTextColor } from "../../components/card-frame-palettes.ts";
 import { GameCard } from "../../components/GameCard.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -69,11 +68,6 @@ function DetailPanel({ card }: { card: CardSpec }) {
             </DetailSection>
           </>
         )}
-        {card.labelColor && (
-          <DetailSection label="Label">
-            <LabelColorValue color={card.labelColor} />
-          </DetailSection>
-        )}
         {ownedTotals !== undefined && <OwnedBadge count={ownedTotals[card.id] ?? 0} max={cap} />}
       </div>
 
@@ -111,23 +105,6 @@ function DetailPanel({ card }: { card: CardSpec }) {
       {card.isMonster && <EquippableBySection cardId={card.id} />}
       {card.cardType === "Equip" && <EquipsToSection cardId={card.id} />}
     </div>
-  );
-}
-
-function LabelColorValue({ color }: { color: string }) {
-  const textColor = labelTextColor(color) ?? "var(--color-text-secondary)";
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 text-sm font-medium"
-      style={{ color: textColor }}
-    >
-      <span
-        aria-hidden="true"
-        className="h-2.5 w-2.5 rounded-full border border-white/20"
-        style={{ backgroundColor: textColor }}
-      />
-      {capitalize(color)}
-    </span>
   );
 }
 
