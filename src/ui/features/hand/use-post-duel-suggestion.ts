@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
@@ -7,6 +7,7 @@ import {
   type PostDuelState,
   postDuelCurrentDeckAtom,
   postDuelLiveBestScoreAtom,
+  postDuelOptimizationSnapshotAtom,
   postDuelProgressAtom,
   postDuelResultAtom,
   postDuelStateAtom,
@@ -75,11 +76,9 @@ export function usePostDuelSuggestion(
   const detectedMod =
     !autoSync && bridge.modFingerprint ? modIdForFingerprint(bridge.modFingerprint) : null;
   const modMismatch = detectedMod !== null && detectedMod !== modId;
-  const canRunOptimization = !autoSync || bridge.gameData !== null;
 
-  // Snapshot is managed here so tracker callbacks (called synchronously from
-  // effects) batch state updates with Jotai atom writes in a single render.
-  const [optimizationSnapshot, setOptimizationSnapshot] = useState<CollectionSnapshot | null>(null);
+  const optimizationSnapshot = useAtomValue(postDuelOptimizationSnapshotAtom);
+  const setOptimizationSnapshot = useSetAtom(postDuelOptimizationSnapshotAtom);
 
   // ── Tracker callbacks ──────────────────────────────────────────
   const handleDuelStart = useCallback(() => {
@@ -90,7 +89,15 @@ export function usePostDuelSuggestion(
     setLiveBestScore(0);
     setState("duel_active");
     saveSuggestion(null);
-  }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
+  }, [
+    setState,
+    setResult,
+    setCurrentDeck,
+    setProgress,
+    setLiveBestScore,
+    saveSuggestion,
+    setOptimizationSnapshot,
+  ]);
 
   const handleNewCards = useCallback(
     (snapshot: CollectionSnapshot) => {
@@ -98,7 +105,7 @@ export function usePostDuelSuggestion(
       setCurrentDeck(snapshot.deck.filter((id) => id > 0));
       setState("optimizing");
     },
-    [setState, setCurrentDeck],
+    [setState, setCurrentDeck, setOptimizationSnapshot],
   );
 
   useDuelCollectionTracker(bridge, modMismatch, handleDuelStart, handleNewCards);
@@ -107,6 +114,7 @@ export function usePostDuelSuggestion(
   const handleComplete = useCallback(
     (res: OptimizeDeckParallelResult, deckForOpt: number[]) => {
       const hasImprovement = res.improvement != null && res.improvement > 0;
+      setOptimizationSnapshot(null);
       setResult(res);
       setState(hasImprovement ? "result" : "no_change");
       saveSuggestion({
@@ -118,18 +126,26 @@ export function usePostDuelSuggestion(
         currentDeck: deckForOpt,
       });
     },
-    [setState, setResult, saveSuggestion],
+    [setState, setResult, saveSuggestion, setOptimizationSnapshot],
   );
 
   const handleError = useCallback(() => {
+    setOptimizationSnapshot(null);
     setState("idle");
-  }, [setState]);
+  }, [setState, setOptimizationSnapshot]);
 
   const runner = useOptimizationRunner(
     optimizationSnapshot,
-    { modId, gameData: bridge.gameData, enabled: canRunOptimization },
+    { modId, gameData: bridge.gameData, enabled: true },
     { onComplete: handleComplete, onError: handleError },
   );
+
+  useEffect(() => {
+    if (state !== "optimizing" || optimizationSnapshot) return;
+    setProgress(0);
+    setLiveBestScore(0);
+    setState("idle");
+  }, [state, optimizationSnapshot, setState, setProgress, setLiveBestScore]);
 
   // ── Hydrate from persisted state on mount ────────────────────
   const hydratedRef = useRef(false);
@@ -163,7 +179,16 @@ export function usePostDuelSuggestion(
     setLiveBestScore(0);
     setState("idle");
     saveSuggestion(null);
-  }, [runner, setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
+  }, [
+    runner,
+    setState,
+    setResult,
+    setCurrentDeck,
+    setProgress,
+    setLiveBestScore,
+    saveSuggestion,
+    setOptimizationSnapshot,
+  ]);
 
   // ── React to deck changes while showing result ────────────────
   useEffect(() => {

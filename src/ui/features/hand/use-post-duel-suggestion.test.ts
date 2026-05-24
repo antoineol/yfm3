@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   postDuelLiveBestScoreAtom,
+  postDuelOptimizationSnapshotAtom,
   postDuelProgressAtom,
   postDuelResultAtom,
   postDuelStateAtom,
@@ -30,7 +31,10 @@ vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));
 
-import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
+import {
+  type OptimizeDeckParallelResult,
+  optimizeDeckParallel,
+} from "../../../engine/index-browser.ts";
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
@@ -432,6 +436,7 @@ describe("usePostDuelSuggestion", () => {
     await act(() => Promise.resolve());
 
     expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
     expect(mockOptimize).toHaveBeenCalledTimes(1);
   });
 
@@ -631,7 +636,7 @@ describe("usePostDuelSuggestion", () => {
     expect(mockOptimize).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the post-duel snapshot until auto-sync game data is ready", async () => {
+  it("runs post-duel optimization when auto-sync game data is missing", async () => {
     bridgeAutoSync = true;
 
     const bridge = makeBridge({ inDuel: false });
@@ -655,8 +660,10 @@ describe("usePostDuelSuggestion", () => {
       }),
     });
 
-    expect(store.get(postDuelStateAtom)).toBe("optimizing");
-    expect(mockOptimize).not.toHaveBeenCalled();
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+    expect(mockOptimize.mock.calls[0]?.[1].gameData).toBeUndefined();
+    await act(() => Promise.resolve());
+    expect(store.get(postDuelStateAtom)).toBe("result");
 
     rerender({
       b: makeBridge({
@@ -667,10 +674,7 @@ describe("usePostDuelSuggestion", () => {
       }),
     });
 
-    await act(() => Promise.resolve());
-
     expect(mockOptimize).toHaveBeenCalledTimes(1);
-    expect(store.get(postDuelStateAtom)).toBe("result");
   });
 
   it("does not trigger when collection does not change during duel", () => {
@@ -695,6 +699,77 @@ describe("usePostDuelSuggestion", () => {
 
     expect(store.get(postDuelStateAtom)).toBe("duel_active");
     expect(mockOptimize).not.toHaveBeenCalled();
+  });
+
+  it("clears orphaned optimizing state when there is no optimization snapshot", async () => {
+    store.set(postDuelStateAtom, "optimizing");
+
+    renderHook(() => usePostDuelSuggestion(makeBridge(), undefined), {
+      wrapper: makeWrapper(store),
+    });
+
+    await waitFor(() => expect(store.get(postDuelStateAtom)).toBe("idle"));
+    expect(mockOptimize).not.toHaveBeenCalled();
+  });
+
+  it("keeps the optimization snapshot across hook remounts", async () => {
+    let resolveOpt!: (v: OptimizeDeckParallelResult) => void;
+    mockOptimize.mockReturnValue(
+      new Promise((resolve) => {
+        resolveOpt = resolve;
+      }),
+    );
+
+    const initialProps = {
+      b: makeBridge({ inDuel: false }),
+    };
+    const { rerender, unmount } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      { wrapper: makeWrapper(store), initialProps },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    expect(store.get(postDuelOptimizationSnapshotAtom)).not.toBeNull();
+
+    unmount();
+
+    mockOptimize.mockClear();
+    mockOptimize.mockResolvedValue({
+      deck: [5, 6, 7],
+      expectedAtk: 2500,
+      currentDeckScore: 2000,
+      improvement: 500,
+      elapsedMs: 100,
+    });
+
+    renderHook(() => usePostDuelSuggestion(makeBridge(), undefined), {
+      wrapper: makeWrapper(store),
+    });
+
+    await act(async () => {
+      resolveOpt({
+        deck: [],
+        expectedAtk: 0,
+        currentDeckScore: null,
+        improvement: null,
+        elapsedMs: 0,
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(mockOptimize).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(store.get(postDuelStateAtom)).toBe("result"));
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
   });
 
   it("calls optimizeDeckParallel with bridge deck as currentDeck", async () => {

@@ -19,9 +19,15 @@ export const manualSetupModalOpenAtom = atom(false);
 
 export type PostDuelState = "idle" | "duel_active" | "optimizing" | "result" | "no_change";
 
+export interface PostDuelOptimizationSnapshot {
+  collection: Record<number, number>;
+  deck: number[];
+}
+
 export const postDuelStateAtom = atom<PostDuelState>("idle");
 export const postDuelResultAtom = atom<OptimizeDeckParallelResult | null>(null);
 /** The deck that was current when the post-duel optimization started (needed to compute diff). */
 export const postDuelCurrentDeckAtom = atom<number[]>([]);
 export const postDuelProgressAtom = atom(0);
 export const postDuelLiveBestScoreAtom = atom(0);
+export const postDuelOptimizationSnapshotAtom = atom<PostDuelOptimizationSnapshot | null>(null);

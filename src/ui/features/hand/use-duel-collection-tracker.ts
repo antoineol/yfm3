@@ -1,12 +1,10 @@
 import { useEffect, useRef } from "react";
+import type { PostDuelOptimizationSnapshot } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 
 const MIN_OWNED_CARDS_FOR_DECK = 40;
 
-export interface CollectionSnapshot {
-  collection: Record<number, number>;
-  deck: number[];
-}
+export type CollectionSnapshot = PostDuelOptimizationSnapshot;
 
 /**
  * Watch active duel transitions and detect collection changes after a duel starts.

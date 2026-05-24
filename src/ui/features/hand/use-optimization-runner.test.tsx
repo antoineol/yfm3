@@ -26,6 +26,7 @@ const mockOptimize = optimizeDeckParallel as ReturnType<typeof vi.fn>;
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function makeWrapper(store: ReturnType<typeof createStore>) {
@@ -103,5 +104,27 @@ describe("useOptimizationRunner", () => {
 
     expect(callbacks.onComplete).toHaveBeenCalledTimes(1);
     expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it("aborts and reports an error when the optimizer never settles", async () => {
+    vi.useFakeTimers();
+    mockOptimize.mockReturnValue(new Promise<OptimizeDeckParallelResult>(() => undefined));
+
+    renderHook(
+      () =>
+        useOptimizationRunner(snapshot, { modId: "rp", enabled: true, gameData: null }, callbacks),
+      { wrapper: makeWrapper(store) },
+    );
+
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+    const signal = mockOptimize.mock.calls[0]?.[1].signal as AbortSignal;
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_001);
+    });
+
+    expect(signal.aborted).toBe(true);
+    expect(callbacks.onError).toHaveBeenCalledTimes(1);
+    expect(callbacks.onComplete).not.toHaveBeenCalled();
   });
 });

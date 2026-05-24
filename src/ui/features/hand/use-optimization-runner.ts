@@ -16,6 +16,7 @@ import type { CollectionSnapshot } from "./use-duel-collection-tracker.ts";
 
 /** Time budget for post-duel optimization (shorter than manual 15s). */
 const POST_DUEL_TIME_LIMIT = 10_000;
+const POST_DUEL_HARD_TIMEOUT_MS = POST_DUEL_TIME_LIMIT + 5_000;
 
 export interface OptimizationCallbacks {
   onComplete: (result: OptimizeDeckParallelResult, currentDeck: number[]) => void;
@@ -71,6 +72,13 @@ export function useOptimizationRunner(
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        callbacksRef.current.onError();
+      }
+    }, POST_DUEL_HARD_TIMEOUT_MS);
 
     const col: Collection = new Map(
       Object.entries(snapshot.collection).map(([id, qty]) => [Number(id), qty]),
@@ -103,6 +111,7 @@ export function useOptimizationRunner(
         }
       })
       .finally(() => {
+        window.clearTimeout(timeoutId);
         if (abortControllerRef.current === controller) {
           setProgress(0);
           setLiveBestScore(0);
@@ -111,6 +120,7 @@ export function useOptimizationRunner(
       });
 
     return () => {
+      window.clearTimeout(timeoutId);
       controller.abort();
     };
   }, [
