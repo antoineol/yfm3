@@ -174,7 +174,7 @@ describe("usePostDuelSuggestion", () => {
     expect(store.get(postDuelStateAtom)).toBe("duel_active");
   });
 
-  it("triggers optimization immediately when collection changes during duel", async () => {
+  it("triggers optimization when collection changes on the results screen", async () => {
     const bridge = makeBridge({ inDuel: false });
     const { rerender } = renderHook(
       ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
@@ -190,10 +190,11 @@ describe("usePostDuelSuggestion", () => {
     });
     expect(store.get(postDuelStateAtom)).toBe("duel_active");
 
-    // Collection changes (won cards) — should go straight to optimizing
+    // Collection changes (won cards) on the results screen — should go straight to optimizing
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -233,6 +234,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -262,6 +264,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -298,6 +301,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -328,24 +332,27 @@ describe("usePostDuelSuggestion", () => {
       },
     );
 
-    // Enter duel → collection changes → optimizing
+    // Enter duel → results screen collection changes → optimizing
     rerender({
       b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
     });
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
     });
     expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    const signal = mockOptimize.mock.calls[0]?.[1].signal as AbortSignal;
 
     // inDuel goes false then true again (new duel — stale RAM clears briefly)
     rerender({ b: makeBridge({ inDuel: false, collection: SAMPLE_COLLECTION }) });
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "hand",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -353,6 +360,8 @@ describe("usePostDuelSuggestion", () => {
 
     expect(store.get(postDuelStateAtom)).toBe("duel_active");
     expect(store.get(postDuelResultAtom)).toBeNull();
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
+    expect(signal.aborted).toBe(true);
 
     // Clean up pending promise
     await act(() => {
@@ -364,6 +373,70 @@ describe("usePostDuelSuggestion", () => {
         elapsedMs: 0,
       });
     });
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelResultAtom)).toBeNull();
+  });
+
+  it("aborts optimization when the results screen advances directly into a new duel", async () => {
+    let resolveOpt!: (v: unknown) => void;
+    mockOptimize.mockReturnValue(
+      new Promise((r) => {
+        resolveOpt = r;
+      }),
+    );
+
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    const signal = mockOptimize.mock.calls[0]?.[1].signal as AbortSignal;
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
+    expect(signal.aborted).toBe(true);
+
+    await act(() => {
+      resolveOpt({
+        deck: [5, 6, 7],
+        expectedAtk: 2500,
+        currentDeckScore: 2000,
+        improvement: 500,
+        elapsedMs: 100,
+      });
+    });
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelResultAtom)).toBeNull();
   });
 
   it("triggers optimization when collection changes after inDuel goes false (DUEL_END/RESULTS)", async () => {
@@ -788,6 +861,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -875,6 +949,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -887,6 +962,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -926,6 +1002,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -939,6 +1016,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -977,6 +1055,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -990,6 +1069,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -1020,6 +1100,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),
@@ -1032,6 +1113,7 @@ describe("usePostDuelSuggestion", () => {
     rerender({
       b: makeBridge({
         inDuel: true,
+        phase: "ended",
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
       }),

@@ -58,6 +58,7 @@ export function useDuelCollectionTracker(
   useEffect(() => {
     if (hasFiredRef.current) return;
     if (modMismatch) return;
+    if (bridge.inDuel && bridge.phase !== "ended") return;
     if (!collection || !preDuelCollectionRef.current) return;
 
     const gainedCards = findNewCardQuantities(preDuelCollectionRef.current, collection);
@@ -71,7 +72,7 @@ export function useDuelCollectionTracker(
       collection: { ...collection },
       deck: [...deckDefinition],
     });
-  }, [collection, deckDefinition, modMismatch]);
+  }, [bridge.inDuel, bridge.phase, collection, deckDefinition, modMismatch]);
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */
