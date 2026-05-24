@@ -155,6 +155,18 @@ describe("SAOptimizer", () => {
     }
   });
 
+  it("leaves sampled hand scores consistent with the returned score", () => {
+    const b = createAllCardsBuffers();
+    computeInitialScores(b, scorer);
+
+    const optimizer = new SAOptimizer(456);
+    const de = new DeltaEvaluator();
+    const deadline = performance.now() + 1000;
+
+    const bestScore = optimizer.run(b, scorer, de, deadline);
+    expect(sumHandScores(b)).toBe(bestScore);
+  });
+
   it("respects deadline: stops promptly", () => {
     const b = createAllCardsBuffers();
     computeInitialScores(b, scorer);
@@ -297,3 +309,9 @@ describe("SAOptimizer", () => {
     expect(bestScore).toBeGreaterThan(initialScore);
   });
 });
+
+function sumHandScores(buf: OptBuffers): number {
+  let total = 0;
+  for (let i = 0; i < buf.handScores.length; i++) total += buf.handScores[i] ?? 0;
+  return total;
+}

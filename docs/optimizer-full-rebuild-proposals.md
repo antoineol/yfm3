@@ -1,6 +1,6 @@
 # Full-Rebuild Optimizer Proposals
 
-Status: proposal. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
+Status: proposal with item 1 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
 
 ## Scope
 
@@ -29,6 +29,8 @@ If a phase exceeds its slice, stop it and return the best known deck.
 
 ### 1. Final Greedy Polish
 
+Status: implemented in `SAOptimizer.run()`.
+
 After SA finds its best deck, spend a small fixed reserve on local positive moves only.
 
 - Start from the best deck returned by SA.
@@ -39,6 +41,8 @@ After SA finds its best deck, spend a small fixed reserve on local positive move
 Why: SA may end with avoidable local noise because it spends much of its time exploring. A short greedy pass should improve local quality without changing the objective.
 
 Risk: sampled deltas can still be noisy. Mitigation: exact-score only the final polished deck, as already done.
+
+Budget note: the polish reserve is carved out of the existing SA deadline. It does not extend the full rebuild wall-clock budget.
 
 ### 2. Diff Cleanup Against Current Deck
 

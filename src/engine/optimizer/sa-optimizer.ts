@@ -16,6 +16,12 @@ const TIME_CHECK_INTERVAL = 64;
 const PROGRESS_INTERVAL = 500;
 /** Number of trial swaps used to measure typical delta magnitude at startup. */
 const CALIBRATION_SWAPS = 50;
+/** Spend a bounded slice of the existing SA budget on final greedy local moves. */
+const POLISH_MIN_MS = 500;
+const POLISH_MAX_MS = 1500;
+const POLISH_BUDGET_RATIO = 0.1;
+const MIN_BUDGET_WITH_POLISH_MS = 1000;
+const POLISH_CANDIDATES_PER_SLOT = 3;
 
 /**
  * Simulated Annealing deck optimizer.
@@ -52,13 +58,18 @@ export class SAOptimizer implements IOptimizer {
     onProgress?: (bestScore: number, bestDeck: Int16Array) => void,
   ): number {
     const rand = mulberry32(this.seed);
+    const start = performance.now();
+    const polishBudgetMs = computePolishBudget(start, deadline);
+    const saDeadline = deadline - polishBudgetMs;
     const tabu = createTabuList(buf.scoringSlots);
     const selector = createBiasedSelector();
     const bestDeck = new Int16Array(buf.deck.length);
+    const bestHandScores = new Int16Array(buf.handScores.length);
 
     let totalScore = sumScores(buf);
     let bestScore = totalScore;
     bestDeck.set(buf.deck);
+    bestHandScores.set(buf.handScores);
 
     selector.recomputeWeights(buf);
 
@@ -81,7 +92,7 @@ export class SAOptimizer implements IOptimizer {
     while (true) {
       if (iteration % TIME_CHECK_INTERVAL === 0) {
         const now = performance.now();
-        if (now >= deadline) break;
+        if (now >= saDeadline) break;
         if (onProgress && now - lastProgressAt >= PROGRESS_INTERVAL) {
           lastProgressAt = now;
           this.iterations = iteration;
@@ -122,6 +133,7 @@ export class SAOptimizer implements IOptimizer {
         if (totalScore > bestScore) {
           bestScore = totalScore;
           bestDeck.set(buf.deck);
+          bestHandScores.set(buf.handScores);
         }
 
         // Lazily refresh selection weights as deck composition drifts
@@ -142,17 +154,78 @@ export class SAOptimizer implements IOptimizer {
     }
 
     // Restore the best deck ever seen (current deck may have drifted downhill).
-    // Note: handScores is NOT rebuilt here — it still reflects the last iteration's
-    // deck, not bestDeck. Callers must not rely on buf.handScores after run().
-    // The exact scorer (Phase 5) recomputes from scratch, so this is safe.
+    // handScores is restored with it so the final greedy polish can use deltas.
     buf.deck.set(bestDeck);
+    buf.handScores.set(bestHandScores);
     buf.cardCounts.fill(0);
     for (let i = 0; i < buf.deck.length; i++) {
       buf.cardCounts[buf.deck[i] ?? 0] = (buf.cardCounts[buf.deck[i] ?? 0] ?? 0) + 1;
     }
+    if (polishBudgetMs > 0) {
+      bestScore = greedyPolish(buf, scorer, deltaEvaluator, selector, rand, bestScore, deadline);
+    }
     this.iterations = iteration;
     return bestScore;
   }
+}
+
+function computePolishBudget(now: number, deadline: number): number {
+  const remainingMs = deadline - now;
+  if (remainingMs < MIN_BUDGET_WITH_POLISH_MS) return 0;
+  return Math.min(POLISH_MAX_MS, Math.max(POLISH_MIN_MS, remainingMs * POLISH_BUDGET_RATIO));
+}
+
+function greedyPolish(
+  buf: OptBuffers,
+  scorer: IScorer,
+  deltaEvaluator: IDeltaEvaluator,
+  selector: ReturnType<typeof createBiasedSelector>,
+  rand: () => number,
+  score: number,
+  deadline: number,
+): number {
+  if (performance.now() >= deadline) return score;
+  selector.recomputeWeights(buf);
+
+  let acceptedSinceReweight = 0;
+  while (performance.now() < deadline) {
+    let acceptedInPass = false;
+
+    for (let slot = 0; slot < buf.scoringSlots; slot++) {
+      for (let attempt = 0; attempt < POLISH_CANDIDATES_PER_SLOT; attempt++) {
+        if (performance.now() >= deadline) return score;
+
+        const oldCard = buf.deck[slot] ?? 0;
+        const newCard = selector.selectCandidate(buf, oldCard, rand);
+        if (newCard === -1) break;
+
+        buf.deck[slot] = newCard;
+        buf.cardCounts[oldCard] = (buf.cardCounts[oldCard] ?? 0) - 1;
+        buf.cardCounts[newCard] = (buf.cardCounts[newCard] ?? 0) + 1;
+
+        const delta = deltaEvaluator.computeDelta(slot, buf, scorer);
+        if (delta > 0) {
+          deltaEvaluator.commitDelta(buf.handScores);
+          score += delta;
+          acceptedInPass = true;
+          acceptedSinceReweight++;
+          if (acceptedSinceReweight >= REWEIGHT_INTERVAL) {
+            selector.recomputeWeights(buf);
+            acceptedSinceReweight = 0;
+          }
+          break;
+        }
+
+        buf.deck[slot] = oldCard;
+        buf.cardCounts[oldCard] = (buf.cardCounts[oldCard] ?? 0) + 1;
+        buf.cardCounts[newCard] = (buf.cardCounts[newCard] ?? 0) - 1;
+      }
+    }
+
+    if (!acceptedInPass) return score;
+  }
+
+  return score;
 }
 
 /**
