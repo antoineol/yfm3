@@ -603,9 +603,37 @@ describe("findFusionChains with field cards", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Dedup: prefer direct play and fewer materials
+// Dedup: choose the best representative path for equivalent displayed plays
 // ---------------------------------------------------------------------------
 describe("findFusionChains prefers simpler plays", () => {
+  it("prefers the equivalent path that leaves the strongest remaining play", () => {
+    const db = createCardDb();
+    addTestCard(db, 90, "Low Dragon", 500);
+    addTestCard(db, 91, "High Dragon", 600);
+    addTestCard(db, 92, "Thunder", 400);
+    addTestCard(db, 93, "Storm Dragon", 2000);
+    addTestCard(db, 94, "Follow Material", 300);
+    addTestCard(db, 95, "Weak Follow-up", 1000);
+    addTestCard(db, 96, "Strong Follow-up", 1800);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 90, 92, 93); // First discovered path leaves only Weak Follow-up.
+    setFusion(ft, 91, 92, 93); // Equivalent top play, but leaves Strong Follow-up.
+    setFusion(ft, 91, 94, 95);
+    setFusion(ft, 90, 94, 96);
+
+    const results = findFusionChains([90, 91, 92, 94], ft, db, 3);
+    const storm = results.find((r) => r.resultCardId === 93);
+    expect(storm).toBeDefined();
+    expect(storm?.materialCardIds).toEqual([91, 92]);
+    expect(storm?.steps[0]).toEqual({
+      material1CardId: 91,
+      material2CardId: 92,
+      resultCardId: 93,
+    });
+  });
+
   it("direct play wins over fusion producing the same card at equal ATK", () => {
     // Hand has AlphaBeta(10) directly AND Alpha(1)+Beta(2) which fuse into AlphaBeta(10).
     // The direct play should win (steps.length === 0).

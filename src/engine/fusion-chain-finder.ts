@@ -34,6 +34,17 @@ export type FusionChainResult = {
 export type FieldCardInfo = { cardId: number; atk: number; def: number };
 
 type CardSource = "hand" | "field" | "result";
+type PlayCandidateMap = Map<string, FusionChainResult[]>;
+type PlaySelectionContext = {
+  handCardIds: number[];
+  fusionTable: Int16Array;
+  cardDb: CardDb;
+  fusionDepth: number;
+  equipCompat: Uint8Array | undefined;
+  terrain: number;
+  perEquipBonuses: Record<number, number> | undefined;
+  remainingBestAtkCache: Map<string, number>;
+};
 
 /**
  * A card in the working hand with its source tracked.
@@ -80,7 +91,7 @@ export function findFusionChains(
       liveDef: fc.def,
     })),
   ];
-  const results = new Map<string, FusionChainResult>();
+  const candidates: PlayCandidateMap = new Map();
   dfs(
     tagged,
     fusionTable,
@@ -89,20 +100,122 @@ export function findFusionChains(
     0,
     [],
     [],
-    results,
+    candidates,
     equipCompat,
     terrain,
     perEquipBonuses,
   );
 
-  enumerateDirectPlays(tagged, cardDb, results, equipCompat, terrain, perEquipBonuses);
+  enumerateDirectPlays(tagged, cardDb, candidates, equipCompat, terrain, perEquipBonuses);
 
-  // Filter out results that consume no hand cards at all (field-only, no equips)
-  const filtered = Array.from(results.values()).filter(
-    (r) => r.materialCardIds.length > 0 || r.equipCardIds.length > 0,
+  const results = selectBestCandidates(
+    candidates,
+    handCardIds,
+    fusionTable,
+    cardDb,
+    fusionDepth,
+    equipCompat,
+    terrain,
+    perEquipBonuses,
   );
 
+  // Filter out results that consume no hand cards at all (field-only, no equips)
+  const filtered = results.filter((r) => r.materialCardIds.length > 0 || r.equipCardIds.length > 0);
+
   return pruneDominatedPlays(sortByAtkDesc(filtered));
+}
+
+function selectBestCandidates(
+  candidates: PlayCandidateMap,
+  handCardIds: number[],
+  fusionTable: Int16Array,
+  cardDb: CardDb,
+  fusionDepth: number,
+  equipCompat: Uint8Array | undefined,
+  terrain: number,
+  perEquipBonuses: Record<number, number> | undefined,
+): FusionChainResult[] {
+  const context: PlaySelectionContext = {
+    handCardIds,
+    fusionTable,
+    cardDb,
+    fusionDepth,
+    equipCompat,
+    terrain,
+    perEquipBonuses,
+    remainingBestAtkCache: new Map(),
+  };
+  return Array.from(candidates.values(), (group) => selectBestCandidate(group, context));
+}
+
+function selectBestCandidate(
+  group: FusionChainResult[],
+  context: PlaySelectionContext,
+): FusionChainResult {
+  let best = group[0];
+  if (!best) throw new Error("Cannot select from an empty play group");
+
+  for (let i = 1; i < group.length; i++) {
+    const candidate = group[i];
+    if (candidate && comparePlayCandidates(candidate, best, context) > 0) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+function comparePlayCandidates(
+  candidate: FusionChainResult,
+  incumbent: FusionChainResult,
+  context: PlaySelectionContext,
+): number {
+  if (candidate.resultAtk !== incumbent.resultAtk) return candidate.resultAtk - incumbent.resultAtk;
+
+  const candidateRemainingAtk = remainingBestAtk(candidate, context);
+  const incumbentRemainingAtk = remainingBestAtk(incumbent, context);
+  if (candidateRemainingAtk !== incumbentRemainingAtk) {
+    return candidateRemainingAtk - incumbentRemainingAtk;
+  }
+
+  return totalConsumedCards(incumbent) - totalConsumedCards(candidate);
+}
+
+function remainingBestAtk(play: FusionChainResult, context: PlaySelectionContext): number {
+  const remaining = removeConsumedHandCards(context.handCardIds, [
+    ...play.materialCardIds,
+    ...play.equipCardIds,
+  ]);
+  const cacheKey = remaining.join(",");
+  const cached = context.remainingBestAtkCache.get(cacheKey);
+  if (cached != null) return cached;
+
+  const results = findFusionChains(
+    remaining,
+    context.fusionTable,
+    context.cardDb,
+    context.fusionDepth,
+    context.equipCompat,
+    undefined,
+    context.terrain,
+    context.perEquipBonuses,
+  );
+  const bestAtk = results[0]?.resultAtk ?? 0;
+  context.remainingBestAtkCache.set(cacheKey, bestAtk);
+  return bestAtk;
+}
+
+function removeConsumedHandCards(handCardIds: number[], consumedCardIds: number[]): number[] {
+  const remaining = [...handCardIds];
+  for (const cardId of consumedCardIds) {
+    const index = remaining.indexOf(cardId);
+    if (index >= 0) remaining.splice(index, 1);
+  }
+  return remaining;
+}
+
+function totalConsumedCards(play: FusionChainResult): number {
+  return play.materialCardIds.length + play.fieldMaterialCardIds.length + play.equipCardIds.length;
 }
 
 /** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */
@@ -132,7 +245,7 @@ function dfs(
   depth: number,
   steps: FusionStep[],
   consumedCards: ConsumedCard[],
-  results: Map<string, FusionChainResult>,
+  results: PlayCandidateMap,
   equipCompat: Uint8Array | undefined,
   terrain: number,
   perEquipBonuses?: Record<number, number>,
@@ -235,7 +348,7 @@ function recordResult(
   equipCardIds: number[],
   equipBonusTotal: number,
   cardDb: CardDb,
-  results: Map<string, FusionChainResult>,
+  results: PlayCandidateMap,
   terrain: number,
 ): void {
   const materialCardIds = consumedCards.filter((c) => c.source === "hand").map((c) => c.cardId);
@@ -274,7 +387,7 @@ function recordResult(
 function enumerateDirectPlays(
   tagged: TaggedCard[],
   cardDb: CardDb,
-  results: Map<string, FusionChainResult>,
+  results: PlayCandidateMap,
   equipCompat: Uint8Array | undefined,
   terrain: number,
   perEquipBonuses: Record<number, number> | undefined,
@@ -329,25 +442,17 @@ function enumerateDirectPlays(
 }
 
 /**
- * Insert `candidate` at `key` unless an existing play strictly dominates it.
- * Priority: higher ATK first, then fewer total materials; existing wins on full tie.
+ * Add `candidate` to its displayed play group. Groups are collapsed after all
+ * paths are known, so equivalent plays can choose the path with the best
+ * leftover hand.
  */
-function upsertPlay(
-  results: Map<string, FusionChainResult>,
-  key: string,
-  candidate: FusionChainResult,
-): void {
-  const existing = results.get(key);
-  if (existing) {
-    if (existing.resultAtk > candidate.resultAtk) return;
-    if (existing.resultAtk === candidate.resultAtk) {
-      const existingMats = existing.materialCardIds.length + existing.fieldMaterialCardIds.length;
-      const candidateMats =
-        candidate.materialCardIds.length + candidate.fieldMaterialCardIds.length;
-      if (existingMats <= candidateMats) return;
-    }
+function upsertPlay(results: PlayCandidateMap, key: string, candidate: FusionChainResult): void {
+  const group = results.get(key);
+  if (group) {
+    group.push(candidate);
+    return;
   }
-  results.set(key, candidate);
+  results.set(key, [candidate]);
 }
 
 /**
