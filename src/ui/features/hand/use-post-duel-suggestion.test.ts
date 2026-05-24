@@ -56,7 +56,7 @@ function makeWrapper(store: ReturnType<typeof createStore>) {
 }
 
 function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
-  return {
+  const bridge: EmulatorBridge = {
     status: "connected",
     detail: "ready",
     detailMessage: null,
@@ -93,6 +93,15 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     stageUpdate: vi.fn(),
     ...overrides,
   };
+  if (
+    bridge.inDuel &&
+    bridge.phase !== "ended" &&
+    overrides.hand === undefined &&
+    overrides.handReliable === undefined
+  ) {
+    return { ...bridge, hand: [1, 2, 3, 4, 5], handReliable: true };
+  }
+  return bridge;
 }
 
 const SAMPLE_COLLECTION: Record<number, number> = {};
@@ -437,6 +446,69 @@ describe("usePostDuelSuggestion", () => {
     });
     expect(store.get(postDuelStateAtom)).toBe("duel_active");
     expect(store.get(postDuelResultAtom)).toBeNull();
+  });
+
+  it("keeps optimization running through an unconfirmed active-duel flicker", async () => {
+    let resolveOpt!: (v: OptimizeDeckParallelResult) => void;
+    mockOptimize.mockReturnValue(
+      new Promise((r) => {
+        resolveOpt = r;
+      }),
+    );
+
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    const signal = mockOptimize.mock.calls[0]?.[1].signal as AbortSignal;
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        hand: [],
+        handReliable: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    expect(signal.aborted).toBe(false);
+
+    await act(async () => {
+      resolveOpt({
+        deck: [5, 6, 7],
+        expectedAtk: 2500,
+        currentDeckScore: 2000,
+        improvement: 500,
+        elapsedMs: 100,
+      });
+      await Promise.resolve();
+    });
+    expect(store.get(postDuelStateAtom)).toBe("result");
   });
 
   it("triggers optimization when collection changes after inDuel goes false (DUEL_END/RESULTS)", async () => {

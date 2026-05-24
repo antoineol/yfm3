@@ -34,12 +34,13 @@ export function useDuelCollectionTracker(
   // ── Track active duel entry ──────────────────────────────────
   useEffect(() => {
     const isInActiveDuel = bridge.inDuel && bridge.phase !== "ended";
+    const isConfirmedActiveDuel = isInActiveDuel && bridge.handReliable && bridge.hand.length > 0;
     const wasInActiveDuel = wasInActiveDuelRef.current;
     const currentCollection = bridge.collection ? { ...bridge.collection } : null;
-    wasInActiveDuelRef.current = isInActiveDuel;
+    wasInActiveDuelRef.current = isConfirmedActiveDuel;
 
     if (modMismatch) return;
-    if (isInActiveDuel && !wasInActiveDuel) {
+    if (isConfirmedActiveDuel && !wasInActiveDuel) {
       preDuelCollectionRef.current = currentCollection ?? lastKnownCollectionRef.current;
       hasFiredRef.current = false;
       onDuelStartRef.current();
@@ -50,7 +51,14 @@ export function useDuelCollectionTracker(
     if (currentCollection) {
       lastKnownCollectionRef.current = currentCollection;
     }
-  }, [bridge.inDuel, bridge.phase, bridge.collection, modMismatch]);
+  }, [
+    bridge.inDuel,
+    bridge.phase,
+    bridge.handReliable,
+    bridge.hand,
+    bridge.collection,
+    modMismatch,
+  ]);
 
   // ── Detect collection changes after duel start ────────────────
   const { collection, deckDefinition } = bridge;
