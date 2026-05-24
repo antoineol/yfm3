@@ -39,11 +39,15 @@ export function useOptimizationRunner(
   const setProgress = useSetAtom(postDuelProgressAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const gameDataRef = useRef(context.gameData);
 
   // Keep callbacks fresh without restarting the optimization effect.
   const callbacksRef = useRef(callbacks);
   useEffect(() => {
     callbacksRef.current = callbacks;
+  });
+  useEffect(() => {
+    gameDataRef.current = context.gameData;
   });
 
   const abort = useCallback(() => {
@@ -72,6 +76,7 @@ export function useOptimizationRunner(
       Object.entries(snapshot.collection).map(([id, qty]) => [Number(id), qty]),
     );
     const deckForOpt = snapshot.deck.filter((id) => id > 0);
+    const gameData = gameDataRef.current;
 
     optimizeDeckParallel(col, {
       timeLimit: POST_DUEL_TIME_LIMIT,
@@ -82,7 +87,7 @@ export function useOptimizationRunner(
       useEquipment,
       terrain,
       modId: context.modId,
-      gameData: context.gameData ?? undefined,
+      gameData: gameData ?? undefined,
       onProgress: (p, bestScore) => {
         setProgress(p);
         setLiveBestScore(bestScore);
@@ -98,9 +103,11 @@ export function useOptimizationRunner(
         }
       })
       .finally(() => {
-        setProgress(0);
-        setLiveBestScore(0);
-        abortControllerRef.current = null;
+        if (abortControllerRef.current === controller) {
+          setProgress(0);
+          setLiveBestScore(0);
+          abortControllerRef.current = null;
+        }
       });
 
     return () => {
@@ -113,7 +120,6 @@ export function useOptimizationRunner(
     useEquipment,
     terrain,
     context.modId,
-    context.gameData,
     context.enabled,
     setProgress,
     setLiveBestScore,
