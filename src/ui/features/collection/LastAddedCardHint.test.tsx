@@ -47,7 +47,10 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
 }));
-vi.mock("../../lib/card-db-context.tsx", () => ({ useCardDb: vi.fn() }));
+vi.mock("../../lib/card-db-context.tsx", () => {
+  const useCardDb = vi.fn();
+  return { useCardDb, useOptionalCardDb: useCardDb };
+});
 vi.mock("../../lib/use-selected-mod.ts", () => ({
   useSelectedMod: vi.fn(() => "rp"),
 }));

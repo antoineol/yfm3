@@ -319,7 +319,8 @@ describe("extractCards — card name colors", () => {
     const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
 
     expect(cards[0]?.name).toBe("Garma Sword");
-    expect(cards[0]?.color).toBe("blue");
+    expect(cards[0]?.color).toBe("");
+    expect(cards[0]?.labelColor).toBe("blue");
   });
 
   it("does not treat other F8 controls as card colors", () => {
@@ -363,7 +364,8 @@ describe("extractCards — card name colors", () => {
     ]);
 
     expect(cards[0]?.name).toBe("Twin-headed Thunder Dragon");
-    expect(cards[0]?.color).toBe("purple");
+    expect(cards[0]?.color).toBe("");
+    expect(cards[0]?.labelColor).toBe("purple");
   });
 
   it("maps Gold color code 7 to purple", () => {
@@ -389,7 +391,8 @@ describe("extractCards — card name colors", () => {
     const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
 
     expect(cards[0]?.name).toBe("Blue-eyes Ultimate Dragon");
-    expect(cards[0]?.color).toBe("purple");
+    expect(cards[0]?.color).toBe("");
+    expect(cards[0]?.labelColor).toBe("purple");
   });
 
   it("extracts Gold packed frame colors when card names have no color prefix", () => {

@@ -88,6 +88,7 @@ function makeCards(): CardStats[] {
     gs2: i < 600 ? "Jupiter" : "None",
     type: i < 600 ? "Dragon" : "Magic",
     color: "",
+    labelColor: "",
     level: i < 600 ? 1 : 0,
     attribute: "Light",
     description: "",

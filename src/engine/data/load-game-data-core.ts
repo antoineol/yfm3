@@ -31,6 +31,7 @@ export function loadGameDataFromStrings(
     const def = parseInt(cols[3] ?? "", 10);
     const type = cols[6] ?? "";
     const color = parseColor(cols[7]);
+    const labelColor = parseColor(cols[13]);
     if (!Number.isFinite(id) || id < 1 || id >= MAX_CARD_ID) continue;
     addCard(cardDb, {
       id,
@@ -41,6 +42,7 @@ export function loadGameDataFromStrings(
       kinds: [],
       isMonster: !nonMonsterTypes.has(type),
       color,
+      labelColor,
     });
   }
 
@@ -108,6 +110,7 @@ export function loadGameDataWithBridgeTables(
       kinds: [],
       isMonster: !nonMonsterTypes.has(c.type),
       color: parseColor(c.color),
+      labelColor: parseColor(c.labelColor),
     });
   }
 

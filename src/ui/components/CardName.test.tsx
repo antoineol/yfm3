@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createStore, Provider, useAtomValue } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { addCard, createCardDb } from "../../engine/data/game-db.ts";
 import { openCardIdAtom } from "../lib/atoms.ts";
+import { CardDbProvider } from "../lib/card-db-context.tsx";
 import { CardName } from "./CardName.tsx";
 
 afterEach(cleanup);
@@ -44,6 +46,43 @@ describe("CardName", () => {
     );
     const btn = screen.getByRole("button", { name: "Test" });
     expect(btn.className).toContain("text-gold");
+  });
+
+  it("uses contrast-safe label color from card metadata", () => {
+    const store = createStore();
+    const cardDb = createCardDb();
+    addCard(cardDb, {
+      id: 337,
+      name: "Raigeki",
+      kinds: [],
+      cardType: "Magic",
+      isMonster: false,
+      color: "green",
+      labelColor: "blue",
+      attack: 0,
+      defense: 0,
+    });
+
+    render(
+      <Provider store={store}>
+        <CardDbProvider cardDb={cardDb}>
+          <CardName cardId={337} name="Raigeki" />
+        </CardDbProvider>
+      </Provider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Raigeki" }).style.color).toBe("#6aa8ff");
+  });
+
+  it("accepts an explicit label color without card database context", () => {
+    const store = createStore();
+    render(
+      <Provider store={store}>
+        <CardName cardId={1} labelColor="red" name="Test" />
+      </Provider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Test" }).style.color).toBe("#ff5a5f");
   });
 
   it("stops event propagation", () => {

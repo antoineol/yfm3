@@ -30,9 +30,10 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
   ScoreExplanation: () => <div data-testid="score-explanation" />,
 }));
 
-vi.mock("../../lib/card-db-context.tsx", () => ({
-  useCardDb: () => ({ cards: [], cardsById: new Map(), cardsByName: new Map() }),
-}));
+vi.mock("../../lib/card-db-context.tsx", () => {
+  const useCardDb = () => ({ cards: [], cardsById: new Map(), cardsByName: new Map() });
+  return { useCardDb, useOptionalCardDb: useCardDb };
+});
 
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
 import { liveBestScoreAtom } from "../../lib/atoms.ts";

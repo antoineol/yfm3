@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frameBorderColor, framePaletteForCard } from "./card-frame-palettes.ts";
+import { frameBorderColor, framePaletteForCard, labelTextColor } from "./card-frame-palettes.ts";
 
 describe("card frame palettes", () => {
   it("uses extracted monster color before the default monster frame", () => {
@@ -34,5 +34,10 @@ describe("card frame palettes", () => {
     });
 
     expect(palette.mid).toBe("#c04888");
+  });
+
+  it("keeps label colors separate from frame palettes", () => {
+    expect(labelTextColor("blue")).toBe("#6aa8ff");
+    expect(frameBorderColor("green", "Magic", false)).toBe("#308838");
   });
 });

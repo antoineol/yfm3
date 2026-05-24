@@ -53,7 +53,10 @@ export interface CardStats {
   gs1: string;
   gs2: string;
   type: string;
+  /** Frame/background color. */
   color: string;
+  /** Name/label text color from the card-name control prefix, when present. */
+  labelColor: string;
   level: number;
   attribute: string;
   description: string;

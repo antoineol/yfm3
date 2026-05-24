@@ -6,9 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import { liveBestDeckAtom } from "../../lib/atoms.ts";
 
-vi.mock("../../lib/card-db-context.tsx", () => ({
-  useCardDb: vi.fn(),
-}));
+vi.mock("../../lib/card-db-context.tsx", () => {
+  const useCardDb = vi.fn();
+  return { useCardDb, useOptionalCardDb: useCardDb };
+});
 
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useLiveDeckEntries } from "./use-live-deck-entries.ts";

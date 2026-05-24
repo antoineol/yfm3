@@ -3,6 +3,7 @@ import { type RefObject, useCallback, useMemo, useState } from "react";
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useCardDb } from "../lib/card-db-context.tsx";
 import { formatCardId } from "../lib/format.ts";
+import { cardLabelColorStyle } from "./CardName.tsx";
 
 export type AutocompleteCard = CardSpec & {
   disabled?: boolean;
@@ -107,7 +108,7 @@ function CardOption({ card }: { card: AutocompleteCard }) {
         {formatCardId(card.id)}
       </span>
       <span className="flex-1 truncate text-text-primary group-data-highlighted:text-gold-bright transition-colors duration-75">
-        {card.name}
+        <span style={cardLabelColorStyle(card.labelColor)}>{card.name}</span>
       </span>
       {card.ownedCount != null && (
         <span

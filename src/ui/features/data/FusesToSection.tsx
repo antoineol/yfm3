@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
+import { cardLabelColorStyle } from "../../components/CardName.tsx";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "../../components/sortable-header.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
@@ -7,8 +8,10 @@ import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 interface FusesToRow {
   otherMaterialId: number;
   otherMaterialName: string;
+  otherMaterialLabelColor?: string;
   resultId: number;
   resultName: string;
+  resultLabelColor?: string;
   resultAtk: number;
   resultIsMonster: boolean;
   fusionKey: number;
@@ -33,8 +36,10 @@ export function FusesToSection({ cardId }: { cardId: number }) {
         rows.push({
           otherMaterialId: otherId,
           otherMaterialName: otherCard?.name ?? `#${otherId}`,
+          otherMaterialLabelColor: otherCard?.labelColor,
           resultId: f.resultId,
           resultName: resultCard?.name ?? `#${f.resultId}`,
+          resultLabelColor: resultCard?.labelColor,
           resultAtk: f.resultAtk,
           resultIsMonster: resultCard?.isMonster ?? true,
           fusionKey: f.material1Id * MAX_CARD_ID + f.material2Id,
@@ -87,6 +92,7 @@ export function FusesToSection({ cardId }: { cardId: number }) {
                       className="block truncate hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
                       href={`${window.location.pathname}#data/cards/${String(r.otherMaterialId)}`}
                       rel="noopener noreferrer"
+                      style={cardLabelColorStyle(r.otherMaterialLabelColor)}
                       target="_blank"
                     >
                       #{String(r.otherMaterialId)}
@@ -97,6 +103,7 @@ export function FusesToSection({ cardId }: { cardId: number }) {
                       className="block truncate text-gold hover:text-gold-bright transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
                       href={`${window.location.pathname}#data/cards/${String(r.resultId)}`}
                       rel="noopener noreferrer"
+                      style={cardLabelColorStyle(r.resultLabelColor)}
                       target="_blank"
                     >
                       {r.resultName}

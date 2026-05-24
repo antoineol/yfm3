@@ -1,3 +1,4 @@
+import { cardLabelColorStyle } from "../../components/CardName.tsx";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { CardDetailBody } from "./CardDetail.tsx";
 
@@ -33,7 +34,10 @@ export function CardDetailPage({ cardId }: { cardId: number }) {
         <CardDetailBody
           card={card}
           header={
-            <h1 className="font-display text-base sm:text-lg font-bold text-gold leading-tight">
+            <h1
+              className="font-display text-base sm:text-lg font-bold text-gold leading-tight"
+              style={cardLabelColorStyle(card.labelColor)}
+            >
               {card.name}
               <span className="ml-2 align-middle text-[11px] font-mono font-normal text-text-muted/50">
                 #{card.id}
