@@ -90,6 +90,7 @@ export function parseCardsCsv(csv: string): RefCard[] {
     const starchipCost = parseInt(cols[10] ?? "", 10);
     const password = parseInt(cols[11] ?? "", 10);
     const description = cols[12] ?? "";
+    const labelColor = cols[13] ?? "";
     if (!Number.isFinite(id) || !Number.isFinite(atk) || !Number.isFinite(def)) continue;
     cards.push({
       id,
@@ -100,6 +101,7 @@ export function parseCardsCsv(csv: string): RefCard[] {
       guardianStar2: gs2,
       name: name || `Card #${id}`,
       color: color || undefined,
+      labelColor: labelColor || undefined,
       level: Number.isFinite(level) ? level : undefined,
       attribute: attribute || undefined,
       starchipCost: Number.isFinite(starchipCost) ? starchipCost : undefined,
@@ -185,6 +187,7 @@ export function bridgeGameDataToReference(gameData: BridgeGameData): {
     guardianStar1: c.gs1,
     guardianStar2: c.gs2,
     color: c.color || undefined,
+    labelColor: c.labelColor || undefined,
     level: c.level,
     attribute: c.attribute || undefined,
     starchipCost: c.starchipCost,

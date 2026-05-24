@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCardsCsv } from "./load-reference-csvs.ts";
+import { bridgeGameDataToReference, parseCardsCsv } from "./load-reference-csvs.ts";
 
 const HEADER =
   "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description";
@@ -36,5 +36,52 @@ describe("parseCardsCsv description handling", () => {
 
   it("returns undefined for empty description", () => {
     expect(parseDescription("")).toBeUndefined();
+  });
+});
+
+describe("parseCardsCsv colors", () => {
+  it("parses frame and label colors separately", () => {
+    const csv = `${HEADER},label_color\n${csvRow(1, "")},blue`;
+
+    expect(parseCardsCsv(csv)[0]).toMatchObject({
+      color: "orange",
+      labelColor: "blue",
+    });
+  });
+});
+
+describe("bridgeGameDataToReference", () => {
+  it("keeps bridge label colors separate from frame colors", () => {
+    const result = bridgeGameDataToReference({
+      cards: [
+        {
+          id: 337,
+          name: "Raigeki",
+          atk: 0,
+          def: 0,
+          gs1: "None",
+          gs2: "None",
+          type: "Magic",
+          color: "green",
+          labelColor: "blue",
+          level: 0,
+          attribute: "",
+          description: "",
+          starchipCost: 0,
+          password: "",
+        },
+      ],
+      duelists: [],
+      fusionTable: [],
+      equipTable: [],
+      equipBonuses: null,
+      perEquipBonuses: null,
+      deckLimits: null,
+      rankScoring: null,
+      fieldBonusTable: null,
+      artworkKey: "test",
+    });
+
+    expect(result.cards[0]).toMatchObject({ color: "green", labelColor: "blue" });
   });
 });

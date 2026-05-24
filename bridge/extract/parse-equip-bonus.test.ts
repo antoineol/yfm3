@@ -73,6 +73,7 @@ function card(id: number, type: string, description: string): CardStats {
     gs2: "None",
     type,
     color: "",
+    labelColor: "",
     level: 0,
     attribute: "",
     description,

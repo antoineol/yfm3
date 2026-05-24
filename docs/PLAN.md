@@ -90,10 +90,11 @@ Return best deck + exact expected ATK
 | P9: Reference Data CRUD | [`docs/steps/p9-reference-data-crud.md`](steps/p9-reference-data-crud.md) | Cards & fusions CRUD UI with Google Sheets write-back |
 | **Emulator Bridge** | [`docs/emulator-bridge.md`](emulator-bridge.md) | Real-time hand detection from DuckStation via shared memory + WebSocket bridge |
 | **Bridge Gold Card Stats** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Select the active Gold card-stat table by live RAM hash and reject stale or impossible metadata caches |
-| **Bridge Gold Card Colors** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Extract card frame colors from name prefixes or Gold's packed EXE frame-color table and render them in card UI |
+| **Bridge Card Colors** (DONE) | [`docs/steps/bridge-gold-card-stats.md`](steps/bridge-gold-card-stats.md) | Keep card frame colors separate from card-name label colors; use Gold's packed EXE table for frames and `{F8 0A XX}` prefixes for labels |
 | **Post-Duel Optimization Reliability** (DONE) | — | Keep the collection-change detector app-wide, including before reference data is ready, and buffer detected rewards until deck definition and auto-sync game data are available |
 | **Campaign Reward Pool Evidence** (DONE) | — | Capture rank counters and credited-card fit evidence; use the community Ghost/FMR x15 routine for compatible images, including Gold |
 | **Bridge Distribution** | — | Portable Windows zip with in-app setup guide, update notification, and GitHub Actions release workflow |
 | **Onboarding Flow** (DONE) | [`docs/onboard/auto-duckstation-setting.md`](onboard/auto-duckstation-setting.md) | Mode chooser, prerequisite steps, shared-memory auto-patch, and bridge-only data in auto-sync mode |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |
 | **Rank Scoring Profiles** (CURRENT) | [`docs/steps/rank-scoring-profiles.md`](steps/rank-scoring-profiles.md) | Extract rank tables from the active disc image, with vanilla/RP profiles as fallback |
+| **Duel Cursor Target** (CURRENT) | [`docs/steps/duel-cursor-target.md`](steps/duel-cursor-target.md) | Discover the in-game cursor target, then show the selected card in the duel HUD without revealing opponent hidden cards unless cheat mode is enabled |

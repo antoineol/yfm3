@@ -91,7 +91,8 @@ function DetailPanel({ card }: { card: CardSpec }) {
       )}
 
       <div className="flex gap-4 text-xs text-text-muted">
-        {card.color && <span>Color: {capitalize(card.color)}</span>}
+        {card.color && <span>Frame: {capitalize(card.color)}</span>}
+        {card.labelColor && <span>Label: {capitalize(card.labelColor)}</span>}
         {card.starchipCost !== undefined && <span>Starchips: {card.starchipCost}</span>}
         {card.password !== undefined && (
           <span>Password: {String(card.password).padStart(8, "0")}</span>

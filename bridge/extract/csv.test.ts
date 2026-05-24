@@ -12,6 +12,7 @@ describe("cardsToCsv", () => {
     gs2: "Moon",
     type: "Dragon",
     color: "blue",
+    labelColor: "red",
     level: 8,
     attribute: "Light",
     starchipCost: 999999,
@@ -23,7 +24,7 @@ describe("cardsToCsv", () => {
     const csv = cardsToCsv([baseCard]);
     const header = csv.split("\n")[0];
     expect(header).toBe(
-      "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description",
+      "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description,label_color",
     );
   });
 
@@ -34,6 +35,7 @@ describe("cardsToCsv", () => {
     expect(row).toContain('"Blue-Eyes"');
     expect(row).toContain(",3000,2500,");
     expect(row).toContain(",Sun,Moon,Dragon,blue,8,Light,999999,89631139,");
+    expect(row).toContain(",red");
   });
 
   it("escapes double quotes in names", () => {

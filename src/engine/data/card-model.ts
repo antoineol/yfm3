@@ -29,7 +29,10 @@ export interface CardSpec {
   cardType?: string;
   /** true for monster cards (have ATK/DFD/stars), false for spell/trap cards. */
   isMonster: boolean;
+  /** Frame/background color. */
   color?: Color;
+  /** Name/label text color. */
+  labelColor?: Color;
   guardianStar1?: GuardianStar;
   guardianStar2?: GuardianStar;
   attack: AttackValue;

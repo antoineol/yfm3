@@ -20,8 +20,8 @@ import type {
 } from "./types.ts";
 import { NUM_CARDS } from "./types.ts";
 
-/** Card name color codes: byte XX in the {F8 0A XX} prefix before card name text. */
-const CARD_COLORS: Record<number, string> = {
+/** Card name/label color codes: byte XX in the {F8 0A XX} prefix before card name text. */
+const LABEL_COLORS: Record<number, string> = {
   1: "yellow",
   2: "blue",
   3: "green",
@@ -161,7 +161,8 @@ export function extractCards(
       gs1: gsNames[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
       gs2: gsNames[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
       type,
-      color: resolveFrameColor(text.color, frameColors[i], type, rawType < 20),
+      color: resolveFrameColor(frameColors[i], type, rawType < 20),
+      labelColor: text.color,
       level: levelAttr & 0xf,
       attribute: cardAttributes[(levelAttr >> 4) & 0xf] ?? String((levelAttr >> 4) & 0xf),
       description: descriptions[i] ?? "",
@@ -174,12 +175,10 @@ export function extractCards(
 }
 
 function resolveFrameColor(
-  textColor: string,
   frameColor: string | undefined,
   cardType: string,
   isMonster: boolean,
 ): string {
-  if (textColor) return textColor;
   if (!isMonster) return NON_MONSTER_FRAME_COLORS[cardType] ?? frameColor ?? "";
   if (frameColor === "green" || frameColor === "pink" || frameColor === "orange") return "yellow";
   return frameColor || "";
@@ -312,7 +311,7 @@ function decodeCardText(buf: Buffer, start: number, maxLen: number, charTable: s
   }
   return {
     name: decodeTblString(buf, start + 3, Math.max(0, maxLen - 3), charTable),
-    color: CARD_COLORS[buf[start + 2] ?? 0] ?? "",
+    color: LABEL_COLORS[buf[start + 2] ?? 0] ?? "",
   };
 }
 

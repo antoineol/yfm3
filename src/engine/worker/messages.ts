@@ -11,7 +11,10 @@ export type BridgeCard = {
   gs1: string;
   gs2: string;
   type: string;
+  /** Frame/background color. */
   color: string;
+  /** Name/label text color. */
+  labelColor: string;
   level: number;
   attribute: string;
   description: string;
