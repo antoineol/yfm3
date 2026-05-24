@@ -178,7 +178,12 @@ function comparePlayCandidates(
     return candidateRemainingAtk - incumbentRemainingAtk;
   }
 
-  return totalConsumedCards(incumbent) - totalConsumedCards(candidate);
+  const consumedCountDiff = totalConsumedCards(incumbent) - totalConsumedCards(candidate);
+  if (consumedCountDiff !== 0) return consumedCountDiff;
+
+  return (
+    consumedMaterialAtk(incumbent, context.cardDb) - consumedMaterialAtk(candidate, context.cardDb)
+  );
 }
 
 function remainingBestAtk(play: FusionChainResult, context: PlaySelectionContext): number {
@@ -216,6 +221,13 @@ function removeConsumedHandCards(handCardIds: number[], consumedCardIds: number[
 
 function totalConsumedCards(play: FusionChainResult): number {
   return play.materialCardIds.length + play.fieldMaterialCardIds.length + play.equipCardIds.length;
+}
+
+function consumedMaterialAtk(play: FusionChainResult, cardDb: CardDb): number {
+  return [...play.materialCardIds, ...play.fieldMaterialCardIds].reduce(
+    (sum, cardId) => sum + (cardDb.cardsById.get(cardId)?.attack ?? 0),
+    0,
+  );
 }
 
 /** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */

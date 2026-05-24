@@ -634,6 +634,30 @@ describe("findFusionChains prefers simpler plays", () => {
     });
   });
 
+  it("uses lower material ATK when equivalent paths leave the same remaining play", () => {
+    const db = createCardDb();
+    addTestCard(db, 100, "Weak Dragon", 500);
+    addTestCard(db, 101, "Strong Dragon", 1500);
+    addTestCard(db, 102, "Thunder", 400);
+    addTestCard(db, 103, "Filler", 300);
+    addTestCard(db, 104, "Storm Dragon", 2000);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 101, 102, 104); // First discovered path, but consumes the stronger dragon.
+    setFusion(ft, 100, 102, 104);
+
+    const results = findFusionChains([101, 100, 102, 103], ft, db, 3);
+    const storm = results.find((r) => r.resultCardId === 104);
+    expect(storm).toBeDefined();
+    expect(storm?.materialCardIds).toEqual([100, 102]);
+    expect(storm?.steps[0]).toEqual({
+      material1CardId: 100,
+      material2CardId: 102,
+      resultCardId: 104,
+    });
+  });
+
   it("direct play wins over fusion producing the same card at equal ATK", () => {
     // Hand has AlphaBeta(10) directly AND Alpha(1)+Beta(2) which fuse into AlphaBeta(10).
     // The direct play should win (steps.length === 0).

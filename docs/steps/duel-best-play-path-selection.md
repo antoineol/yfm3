@@ -6,7 +6,7 @@ When multiple paths produce the same displayed Best Play, show the path that lea
 
 ## Current Step
 
-- Done: equivalent play groups now collect all candidate paths before choosing the representative path by current ATK, remaining-hand best ATK, then total cards consumed.
+- Done: equivalent play groups now collect all candidate paths before choosing the representative path by current ATK, remaining-hand best ATK, total cards consumed, then lowest consumed material ATK.
 
 ## Next Steps
 
