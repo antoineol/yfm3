@@ -349,6 +349,8 @@ function inferX15Match(
   const matches = DROP_POOLS.map((hiddenPool) =>
     buildX15Match(duelist, visiblePool, hiddenPool, gainedCards, "inferred"),
   ).filter((match): match is NonNullable<RewardEvidence["x15Match"]> => match !== null);
+  const rankPoolMatch = matches.find((match) => match.hiddenPool === visiblePool);
+  if (rankPoolMatch?.possible) return rankPoolMatch;
 
   matches.sort((a, b) => {
     if (a.possible !== b.possible) return a.possible ? -1 : 1;

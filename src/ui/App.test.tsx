@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
     stageFailed: false,
     opponentHand: [],
     opponentField: [],
+    cursorTarget: null,
     cpuSwaps: [],
     unlockedDuelists: null,
     scan: vi.fn(),

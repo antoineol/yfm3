@@ -60,6 +60,7 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     stageFailed: false,
     opponentHand: [],
     opponentField: [],
+    cursorTarget: null,
     cpuSwaps: [],
     unlockedDuelists: null,
     opponentPhase: "other" as const,
