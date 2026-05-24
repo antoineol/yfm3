@@ -15,6 +15,7 @@ import { execSync, spawn } from "node:child_process";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { awaitArtworkExtraction } from "./artwork-extraction.ts";
+import { type CursorProbe, createCursorProbe } from "./debug/cursor-probe.ts";
 import { createHandSlotProbe, type HandSlotProbe } from "./debug/hand-slot-probe.ts";
 import { createOpponentProbe, type OpponentProbe } from "./debug/opponent-probe.ts";
 import { createPalProbe, type PalProbe } from "./debug/pal-address-probe.ts";
@@ -1184,7 +1185,7 @@ async function forceReconnect(): Promise<void> {
   dsHwnd = null;
   resetProfile();
   resetGameData();
-  resetPalProbe();
+  resetDiagnosticProbes();
   await tryConnect();
 }
 
@@ -1239,7 +1240,7 @@ async function restartDuckStation(): Promise<boolean> {
     consecutiveZeroReads = 0;
     resetProfile();
     resetGameData();
-    resetPalProbe();
+    resetDiagnosticProbes();
   }
 
   // Graceful kill (sends WM_CLOSE), then wait up to 10s
@@ -1673,14 +1674,20 @@ function dropPoolFromSelector(selector: number | undefined): DropPoolName | null
 const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
 const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL — see docs/memory/steps/bridge-extended-state.md
 const DIAG_OPPONENT = false; // investigation complete
+const DIAG_CURSOR = process.env.YFM_DIAG_CURSOR === "1";
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;
 let handProbe: HandSlotProbe | null = DIAG_HAND_SLOTS ? createHandSlotProbe() : null;
 let oppProbe: OpponentProbe | null = DIAG_OPPONENT ? createOpponentProbe() : null;
+let cursorProbe: CursorProbe | null = DIAG_CURSOR ? createCursorProbe() : null;
+if (DIAG_CURSOR) {
+  console.log("[cursor-probe] enabled");
+}
 
-function resetPalProbe(): void {
+function resetDiagnosticProbes(): void {
   if (DIAG_PAL) palProbe = createPalProbe();
   if (DIAG_HAND_SLOTS) handProbe = createHandSlotProbe();
   if (DIAG_OPPONENT) oppProbe = createOpponentProbe();
+  if (DIAG_CURSOR) cursorProbe = createCursorProbe();
 }
 
 // ── Poll loop ──────────────────────────────────────────────────────
@@ -1732,7 +1739,7 @@ async function poll(): Promise<void> {
             lastJson = "";
             resetProfile();
             resetGameData();
-            resetPalProbe();
+            resetDiagnosticProbes();
             setTimeout(poll, POLL_MS);
             return;
           }
@@ -1752,7 +1759,7 @@ async function poll(): Promise<void> {
           pidCheckCounter = 0;
           resetProfile();
           resetGameData();
-          resetPalProbe();
+          resetDiagnosticProbes();
         } else if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && !hadNonZeroData) {
           // Bridge mapped shared memory before the game was loaded (e.g. user
           // launched DuckStation, then loaded an ISO). DuckStation may
@@ -1775,7 +1782,7 @@ async function poll(): Promise<void> {
           pidCheckCounter = 0;
           resetProfile();
           resetGameData();
-          resetPalProbe();
+          resetDiagnosticProbes();
         }
 
         // Broadcast "waiting_for_game"
@@ -1821,7 +1828,7 @@ async function poll(): Promise<void> {
             lastJson = "";
             resetProfile();
             resetGameData();
-            resetPalProbe();
+            resetDiagnosticProbes();
             setTimeout(poll, POLL_MS);
             return;
           }
@@ -1831,6 +1838,8 @@ async function poll(): Promise<void> {
         const state = readGameState(mapping.view, profile);
         const fingerprint = readModFingerprint(mapping.view);
         const serial = readGameSerial(mapping.view);
+
+        cursorProbe?.onStateChange(mapping.view, state, profile);
 
         const json = JSON.stringify({
           connected: true,
@@ -1946,7 +1955,7 @@ async function poll(): Promise<void> {
       pidCheckCounter = 0;
       resetProfile();
       resetGameData();
-      resetPalProbe();
+      resetDiagnosticProbes();
       broadcast(
         JSON.stringify({
           connected: false,

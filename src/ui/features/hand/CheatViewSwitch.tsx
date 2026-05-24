@@ -1,30 +1,97 @@
+import type { BridgeCard } from "../../../engine/worker/messages.ts";
+import { CardName } from "../../components/CardName.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import type { BridgeState } from "../../lib/bridge-message-processor.ts";
+import { formatCardId } from "../../lib/format.ts";
+import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
 
-/** Player / Opponent segmented switch. Animates in/out with cheat mode, only during a duel. */
+/** Focused-card strip plus Player / Opponent segmented switch during a duel. */
 export function CheatViewSwitch() {
   const cheatMode = useCheatMode();
   const view = useCheatView();
   const save = useUpdatePreferences();
   const bridge = useBridge();
-  const visible = cheatMode && bridge.inDuel;
+  const visible = bridge.inDuel;
 
   return (
     <div className={`fm-cheat-switch-wrap ${visible ? "fm-cheat-switch-wrap--open" : ""}`}>
-      <div>
-        <div className="fm-cheat-switch">
-          <SwitchOption
-            active={view === "player"}
-            label="Player"
-            onClick={() => save({ cheatView: "player" })}
-          />
-          <SwitchOption
-            active={view === "opponent"}
-            label="Opponent"
-            onClick={() => save({ cheatView: "opponent" })}
-            variant="opponent"
-          />
+      <div className="fm-duel-focus-row">
+        <FocusedCardTarget bridge={bridge} cheatMode={cheatMode} />
+        {cheatMode && (
+          <div className="fm-cheat-switch">
+            <SwitchOption
+              active={view === "player"}
+              label="Player"
+              onClick={() => save({ cheatView: "player" })}
+            />
+            <SwitchOption
+              active={view === "opponent"}
+              label="Opponent"
+              onClick={() => save({ cheatView: "opponent" })}
+              variant="opponent"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function focusedCardForDisplay(
+  bridge: BridgeState,
+  cheatMode: boolean,
+): BridgeCard | "hidden" | null {
+  const target = bridge.cursorTarget;
+  if (!bridge.inDuel || !target) return null;
+  if (target.hidden && !cheatMode) return "hidden";
+  return bridge.gameData?.cards.find((card) => card.id === target.cardId) ?? null;
+}
+
+function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMode: boolean }) {
+  const resolveArtwork = useArtworkSrc();
+  const focused = focusedCardForDisplay(bridge, cheatMode);
+
+  if (focused === "hidden") {
+    return (
+      <div className="fm-duel-focused-card fm-duel-focused-card--hidden">
+        <div className="fm-duel-focused-art" />
+        <div className="min-w-0">
+          <div className="fm-duel-focused-label">Focused card</div>
+          <div className="fm-duel-focused-name">Hidden card</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!focused) {
+    return <div aria-hidden="true" className="fm-duel-focused-card fm-duel-focused-card--empty" />;
+  }
+
+  return (
+    <div className="fm-duel-focused-card">
+      <img
+        alt=""
+        className="fm-duel-focused-art"
+        draggable={false}
+        src={resolveArtwork(focused.id)}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="fm-duel-focused-label">Focused card</div>
+        <div className="fm-duel-focused-main">
+          <CardName cardId={focused.id} className="fm-duel-focused-name" name={focused.name} />
+          <span className="fm-duel-focused-id">#{formatCardId(focused.id)}</span>
+        </div>
+        <div className="fm-duel-focused-stats">
+          {focused.atk > 0 || focused.def > 0 ? (
+            <>
+              <span>ATK {String(focused.atk)}</span>
+              <span>DEF {String(focused.def)}</span>
+            </>
+          ) : (
+            <span>{focused.type || "Magic"}</span>
+          )}
         </div>
       </div>
     </div>

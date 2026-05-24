@@ -98,6 +98,8 @@ export interface GameState {
    * initialized.
    */
   rewardPoolContext: RewardPoolContext | null;
+  /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
+  duelCursorTargetCardId: number | null;
 }
 
 export interface RewardPoolContext {
@@ -132,6 +134,7 @@ const DUELIST_UNLOCK_BYTES = 8; // 4 documented + 4 extra for safety (39 duelist
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
 const GLOBAL_DUEL_CONTEXT_PTR_OFFSET = 0x1d42d0; // gp+0x02e0, points to reward context
+const DUEL_CURSOR_TARGET_CARD_REL = 0xfe; // NTSC-U: duelPhase + 0xfe = 0x9b338
 
 export const CARD_STATS_OFFSET = 0x1d4244;
 export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
@@ -518,6 +521,10 @@ function readCardSlot(view: DataView, base: number, index: number): CardSlot {
   };
 }
 
+function readDuelCursorTargetCardId(view: DataView, profile: OffsetProfile): number {
+  return readU16(view, profile.duelPhase + DUEL_CURSOR_TARGET_CARD_REL);
+}
+
 // ── Exported functions ─────────────────────────────────────────────
 export async function findDuckStationPids(): Promise<number[]> {
   try {
@@ -614,6 +621,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     cpuShuffledDeck: readCpuShuffledDeck(view),
     rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
     rewardPoolContext: readRewardPoolContext(view),
+    duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
   };
 }

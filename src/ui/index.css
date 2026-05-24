@@ -1623,8 +1623,8 @@ input[type="number"] {
   opacity: 1;
 }
 
-/* ── Cheat View Switch (Player / Opponent) ──────────────────── *
- * Segmented control that slides open when cheat mode is enabled.
+/* ── Duel Focus + Cheat View Switch ─────────────────────────── *
+ * Focused-card strip plus Player/Opponent switch during duels.
  * Uses CSS grid row transition for animated height.
  * ─────────────────────────────────────────────────────────────── */
 
@@ -1650,10 +1650,93 @@ input[type="number"] {
   overflow: hidden;
 }
 
+.fm-duel-focus-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.fm-duel-focused-card {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 5px 8px;
+  gap: 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: var(--color-bg-surface);
+}
+
+.fm-duel-focused-card--empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.fm-duel-focused-card--hidden {
+  opacity: 0.72;
+}
+
+.fm-duel-focused-art {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  object-fit: cover;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  background: var(--color-bg-deep);
+}
+
+.fm-duel-focused-label {
+  color: var(--color-text-muted);
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.fm-duel-focused-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fm-duel-focused-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fm-duel-focused-id {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.fm-duel-focused-stats {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
 .fm-cheat-switch {
   display: flex;
+  flex: 0 0 auto;
   width: fit-content;
-  margin: 0 auto;
+  margin-left: auto;
   border-radius: 8px;
   border: 1px solid var(--color-border-subtle);
   overflow: hidden;

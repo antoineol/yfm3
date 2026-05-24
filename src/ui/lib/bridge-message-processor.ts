@@ -1,5 +1,6 @@
 import type { BridgeGameData } from "../../engine/worker/messages.ts";
 import type {
+  DuelCursorTarget,
   DuelPhase,
   DuelStats,
   FieldCard,
@@ -85,6 +86,8 @@ export type BridgeState = {
   opponentHand: number[];
   /** Opponent's field cards with live ATK/DEF. */
   opponentField: FieldCard[];
+  /** Card currently targeted by the in-game cursor, if known. */
+  cursorTarget: DuelCursorTarget | null;
   /** CPU card swaps detected during the current duel. */
   cpuSwaps: CpuSwap[];
   /** Duelist IDs unlocked for free duel (from RAM bitfield). Null if bridge unavailable. */
@@ -118,6 +121,7 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   stageFailed: false,
   opponentHand: [],
   opponentField: [],
+  cursorTarget: null,
   cpuSwaps: [],
   unlockedDuelists: null,
 };
@@ -208,6 +212,12 @@ function eqRewardPoolContext(
     a.skillFlag === b.skillFlag &&
     a.computedPool === b.computedPool
   );
+}
+
+function eqCursorTarget(a: DuelCursorTarget | null, b: DuelCursorTarget | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return a.zone === b.zone && a.index === b.index && a.cardId === b.cardId && a.hidden === b.hidden;
 }
 
 function eqNumRecord(a: Record<number, number> | null, b: Record<number, number> | null): boolean {
@@ -356,6 +366,11 @@ export function processBridgeMessage(
     );
     const lp = keepRef(currentState.lp, interpreted.lp, eqLp);
     const stats = keepRef(currentState.stats, interpreted.stats, eqStats);
+    const cursorTarget = keepRef(
+      currentState.cursorTarget,
+      interpreted.cursorTarget,
+      eqCursorTarget,
+    );
     const collection = keepRef(
       currentState.collection,
       computeOwnedCards(raw.trunk, raw.deckDefinition),
@@ -394,6 +409,7 @@ export function processBridgeMessage(
       updateStaged: currentState.updateStaged,
       opponentHand,
       opponentField,
+      cursorTarget,
       cpuSwaps,
       unlockedDuelists,
     };
