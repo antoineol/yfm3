@@ -125,6 +125,10 @@ export type ScorerInit = {
   type: "SCORE";
   collection: Record<number, number>;
   deck: number[];
+  /** Optional current deck used to clean noisy rebuild diffs before exact scoring. */
+  cleanupAgainstDeck?: number[];
+  /** Hard wall-clock cap for cleanup, excluding exact scoring. */
+  cleanupBudgetMs?: number;
   /** Engine configuration snapshot for this worker. */
   config: EngineConfig;
   /** Which game mod's data to load. */
@@ -137,6 +141,9 @@ export type ScorerInit = {
 export type ScorerResult = {
   type: "SCORE_RESULT";
   expectedAtk: number;
+  /** Present when cleanup was requested and may differ from the input deck. */
+  deck?: number[];
+  cleanupElapsedMs?: number;
 };
 
 export type WorkerMessage = WorkerInit;

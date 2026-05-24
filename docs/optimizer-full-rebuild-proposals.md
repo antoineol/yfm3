@@ -1,6 +1,6 @@
 # Full-Rebuild Optimizer Proposals
 
-Status: proposal with items 1, 3, and 4 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
+Status: proposal with items 1, 2, 3, and 4 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
 
 ## Scope
 
@@ -21,7 +21,7 @@ Target allocation:
 | SA search | Existing budget minus polish/validation reserve |
 | Greedy polish | 0.5-1.5s max |
 | Candidate exact validation | Existing exact reserve only |
-| Diff cleanup | Best-effort inside polish reserve |
+| Diff cleanup | 750ms max, exact-validated before replacing the worker winner |
 
 If a phase exceeds its slice, stop it and return the best known deck.
 
@@ -46,16 +46,19 @@ Budget note: the polish reserve is carved out of the existing SA deadline. It do
 
 ### 2. Diff Cleanup Against Current Deck
 
+Status: implemented as a final cleanup worker.
+
 After finding the rebuild candidate, try to remove noisy suggested changes without making the deck worse.
 
 - Compare suggested deck to the current deck.
 - For changed cards, try reverting suggested cards back to current-deck cards.
 - Keep a revert only when sampled score does not decrease.
 - Exact-score the cleaned candidate once at the end.
+- Keep the cleaned candidate only if its exact score is not lower than the original winner.
 
 Why: preserves full rebuild behavior while reducing annoying changes that do not help the score.
 
-Risk: over-cleaning can hide real small gains. Mitigation: use a strict non-decrease rule and keep cleanup best-effort with a hard time cap.
+Risk: over-cleaning can hide real small gains. Mitigation: use a non-decrease rule, exact-validate before replacing the winner, and keep cleanup best-effort with a 750ms hard time cap.
 
 ### 3. Exact-Score Worker Candidates
 
@@ -80,7 +83,7 @@ Improve starting points without card-specific assumptions.
 
 Good seeds:
 
-- current deck, when available;
+- current deck, when it exactly matches the optimized scoring slots;
 - ATK-greedy deck;
 - fusion/equip-biased greedy deck using generic selector weights;
 - random valid decks.

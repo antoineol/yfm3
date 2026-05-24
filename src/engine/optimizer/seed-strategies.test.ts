@@ -44,6 +44,38 @@ describe("generateInitialDecks", () => {
     expect(decks[1]?.slice(0, 6)).toEqual([7, 7, 7, 8, 8, 8]);
   });
 
+  it("uses the current deck as the first override seed when provided", () => {
+    const currentDeck = Array.from({ length: DECK_SIZE }, (_, i) => i + 1);
+    const decks = generateInitialDecks(
+      makeCollectionRecord(),
+      4,
+      mulberry32(0),
+      undefined,
+      undefined,
+      currentDeck,
+    );
+
+    expect(decks[1]).toEqual(currentDeck);
+  });
+
+  it("moves the weighted seed after the current-deck seed", () => {
+    const currentDeck = Array.from({ length: DECK_SIZE }, (_, i) => i + 1);
+    const gameData = makeSeedGameData();
+    gameData.cardAtk[7] = 3000;
+
+    const decks = generateInitialDecks(
+      makeCollectionRecord(),
+      3,
+      mulberry32(0),
+      undefined,
+      gameData,
+      currentDeck,
+    );
+
+    expect(decks[1]).toEqual(currentDeck);
+    expect(decks[2]?.slice(0, 3)).toEqual([7, 7, 7]);
+  });
+
   it("can prioritize low-ATK cards with many generic fusion partners", () => {
     const gameData = makeSeedGameData();
     gameData.cardAtk[1] = 100;

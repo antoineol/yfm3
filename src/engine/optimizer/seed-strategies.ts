@@ -14,8 +14,9 @@ export interface SeedGameData {
  * Generate initial decks for multi-start SA.
  *
  * - Worker 0: no initialDeck (uses the greedy seed built by initializeBuffersBrowser)
- * - Worker 1: deterministic fusion/equip/ATK-weighted seed when game data is available
- * - Workers 2+: biased-random valid decks
+ * - Worker 1: current deck, when it exactly matches the optimized scoring slots
+ * - Next worker: deterministic fusion/equip/ATK-weighted seed when game data is available
+ * - Remaining workers: biased-random valid decks
  *
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
@@ -29,6 +30,7 @@ export function generateInitialDecks(
   rand: () => number,
   deckLimits?: DeckLimitsMap,
   gameData?: SeedGameData,
+  currentDeck?: number[],
 ): Array<number[] | undefined> {
   const pool = buildPool(collectionRecord, deckLimits, gameData);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
@@ -37,12 +39,22 @@ export function generateInitialDecks(
   // Worker 0: greedy (no override)
   decks[0] = undefined;
 
-  if (numWorkers > 1) {
-    decks[1] = gameData ? buildWeightedDeck(pool) : buildUniqueRandomDeck(pool, rand, seen);
-    rememberDeck(decks[1], seen);
+  let nextWorker = 1;
+  if (currentDeck && nextWorker < numWorkers) {
+    decks[nextWorker] = currentDeck;
+    rememberDeck(currentDeck, seen);
+    nextWorker++;
   }
 
-  for (let i = 2; i < numWorkers; i++) {
+  if (nextWorker < numWorkers) {
+    decks[nextWorker] = gameData
+      ? buildWeightedDeck(pool)
+      : buildUniqueRandomDeck(pool, rand, seen);
+    rememberDeck(decks[nextWorker], seen);
+    nextWorker++;
+  }
+
+  for (let i = nextWorker; i < numWorkers; i++) {
     decks[i] = buildUniqueRandomDeck(pool, rand, seen);
   }
 

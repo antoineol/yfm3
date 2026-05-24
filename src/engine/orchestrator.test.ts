@@ -296,6 +296,26 @@ describe("multi-start seeding", () => {
       expect(msg.initialDeck).toHaveLength(DECK_SIZE);
     }
   });
+
+  it("uses the current deck as the first override seed when sizes match", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 3 });
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+      },
+    );
+    const currentDeck = Array.from({ length: DECK_SIZE }, (_, i) => i + 1);
+
+    await optimizeDeckParallel(makeCollection(), { currentDeck });
+
+    const msg = saWorkers()[1]?.receivedMessage as WorkerInit;
+    expect(msg.initialDeck).toEqual(currentDeck);
+  });
 });
 
 describe("scorer workers", () => {
@@ -332,9 +352,110 @@ describe("scorer workers", () => {
       currentDeckScore: 999.9,
     });
 
-    expect(scorerWorkers()).toHaveLength(0);
+    // Current score is reused, but the improving result still gets one cleanup validation worker.
+    expect(scorerWorkers()).toHaveLength(1);
     expect(result.currentDeckScore).toBe(999.9);
     expect(result.improvement).toBe(1234 - 999.9);
+  });
+
+  it("keeps the original winner when diff cleanup exact score is lower", async () => {
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              this.onmessage?.({
+                data: {
+                  type: "SCORE_RESULT",
+                  expectedAtk: 1900,
+                  deck: new Array(DECK_SIZE).fill(1),
+                },
+              } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          setTimeout(() => {
+            if (this.terminated) return;
+            this.onmessage?.({
+              data: {
+                type: "RESULT",
+                bestDeck: new Array(DECK_SIZE).fill(9),
+                bestScore: 100_000,
+                expectedAtk: 2000,
+                iterations: 1000,
+              },
+            } as MessageEvent<WorkerResponse>);
+          }, 0);
+        }
+      },
+    );
+
+    const result = await optimizeDeckParallel(makeCollection(), {
+      currentDeck: new Array(DECK_SIZE).fill(1),
+      currentDeckScore: 1000,
+    });
+
+    expect(result.expectedAtk).toBe(2000);
+    expect(result.deck[0]).toBe(9);
+  });
+
+  it("keeps the cleaned deck when diff cleanup exact score is not lower", async () => {
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              this.onmessage?.({
+                data: {
+                  type: "SCORE_RESULT",
+                  expectedAtk: 2000,
+                  deck: new Array(DECK_SIZE).fill(1),
+                },
+              } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          setTimeout(() => {
+            if (this.terminated) return;
+            this.onmessage?.({
+              data: {
+                type: "RESULT",
+                bestDeck: new Array(DECK_SIZE).fill(9),
+                bestScore: 100_000,
+                expectedAtk: 2000,
+                iterations: 1000,
+              },
+            } as MessageEvent<WorkerResponse>);
+          }, 0);
+        }
+      },
+    );
+
+    const result = await optimizeDeckParallel(makeCollection(), {
+      currentDeck: new Array(DECK_SIZE).fill(1),
+      currentDeckScore: 1000,
+    });
+
+    expect(result.expectedAtk).toBe(2000);
+    expect(result.deck[0]).toBe(1);
   });
 
   it("picks the best worker by exact score instead of sampled score", async () => {

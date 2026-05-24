@@ -30,6 +30,8 @@ export interface OptimizeDeckParallelResult {
 
 /** Reserve time for exact scoring in a worker after SA finishes (ms). */
 const EXACT_SCORING_RESERVE = 2_000;
+/** Max wall-clock time spent cleaning the final diff against current deck (ms). */
+const DIFF_CLEANUP_BUDGET = 750;
 /** Default time limit for the parallel optimization pipeline (ms). */
 const DEFAULT_TIME_LIMIT = 15_000;
 /** Safety cap for worker count (prevents runaway on exotic hardware). */
@@ -68,6 +70,44 @@ function scoreInWorker(
       type: "SCORE",
       collection: collectionRecord,
       deck,
+      config,
+      modId,
+      gameData,
+    };
+    worker.postMessage(msg);
+  });
+}
+
+function cleanAndScoreInWorker(
+  collectionRecord: Record<number, number>,
+  deck: number[],
+  currentDeck: number[],
+  modId: ModId,
+  gameData?: BridgeGameData,
+): Promise<{ deck: number[]; expectedAtk: number; cleanupElapsedMs: number }> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./worker/scorer-worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (e: MessageEvent<ScorerResponse>) => {
+      resolve({
+        deck: e.data.deck ?? deck,
+        expectedAtk: e.data.expectedAtk,
+        cleanupElapsedMs: e.data.cleanupElapsedMs ?? 0,
+      });
+      worker.terminate();
+    };
+    worker.onerror = (e) => {
+      reject(new Error(`Cleanup worker error: ${e.message}`));
+      worker.terminate();
+    };
+    const config = getConfig();
+    const msg: ScorerInit = {
+      type: "SCORE",
+      collection: collectionRecord,
+      deck,
+      cleanupAgainstDeck: currentDeck,
+      cleanupBudgetMs: DIFF_CLEANUP_BUDGET,
       config,
       modId,
       gameData,
@@ -168,12 +208,14 @@ export async function optimizeDeckParallel(
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const deckLimits = gameData?.deckLimits?.byCard ?? getCachedDeckLimits(modId);
   const seedGameData = tryGetSeedGameData(modId, gameData);
+  const currentDeckSeed = getCurrentDeckSeed(options?.currentDeck, deckSize);
   const initialDecks = generateInitialDecks(
     collectionRecord,
     numWorkers,
     rand,
     deckLimits,
     seedGameData,
+    currentDeckSeed,
   );
 
   // 2. Run SA workers in parallel with convergence detection
@@ -207,13 +249,37 @@ export async function optimizeDeckParallel(
       ? Promise.resolve(best.expectedAtk)
       : scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId, gameData);
 
-  const [expectedAtk, currentDeckScore] = await Promise.all([
+  const [workerExpectedAtk, currentDeckScore] = await Promise.all([
     expectedAtkPromise,
     currentDeckPromise,
   ]);
+  let expectedAtk = workerExpectedAtk;
+  let deck = best.bestDeck;
+
+  if (
+    options?.currentDeck &&
+    options.currentDeck.length >= deckSize &&
+    (currentDeckScore == null || expectedAtk > currentDeckScore)
+  ) {
+    try {
+      const cleaned = await cleanAndScoreInWorker(
+        collectionRecord,
+        best.bestDeck,
+        options.currentDeck,
+        modId,
+        gameData,
+      );
+      if (cleaned.expectedAtk >= expectedAtk) {
+        deck = cleaned.deck;
+        expectedAtk = cleaned.expectedAtk;
+      }
+    } catch (err) {
+      console.warn("Diff cleanup skipped; cleanup worker failed.", err);
+    }
+  }
 
   return {
-    deck: best?.bestDeck ?? [],
+    deck,
     expectedAtk,
     currentDeckScore,
     improvement: currentDeckScore != null ? expectedAtk - currentDeckScore : null,
@@ -228,6 +294,14 @@ function tryGetSeedGameData(modId: ModId, gameData: BridgeGameData | undefined) 
     console.warn("Seed diversity disabled; failed to prepare seed game data.", err);
     return undefined;
   }
+}
+
+function getCurrentDeckSeed(
+  currentDeck: number[] | undefined,
+  deckSize: number,
+): number[] | undefined {
+  if (!currentDeck || currentDeck.length !== deckSize) return undefined;
+  return currentDeck.slice(0, deckSize);
 }
 
 function pickBestWorkerResult(results: readonly WorkerResult[]) {
