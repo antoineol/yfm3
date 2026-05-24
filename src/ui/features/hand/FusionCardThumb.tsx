@@ -17,6 +17,7 @@ export function FusionCardThumb({ card }: { card: CardSpec }) {
   const openCard = useOpenCard();
   const resolveArtwork = useArtworkSrc();
   const artSrc = resolveArtwork(card.id);
+  const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
 
@@ -57,12 +58,16 @@ export function FusionCardThumb({ card }: { card: CardSpec }) {
             <img alt={card.name} className="fm-mini-art-img" loading="lazy" src={artSrc} />
           </div>
 
-          {/* ATK / DFD */}
-          {card.isMonster && (
+          {/* ATK / DFD or card-type label */}
+          {card.isMonster ? (
             <div className="fm-mini-stats">
               <span className="fm-mini-stat-value fm-mini-stat-value--atk">{card.attack}</span>
               <span className="fm-mini-stat-sep">/</span>
               <span className="fm-mini-stat-value fm-mini-stat-value--def">{card.defense}</span>
+            </div>
+          ) : (
+            <div className="fm-mini-stats">
+              <span className="fm-mini-stat-type">{ct || "Magic"}</span>
             </div>
           )}
         </div>

@@ -80,6 +80,7 @@ Return best deck + exact expected ATK
 | P1: Hand Fusion Calculator (DONE) | [`docs/steps/p2-hand-fusion-calculator.md`](steps/p2-hand-fusion-calculator.md) | 5-card hand simulation, real-time fusion chains, play fusion |
 | P2: Optimization UX (DONE) | [`docs/steps/p3-optimization-ux.md`](steps/p3-optimization-ux.md) | Progress bar, cancel, accept/reject/re-run |
 | P3: Deck Intelligence (DONE) | [`docs/steps/p4-deck-intelligence.md`](steps/p4-deck-intelligence.md) | Deck fusion list, score explanation with probabilities |
+| Card Display Hygiene (DONE) | — | Hide monster-only ATK/DFD values for non-monster Best Plays and fusion-reference rows, while preserving type-based card rendering |
 | P4: Collection & Deck Editing (DONE) | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Last-added hint, collection actions, manual deck add/remove, centralized UI ownership semantics, explicit owned-card naming |
 | P4.5: Animate Generated Deck (DONE) | [`docs/steps/p5.5-animate-generated-deck.md`](steps/p5.5-animate-generated-deck.md) | Live deck preview with auto-animate during optimization |
 | P5: New Card Deck Swap Suggestion (DONE) | [`docs/steps/p6-new-card-suggest-to-deck.md`](steps/p6-new-card-suggest-to-deck.md) | Suggest and optionally apply a caller-gated ranked-then-exact one-card deck upgrade after adding a card with narrow worker payloads |

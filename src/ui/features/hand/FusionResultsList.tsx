@@ -174,6 +174,7 @@ function FusionResultRow({
   );
   const card = cardDb.cardsById.get(result.resultCardId);
   const usesField = result.fieldMaterialCardIds.length > 0;
+  const showResultStats = card?.isMonster ?? true;
 
   return (
     <div className="group flex gap-2.5 rounded-lg border border-border-subtle/60 bg-bg-surface/60 px-3 py-3 lg:py-2.5 hover:border-border-accent transition-colors duration-150">
@@ -196,14 +197,16 @@ function FusionResultRow({
             {usesField && <FieldBadge />}
           </div>
           <div className="flex items-baseline gap-3 shrink-0">
-            <div className="flex items-baseline gap-1.5 w-24 justify-end">
-              <span className="font-mono text-base font-bold tabular-nums text-stat-atk">
-                {result.resultAtk}
-              </span>
-              <span className="font-mono text-xs tabular-nums text-stat-def">
-                {result.resultDef}
-              </span>
-            </div>
+            {showResultStats && (
+              <div className="flex items-baseline gap-1.5 w-24 justify-end">
+                <span className="font-mono text-base font-bold tabular-nums text-stat-atk">
+                  {result.resultAtk}
+                </span>
+                <span className="font-mono text-xs tabular-nums text-stat-def">
+                  {result.resultDef}
+                </span>
+              </div>
+            )}
             {onPlay && (
               <Button onClick={() => onPlay(materialDocIds, result)} size="md" variant="outline">
                 Play

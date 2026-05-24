@@ -57,11 +57,6 @@ export function FusionsTable({ fusions, cardDb }: FusionsTableProps) {
 }
 
 function FusionsRows({ fusions, cardDb }: { fusions: RefFusion[]; cardDb: CardDb }) {
-  function cardName(id: number) {
-    const card = cardDb.cardsById.get(id);
-    return card ? <CardName cardId={card.id} name={card.name} /> : `#${id}`;
-  }
-
   return (
     <table className="w-full text-sm">
       <thead className="sticky top-0 bg-bg-surface border-b border-border-subtle">
@@ -73,17 +68,29 @@ function FusionsRows({ fusions, cardDb }: { fusions: RefFusion[]; cardDb: CardDb
         </tr>
       </thead>
       <tbody>
-        {fusions.map((f) => (
-          <tr
-            className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
-            key={f.material1Id * MAX_CARD_ID + f.material2Id}
-          >
-            <td className="py-1.5 px-1 text-text-primary">{cardName(f.material1Id)}</td>
-            <td className="py-1.5 px-1 text-text-primary">{cardName(f.material2Id)}</td>
-            <td className="py-1.5 px-1 text-gold">{cardName(f.resultId)}</td>
-            <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">{f.resultAtk}</td>
-          </tr>
-        ))}
+        {fusions.map((f) => {
+          const resultCard = cardDb.cardsById.get(f.resultId);
+          const showResultAtk = resultCard?.isMonster ?? true;
+          return (
+            <tr
+              className="border-t border-border-subtle/50 transition-colors duration-150 hover:bg-bg-hover even:bg-bg-surface/30"
+              key={f.material1Id * MAX_CARD_ID + f.material2Id}
+            >
+              <td className="py-1.5 px-1 text-text-primary">
+                <FusionCardName cardDb={cardDb} cardId={f.material1Id} />
+              </td>
+              <td className="py-1.5 px-1 text-text-primary">
+                <FusionCardName cardDb={cardDb} cardId={f.material2Id} />
+              </td>
+              <td className="py-1.5 px-1 text-gold">
+                <FusionCardName cardDb={cardDb} cardId={f.resultId} />
+              </td>
+              <td className="py-1.5 px-2 font-mono font-bold text-stat-atk">
+                {showResultAtk ? f.resultAtk : ""}
+              </td>
+            </tr>
+          );
+        })}
         {fusions.length === 0 && (
           <tr>
             <td className="py-8 text-center text-text-muted" colSpan={4}>
@@ -94,4 +101,9 @@ function FusionsRows({ fusions, cardDb }: { fusions: RefFusion[]; cardDb: CardDb
       </tbody>
     </table>
   );
+}
+
+function FusionCardName({ cardDb, cardId }: { cardDb: CardDb; cardId: number }) {
+  const card = cardDb.cardsById.get(cardId);
+  return card ? <CardName cardId={card.id} name={card.name} /> : `#${cardId}`;
 }

@@ -10,6 +10,7 @@ interface FusesToRow {
   resultId: number;
   resultName: string;
   resultAtk: number;
+  resultIsMonster: boolean;
   fusionKey: number;
 }
 
@@ -35,6 +36,7 @@ export function FusesToSection({ cardId }: { cardId: number }) {
           resultId: f.resultId,
           resultName: resultCard?.name ?? `#${f.resultId}`,
           resultAtk: f.resultAtk,
+          resultIsMonster: resultCard?.isMonster ?? true,
           fusionKey: f.material1Id * MAX_CARD_ID + f.material2Id,
         });
       }
@@ -101,7 +103,7 @@ export function FusesToSection({ cardId }: { cardId: number }) {
                     </a>
                   </td>
                   <td className="py-1.5 px-2 text-right font-mono font-bold text-stat-atk whitespace-nowrap">
-                    {r.resultAtk}
+                    {r.resultIsMonster ? r.resultAtk : ""}
                   </td>
                 </tr>
               ))}

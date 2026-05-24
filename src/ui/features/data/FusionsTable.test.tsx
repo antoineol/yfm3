@@ -41,6 +41,15 @@ addCard(cardDb, {
   kinds: ["Warrior"],
   isMonster: true,
 });
+addCard(cardDb, {
+  id: 5,
+  name: "Ultimate Ritual",
+  attack: 0,
+  defense: 0,
+  kinds: [],
+  cardType: "Ritual",
+  isMonster: false,
+});
 
 const fusions: RefFusion[] = [
   { material1Id: 1, material2Id: 2, resultId: 3, resultAtk: 1500 },
@@ -76,5 +85,19 @@ describe("FusionsTable", () => {
     );
     expect(screen.getByText("No fusions.")).toBeTruthy();
     expect(screen.getByText("0 fusions")).toBeTruthy();
+  });
+
+  it("does not render ATK for non-monster fusion results", () => {
+    render(
+      <CardDbProvider cardDb={cardDb}>
+        <FusionsTable
+          cardDb={cardDb}
+          fusions={[{ material1Id: 1, material2Id: 2, resultId: 5, resultAtk: 0 }]}
+        />
+      </CardDbProvider>,
+    );
+
+    const row = screen.getByText("Ultimate Ritual").closest("tr");
+    expect(row?.textContent).not.toContain("0");
   });
 });
