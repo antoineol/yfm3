@@ -69,7 +69,6 @@ import {
   readGameState,
   readModFingerprint,
   readRawHex,
-  readShuffledDeck,
   refreshView,
   scanFieldBonusTable,
   validateProfile,
@@ -1353,19 +1352,8 @@ function collectionSummary(coll: number[]): { unique: number; total: number } {
   return { unique, total };
 }
 
-let lastShuffledKey = "";
-let dumpedContext = false;
-let lastRewardState: CachedRewardState | null = null;
-
-type CachedRewardState = {
-  duelistId: number | null;
-  rankCounters: number[] | null;
-  rewardPoolContext: GameState["rewardPoolContext"];
-};
-
 function logCollectionDeckState(view: DataView, state: GameState): void {
   const sceneId = state.sceneId;
-  cacheRewardState(state);
 
   // Scene ID change (only when available)
   if (sceneId != null && sceneId !== lastSceneId) {
@@ -1392,9 +1380,6 @@ function logCollectionDeckState(view: DataView, state: GameState): void {
         }
       }
       collLog(`COLLECTION CHANGED (${unique} unique, ${total} total): ${diffs.join(", ")}`);
-      const evidence = describeRewardEvidence(state, prevColl, coll);
-      if (evidence) collLog(evidence);
-      lastRewardState = null;
     } else {
       collLog(`COLLECTION SNAPSHOT (${unique} unique, ${total} total)`);
       const owned: string[] = [];
@@ -1414,260 +1399,6 @@ function logCollectionDeckState(view: DataView, state: GameState): void {
     const nonZero = deck.filter((id) => id > 0);
     collLog(`DECK [${nonZero.length} cards]: ${nonZero.join(" ")}`);
   }
-
-  // Shuffled deck (log when it appears/changes, useful during duels)
-  const shuffled = readShuffledDeck(view);
-  const shuffledNonZero = shuffled.filter((id) => id > 0);
-  if (shuffledNonZero.length > 0) {
-    const shuffledKey = shuffled.join(",");
-    if (shuffledKey !== lastShuffledKey) {
-      lastShuffledKey = shuffledKey;
-      collLog(`SHUFFLED DECK [${shuffledNonZero.length} cards]: ${shuffledNonZero.join(" ")}`);
-    }
-  }
-
-  // Dump a small region around collection for exploration (first time only)
-  if (!dumpedContext) {
-    dumpedContext = true;
-    collLog(`RAW before deck (0x1D01F0): ${readRawHex(view, 0x1d01f0, 16)}`);
-    collLog(`RAW after collection (0x1D0522): ${readRawHex(view, 0x1d0522, 32)}`);
-  }
-}
-
-function cacheRewardState(state: GameState): void {
-  if (state.duelPhase === 0x01) {
-    lastRewardState = null;
-  }
-  if (!state.rankCounters && !state.rewardPoolContext) return;
-
-  lastRewardState = {
-    duelistId: state.duelistId ?? lastRewardState?.duelistId ?? null,
-    rankCounters: state.rankCounters ?? lastRewardState?.rankCounters ?? null,
-    rewardPoolContext: state.rewardPoolContext ?? lastRewardState?.rewardPoolContext ?? null,
-  };
-}
-
-type DropPoolName = "SA-POW" | "BCD" | "SA-TEC";
-
-const RANK_COUNTER_KEYS = [
-  "turns",
-  "effectiveAttacks",
-  "defensiveWins",
-  "faceDownPlays",
-  "fusionsInitiated",
-  "equipMagicUsed",
-  "pureMagicUsed",
-  "trapsTriggered",
-  "remainingCards",
-  "remainingLp",
-] as const;
-
-function describeRewardEvidence(
-  state: GameState,
-  before: readonly number[],
-  after: readonly number[],
-): string | null {
-  const data = currentGameData;
-  const rewardState = mergeRewardState(state, lastRewardState);
-  const duelistId = rewardState.duelistId ?? 0;
-  const duelist = data?.duelists[duelistId - 1];
-  if (!data || !duelist) return null;
-
-  const gained = changedCards(before, after);
-  if (gained.length === 0) return null;
-
-  const rank = rewardState.rankCounters
-    ? rankFromCounters(rewardState.rankCounters, data.rankScoring)
-    : null;
-  const selectorPool = dropPoolFromSelector(rewardState.rewardPoolContext?.computedPool);
-  const matches = (["SA-POW", "BCD", "SA-TEC"] as const).map((pool) => ({
-    pool,
-    matched: countSupportedCards(duelist, pool, gained),
-  }));
-  const best = [...matches].sort((a, b) => b.matched - a.matched)[0]?.pool ?? null;
-  const totalGained = gained.reduce((sum, card) => sum + card.qty, 0);
-  const x15Match = rank
-    ? selectorPool
-      ? describeX15Match(duelist, rank.dropPool, selectorPool, gained)
-      : describeBestX15Match(duelist, rank.dropPool, gained)
-    : null;
-  const context = rewardState.rewardPoolContext
-    ? ` context={cardCountMode:${rewardState.rewardPoolContext.cardCountMode},skillFlag:${rewardState.rewardPoolContext.skillFlag},computedPool:${rewardState.rewardPoolContext.computedPool}}`
-    : "";
-
-  return (
-    `REWARD EVIDENCE duelist=#${duelist.id} ${duelist.name.trim()} ` +
-    `rank=${rank?.label ?? "unknown"}/${rank?.dropPool ?? "unknown"} ` +
-    `selector=${selectorPool ?? "unknown"} cardsBest=${best ?? "unknown"} ` +
-    `matches=${matches.map((m) => `${m.pool}:${m.matched}/${totalGained}`).join(",")} ` +
-    `x15=${x15Match ?? "unknown"}` +
-    context
-  );
-}
-
-function mergeRewardState(state: GameState, cached: CachedRewardState | null): CachedRewardState {
-  return {
-    duelistId: state.duelistId ?? cached?.duelistId ?? null,
-    rankCounters: state.rankCounters ?? cached?.rankCounters ?? null,
-    rewardPoolContext: state.rewardPoolContext ?? cached?.rewardPoolContext ?? null,
-  };
-}
-
-function changedCards(
-  before: readonly number[],
-  after: readonly number[],
-): Array<{ cardId: number; qty: number }> {
-  const result: Array<{ cardId: number; qty: number }> = [];
-  for (let i = 0; i < after.length; i++) {
-    const qty = (after[i] ?? 0) - (before[i] ?? 0);
-    if (qty > 0) result.push({ cardId: i + 1, qty });
-  }
-  return result;
-}
-
-function rankFromCounters(
-  counters: readonly number[],
-  scoring: GameData["rankScoring"],
-): { label: string; dropPool: DropPoolName } | null {
-  if (!scoring || counters.length !== RANK_COUNTER_KEYS.length) return null;
-
-  let score = 52; // base 50 + normal-victory bonus 2
-  for (const factor of scoring.factors) {
-    const index = RANK_COUNTER_KEYS.indexOf(factor.key);
-    const raw = counters[index] ?? 0;
-    score += pointsForValue(raw, factor.thresholds, factor.points);
-  }
-
-  if (score >= 90) return { label: "S-POW", dropPool: "SA-POW" };
-  if (score >= 80) return { label: "A-POW", dropPool: "SA-POW" };
-  if (score >= 70) return { label: "B-POW", dropPool: "BCD" };
-  if (score >= 60) return { label: "C-POW", dropPool: "BCD" };
-  if (score >= 50) return { label: "D-POW", dropPool: "BCD" };
-  if (score >= 40) return { label: "D-TEC", dropPool: "BCD" };
-  if (score >= 30) return { label: "C-TEC", dropPool: "BCD" };
-  if (score >= 20) return { label: "B-TEC", dropPool: "BCD" };
-  if (score >= 10) return { label: "A-TEC", dropPool: "SA-TEC" };
-  return { label: "S-TEC", dropPool: "SA-TEC" };
-}
-
-function pointsForValue(
-  value: number,
-  thresholds: readonly number[],
-  points: readonly number[],
-): number {
-  for (let i = 0; i < thresholds.length; i++) {
-    const threshold = thresholds[i];
-    if (threshold !== undefined && value < threshold) return points[i] ?? 0;
-  }
-  return points[points.length - 1] ?? 0;
-}
-
-function countSupportedCards(
-  duelist: GameData["duelists"][number],
-  pool: DropPoolName,
-  cards: readonly { cardId: number; qty: number }[],
-): number {
-  const weights =
-    pool === "SA-POW" ? duelist.saPow : pool === "SA-TEC" ? duelist.saTec : duelist.bcd;
-  let supported = 0;
-  for (const card of cards) {
-    if ((weights[card.cardId - 1] ?? 0) > 0) supported += card.qty;
-  }
-  return supported;
-}
-
-function describeX15Match(
-  duelist: GameData["duelists"][number],
-  visiblePool: DropPoolName,
-  hiddenPool: DropPoolName,
-  cards: readonly { cardId: number; qty: number }[],
-): string {
-  const fit = computeX15Fit(duelist, visiblePool, hiddenPool, cards);
-  if (fit.possible) {
-    return `${visiblePool}+${hiddenPool}:possible visible=${fit.visibleCards.join("|")}`;
-  }
-  return `${visiblePool}+${hiddenPool}:no ${fit.matched}/${fit.total}`;
-}
-
-function computeX15Fit(
-  duelist: GameData["duelists"][number],
-  visiblePool: DropPoolName,
-  hiddenPool: DropPoolName,
-  cards: readonly { cardId: number; qty: number }[],
-): {
-  hiddenPool: DropPoolName;
-  possible: boolean;
-  matched: number;
-  total: number;
-  visibleCards: number[];
-} {
-  const visibleWeights = weightsForDropPool(duelist, visiblePool);
-  const hiddenWeights = weightsForDropPool(duelist, hiddenPool);
-  const total = cards.reduce((sum, card) => sum + card.qty, 0);
-  let bestMatched = 0;
-  const possibleVisibleCards: number[] = [];
-
-  for (const visibleCard of cards) {
-    if ((visibleWeights[visibleCard.cardId - 1] ?? 0) <= 0) continue;
-
-    let matched = 1;
-    let possible = true;
-    for (const card of cards) {
-      const hiddenQty = card.cardId === visibleCard.cardId ? card.qty - 1 : card.qty;
-      if (hiddenQty <= 0) continue;
-      if ((hiddenWeights[card.cardId - 1] ?? 0) <= 0) {
-        possible = false;
-        continue;
-      }
-      matched += hiddenQty;
-    }
-
-    if (matched > bestMatched) bestMatched = matched;
-    if (possible) possibleVisibleCards.push(visibleCard.cardId);
-  }
-
-  return {
-    hiddenPool,
-    possible: possibleVisibleCards.length > 0,
-    matched: possibleVisibleCards.length > 0 ? total : bestMatched,
-    total,
-    visibleCards: possibleVisibleCards,
-  };
-}
-
-function describeBestX15Match(
-  duelist: GameData["duelists"][number],
-  visiblePool: DropPoolName,
-  cards: readonly { cardId: number; qty: number }[],
-): string {
-  const matches = (["SA-POW", "BCD", "SA-TEC"] as const)
-    .map((hiddenPool) => computeX15Fit(duelist, visiblePool, hiddenPool, cards))
-    .sort((a, b) => {
-      if (a.possible !== b.possible) return a.possible ? -1 : 1;
-      return b.matched - a.matched;
-    });
-  const best = matches[0];
-  if (!best) return "unknown";
-  if (best.possible) {
-    return `${visiblePool}+${best.hiddenPool}:possible visible=${best.visibleCards.join("|")} inferred`;
-  }
-  return `${visiblePool}+${best.hiddenPool}:no ${best.matched}/${best.total} inferred`;
-}
-
-function weightsForDropPool(
-  duelist: GameData["duelists"][number],
-  pool: DropPoolName,
-): readonly number[] {
-  if (pool === "SA-POW") return duelist.saPow;
-  if (pool === "SA-TEC") return duelist.saTec;
-  return duelist.bcd;
-}
-
-function dropPoolFromSelector(selector: number | undefined): DropPoolName | null {
-  if (selector === 0) return "SA-POW";
-  if (selector === 1) return "BCD";
-  if (selector === 2) return "SA-TEC";
-  return null;
 }
 
 // ── Diagnostic probes (optional) ────────────────────────────────────

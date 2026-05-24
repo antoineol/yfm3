@@ -37,7 +37,6 @@ function makeWrapper(store: ReturnType<typeof createStore>) {
 const snapshot = {
   collection: Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i + 1, 1])),
   deck: Array.from({ length: 40 }, (_, i) => i + 1),
-  rewardEvidence: null,
 };
 
 interface RunnerProps {

@@ -155,7 +155,6 @@ const idlePostDuel: PostDuelSuggestionState = {
   liveBestScore: 0,
   result: null,
   currentDeck: [],
-  rewardEvidence: null,
   dismiss: vi.fn(),
 };
 
@@ -191,7 +190,6 @@ describe("DuelPage", () => {
           terrain: 0,
           duelistId: 1,
           rankCounters: null,
-          rewardPoolContext: null,
         },
       }),
     );

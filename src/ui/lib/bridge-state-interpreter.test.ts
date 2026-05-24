@@ -87,11 +87,58 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("ignores a stale hand target while the cursor is on the field phase", () => {
+    it("resolves player field cards even while the logical phase still says hand", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 572,
+          field: [
+            { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 572,
+        hidden: false,
+      });
+    });
+
+    it("keeps resolving hand focus from current state after returning from field view", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 200,
+          field: [
+            { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerHand",
+        index: 1,
+        cardId: 200,
+        hidden: false,
+      });
+    });
+
+    it("ignores a stale hand target once the hand slot is no longer available", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 200,
+          handSlots: [0, 0xff, 2, 3, 4],
         }),
       );
 
@@ -102,9 +149,9 @@ describe("interpretRawState", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
-          duelCursorTargetCardId: 200,
+          duelCursorTargetCardId: 572,
           field: [
-            { cardId: 200, atk: 0, def: 0, status: 0 },
+            { cardId: 572, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -692,7 +739,6 @@ describe("interpretRawState", () => {
         terrain: 4,
         duelistId: 12,
         rankCounters: null,
-        rewardPoolContext: null,
       });
     });
   });

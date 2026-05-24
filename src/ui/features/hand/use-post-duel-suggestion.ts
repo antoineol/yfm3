@@ -20,7 +20,6 @@ import { readLocal, removeLocal, writeLocal } from "../../lib/local-store.ts";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 import {
   type CollectionSnapshot,
-  type RewardEvidence,
   useDuelCollectionTracker,
 } from "./use-duel-collection-tracker.ts";
 import { useOptimizationRunner } from "./use-optimization-runner.ts";
@@ -32,7 +31,6 @@ export interface PostDuelSuggestion {
   result: OptimizeDeckParallelResult | null;
   /** The deck that was current when optimization started (used to compute diff). */
   currentDeck: number[];
-  rewardEvidence: RewardEvidence | null;
   dismiss: () => void;
 }
 
@@ -82,7 +80,6 @@ export function usePostDuelSuggestion(
   // Snapshot is managed here so tracker callbacks (called synchronously from
   // effects) batch state updates with Jotai atom writes in a single render.
   const [optimizationSnapshot, setOptimizationSnapshot] = useState<CollectionSnapshot | null>(null);
-  const [rewardEvidence, setRewardEvidence] = useState<RewardEvidence | null>(null);
 
   // ── Tracker callbacks ──────────────────────────────────────────
   const handleDuelStart = useCallback(() => {
@@ -91,7 +88,6 @@ export function usePostDuelSuggestion(
     setCurrentDeck([]);
     setProgress(0);
     setLiveBestScore(0);
-    setRewardEvidence(null);
     setState("duel_active");
     saveSuggestion(null);
   }, [setState, setResult, setCurrentDeck, setProgress, setLiveBestScore, saveSuggestion]);
@@ -99,7 +95,6 @@ export function usePostDuelSuggestion(
   const handleNewCards = useCallback(
     (snapshot: CollectionSnapshot) => {
       setOptimizationSnapshot(snapshot);
-      setRewardEvidence(snapshot.rewardEvidence);
       setCurrentDeck(snapshot.deck.filter((id) => id > 0));
       setState("optimizing");
     },
@@ -194,7 +189,7 @@ export function usePostDuelSuggestion(
     }
   }, [state, result, deckCardIds, currentDeck, dismiss, setCurrentDeck, saveSuggestion]);
 
-  return { state, progress, liveBestScore, result, currentDeck, rewardEvidence, dismiss };
+  return { state, progress, liveBestScore, result, currentDeck, dismiss };
 }
 
 /** Check whether two decks contain the same cards (order-independent). */

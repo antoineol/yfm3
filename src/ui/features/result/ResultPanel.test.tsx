@@ -32,6 +32,7 @@ vi.mock("../deck/ScoreExplanation.tsx", () => ({
 
 vi.mock("../../lib/card-db-context.tsx", () => ({
   useCardDb: () => ({ cards: [], cardsById: new Map(), cardsByName: new Map() }),
+  useOptionalCardDb: () => null,
 }));
 
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";

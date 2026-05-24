@@ -89,7 +89,6 @@ function makeState(overrides: Partial<AgentGameState> = {}): AgentGameState {
     duelCursorTargetCardId: null,
     duelistUnlock: [],
     rankCounters: null,
-    rewardPoolContext: null,
     ...overrides,
   };
 }
