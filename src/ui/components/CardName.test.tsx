@@ -71,7 +71,7 @@ describe("CardName", () => {
       </Provider>,
     );
 
-    expect(screen.getByRole("button", { name: "Raigeki" }).style.color).toBe("#6aa8ff");
+    expect(screen.getByRole("button", { name: "Raigeki" }).style.color).toBe("#86b5f6");
   });
 
   it("accepts an explicit label color without card database context", () => {
@@ -82,7 +82,7 @@ describe("CardName", () => {
       </Provider>,
     );
 
-    expect(screen.getByRole("button", { name: "Test" }).style.color).toBe("#ff5a5f");
+    expect(screen.getByRole("button", { name: "Test" }).style.color).toBe("#f28383");
   });
 
   it("stops event propagation", () => {

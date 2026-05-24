@@ -76,13 +76,13 @@ const colorPalettes: Record<Color, FramePalette> = {
 };
 
 const labelTextColors: Record<Color, string> = {
-  yellow: "#f4d35e",
-  blue: "#6aa8ff",
-  green: "#5fd17a",
-  purple: "#ff4dff",
-  orange: "#f59e42",
-  red: "#ff5a5f",
-  pink: "#f472b6",
+  yellow: "#e2c15d",
+  blue: "#86b5f6",
+  green: "#7cca8d",
+  purple: "#d78be8",
+  orange: "#dda35d",
+  red: "#f28383",
+  pink: "#e28abb",
 };
 
 const cardTypePalettes: Record<string, FramePalette> = {

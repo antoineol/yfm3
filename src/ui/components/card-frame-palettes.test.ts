@@ -37,8 +37,39 @@ describe("card frame palettes", () => {
   });
 
   it("keeps label colors separate from frame palettes", () => {
-    expect(labelTextColor("blue")).toBe("#6aa8ff");
-    expect(labelTextColor("purple")).toBe("#ff4dff");
+    expect(labelTextColor("blue")).toBe("#86b5f6");
+    expect(labelTextColor("purple")).toBe("#d78be8");
     expect(frameBorderColor("green", "Magic", false)).toBe("#308838");
   });
+
+  it("keeps label colors readable on dark UI surfaces", () => {
+    const darkSurfaces = ["#080c14", "#0f1520", "#161d2d", "#1c2540"];
+    const colors = ["yellow", "blue", "green", "purple", "orange", "red", "pink"];
+
+    for (const color of colors) {
+      for (const surface of darkSurfaces) {
+        expect(contrastRatio(labelTextColor(color) ?? "#000000", surface)).toBeGreaterThanOrEqual(
+          6,
+        );
+      }
+    }
+  });
 });
+
+function contrastRatio(foreground: string, background: string): number {
+  const fg = relativeLuminance(foreground);
+  const bg = relativeLuminance(background);
+  return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+}
+
+function relativeLuminance(hex: string): number {
+  const weights = [0.2126, 0.7152, 0.0722];
+  const channels = [
+    Number.parseInt(hex.slice(1, 3), 16) / 255,
+    Number.parseInt(hex.slice(3, 5), 16) / 255,
+    Number.parseInt(hex.slice(5, 7), 16) / 255,
+  ];
+  return channels
+    .map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, channel, i) => sum + channel * (weights[i] ?? 0), 0);
+}
