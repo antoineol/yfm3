@@ -94,6 +94,8 @@ export interface GameState {
   rankCounters: number[] | null;
   /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
   duelCursorTargetCardId: number | null;
+  /** Player field cursor slot index when an active field card is focused. Null for empty slots/unknown. */
+  duelCursorFieldSlotIndex: number | null;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -122,6 +124,7 @@ const DUELIST_UNLOCK_BYTES = 8; // 4 documented + 4 extra for safety (39 duelist
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
 const DUEL_CURSOR_TARGET_CARD_REL = 0xfe; // NTSC-U: duelPhase + 0xfe = 0x9b338
+const DUEL_CURSOR_FIELD_SLOT_REL = 0x114; // NTSC-U: 1-based player field slot, 0 when none/empty.
 
 export const CARD_STATS_OFFSET = 0x1d4244;
 export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
@@ -509,6 +512,11 @@ function readDuelCursorTargetCardId(view: DataView, profile: OffsetProfile): num
   return readU16(view, profile.duelPhase + DUEL_CURSOR_TARGET_CARD_REL);
 }
 
+function readDuelCursorFieldSlotIndex(view: DataView, profile: OffsetProfile): number | null {
+  const oneBasedSlot = readU8(view, profile.duelPhase + DUEL_CURSOR_FIELD_SLOT_REL);
+  return oneBasedSlot >= 1 && oneBasedSlot <= FIELD_SLOTS ? oneBasedSlot - 1 : null;
+}
+
 // ── Exported functions ─────────────────────────────────────────────
 export async function findDuckStationPids(): Promise<number[]> {
   try {
@@ -605,6 +613,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     cpuShuffledDeck: readCpuShuffledDeck(view),
     rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
+    duelCursorFieldSlotIndex: profile ? readDuelCursorFieldSlotIndex(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
   };
 }
