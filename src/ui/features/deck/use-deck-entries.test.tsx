@@ -6,9 +6,10 @@ import type { CardDb } from "../../../engine/data/game-db.ts";
 vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
 }));
-vi.mock("../../lib/card-db-context.tsx", () => ({
-  useCardDb: vi.fn(),
-}));
+vi.mock("../../lib/card-db-context.tsx", () => {
+  const useCardDb = vi.fn();
+  return { useCardDb, useOptionalCardDb: useCardDb };
+});
 
 import { useDeck } from "../../db/use-deck.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";

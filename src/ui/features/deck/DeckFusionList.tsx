@@ -117,6 +117,7 @@ function FusionRow({
   cardDb: ReturnType<typeof useCardDb>;
 }) {
   const getName = (id: number) => cardDb.cardsById.get(id)?.name ?? `#${String(id)}`;
+  const getLabelColor = (id: number) => cardDb.cardsById.get(id)?.labelColor;
   const path = fusion.materialPaths[0];
   if (!path) return null;
 
@@ -125,6 +126,7 @@ function FusionRow({
       <CardName
         cardId={fusion.resultCardId as CardId}
         className="font-display text-gold-bright truncate"
+        labelColor={getLabelColor(fusion.resultCardId)}
         name={fusion.resultName}
       />
       <span className="font-mono font-bold text-stat-atk tabular-nums">{fusion.resultAtk}</span>
@@ -136,6 +138,7 @@ function FusionRow({
             <CardName
               cardId={id as CardId}
               className="text-text-muted hover:text-gold"
+              labelColor={getLabelColor(id)}
               name={getName(id)}
             />
           </span>

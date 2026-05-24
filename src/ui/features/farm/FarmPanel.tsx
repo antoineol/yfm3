@@ -284,6 +284,7 @@ function FusionRow({ fusion }: { fusion: SerializedFarmableFusion }) {
   const cardDb = useCardDb();
   const missingSet = useMemo(() => new Set(fusion.missingMaterials), [fusion.missingMaterials]);
   const isStandalone = fusion.depth === 0;
+  const resultCard = cardDb.cardsById.get(fusion.resultCardId);
 
   return (
     <div className="flex flex-col gap-0.5 py-0.5 px-1">
@@ -292,6 +293,7 @@ function FusionRow({ fusion }: { fusion: SerializedFarmableFusion }) {
         <CardName
           cardId={fusion.resultCardId as CardId}
           className="font-display text-gold-bright truncate"
+          labelColor={resultCard?.labelColor}
           name={fusion.resultName}
         />
         <span className="font-mono font-bold text-stat-atk tabular-nums shrink-0">

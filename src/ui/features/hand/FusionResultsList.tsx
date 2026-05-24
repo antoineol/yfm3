@@ -192,6 +192,7 @@ function FusionResultRow({
             <CardName
               cardId={result.resultCardId}
               className="font-display text-sm text-gold-bright truncate"
+              labelColor={card?.labelColor}
               name={result.resultName}
             />
             {usesField && <FieldBadge />}

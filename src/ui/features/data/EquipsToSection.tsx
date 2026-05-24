@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
+import { cardLabelColorStyle } from "../../components/CardName.tsx";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "../../components/sortable-header.tsx";
 import { useFusionTable } from "../../lib/fusion-table-context.tsx";
@@ -7,6 +8,7 @@ import { useFusionTable } from "../../lib/fusion-table-context.tsx";
 interface EquipsToRow {
   monsterId: number;
   monsterName: string;
+  monsterLabelColor?: string;
   monsterAtk: number;
 }
 
@@ -37,6 +39,7 @@ export function EquipsToSection({ cardId }: { cardId: number }) {
       result.push({
         monsterId,
         monsterName: name,
+        monsterLabelColor: monsterCard?.labelColor,
         monsterAtk: monsterCard?.attack ?? 0,
       });
     }
@@ -92,6 +95,7 @@ export function EquipsToSection({ cardId }: { cardId: number }) {
                       className="block truncate text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
                       href={`${window.location.pathname}#data/cards/${r.monsterId}`}
                       rel="noopener noreferrer"
+                      style={cardLabelColorStyle(r.monsterLabelColor)}
                       target="_blank"
                     >
                       {r.monsterName}

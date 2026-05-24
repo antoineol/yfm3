@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { MODS } from "../../../engine/mods.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
+import { cardLabelColorStyle } from "../../components/CardName.tsx";
 import type { SortState } from "../../components/sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "../../components/sortable-header.tsx";
 import { useBridge } from "../../lib/bridge-context.tsx";
@@ -10,6 +11,7 @@ import { useSelectedMod } from "../../lib/use-selected-mod.ts";
 interface EquippableByRow {
   equipId: number;
   equipName: string;
+  equipLabelColor?: string;
   bonus: number;
 }
 
@@ -40,7 +42,7 @@ export function EquippableBySection({ cardId }: { cardId: number }) {
       const name = equipCard?.name ?? `#${equipId}`;
       if (NUMERIC_NAME_RE.test(name)) continue;
       const bonus = equipId === megamorphId ? mmBonus : (perEquip?.[equipId] ?? stdBonus);
-      result.push({ equipId, equipName: name, bonus });
+      result.push({ equipId, equipName: name, equipLabelColor: equipCard?.labelColor, bonus });
     }
     result.sort((a, b) => b.bonus - a.bonus || a.equipName.localeCompare(b.equipName));
     return result;
@@ -87,6 +89,7 @@ export function EquippableBySection({ cardId }: { cardId: number }) {
                       className="block truncate text-text-primary hover:text-gold transition-colors duration-150 hover:underline decoration-gold/30 underline-offset-2"
                       href={`${window.location.pathname}#data/cards/${r.equipId}`}
                       rel="noopener noreferrer"
+                      style={cardLabelColorStyle(r.equipLabelColor)}
                       target="_blank"
                     >
                       {r.equipName}

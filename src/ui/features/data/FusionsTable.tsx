@@ -4,7 +4,7 @@ import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { RefFusion } from "../../../engine/reference/build-reference-table.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { CardAutocomplete } from "../../components/CardAutocomplete.tsx";
-import { CardName } from "../../components/CardName.tsx";
+import { CardName, cardLabelColorStyle } from "../../components/CardName.tsx";
 
 interface FusionsTableProps {
   fusions: RefFusion[];
@@ -40,7 +40,9 @@ export function FusionsTable({ fusions, cardDb }: FusionsTableProps) {
             onClick={handleClear}
             type="button"
           >
-            <span className="text-gold">{filterCard.name}</span>
+            <span className="text-gold" style={cardLabelColorStyle(filterCard.labelColor)}>
+              {filterCard.name}
+            </span>
             <span className="text-text-muted">&times;</span>
           </button>
         )}

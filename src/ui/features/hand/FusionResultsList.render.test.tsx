@@ -69,6 +69,21 @@ describe("FusionResultsList rendering", () => {
     expect(screen.getAllByText("3000")).toHaveLength(2);
     expect(screen.getAllByText("2500")).toHaveLength(2);
   });
+
+  it("colors the result heading from label color metadata", () => {
+    renderResults(
+      { ...monsterCard(), labelColor: "purple" },
+      {
+        resultAtk: 3000,
+        resultDef: 2500,
+        resultName: "Blue-Eyes White Dragon",
+      },
+    );
+
+    expect(screen.getByRole("button", { name: "Blue-Eyes White Dragon" }).style.color).toBe(
+      "#c084fc",
+    );
+  });
 });
 
 function renderResults(

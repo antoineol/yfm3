@@ -6,9 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import { resultAtom } from "../../lib/atoms.ts";
 
-vi.mock("../../lib/card-db-context.tsx", () => ({
-  useCardDb: vi.fn(),
-}));
+vi.mock("../../lib/card-db-context.tsx", () => {
+  const useCardDb = vi.fn();
+  return { useCardDb, useOptionalCardDb: useCardDb };
+});
 
 vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
