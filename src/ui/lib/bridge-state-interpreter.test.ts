@@ -206,6 +206,56 @@ describe("interpretRawState", () => {
 
       expect(result.cursorTarget).toBeNull();
     });
+
+    it("keeps opponent hidden field focus when the field slot signal is non-empty", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 548,
+          duelCursorFieldSlotIndex: 2,
+          field: [
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 627, atk: 1900, def: 2000, status: 0 },
+            { cardId: 401, atk: 2150, def: 1950, status: 0 },
+            { cardId: 411, atk: 300, def: 350, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 548, atk: 400, def: 300, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 548,
+        hidden: true,
+      });
+    });
+
+    it("clears a stale opponent hidden target when the field cursor is on an empty slot", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 548,
+          duelCursorFieldSlotIndex: null,
+          opponentField: [
+            { cardId: 548, atk: 400, def: 300, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
   });
 
   describe("card filtering", () => {

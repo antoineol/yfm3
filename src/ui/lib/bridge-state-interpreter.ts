@@ -220,14 +220,14 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 }
 
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
-  const fieldSlotTarget = resolvePlayerFieldSlotTarget(cardId, raw);
+  const fieldSlotTarget = resolveFieldSlotTarget(cardId, raw);
   if (fieldSlotTarget !== undefined) return fieldSlotTarget;
   if (cardId == null || cardId <= 0) return null;
 
   return firstCursorCandidate(cursorZonesByPriority(raw), cardId);
 }
 
-function resolvePlayerFieldSlotTarget(
+function resolveFieldSlotTarget(
   cardId: number | null,
   raw: RawBridgeState,
 ): DuelCursorTarget | null | undefined {
@@ -235,6 +235,13 @@ function resolvePlayerFieldSlotTarget(
   if (!("duelCursorFieldSlotIndex" in raw)) return undefined;
 
   const index = raw.duelCursorFieldSlotIndex;
+  const opponentIndex = findActiveSlotIndex(raw.opponentField ?? [], cardId);
+  if (opponentIndex != null) {
+    return index == null
+      ? null
+      : { zone: "opponentField", index: opponentIndex, cardId: cardId as number, hidden: true };
+  }
+
   if (index == null) {
     return cardId != null && raw.field.some((slot) => slot.cardId === cardId && isActiveSlot(slot))
       ? null
@@ -245,6 +252,12 @@ function resolvePlayerFieldSlotTarget(
   if (!slot) return undefined;
   if (!isActiveSlot(slot)) return null;
   return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function findActiveSlotIndex(slots: RawCardSlot[], cardId: number | null): number | null {
+  if (cardId == null || cardId <= 0) return null;
+  const index = slots.findIndex((slot) => slot.cardId === cardId && isActiveSlot(slot));
+  return index >= 0 ? index : null;
 }
 
 function cursorZonesByPriority(raw: RawBridgeState): Array<{
