@@ -27,20 +27,39 @@ anchor set is patchable.
 
 ### Ghost Drop More Cards injection
 
-For clean NTSC-U-like images, the bridge applies the Ghost tool recipe:
+For clean NTSC-U/Gold images, the bridge applies the Ghost tool recipe:
 
 - patch the root executable hooks at `SLUS:0x12034`, `0x1246c`, `0x12710`,
   and `0x285fc`;
-- inject the Ghost expansion at `SLUS:0x19b440`;
+- inject the full Ghost blob at `SLUS:0x19b400`; its executable code starts
+  0x40 bytes later at `SLUS:0x19b440`;
 - inject the same expansion in `DATA/WA_MRG.MRG` at
   `0xb4c400 + i * 0x75800`, for `i = 1..7`;
 - set the WA loop limits to `16`, `16`, `15`, plus the first external WA limit
   at `0xbc17e4`.
 
-This path is also structure-based. The bridge requires the exact Ghost hook
-bytes in the executable and clean WA_MRG target prefixes before writing. Gold
-`SLUS_000.04` passes those checks; its local continuation instruction at
+Gold `SLUS_000.04` passes those checks; its local continuation instruction at
 `SLUS:0x1247c` is preserved because the bridge writes only the hook bytes.
+
+For PAL French `SLES_039.48`, the bridge applies the verified PAL port of the
+same Ghost recipe:
+
+- patch root executable hooks at `SLES:0x120f0`, `0x12528`, and `0x127cc`;
+- patch the picker delay slot at `SLES:0x12100` to `nop`, because the Ghost
+  picker hook precomputes the drop-table base before returning to PAL's
+  original RNG call;
+- keep `SLES:0x28590` vanilla. That address is shared script/text rendering
+  code on PAL and caused deck-edit crashes when hooked;
+- inject the full PAL-adjusted Ghost blob at `SLES:0x19b400`, with code entry
+  at `SLES:0x19b440`;
+- inject the same PAL-adjusted blob in `DATA/WA_MRG.MRG` at
+  `0xe25400 + i * 0x78000`, for `i = 0..6`;
+- set the PAL WA loop limits to `16`, `16`, `15`, plus the preceding external
+  WA limit at `0xe24fe4`.
+
+Both Ghost injection paths are structure-based. The bridge requires the exact
+verified hook bytes in the executable and clean WA_MRG target prefixes before
+writing.
 
 ## Rejected Patch Families
 
@@ -53,17 +72,22 @@ duelist drop table.
 If an image already contains one of those legacy local patches, restore an
 unpatched backup and apply the Ghost recipe instead.
 
+The bridge still refuses the earlier attempted PAL French port that hooks
+`SLES:0x28590` or writes the executable blob with the wrong 0x40-byte alignment.
+Those variants crashed in unrelated screens or before the duel-result screen.
+
 ## Current Compatibility Policy
 
 Supported:
 
 - images with the Ghost/FMR loop-limit anchors;
 - clean images with the Ghost Drop More Cards executable hooks and WA_MRG
-  target layout.
+  target layout, including verified NTSC-U/Gold layouts;
+- clean PAL French `SLES_039.48` images matching the verified PAL Ghost layout.
 
 Unsupported:
 
-- PAL layouts without the Ghost anchors;
+- PAL layouts that do not match the verified PAL Ghost layout;
 - Ultimate/local-recompiled layouts until a separate community-compatible
   recipe is proven;
 - partial or unknown patches.

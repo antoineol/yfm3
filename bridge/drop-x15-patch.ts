@@ -22,16 +22,14 @@ const GHOST_NO_ANCHORS_REASON =
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
 const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
-const GHOST_TOOL_COPY_OFFSET = 0xb4c400;
-const GHOST_TOOL_COPY_STRIDE = 0x75800;
-const GHOST_TOOL_COPY_COUNT = 7;
-const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b440;
+const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b400;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
-const GHOST_TOOL_WA_EXTRA_LIMITS = [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
+const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
 
 const LEGACY_LOCAL_VISIBLE_PICK = 0x0c008604;
 const LEGACY_FREEZE_SELECTOR_VISIBLE_PICK = 0x0c0087da;
@@ -77,6 +75,92 @@ const GHOST_TOOL_EXPANSION = Buffer.from(
   "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001B001D3C00ACBD270000A2AF0400A3AF0800B0AF0C00A4AF1000A5AF1400BFAF1800B6AF1C00B7AF2000A0A32000B693000000000100D626100017241D00D7122000A0A32000B6A31B80103C50AE108E00000000A8AB060800000000FF0742300100452421200000211880000000029600000000212082002A108500060040100100622401006324D2026228F7FF40140200102621100000020017241800F60212B8000021B8B7032000E2A61BAB0608000000000000A28F000000000400A38F000000000800B08F000000000C00A48F000000001000A58F000000001400BF8F000000001800B68F000000001C00B78F0000000020801D3C1D80033C0A80013C28FFBD271D870008000000001B80043C00AC8424000092AC21908000040056AE080057AE200040A220005692000000000100D626100017240C00D712200040A2200056A2020017241800F60212B8000021B857022000E496000000002586000C000000005AAB0608000000000400568E000000000800578E000000000000528E00000000C6870008000000001B80023C00AC4224000056AC040057AC080044AC20005690000000000100D6260F0017240200D712200040A0200056A0020017241800F60212B8000021B857002000F796000000001D80043C300497A7A85697A40000568C000000000400578C000000000800448C00000000008002343004838700000000C7DF0008212862000000000020801D3C1B80033C50AE63241880023C8C87422421800202000070AC0F860008000000002080023CA0FE422406004810008002343004838700000000C7DF0008212862000000000073AB0608000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C0000000027AB06080000000000000000000000000000000000000000",
   "hex",
 );
+const GHOST_TOOL_PAL_EXPANSION = makePalGhostToolExpansion();
+
+function makePalGhostToolExpansion(): Buffer {
+  const expansion = Buffer.from(GHOST_TOOL_EXPANSION);
+  const blobOffset = (ramAddress: number): number => ramAddress - 0x801aac00;
+
+  writeU32LeToBuffer(expansion, blobOffset(0x801aad38), 0x3c03801c);
+  writeU32LeToBuffer(expansion, blobOffset(0x801aad44), j(0x80021d30));
+  writeU32LeToBuffer(expansion, blobOffset(0x801aad9c), jal(0x80021950));
+  writeU32LeToBuffer(expansion, blobOffset(0x801aadc4), j(0x80021fd8));
+  writeU32LeToBuffer(expansion, blobOffset(0x801aae6c), j(0x800218f8));
+
+  const rngCalls = replaceU32LeInBuffer(
+    expansion,
+    GHOST_TOOL_NTSC_RNG_CALL,
+    GHOST_TOOL_PAL_RNG_CALL,
+  );
+  if (rngCalls !== 7) {
+    throw new Error(`PAL Ghost expansion expected 7 RNG calls, found ${rngCalls}.`);
+  }
+
+  return expansion;
+}
+
+interface GhostToolHook {
+  offset: number;
+  vanilla: Buffer;
+  patched: Buffer;
+}
+
+interface GhostToolLayout {
+  hooks: readonly GhostToolHook[];
+  expansion: Buffer;
+  waCopyOffset: number;
+  waCopyStride: number;
+  waCopyStart: number;
+  waCopyCount: number;
+  waExtraLimits: readonly { offset: number; value: number }[];
+}
+
+const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
+  {
+    hooks: GHOST_TOOL_SLUS_HOOKS,
+    expansion: GHOST_TOOL_EXPANSION,
+    waCopyOffset: 0xb4c400,
+    waCopyStride: 0x75800,
+    waCopyStart: 1,
+    waCopyCount: 7,
+    waExtraLimits: [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }],
+  },
+  {
+    hooks: [
+      {
+        offset: 0x120f0,
+        vanilla: Buffer.from("1880023C8C874224", "hex"),
+        patched: Buffer.from("95AB060800000000", "hex"),
+      },
+      {
+        offset: 0x12100,
+        vanilla: Buffer.from("21800202", "hex"),
+        patched: Buffer.from("00000000", "hex"),
+      },
+      {
+        offset: 0x12528,
+        vanilla: Buffer.from("1C80033C0A80013C", "hex"),
+        patched: Buffer.from("10AB060800000000", "hex"),
+      },
+      {
+        offset: 0x127cc,
+        vanilla: Buffer.from("3C0044845486000C", "hex"),
+        patched: Buffer.from("53AB060800000000", "hex"),
+      },
+      {
+        offset: 0x28590,
+        vanilla: Buffer.from("20048387ACDF000821286200", "hex"),
+        patched: Buffer.from("20048387ACDF000821286200", "hex"),
+      },
+    ],
+    expansion: GHOST_TOOL_PAL_EXPANSION,
+    waCopyOffset: 0xe25400,
+    waCopyStride: 0x78000,
+    waCopyStart: 0,
+    waCopyCount: 7,
+    waExtraLimits: [{ offset: 0xe24fe4, value: GHOST_TOOL_FIRST_LIMIT }],
+  },
+];
 
 const GHOST_LOOP_PATTERNS = [
   {
@@ -185,57 +269,59 @@ function inspectGhostToolPatchState(
 ): DropX15PatchStatus {
   const waEntry = findWaMrgEntry(image, format);
 
-  const hooksVanilla = GHOST_TOOL_SLUS_HOOKS.every((hook) =>
-    bytesMatchAt(image, slusEntry.sector, hook.offset, hook.vanilla, format),
-  );
-  const hooksPatched = GHOST_TOOL_SLUS_HOOKS.every((hook) =>
-    bytesMatchAt(image, slusEntry.sector, hook.offset, hook.patched, format),
-  );
-  const slusExpansionPatched = bytesMatchAt(
-    image,
-    slusEntry.sector,
-    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-    GHOST_TOOL_EXPANSION,
-    format,
-  );
-  const waExpansionPatched = waEntry ? ghostToolWaCopiesPatched(image, waEntry, format) : false;
+  for (const layout of GHOST_TOOL_LAYOUTS) {
+    const hooksVanilla = ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla");
+    const hooksPatched = ghostToolHooksMatch(image, slusEntry, format, layout, "patched");
+    const slusExpansionPatched = bytesMatchAt(
+      image,
+      slusEntry.sector,
+      GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+      layout.expansion,
+      format,
+    );
+    const waExpansionPatched = waEntry
+      ? ghostToolWaCopiesPatched(image, waEntry, format, layout)
+      : false;
 
-  if (hooksPatched && slusExpansionPatched && waExpansionPatched) {
-    return {
-      supported: true,
-      enabled: true,
-      definitionId: GHOST_TOOL_DEFINITION_ID,
-      definitionName: GHOST_TOOL_DEFINITION_NAME,
-      gameSerial: slusEntry.name,
-    };
-  }
+    if (hooksPatched && slusExpansionPatched && waExpansionPatched) {
+      return {
+        supported: true,
+        enabled: true,
+        definitionId: GHOST_TOOL_DEFINITION_ID,
+        definitionName: GHOST_TOOL_DEFINITION_NAME,
+        gameSerial: slusEntry.name,
+      };
+    }
 
-  if (hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format)) {
-    return {
-      supported: true,
-      enabled: false,
-      definitionId: GHOST_TOOL_DEFINITION_ID,
-      definitionName: GHOST_TOOL_DEFINITION_NAME,
-      gameSerial: slusEntry.name,
-    };
-  }
+    if (hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format, layout)) {
+      return {
+        supported: true,
+        enabled: false,
+        definitionId: GHOST_TOOL_DEFINITION_ID,
+        definitionName: GHOST_TOOL_DEFINITION_NAME,
+        gameSerial: slusEntry.name,
+      };
+    }
 
-  if ((hooksVanilla || hooksPatched) && !waEntry) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: slusEntry.name,
-      reason: "DATA/WA_MRG.MRG was not found; Ghost Drop More Cards requires both SLUS and WA_MRG.",
-    };
-  }
+    if ((hooksVanilla || hooksPatched) && !waEntry) {
+      return {
+        supported: false,
+        enabled: false,
+        gameSerial: slusEntry.name,
+        reason:
+          "DATA/WA_MRG.MRG was not found; Ghost Drop More Cards requires both SLUS and WA_MRG.",
+      };
+    }
 
-  if (hooksVanilla && waEntry && ghostToolWaCopiesInRange(waEntry)) {
-    return {
-      supported: false,
-      enabled: false,
-      gameSerial: slusEntry.name,
-      reason: "DATA/WA_MRG.MRG does not match the verified Ghost Drop More Cards injection layout.",
-    };
+    if (hooksVanilla && waEntry && ghostToolWaCopiesInRange(waEntry, layout)) {
+      return {
+        supported: false,
+        enabled: false,
+        gameSerial: slusEntry.name,
+        reason:
+          "DATA/WA_MRG.MRG does not match the verified Ghost Drop More Cards injection layout.",
+      };
+    }
   }
 
   return {
@@ -250,21 +336,16 @@ function inspectGhostToolPatchState(
 function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscFormat): void {
   const waEntry = findWaMrgEntry(image, format);
   if (!waEntry) throw new Error("DATA/WA_MRG.MRG was not found.");
+  const layout = findCleanGhostToolLayout(image, slusEntry, waEntry, format);
+  if (!layout) throw new Error("DATA/WA_MRG.MRG does not match a verified Ghost layout.");
 
-  for (const hook of GHOST_TOOL_SLUS_HOOKS) {
+  for (const hook of layout.hooks) {
     writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
   }
-  writeBytesAt(
-    image,
-    slusEntry.sector,
-    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-    GHOST_TOOL_EXPANSION,
-    format,
-  );
+  writeBytesAt(image, slusEntry.sector, GHOST_TOOL_SLUS_EXPANSION_OFFSET, layout.expansion, format);
 
-  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
-    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
-    writeBytesAt(image, waEntry.sector, copyOffset, GHOST_TOOL_EXPANSION, format);
+  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+    writeBytesAt(image, waEntry.sector, copyOffset, layout.expansion, format);
     writeGhostToolWaLimit(
       image,
       waEntry,
@@ -287,27 +368,61 @@ function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscForm
       GHOST_TOOL_LAST_LIMIT,
     );
   }
-  for (const limit of GHOST_TOOL_WA_EXTRA_LIMITS) {
+  for (const limit of layout.waExtraLimits) {
     writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
   }
 }
 
-function ghostToolWaCopiesPatched(image: Buffer, waEntry: IsoFile, format: DiscFormat): boolean {
-  if (!ghostToolWaCopiesInRange(waEntry)) return false;
-  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
-    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
-    if (!bytesMatchAt(image, waEntry.sector, copyOffset, GHOST_TOOL_EXPANSION, format))
-      return false;
+function ghostToolHooksMatch(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  state: "vanilla" | "patched",
+): boolean {
+  return layout.hooks.every((hook) =>
+    bytesMatchAt(image, slusEntry.sector, hook.offset, hook[state], format),
+  );
+}
+
+function findCleanGhostToolLayout(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile,
+  format: DiscFormat,
+): GhostToolLayout | null {
+  return (
+    GHOST_TOOL_LAYOUTS.find(
+      (layout) =>
+        ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla") &&
+        ghostToolWaTargetsClean(image, waEntry, format, layout),
+    ) ?? null
+  );
+}
+
+function ghostToolWaCopiesPatched(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
+  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+    if (!bytesMatchAt(image, waEntry.sector, copyOffset, layout.expansion, format)) return false;
   }
-  return GHOST_TOOL_WA_EXTRA_LIMITS.every(
+  return layout.waExtraLimits.every(
     (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === limit.value,
   );
 }
 
-function ghostToolWaTargetsClean(image: Buffer, waEntry: IsoFile, format: DiscFormat): boolean {
-  if (!ghostToolWaCopiesInRange(waEntry)) return false;
-  for (let copy = 1; copy <= GHOST_TOOL_COPY_COUNT; copy++) {
-    const copyOffset = GHOST_TOOL_COPY_OFFSET + copy * GHOST_TOOL_COPY_STRIDE;
+function ghostToolWaTargetsClean(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
+  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
     if (!bytesMatchAt(image, waEntry.sector, copyOffset, GHOST_TOOL_WA_CLEAN_PREFIX, format)) {
       return false;
     }
@@ -315,11 +430,17 @@ function ghostToolWaTargetsClean(image: Buffer, waEntry: IsoFile, format: DiscFo
   return true;
 }
 
-function ghostToolWaCopiesInRange(waEntry: IsoFile): boolean {
-  const lastCopyOffset = GHOST_TOOL_COPY_OFFSET + GHOST_TOOL_COPY_COUNT * GHOST_TOOL_COPY_STRIDE;
-  const lastExtraOffset = Math.max(...GHOST_TOOL_WA_EXTRA_LIMITS.map((limit) => limit.offset));
-  return (
-    lastCopyOffset + GHOST_TOOL_EXPANSION.length <= waEntry.size && lastExtraOffset < waEntry.size
+function ghostToolWaCopiesInRange(waEntry: IsoFile, layout: GhostToolLayout): boolean {
+  const offsets = ghostToolWaCopyOffsets(layout);
+  const lastCopyOffset = offsets[offsets.length - 1] ?? 0;
+  const lastExtraOffset = Math.max(...layout.waExtraLimits.map((limit) => limit.offset));
+  return lastCopyOffset + layout.expansion.length <= waEntry.size && lastExtraOffset < waEntry.size;
+}
+
+function ghostToolWaCopyOffsets(layout: GhostToolLayout): number[] {
+  return Array.from(
+    { length: layout.waCopyCount },
+    (_, i) => layout.waCopyOffset + (layout.waCopyStart + i) * layout.waCopyStride,
   );
 }
 
@@ -541,4 +662,27 @@ function readU32LeAt(
       ((image[discOffset(fileStartSector, fileOffset + 3, format)] ?? 0) << 24)) >>>
     0
   );
+}
+
+function j(address: number): number {
+  return (0x08000000 | ((address >>> 2) & 0x03ffffff)) >>> 0;
+}
+
+function jal(address: number): number {
+  return (0x0c000000 | ((address >>> 2) & 0x03ffffff)) >>> 0;
+}
+
+function writeU32LeToBuffer(buffer: Buffer, offset: number, value: number): void {
+  buffer.writeUInt32LE(value >>> 0, offset);
+}
+
+function replaceU32LeInBuffer(buffer: Buffer, from: number, to: number): number {
+  let count = 0;
+  for (let offset = 0; offset <= buffer.length - 4; offset += 4) {
+    if (buffer.readUInt32LE(offset) === from >>> 0) {
+      buffer.writeUInt32LE(to >>> 0, offset);
+      count++;
+    }
+  }
+  return count;
 }

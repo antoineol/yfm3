@@ -106,6 +106,12 @@ describe("drop x15 patch inspection", () => {
         definitionId: "ghost-loop-limits",
       });
       expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x1247c)).toBe(0x24050101);
+      expect(
+        patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b400, 21 * SECTOR_DATA_SIZE + 0x19b410),
+      ).toEqual(Buffer.alloc(16));
+      expect(
+        patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b440, 21 * SECTOR_DATA_SIZE + 0x19b448),
+      ).toEqual(Buffer.from("1B001D3C00ACBD27", "hex"));
       expect(patched[waOffset(0xbc1c78)]).toBe(16);
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
@@ -115,8 +121,21 @@ describe("drop x15 patch inspection", () => {
     }
   });
 
-  test("rejects the shifted PAL France local layout instead of installing a custom trampoline", () => {
-    const image = makeDiscImage("SLES_039.48");
+  test("supports the verified PAL France Ghost Drop More Cards layout", () => {
+    const image = makePalGhostToolDiscImage("SLES_039.48");
+
+    expect(inspectDropX15Image(image)).toEqual({
+      supported: true,
+      enabled: false,
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x15",
+      gameSerial: "SLES_039.48",
+    });
+  });
+
+  test("rejects PAL France when the shared text-renderer hook is modified", () => {
+    const image = makePalGhostToolDiscImage("SLES_039.48");
+    writeBytes(image, 21, 0x28590, "9DAB06080000000000000000");
 
     expect(inspectDropX15Image(image)).toMatchObject({
       supported: false,
@@ -174,10 +193,69 @@ describe("drop x15 patch inspection", () => {
         enabled: true,
         definitionId: "ghost-loop-limits",
       });
+      expect(
+        patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b400, 21 * SECTOR_DATA_SIZE + 0x19b410),
+      ).toEqual(Buffer.alloc(16));
+      expect(
+        patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b440, 21 * SECTOR_DATA_SIZE + 0x19b448),
+      ).toEqual(Buffer.from("1B001D3C00ACBD27", "hex"));
       expect(patched[waOffset(0xbc1c78)]).toBe(16);
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
       expect(patched[waOffset(0xbc17e4)]).toBe(16);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("patches the PAL France Ghost Drop More Cards layout in place", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      const result = patchDropX15DiscInPlace(discPath);
+      const patched = readFileSync(discPath);
+      const slusBase = 21 * SECTOR_DATA_SIZE;
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-loop-limits",
+      });
+      expect(inspectDropX15Image(patched)).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-loop-limits",
+      });
+      expect(patched.subarray(slusBase + 0x120f0, slusBase + 0x120f8)).toEqual(
+        Buffer.from("95AB060800000000", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x12100, slusBase + 0x12104)).toEqual(
+        Buffer.from("00000000", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x28590, slusBase + 0x2859c)).toEqual(
+        Buffer.from("20048387ACDF000821286200", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b400, slusBase + 0x19b410)).toEqual(Buffer.alloc(16));
+      expect(patched.subarray(slusBase + 0x19b440, slusBase + 0x19b448)).toEqual(
+        Buffer.from("1B001D3C00ACBD27", "hex"),
+      );
+      expect(patched.readUInt32LE(slusBase + 0x19b538)).toBe(0x3c03801c);
+      expect(patched.readUInt32LE(slusBase + 0x19b544)).toBe(0x0800874c);
+      expect(patched.readUInt32LE(slusBase + 0x19b59c)).toBe(0x0c008654);
+      expect(patched.readUInt32LE(slusBase + 0x19b5c4)).toBe(0x080087f6);
+      expect(patched.readUInt32LE(slusBase + 0x19b66c)).toBe(0x0800863e);
+
+      for (let copy = 0; copy < 7; copy++) {
+        const base = 0xe25400 + copy * 0x78000;
+        expect(patched[waOffset(base + 0x78)]).toBe(16);
+        expect(patched[waOffset(base + 0x174)]).toBe(16);
+        expect(patched[waOffset(base + 0x1ec)]).toBe(15);
+      }
+      expect(patched[waOffset(0xe24fe4)]).toBe(16);
+      expect(patched[waOffset(0x116d400)]).toBe(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -262,6 +340,30 @@ function makeGhostToolDiscImage(serial: string, continuationWord = 0x00021400): 
   return image;
 }
 
+function makePalGhostToolDiscImage(serial: string): Buffer {
+  const rootSector = 20;
+  const slusSector = 21;
+  const dataSector = 1000;
+  const waSector = 1001;
+  const slusSize = 0x19b800;
+  const waSize = 0x1180000;
+  const image = Buffer.alloc(
+    (waSector + Math.ceil(waSize / SECTOR_DATA_SIZE) + 1) * SECTOR_DATA_SIZE,
+  );
+
+  writePrimaryVolumeDescriptor(image, rootSector);
+  writeRootDirectoryWithData(image, rootSector, slusSector, slusSize, serial, dataSector);
+  writeDirRecord(image, dataSector * SECTOR_DATA_SIZE, {
+    extent: waSector,
+    size: waSize,
+    flags: 0,
+    name: "WA_MRG.MRG;1",
+  });
+  seedPalGhostToolHooks(image, slusSector);
+  seedPalGhostToolWaCleanPrefixes(image);
+  return image;
+}
+
 function seedGhostLoopPatterns(
   image: Buffer,
   mode: keyof typeof GHOST_LOOP_PATTERN_BYTES,
@@ -341,6 +443,14 @@ function seedGhostToolHooks(
   writeBytes(image, slusSector, 0x285fc, "30048387C7DF000821286200");
 }
 
+function seedPalGhostToolHooks(image: Buffer, slusSector: number): void {
+  writeBytes(image, slusSector, 0x120f0, "1880023C8C874224");
+  writeBytes(image, slusSector, 0x12100, "21800202");
+  writeBytes(image, slusSector, 0x12528, "1C80033C0A80013C");
+  writeBytes(image, slusSector, 0x127cc, "3C0044845486000C");
+  writeBytes(image, slusSector, 0x28590, "20048387ACDF000821286200");
+}
+
 function seedUnsafeFreezeSelectorPatch(image: Buffer, slusSector: number): void {
   writeU32(image, slusSector, 0x12460, 0x0c0087da);
   writeU32(image, slusSector, 0x12710, 0x080087c9);
@@ -361,6 +471,13 @@ function seedGhostToolWaCleanPrefixes(image: Buffer): void {
   const prefix = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
   for (let copy = 1; copy <= 7; copy++) {
     prefix.copy(image, waOffset(0xb4c400 + copy * 0x75800));
+  }
+}
+
+function seedPalGhostToolWaCleanPrefixes(image: Buffer): void {
+  const prefix = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+  for (let copy = 0; copy < 7; copy++) {
+    prefix.copy(image, waOffset(0xe25400 + copy * 0x78000));
   }
 }
 
