@@ -220,6 +220,14 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 }
 
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
+  if (isPlayerHandCursorPhase(raw)) {
+    if (cardId == null || cardId <= 0) return null;
+    const handTarget = firstCursorCandidate([cursorPlayerHandZone(raw)], cardId);
+    if (handTarget) return handTarget;
+    const fieldTarget = resolveFieldSlotTarget(cardId, raw);
+    return fieldTarget ?? null;
+  }
+
   const fieldSlotTarget = resolveFieldSlotTarget(cardId, raw);
   if (fieldSlotTarget !== undefined) return fieldSlotTarget;
   if (cardId == null || cardId <= 0) return null;
@@ -227,34 +235,48 @@ function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCu
   return firstCursorCandidate(cursorZonesByPriority(raw), cardId);
 }
 
+function isPlayerHandCursorPhase(raw: RawBridgeState): boolean {
+  return (
+    raw.turnIndicator === 0 &&
+    (raw.duelPhase === PHASE_DRAW ||
+      raw.duelPhase === PHASE_HAND_SELECT ||
+      raw.duelPhase === PHASE_FUSION ||
+      raw.duelPhase === PHASE_FUSION_RESOLVE)
+  );
+}
+
 function resolveFieldSlotTarget(
   cardId: number | null,
   raw: RawBridgeState,
 ): DuelCursorTarget | null | undefined {
-  if (raw.turnIndicator !== 0 || raw.duelPhase !== PHASE_FIELD) return undefined;
+  if (raw.turnIndicator !== 0) return undefined;
   if (!("duelCursorFieldSlotIndex" in raw)) return undefined;
 
   const index = raw.duelCursorFieldSlotIndex;
+  if (index == null) return raw.duelPhase === PHASE_FIELD ? null : undefined;
+  if (!isFieldCursorViewActive(raw)) return undefined;
+
   const playerIndex = findActiveSlotIndex(raw.field, cardId);
   if (playerIndex != null) {
-    return index == null
-      ? null
-      : { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
+    return { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
   }
 
   const opponentIndex = findActiveSlotIndex(raw.opponentField ?? [], cardId);
   if (opponentIndex != null) {
-    return index == null
-      ? null
-      : { zone: "opponentField", index: opponentIndex, cardId: cardId as number, hidden: true };
+    return { zone: "opponentField", index: opponentIndex, cardId: cardId as number, hidden: true };
   }
-
-  if (index == null) return undefined;
 
   const slot = raw.field[index];
   if (!slot) return undefined;
   if (!isActiveSlot(slot)) return null;
   return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function isFieldCursorViewActive(raw: RawBridgeState): boolean {
+  if (raw.duelPhase === PHASE_FIELD) return true;
+  return [...raw.field, ...(raw.opponentField ?? [])].some(
+    (slot) => isActiveSlot(slot) && (slot.status & 0x04) !== 0,
+  );
 }
 
 function findActiveSlotIndex(slots: RawCardSlot[], cardId: number | null): number | null {
@@ -269,12 +291,7 @@ function cursorZonesByPriority(raw: RawBridgeState): Array<{
   hidden: boolean;
   active: (slot: RawCardSlot, index: number) => boolean;
 }> {
-  const playerHand = {
-    zone: "playerHand" as const,
-    slots: raw.hand,
-    hidden: false,
-    active: (slot: RawCardSlot, index: number) => isAvailableHandSlot(slot, raw.handSlots, index),
-  };
+  const playerHand = cursorPlayerHandZone(raw);
   const playerField = {
     zone: "playerField" as const,
     slots: raw.field,
@@ -303,6 +320,15 @@ function cursorZonesByPriority(raw: RawBridgeState): Array<{
     return [playerHand, playerField, opponentField, opponentHand];
   }
   return [playerField, opponentField, playerHand, opponentHand];
+}
+
+function cursorPlayerHandZone(raw: RawBridgeState) {
+  return {
+    zone: "playerHand" as const,
+    slots: raw.hand,
+    hidden: false,
+    active: (slot: RawCardSlot, index: number) => isAvailableHandSlot(slot, raw.handSlots, index),
+  };
 }
 
 function firstCursorCandidate(

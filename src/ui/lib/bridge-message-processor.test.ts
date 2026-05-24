@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   type BridgeState,
+  type BridgeTracker,
   type EndedTracker,
   INITIAL_BRIDGE_STATE,
+  INITIAL_BRIDGE_TRACKER,
   INITIAL_ENDED_TRACKER,
   processBridgeMessage,
   resolveEndedPhase,
@@ -155,7 +157,7 @@ describe("resolveEndedPhase", () => {
 
 describe("processBridgeMessage", () => {
   const T = 1_000_000;
-  const tracker = { ...INITIAL_ENDED_TRACKER };
+  const tracker = { ...INITIAL_BRIDGE_TRACKER };
 
   function readyMsg(overrides: Record<string, unknown> = {}) {
     return {
@@ -222,7 +224,7 @@ describe("processBridgeMessage", () => {
   function process(
     msg: unknown,
     current: BridgeState = INITIAL_BRIDGE_STATE,
-    t: EndedTracker = tracker,
+    t: BridgeTracker = tracker,
   ) {
     const result = processBridgeMessage(msg, current, t, T);
     expect(result).not.toBeNull();
@@ -293,6 +295,90 @@ describe("processBridgeMessage", () => {
 
       expect(leftResults.state.phase).toBe("other");
       expect(leftResults.state.inDuel).toBe(false);
+    });
+
+    it("restores the confirmed hand target when field preview closes before raw target updates", () => {
+      const hand = [
+        { cardId: 649, atk: 500, def: 200, status: 0x80 },
+        { cardId: 387, atk: 400, def: 300, status: 0x80 },
+        { cardId: 2, atk: 800, def: 600, status: 0x80 },
+        { cardId: 2, atk: 800, def: 600, status: 0x80 },
+        { cardId: 635, atk: 200, def: 100, status: 0x80 },
+      ];
+      const normalField = [
+        { cardId: 22, atk: 800, def: 1000, status: 0x80 },
+        { cardId: 401, atk: 800, def: 1200, status: 0x80 },
+        { cardId: 529, atk: 1000, def: 1000, status: 0x80 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const previewField = normalField.map((slot) =>
+        slot.cardId > 0 ? { ...slot, status: 0x84 } : slot,
+      );
+      const opponentClosed = [
+        { cardId: 282, atk: 1400, def: 1000, status: 0xb8 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const opponentPreview = [{ ...opponentClosed[0], status: 0xbc }, ...opponentClosed.slice(1)];
+
+      const handPoll = process(
+        readyMsg({
+          hand,
+          handSlots: [5, 6, 8, 9, 10],
+          field: normalField,
+          opponentField: opponentClosed,
+          duelCursorTargetCardId: 387,
+          duelCursorFieldSlotIndex: 0,
+        }),
+      );
+      expect(handPoll.state.cursorTarget).toEqual({
+        zone: "playerHand",
+        index: 1,
+        cardId: 387,
+        hidden: false,
+      });
+
+      const previewPoll = process(
+        readyMsg({
+          hand,
+          handSlots: [5, 6, 8, 9, 10],
+          field: previewField,
+          opponentField: opponentPreview,
+          duelCursorTargetCardId: 282,
+          duelCursorFieldSlotIndex: 2,
+        }),
+        handPoll.state,
+        handPoll.tracker,
+      );
+      expect(previewPoll.state.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 282,
+        hidden: true,
+      });
+
+      const returnedToHand = process(
+        readyMsg({
+          hand,
+          handSlots: [5, 6, 8, 9, 10],
+          field: normalField,
+          opponentField: opponentClosed,
+          duelCursorTargetCardId: 282,
+          duelCursorFieldSlotIndex: 2,
+        }),
+        previewPoll.state,
+        previewPoll.tracker,
+      );
+
+      expect(returnedToHand.state.cursorTarget).toEqual({
+        zone: "playerHand",
+        index: 1,
+        cardId: 387,
+        hidden: false,
+      });
     });
   });
 
@@ -504,7 +590,13 @@ describe("processBridgeMessage", () => {
     });
 
     it("passes tracker through unchanged for partial-update messages", () => {
-      const customTracker: EndedTracker = { sceneId: 42, sceneLeft: false, at: T, wasInDuel: true };
+      const customTracker: BridgeTracker = {
+        ...INITIAL_BRIDGE_TRACKER,
+        sceneId: 42,
+        sceneLeft: false,
+        at: T,
+        wasInDuel: true,
+      };
       const msg = { type: "restart_result", success: false };
       const { tracker: t } = process(msg, INITIAL_BRIDGE_STATE, customTracker);
       expect(t).toBe(customTracker);
@@ -535,7 +627,7 @@ describe("processBridgeMessage", () => {
     /** Chain helper: processes a message and asserts non-null result. */
     function chain(
       msg: ReturnType<typeof makeRaw>,
-      prev: { state: BridgeState; tracker: EndedTracker },
+      prev: { state: BridgeState; tracker: BridgeTracker },
       time: number,
     ) {
       const result = processBridgeMessage(msg, prev.state, prev.tracker, time);
@@ -644,7 +736,7 @@ describe("processBridgeMessage", () => {
       const r = processBridgeMessage(
         makeRaw({ status: "ready", connected: true }),
         INITIAL_BRIDGE_STATE,
-        INITIAL_ENDED_TRACKER,
+        INITIAL_BRIDGE_TRACKER,
         1_000,
       );
       if (!r) throw new Error("processBridgeMessage returned null");

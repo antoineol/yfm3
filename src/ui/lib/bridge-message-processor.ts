@@ -5,6 +5,7 @@ import type {
   DuelStats,
   FieldCard,
   RawBridgeState,
+  RawCardSlot,
 } from "./bridge-state-interpreter.ts";
 import {
   computeOwnedCards,
@@ -150,6 +151,15 @@ export const INITIAL_ENDED_TRACKER: EndedTracker = {
   wasInDuel: false,
 };
 
+export type BridgeTracker = EndedTracker & {
+  confirmedPlayerHandTarget: DuelCursorTarget | null;
+};
+
+export const INITIAL_BRIDGE_TRACKER: BridgeTracker = {
+  ...INITIAL_ENDED_TRACKER,
+  confirmedPlayerHandTarget: null,
+};
+
 // ── Reference-stability helpers ──────────────────────────────────────
 // These let `processBridgeMessage` return the same slice refs (and root
 // ref) across polls with unchanged content, so React Compiler's auto-memo
@@ -224,11 +234,64 @@ function shallowEqBridgeState(a: BridgeState, b: BridgeState): boolean {
   return true;
 }
 
+function resolveCursorTargetAcrossPreview(
+  cursorTarget: DuelCursorTarget | null,
+  raw: RawBridgeState,
+  confirmedPlayerHandTarget: DuelCursorTarget | null,
+): DuelCursorTarget | null {
+  if (cursorTarget) return cursorTarget;
+  if (!isPlayerHandPhase(raw)) return null;
+  if (!confirmedPlayerHandTarget || !isAvailableRawHandTarget(raw, confirmedPlayerHandTarget)) {
+    return null;
+  }
+  return confirmedPlayerHandTarget;
+}
+
+function nextConfirmedPlayerHandTarget(
+  raw: RawBridgeState,
+  cursorTarget: DuelCursorTarget | null,
+  previous: DuelCursorTarget | null,
+): DuelCursorTarget | null {
+  if (cursorTarget?.zone === "playerHand") return cursorTarget;
+  if (previous && isAvailableRawHandTarget(raw, previous)) return previous;
+  return null;
+}
+
+function isPlayerHandPhase(raw: RawBridgeState): boolean {
+  return (
+    raw.turnIndicator === 0 &&
+    (raw.duelPhase === 0x03 ||
+      raw.duelPhase === 0x04 ||
+      raw.duelPhase === 0x07 ||
+      raw.duelPhase === 0x08)
+  );
+}
+
+function isAvailableRawHandTarget(raw: RawBridgeState, target: DuelCursorTarget): boolean {
+  if (target.zone !== "playerHand") return false;
+  const slot = raw.hand[target.index];
+  return Boolean(
+    slot &&
+      slot.cardId === target.cardId &&
+      isAvailableRawHandSlot(slot, raw.handSlots, target.index),
+  );
+}
+
+function isAvailableRawHandSlot(
+  slot: RawCardSlot,
+  handSlots: number[] | null | undefined,
+  index: number,
+): boolean {
+  if (slot.cardId <= 0 || slot.cardId >= 723) return false;
+  if (handSlots) return handSlots[index] !== 0xff;
+  return slot.status !== 0;
+}
+
 // ── Exported functions ───────────────────────────────────────────────
 
 type ProcessResult = {
   state: BridgeState;
-  tracker: EndedTracker;
+  tracker: BridgeTracker;
 };
 
 /**
@@ -265,7 +328,7 @@ function parseGameDataMessage(m: Record<string, unknown>): BridgeGameData {
 export function processBridgeMessage(
   msg: unknown,
   currentState: BridgeState,
-  tracker: EndedTracker,
+  tracker: BridgeTracker,
   now: number,
 ): ProcessResult | null {
   if (typeof msg !== "object" || msg === null) return null;
@@ -319,6 +382,22 @@ export function processBridgeMessage(
       now,
     );
     const inDuel = interpreted.inDuel || effectivePhase === "ended";
+    const isActiveDuel = inDuel && effectivePhase !== "ended";
+    const resolvedCursorTarget = resolveCursorTargetAcrossPreview(
+      interpreted.cursorTarget,
+      raw,
+      tracker.confirmedPlayerHandTarget,
+    );
+    const nextBridgeTracker: BridgeTracker = {
+      ...nextTracker,
+      confirmedPlayerHandTarget: isActiveDuel
+        ? nextConfirmedPlayerHandTarget(
+            raw,
+            resolvedCursorTarget,
+            tracker.confirmedPlayerHandTarget,
+          )
+        : null,
+    };
 
     const cpuSwaps = accumulateCpuSwaps(
       currentState.cpuSwaps,
@@ -330,7 +409,7 @@ export function processBridgeMessage(
       {
         opponentHand: interpreted.opponentHand,
         opponentFieldCount: interpreted.opponentField.length,
-        inDuel: inDuel && effectivePhase !== "ended",
+        inDuel: isActiveDuel,
       },
       effectivePhase,
       now,
@@ -351,11 +430,7 @@ export function processBridgeMessage(
     );
     const lp = keepRef(currentState.lp, interpreted.lp, eqLp);
     const stats = keepRef(currentState.stats, interpreted.stats, eqStats);
-    const cursorTarget = keepRef(
-      currentState.cursorTarget,
-      interpreted.cursorTarget,
-      eqCursorTarget,
-    );
+    const cursorTarget = keepRef(currentState.cursorTarget, resolvedCursorTarget, eqCursorTarget);
     const collection = keepRef(
       currentState.collection,
       computeOwnedCards(raw.trunk, raw.deckDefinition),
@@ -401,7 +476,7 @@ export function processBridgeMessage(
 
     // Every slice already matches currentState ref? Skip the allocation.
     const state = shallowEqBridgeState(currentState, candidate) ? currentState : candidate;
-    return { state, tracker: nextTracker };
+    return { state, tracker: nextBridgeTracker };
   }
 
   if (stateMsg.connected && stateMsg.status === "waiting_for_game") {
@@ -413,7 +488,7 @@ export function processBridgeMessage(
         version: stateMsg.version ?? null,
         updateStaged: currentState.updateStaged,
       },
-      tracker,
+      tracker: INITIAL_BRIDGE_TRACKER,
     };
   }
 
@@ -433,7 +508,7 @@ export function processBridgeMessage(
         settingsPatched: disconnected.settingsPatched === true,
         version: disconnected.version ?? null,
       },
-      tracker,
+      tracker: INITIAL_BRIDGE_TRACKER,
     };
   }
 

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type BridgeState,
+  type BridgeTracker,
   type EmulatorBridge,
-  type EndedTracker,
   INITIAL_BRIDGE_STATE,
-  INITIAL_ENDED_TRACKER,
+  INITIAL_BRIDGE_TRACKER,
   processBridgeMessage,
 } from "./bridge-message-processor.ts";
 
@@ -21,7 +21,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
-  const endedTrackerRef = useRef<EndedTracker>(INITIAL_ENDED_TRACKER);
+  const bridgeTrackerRef = useRef<BridgeTracker>(INITIAL_BRIDGE_TRACKER);
 
   const connect = useCallback(() => {
     if (!enabledRef.current) return;
@@ -45,9 +45,9 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       try {
         const msg: unknown = JSON.parse(event.data as string);
         setState((current) => {
-          const result = processBridgeMessage(msg, current, endedTrackerRef.current, Date.now());
+          const result = processBridgeMessage(msg, current, bridgeTrackerRef.current, Date.now());
           if (!result) return current;
-          endedTrackerRef.current = result.tracker;
+          bridgeTrackerRef.current = result.tracker;
           return result.state;
         });
       } catch {
@@ -57,6 +57,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
 
     ws.onclose = () => {
       wsRef.current = null;
+      bridgeTrackerRef.current = INITIAL_BRIDGE_TRACKER;
       // Preserve `updating` flag so the UI shows "Updating…" during reconnect
       setState((prev) =>
         prev.updating ? { ...INITIAL_BRIDGE_STATE, updating: true } : INITIAL_BRIDGE_STATE,
@@ -76,6 +77,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
+      bridgeTrackerRef.current = INITIAL_BRIDGE_TRACKER;
       setState(INITIAL_BRIDGE_STATE);
       return;
     }

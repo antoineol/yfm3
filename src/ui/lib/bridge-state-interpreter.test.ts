@@ -93,6 +93,7 @@ describe("interpretRawState", () => {
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 572,
+          duelCursorFieldSlotIndex: 0,
           field: [
             { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -109,6 +110,68 @@ describe("interpretRawState", () => {
         cardId: 572,
         hidden: false,
       });
+    });
+
+    it("resolves opponent field preview while the logical phase still says hand", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 493,
+          duelCursorFieldSlotIndex: 1,
+          opponentField: [
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 493, atk: 1400, def: 1200, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 1,
+        cardId: 493,
+        hidden: true,
+      });
+    });
+
+    it("ignores a stale field target after returning to hand", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 493,
+          duelCursorFieldSlotIndex: null,
+          opponentField: [
+            { cardId: 493, atk: 1400, def: 1200, status: 0xb8 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
+    it("ignores a stale field target when field preview has closed but the field signal lags", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 493,
+          duelCursorFieldSlotIndex: 1,
+          opponentField: [
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 493, atk: 1400, def: 1200, status: 0xb8 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
     });
 
     it("keeps resolving hand focus from current state after returning from field view", () => {
