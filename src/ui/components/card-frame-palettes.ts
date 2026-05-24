@@ -16,6 +16,11 @@ export function frameBorderColor(color?: string, cardType?: string, isMonster?: 
   return framePalette(parseFrameColor(color), cardType, isMonster).mid;
 }
 
+export function labelTextColor(color?: string): string | undefined {
+  const parsed = parseFrameColor(color);
+  return parsed ? labelTextColors[parsed] : undefined;
+}
+
 const monsterPalette: FramePalette = {
   lo: "#6a5020",
   mid: "#b89838",
@@ -68,6 +73,16 @@ const colorPalettes: Record<Color, FramePalette> = {
     border: "#a03070",
     text: "#2a0a1e",
   },
+};
+
+const labelTextColors: Record<Color, string> = {
+  yellow: "#b09010",
+  blue: "#1748d8",
+  green: "#188038",
+  purple: "#8a38c8",
+  orange: "#c06018",
+  red: "#d01818",
+  pink: "#c02078",
 };
 
 const cardTypePalettes: Record<string, FramePalette> = {

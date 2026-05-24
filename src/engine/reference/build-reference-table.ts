@@ -27,7 +27,10 @@ export interface RefCard {
   guardianStar1: string;
   guardianStar2: string;
   name: string;
+  /** Frame/background color. */
   color?: string;
+  /** Name/label text color. */
+  labelColor?: string;
   level?: number;
   attribute?: string;
   starchipCost?: number;
@@ -109,6 +112,7 @@ export function buildReferenceTableData(rows: {
       cardType: c.type || undefined,
       isMonster,
       color: parseColor(c.color),
+      labelColor: parseColor(c.labelColor),
       guardianStar1: parseGuardianStar(c.guardianStar1),
       guardianStar2: parseGuardianStar(c.guardianStar2),
       level: c.level,
