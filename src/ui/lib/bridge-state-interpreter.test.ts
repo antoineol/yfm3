@@ -46,11 +46,77 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     ],
     opponentHandSlots: null,
     cpuShuffledDeck: new Array(40).fill(0) as number[],
+    duelCursorTargetCardId: null,
     ...overrides,
   };
 }
 
 describe("interpretRawState", () => {
+  describe("cursor target", () => {
+    it("resolves the suspected cursor card id to a player hand slot", () => {
+      const result = interpretRawState(makeRaw({ duelCursorTargetCardId: 200 }));
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerHand",
+        index: 1,
+        cardId: 200,
+        hidden: false,
+      });
+    });
+
+    it("marks opponent targets as hidden", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x09,
+          duelCursorTargetCardId: 493,
+          opponentField: [
+            { cardId: 493, atk: 1550, def: 1400, status: 0xb8 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 493,
+        hidden: true,
+      });
+    });
+
+    it("ignores a stale hand target while the cursor is on the field phase", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 200,
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
+    it("ignores inactive slots with a stale target id", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 200,
+          field: [
+            { cardId: 200, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+  });
+
   describe("card filtering", () => {
     it("includes cards with STATUS_PRESENT (0x80)", () => {
       const result = interpretRawState(makeRaw());

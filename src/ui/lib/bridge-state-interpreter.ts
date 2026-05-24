@@ -27,6 +27,15 @@ export type RewardPoolContext = {
 /** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
 export type FieldCard = { cardId: number; atk: number; def: number };
 
+export type DuelCursorZone = "playerHand" | "playerField" | "opponentHand" | "opponentField";
+
+export type DuelCursorTarget = {
+  zone: DuelCursorZone;
+  index: number;
+  cardId: number;
+  hidden: boolean;
+};
+
 // ── Raw bridge message types ─────────────────────────────────────────
 
 export type RawCardSlot = { cardId: number; atk: number; def: number; status: number };
@@ -65,6 +74,8 @@ export type RawBridgeState = {
   opponentField: RawCardSlot[];
   opponentHandSlots: number[] | null;
   cpuShuffledDeck: number[];
+  /** Suspected selected card id under the in-game cursor. */
+  duelCursorTargetCardId?: number | null;
   /** Free-duel duelist unlock bitfield (raw bytes from 0x1D06F4). */
   duelistUnlock?: number[];
 };
@@ -101,6 +112,7 @@ type InterpretedState = {
   stats: DuelStats | null;
   opponentHand: number[];
   opponentField: FieldCard[];
+  cursorTarget: DuelCursorTarget | null;
 };
 
 /**
@@ -136,6 +148,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       : filterCardSlots(raw.opponentHand)
     : [];
   const opponentField = raw.opponentField ? filterFieldSlots(raw.opponentField) : [];
+  const cursorTarget = resolveCursorTarget(raw.duelCursorTargetCardId ?? null, raw);
 
   // ── Exact detection: duel phase byte is available ──────────────────
   if (raw.duelPhase != null) {
@@ -174,6 +187,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       stats,
       opponentHand,
       opponentField,
+      cursorTarget,
     };
   }
 
@@ -194,6 +208,7 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       stats,
       opponentHand,
       opponentField,
+      cursorTarget,
     };
   }
 
@@ -208,7 +223,43 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
     stats,
     opponentHand,
     opponentField,
+    cursorTarget: null,
   };
+}
+
+function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
+  if (cardId == null || cardId <= 0) return null;
+
+  for (const { zone, slots, hidden } of cursorZonesForPhase(raw)) {
+    const index = slots.findIndex((slot) => slot.cardId === cardId && isActiveSlot(slot));
+    if (index >= 0) return { zone, index, cardId, hidden };
+  }
+
+  return null;
+}
+
+function cursorZonesForPhase(
+  raw: RawBridgeState,
+): Array<{ zone: DuelCursorZone; slots: RawCardSlot[]; hidden: boolean }> {
+  const playerHand = { zone: "playerHand" as const, slots: raw.hand, hidden: false };
+  const playerField = { zone: "playerField" as const, slots: raw.field, hidden: false };
+  const opponentHand = {
+    zone: "opponentHand" as const,
+    slots: raw.opponentHand ?? [],
+    hidden: true,
+  };
+  const opponentField = {
+    zone: "opponentField" as const,
+    slots: raw.opponentField ?? [],
+    hidden: true,
+  };
+
+  if (raw.turnIndicator === 1) return [opponentField, opponentHand];
+  if (raw.duelPhase === PHASE_DRAW || raw.duelPhase === PHASE_HAND_SELECT) return [playerHand];
+  if (raw.duelPhase === PHASE_FUSION || raw.duelPhase === PHASE_FUSION_RESOLVE) {
+    return [playerHand, playerField];
+  }
+  return [playerField, opponentField];
 }
 
 /**
