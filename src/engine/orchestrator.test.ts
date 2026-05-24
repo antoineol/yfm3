@@ -39,6 +39,7 @@ class MockWorker {
           type: "RESULT",
           bestDeck: deck,
           bestScore: 100_000 + msg.seed,
+          expectedAtk: 1234,
           iterations: 1000,
         };
         this.onmessage?.({ data: result } as MessageEvent<WorkerResponse>);
@@ -152,8 +153,8 @@ describe("optimizeDeckParallel", () => {
     expect(result.elapsedMs).toBeGreaterThan(0);
     // hardwareConcurrency=2 → 1 SA worker
     expect(saWorkers()).toHaveLength(1);
-    // 1 scorer worker for best deck (no currentDeck provided)
-    expect(scorerWorkers()).toHaveLength(1);
+    // Exact score comes back from the SA worker; no extra best-deck scorer.
+    expect(scorerWorkers()).toHaveLength(0);
   });
 
   it("sends correct INIT messages to SA workers", async () => {
@@ -163,17 +164,14 @@ describe("optimizeDeckParallel", () => {
       const msg = saWorkers()[i]?.receivedMessage as WorkerInit;
       expect(msg.type).toBe("INIT");
       expect(msg.seed).toBe(i);
-      expect(msg.timeBudgetMs).toBe(20_000 - 2_000); // timeLimit - reserve
+      expect(msg.timeBudgetMs).toBe(20_000);
+      expect(msg.exactScoringReserveMs).toBe(2_000);
       expect(typeof msg.collection).toBe("object");
     }
   });
 
-  it("picks the worker with the highest bestScore", async () => {
-    // Worker with seed=1 gets bestScore 100_001 > seed=0's 100_000
-    // Both return deck filled with 1s, but exact scoring determines final expectedAtk
+  it("returns the exact score from the best worker", async () => {
     const result = await optimizeDeckParallel(makeCollection());
-
-    // The result should come through (scorer worker returns 1234)
     expect(result.expectedAtk).toBe(1234);
   });
 
@@ -291,13 +289,7 @@ describe("scorer workers", () => {
   it("scores best deck in a worker (not on main thread)", async () => {
     const result = await optimizeDeckParallel(makeCollection());
 
-    // Best-deck scorer worker receives the best deck from SA
-    const bestScorer = scorerWorkers()[0];
-    expect(bestScorer).toBeDefined();
-    const msg = bestScorer?.receivedMessage as ScorerInit;
-    expect(msg.type).toBe("SCORE");
-    expect(msg.deck).toHaveLength(DECK_SIZE);
-    // Mock scorer returns 1234
+    expect(scorerWorkers()).toHaveLength(0);
     expect(result.expectedAtk).toBe(1234);
   });
 
@@ -305,8 +297,8 @@ describe("scorer workers", () => {
     const currentDeck = new Array(DECK_SIZE).fill(5);
     const result = await optimizeDeckParallel(makeCollection(), { currentDeck });
 
-    // 2 scorer workers: one for currentDeck, one for bestDeck
-    expect(scorerWorkers()).toHaveLength(2);
+    // 1 scorer worker for currentDeck; bestDeck was exact-scored inside the SA worker.
+    expect(scorerWorkers()).toHaveLength(1);
     // currentDeckScore from scorer worker mock = 1234
     expect(result.currentDeckScore).toBe(1234);
     expect(result.improvement).toBe(0); // both return 1234
@@ -316,8 +308,7 @@ describe("scorer workers", () => {
     const shortDeck = [1, 2, 3];
     const result = await optimizeDeckParallel(makeCollection(), { currentDeck: shortDeck });
 
-    // Only 1 scorer worker (best deck), no current deck scoring
-    expect(scorerWorkers()).toHaveLength(1);
+    expect(scorerWorkers()).toHaveLength(0);
     expect(result.currentDeckScore).toBeNull();
   });
 
@@ -328,13 +319,52 @@ describe("scorer workers", () => {
       currentDeckScore: 999.9,
     });
 
-    // Only 1 scorer worker (best deck) — no extra worker for current deck
-    expect(scorerWorkers()).toHaveLength(1);
+    expect(scorerWorkers()).toHaveLength(0);
     expect(result.currentDeckScore).toBe(999.9);
     expect(result.improvement).toBe(1234 - 999.9);
   });
 
-  it("scores only the single best candidate by sampled score", async () => {
+  it("picks the best worker by exact score instead of sampled score", async () => {
+    vi.stubGlobal("navigator", { hardwareConcurrency: 3 });
+    createdWorkers = [];
+    vi.stubGlobal(
+      "Worker",
+      class extends MockWorker {
+        constructor() {
+          super();
+          createdWorkers.push(this);
+        }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            return;
+          }
+          this.kind = "sa";
+          setTimeout(() => {
+            if (this.terminated) return;
+            const deck = new Array(DECK_SIZE).fill(msg.seed + 1);
+            const result: WorkerResult = {
+              type: "RESULT",
+              bestDeck: deck,
+              bestScore: msg.seed === 0 ? 200_000 : 100_000,
+              expectedAtk: msg.seed === 0 ? 1000 : 2000,
+              iterations: 1000,
+            };
+            this.onmessage?.({ data: result } as MessageEvent<WorkerResponse>);
+          }, 0);
+        }
+      },
+    );
+
+    const result = await optimizeDeckParallel(makeCollection());
+
+    expect(result.deck[0]).toBe(2);
+    expect(result.expectedAtk).toBe(2000);
+    expect(scorerWorkers()).toHaveLength(0);
+  });
+
+  it("falls back to scoring the sampled winner when workers have no exact score", async () => {
     vi.stubGlobal("navigator", { hardwareConcurrency: 5 });
     createdWorkers = [];
     vi.stubGlobal(
@@ -344,12 +374,38 @@ describe("scorer workers", () => {
           super();
           createdWorkers.push(this);
         }
+        postMessage(msg: WorkerInit | ScorerInit) {
+          this.receivedMessage = msg;
+          if (msg.type === "SCORE") {
+            this.kind = "scorer";
+            setTimeout(() => {
+              if (this.terminated) return;
+              const result: ScorerResult = {
+                type: "SCORE_RESULT",
+                expectedAtk: 1234,
+              };
+              this.onmessage?.({ data: result } as MessageEvent<ScorerResult>);
+            }, 0);
+            return;
+          }
+          this.kind = "sa";
+          setTimeout(() => {
+            if (this.terminated) return;
+            const deck = new Array(DECK_SIZE).fill(msg.seed + 1);
+            const result: WorkerResult = {
+              type: "RESULT",
+              bestDeck: deck,
+              bestScore: 100_000 + msg.seed,
+              iterations: 1000,
+            };
+            this.onmessage?.({ data: result } as MessageEvent<WorkerResponse>);
+          }, 0);
+        }
       },
     );
 
     await optimizeDeckParallel(makeCollection());
 
-    // Regardless of how many SA workers, only 1 scorer worker fires (best by sampled score)
     expect(scorerWorkers()).toHaveLength(1);
   });
 });

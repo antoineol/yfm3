@@ -1,6 +1,6 @@
 # Full-Rebuild Optimizer Proposals
 
-Status: proposal with item 1 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
+Status: proposal with items 1 and 3 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
 
 ## Scope
 
@@ -57,18 +57,20 @@ Why: preserves full rebuild behavior while reducing annoying changes that do not
 
 Risk: over-cleaning can hide real small gains. Mitigation: use a strict non-decrease rule and keep cleanup best-effort with a hard time cap.
 
-### 3. Exact-Score A Small Candidate Shortlist
+### 3. Exact-Score Worker Candidates
 
-Workers currently compete by sampled score, then only the sampled winner is exact-scored. Exact-score a tiny number of distinct worker outputs within the existing final reserve.
+Status: implemented in SA workers.
 
-- Deduplicate worker decks by sorted card multiset.
-- Exact-score the top 2-4 sampled candidates while time remains.
-- Return the best exact-scored deck.
-- If time runs out, fall back to the current sampled winner behavior.
+Workers previously competed by sampled score, then only the sampled winner was exact-scored. Each SA worker now reserves time from its existing worker budget, exact-scores its own final deck, and returns that exact expected ATK with the sampled score.
 
-Why: reduces sampled-hand overfit without broadening the search.
+- Run SA until the worker's exact-scoring reserve.
+- Exact-score the worker's own final deck in the same worker.
+- Return the best exact-scored deck across workers.
+- If workers are terminated from progress-only convergence, fall back to exact-scoring the sampled winner.
 
-Risk: exact scoring is expensive on fusion-heavy data. Mitigation: cap candidate count and deadline strictly.
+Why: reduces sampled-hand overfit without broadening the search, while fully leveraging worker parallelism.
+
+Risk: exact scoring is expensive on fusion-heavy data. Mitigation: carve the reserve out of the existing worker budget and keep the old sampled-winner exact-score path as fallback.
 
 ### 4. Better Generic Worker Diversity
 
@@ -104,8 +106,8 @@ Risk: more expensive deltas. Mitigation: benchmark first; ship only if iteration
 
 ## Priority
 
-1. Add final greedy polish.
-2. Add small exact-scored shortlist.
+1. Final greedy polish. Done.
+2. Exact-score worker candidates. Done.
 3. Add diff cleanup if noisy diffs remain.
 4. Replace weak seed diversity with scorer-neutral seeds.
 5. Experiment with limited multi-swap moves only after measuring the first four.

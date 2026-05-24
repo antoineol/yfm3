@@ -12,7 +12,12 @@ import {
   MAX_FUSION_DEPTH,
   NUM_HANDS,
 } from "./types/constants.ts";
-import type { BridgeGameData, ScorerInit, ScorerResponse } from "./worker/messages.ts";
+import type {
+  BridgeGameData,
+  ScorerInit,
+  ScorerResponse,
+  WorkerResult,
+} from "./worker/messages.ts";
 import { runSaWorkerPool } from "./worker/sa-worker-pool.ts";
 
 export interface OptimizeDeckParallelResult {
@@ -74,8 +79,9 @@ function scoreInWorker(
 /**
  * Run SA optimization across multiple Web Workers in parallel.
  *
- * Each worker runs SA with a different seed and initial deck (multi-start).
- * The orchestrator picks the best result by sampled score and exact-scores it.
+ * Each worker runs SA with a different seed and initial deck (multi-start),
+ * then exact-scores its own best deck inside the same wall-clock budget.
+ * The orchestrator picks the best exact-scored worker result.
  *
  * @param collection  cardId → number of copies the player owns
  * @param options.timeLimit  total wall-clock budget in ms (default 15s)
@@ -151,10 +157,11 @@ export async function optimizeDeckParallel(
 
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
   const numWorkers = Math.max(1, Math.min(cores - 1, MAX_WORKERS));
-  const timeBudgetMs = timeLimit - EXACT_SCORING_RESERVE;
+  const timeBudgetMs = timeLimit;
+  const searchBudgetMs = Math.max(1, timeLimit - EXACT_SCORING_RESERVE);
   const convergenceTimeout = Math.max(
     MIN_CONVERGENCE_TIMEOUT,
-    timeBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
+    searchBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
   );
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
 
@@ -167,6 +174,7 @@ export async function optimizeDeckParallel(
     collectionRecord,
     initialDecks,
     timeBudgetMs,
+    exactScoringReserveMs: EXACT_SCORING_RESERVE,
     convergenceTimeout,
     modId,
     gameData,
@@ -174,23 +182,23 @@ export async function optimizeDeckParallel(
     onProgress: options?.onProgress
       ? (globalBest, globalBestDeck) => {
           const elapsed = performance.now() - start;
-          const progress = Math.min(elapsed / timeBudgetMs, 1);
+          const progress = Math.min(elapsed / searchBudgetMs, 1);
           const approxExpectedAtk = numHands > 0 ? globalBest / numHands : 0;
           options.onProgress?.(progress, approxExpectedAtk, globalBestDeck);
         }
       : undefined,
   });
 
-  // 3. Pick best result by sampled score, then exact-score it
-  let best = results[0];
-  for (let i = 1; i < results.length; i++) {
-    const r = results[i];
-    if (r && best && r.bestScore > best.bestScore) best = r;
-  }
+  // 3. Pick best exact-scored worker result. If workers were terminated from
+  // progress-only convergence, fall back to exact-scoring the sampled winner.
+  const best = pickBestWorkerResult(results);
+  const expectedAtkPromise =
+    best?.expectedAtk != null
+      ? Promise.resolve(best.expectedAtk)
+      : scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId, gameData);
 
-  // 4. Exact-score best deck + await current deck score (both in parallel)
   const [expectedAtk, currentDeckScore] = await Promise.all([
-    scoreInWorker(collectionRecord, best?.bestDeck ?? [], modId, gameData),
+    expectedAtkPromise,
     currentDeckPromise,
   ]);
 
@@ -201,4 +209,26 @@ export async function optimizeDeckParallel(
     improvement: currentDeckScore != null ? expectedAtk - currentDeckScore : null,
     elapsedMs: performance.now() - start,
   };
+}
+
+function pickBestWorkerResult(results: readonly WorkerResult[]) {
+  let best = results[0];
+  for (let i = 1; i < results.length; i++) {
+    const result = results[i];
+    if (!result) continue;
+    if (!best || isBetterWorkerResult(result, best)) best = result;
+  }
+  return best;
+}
+
+function isBetterWorkerResult(candidate: WorkerResult, current: WorkerResult): boolean {
+  if (candidate.expectedAtk != null && current.expectedAtk != null) {
+    return (
+      candidate.expectedAtk > current.expectedAtk ||
+      (candidate.expectedAtk === current.expectedAtk && candidate.bestScore > current.bestScore)
+    );
+  }
+  if (candidate.expectedAtk != null) return true;
+  if (current.expectedAtk != null) return false;
+  return candidate.bestScore > current.bestScore;
 }

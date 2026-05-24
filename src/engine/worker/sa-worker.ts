@@ -4,11 +4,21 @@ import { mulberry32 } from "../mulberry32.ts";
 import { SAOptimizer } from "../optimizer/sa-optimizer.ts";
 import { computeInitialScores } from "../scoring/compute-initial-scores.ts";
 import { DeltaEvaluator } from "../scoring/delta-evaluator.ts";
+import { exactScore } from "../scoring/exact-scorer.ts";
 import { FusionScorer } from "../scoring/fusion-scorer.ts";
 import type { WorkerInit, WorkerProgress, WorkerResult } from "./messages.ts";
 
 self.onmessage = async (e: MessageEvent<WorkerInit>) => {
-  const { collection, seed, timeBudgetMs, initialDeck, config, modId, gameData } = e.data;
+  const {
+    collection,
+    seed,
+    timeBudgetMs,
+    exactScoringReserveMs = 0,
+    initialDeck,
+    config,
+    modId,
+    gameData,
+  } = e.data;
   setConfig(config);
   await ensureCsvLoaded(modId);
 
@@ -33,7 +43,7 @@ self.onmessage = async (e: MessageEvent<WorkerInit>) => {
   computeInitialScores(buf, scorer);
 
   const optimizer = new SAOptimizer(seed);
-  const deadline = performance.now() + timeBudgetMs;
+  const deadline = performance.now() + Math.max(0, timeBudgetMs - exactScoringReserveMs);
   const bestScore = optimizer.run(buf, scorer, new DeltaEvaluator(), deadline, (score, deck) => {
     const progress: WorkerProgress = {
       type: "PROGRESS",
@@ -43,11 +53,13 @@ self.onmessage = async (e: MessageEvent<WorkerInit>) => {
     };
     self.postMessage(progress);
   });
+  const expectedAtk = exactScore(buf, scorer);
 
   const result: WorkerResult = {
     type: "RESULT",
     bestDeck: Array.from(buf.deck.subarray(0, buf.scoringSlots)),
     bestScore,
+    expectedAtk,
     iterations: optimizer.iterations,
   };
   self.postMessage(result);

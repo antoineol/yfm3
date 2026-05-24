@@ -86,6 +86,8 @@ export type WorkerInit = {
   collection: Record<number, number>;
   seed: number;
   timeBudgetMs: number;
+  /** Time reserved inside timeBudgetMs for exact-scoring the worker's final deck. */
+  exactScoringReserveMs?: number;
   /** Optional initial deck to override the greedy seed. */
   initialDeck?: number[];
   /** Engine configuration snapshot for this worker. */
@@ -100,7 +102,10 @@ export type WorkerInit = {
 export type WorkerResult = {
   type: "RESULT";
   bestDeck: number[];
+  /** Sampled total score used during SA search. */
   bestScore: number;
+  /** Exact expected ATK for bestDeck. Missing only for fallback progress-based results. */
+  expectedAtk?: number;
   iterations: number;
 };
 

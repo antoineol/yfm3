@@ -15,6 +15,7 @@ export interface SaPoolConfig {
   collectionRecord: Record<number, number>;
   initialDecks: Array<number[] | undefined>;
   timeBudgetMs: number;
+  exactScoringReserveMs: number;
   convergenceTimeout: number;
   modId: ModId;
   gameData?: BridgeGameData;
@@ -29,8 +30,15 @@ export interface SaPoolConfig {
  * Returns all worker results once every worker finishes or converges.
  */
 export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResult[]> {
-  const { collectionRecord, initialDecks, timeBudgetMs, convergenceTimeout, modId, gameData } =
-    config;
+  const {
+    collectionRecord,
+    initialDecks,
+    timeBudgetMs,
+    exactScoringReserveMs,
+    convergenceTimeout,
+    modId,
+    gameData,
+  } = config;
   const numWorkers = initialDecks.length;
 
   const workers: Worker[] = [];
@@ -114,6 +122,7 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
       collection: collectionRecord,
       seed: i,
       timeBudgetMs,
+      exactScoringReserveMs,
       initialDeck: initialDecks[i],
       config: getConfig(),
       modId,
