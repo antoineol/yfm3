@@ -3,6 +3,7 @@ import { resetConfig } from "./config.ts";
 import { optimizeDeckParallel } from "./orchestrator.ts";
 import { DECK_SIZE } from "./types/constants.ts";
 import type {
+  BridgeGameData,
   ScorerInit,
   ScorerResult,
   WorkerInit,
@@ -175,6 +176,20 @@ describe("optimizeDeckParallel", () => {
     expect(result.expectedAtk).toBe(1234);
   });
 
+  it("falls back to unweighted seeds when seed game data preparation fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const malformedGameData = { cards: undefined } as unknown as BridgeGameData;
+
+    const result = await optimizeDeckParallel(makeCollection(), { gameData: malformedGameData });
+
+    expect(result.expectedAtk).toBe(1234);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Seed diversity disabled"),
+      expect.anything(),
+    );
+    warn.mockRestore();
+  });
+
   it("terminates all workers after completion", async () => {
     await optimizeDeckParallel(makeCollection());
     for (const w of createdWorkers) {
@@ -182,7 +197,7 @@ describe("optimizeDeckParallel", () => {
     }
   });
 
-  it("terminates workers on abort even before any progress", async () => {
+  it("rejects on abort before any worker reports progress", async () => {
     const controller = new AbortController();
 
     // Override MockWorker to never respond for SA, simulating a long-running worker.
@@ -225,9 +240,7 @@ describe("optimizeDeckParallel", () => {
       expect(w.terminated).toBe(true);
     }
 
-    // Promise should resolve (not hang) even though workers never posted progress
-    const result = await promise;
-    expect(result.deck).toBeDefined();
+    await expect(promise).rejects.toThrow(/before any worker reported progress/);
   });
 
   it("returns null improvement when no currentDeck provided", async () => {

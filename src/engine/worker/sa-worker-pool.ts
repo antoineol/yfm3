@@ -44,6 +44,7 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
   const workers: Worker[] = [];
   const promises: Promise<WorkerResult>[] = [];
   const resolvers: Array<(result: WorkerResult) => void> = [];
+  const rejecters: Array<(err: Error) => void> = [];
   const resolved: boolean[] = [];
   const latestProgress: Array<WorkerProgress | null> = [];
   // Per-worker convergence: each worker's timer resets only when it surpasses
@@ -56,17 +57,37 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
   function terminateAll() {
     for (let j = 0; j < numWorkers; j++) {
       if (!resolved[j]) {
-        resolved[j] = true;
-        const progress = latestProgress[j];
-        resolvers[j]?.({
-          type: "RESULT",
-          bestDeck: progress?.bestDeck ?? [],
-          bestScore: progress?.bestScore ?? -Infinity,
-          iterations: progress?.iterations ?? 0,
-        });
+        const fallback = progressResult(latestProgress[j] ?? null) ?? globalProgressResult();
+        if (fallback) {
+          resolved[j] = true;
+          resolvers[j]?.(fallback);
+        } else {
+          resolved[j] = true;
+          rejecters[j]?.(new Error("Optimization ended before any worker reported progress."));
+        }
       }
       workers[j]?.terminate();
     }
+  }
+
+  function globalProgressResult(): WorkerResult | null {
+    if (!globalBestDeck.length || !Number.isFinite(globalBest)) return null;
+    return {
+      type: "RESULT",
+      bestDeck: globalBestDeck,
+      bestScore: globalBest,
+      iterations: 0,
+    };
+  }
+
+  function progressResult(progress: WorkerProgress | null): WorkerResult | null {
+    if (!progress) return null;
+    return {
+      type: "RESULT",
+      bestDeck: progress.bestDeck,
+      bestScore: progress.bestScore,
+      iterations: progress.iterations,
+    };
   }
 
   function allConverged(): boolean {
@@ -88,6 +109,7 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
 
     const promise = new Promise<WorkerResult>((resolve, reject) => {
       resolvers.push(resolve);
+      rejecters.push(reject);
       worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
         const msg = e.data;
         if (msg.type === "RESULT") {

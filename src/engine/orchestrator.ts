@@ -167,7 +167,7 @@ export async function optimizeDeckParallel(
 
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const deckLimits = gameData?.deckLimits?.byCard ?? getCachedDeckLimits(modId);
-  const seedGameData = getSeedGameData(modId, gameData);
+  const seedGameData = tryGetSeedGameData(modId, gameData);
   const initialDecks = generateInitialDecks(
     collectionRecord,
     numWorkers,
@@ -199,6 +199,9 @@ export async function optimizeDeckParallel(
   // 3. Pick best exact-scored worker result. If workers were terminated from
   // progress-only convergence, fall back to exact-scoring the sampled winner.
   const best = pickBestWorkerResult(results);
+  if (!best?.bestDeck.length) {
+    throw new Error("Optimization ended before any worker produced a deck.");
+  }
   const expectedAtkPromise =
     best?.expectedAtk != null
       ? Promise.resolve(best.expectedAtk)
@@ -216,6 +219,15 @@ export async function optimizeDeckParallel(
     improvement: currentDeckScore != null ? expectedAtk - currentDeckScore : null,
     elapsedMs: performance.now() - start,
   };
+}
+
+function tryGetSeedGameData(modId: ModId, gameData: BridgeGameData | undefined) {
+  try {
+    return getSeedGameData(modId, gameData);
+  } catch (err) {
+    console.warn("Seed diversity disabled; failed to prepare seed game data.", err);
+    return undefined;
+  }
 }
 
 function pickBestWorkerResult(results: readonly WorkerResult[]) {
