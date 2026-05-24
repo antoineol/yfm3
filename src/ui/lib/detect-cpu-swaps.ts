@@ -37,7 +37,7 @@ export function accumulateCpuSwaps(
   effectivePhase: string,
   now: number,
 ): CpuSwap[] {
-  if (!curr.inDuel) return existing.length === 0 ? existing : [];
+  if (!curr.inDuel || effectivePhase === "ended") return existing.length === 0 ? existing : [];
   if (effectivePhase !== "opponent") return existing;
 
   const raw = detectCpuSwaps(

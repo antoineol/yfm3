@@ -20,20 +20,18 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
   useSyncCpuSwaps();
   useCheatViewAutoSwitch();
 
-  const showOpponent = bridge.inDuel && cheatMode && cheatView === "opponent";
-  const showPlayer = bridge.inDuel && !showOpponent;
-  const showIdle = !bridge.inDuel && !hasPostDuelContent;
+  const isEnded = bridge.phase === "ended";
+  const showEnded = isEnded && !hasPostDuelContent;
+  const showOpponent = bridge.inDuel && !isEnded && cheatMode && cheatView === "opponent";
+  const showPlayer = bridge.inDuel && !isEnded && !showOpponent;
+  const showIdle = !bridge.inDuel && !showEnded && !hasPostDuelContent;
 
   return (
     <>
       <EmulatorBridgeBar />
       <RankTracker />
-      {showIdle &&
-        (bridge.phase === "ended" ? (
-          <DuelEnded lp={bridge.lp} stats={bridge.stats} />
-        ) : (
-          <WaitingForDuel />
-        ))}
+      {showEnded && <DuelEnded lp={bridge.lp} stats={bridge.stats} />}
+      {showIdle && <WaitingForDuel />}
       <CpuCheatBanner />
       <CheatViewSwitch />
       {showOpponent && <OpponentDuelView />}

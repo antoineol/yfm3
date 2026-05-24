@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   type BridgeState,
-  ENDED_STALE_MS,
   type EndedTracker,
   INITIAL_BRIDGE_STATE,
   INITIAL_ENDED_TRACKER,
@@ -100,7 +99,7 @@ describe("resolveEndedPhase", () => {
     expect(tracker).toEqual({ sceneId: 42, sceneLeft: false, at: T, wasInDuel: false });
   });
 
-  it("keeps 'ended' while still on the same scene within time limit", () => {
+  it("keeps 'ended' while still on the same scene", () => {
     const { effectivePhase } = resolveEndedPhase(
       { inDuel: false, phase: "ended" },
       42,
@@ -141,22 +140,12 @@ describe("resolveEndedPhase", () => {
     expect(effectivePhase).toBe("other");
   });
 
-  it("overrides to 'other' after time expires even on same scene", () => {
+  it("keeps 'ended' after a long wait on the same scene", () => {
     const { effectivePhase } = resolveEndedPhase(
       { inDuel: false, phase: "ended" },
       42,
       { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
-      T + ENDED_STALE_MS + 1,
-    );
-    expect(effectivePhase).toBe("other");
-  });
-
-  it("keeps 'ended' just before time expires", () => {
-    const { effectivePhase } = resolveEndedPhase(
-      { inDuel: false, phase: "ended" },
-      42,
-      { sceneId: 42, sceneLeft: false, at: T, wasInDuel: false },
-      T + ENDED_STALE_MS - 1,
+      T + 60_000,
     );
     expect(effectivePhase).toBe("ended");
   });
@@ -283,6 +272,27 @@ describe("processBridgeMessage", () => {
       const { state: s } = process(readyMsg(), dirtyState());
       expect(s.restartFailed).toBe(false);
       expect(s.settingsPatched).toBe(false);
+    });
+
+    it("keeps results screen inside the duel lifecycle until the scene changes", () => {
+      const active = process(readyMsg({ sceneId: 42 }));
+      const ended = process(
+        readyMsg({ sceneId: 42, duelPhase: 0x0d }),
+        active.state,
+        active.tracker,
+      );
+
+      expect(ended.state.phase).toBe("ended");
+      expect(ended.state.inDuel).toBe(true);
+
+      const leftResults = process(
+        readyMsg({ sceneId: 99, duelPhase: 0x0d }),
+        ended.state,
+        ended.tracker,
+      );
+
+      expect(leftResults.state.phase).toBe("other");
+      expect(leftResults.state.inDuel).toBe(false);
     });
   });
 

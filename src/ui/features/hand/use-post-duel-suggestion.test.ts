@@ -434,6 +434,202 @@ describe("usePostDuelSuggestion", () => {
     expect(mockOptimize).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for a complete collection before consuming a collection change", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: { 1: 2 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(mockOptimize).not.toHaveBeenCalled();
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the first available active-duel collection as baseline", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, phase: "hand", collection: null, deckDefinition: SAMPLE_DECK }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    expect(mockOptimize).not.toHaveBeenCalled();
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the last pre-duel collection when the duel-start collection is temporarily missing", async () => {
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: {
+          b: makeBridge({ inDuel: false, collection: { 1: 1 }, deckDefinition: SAMPLE_DECK }),
+        },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, phase: "hand", collection: null, deckDefinition: SAMPLE_DECK }),
+    });
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not treat a results-screen reconnect as a new duel", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    rerender({
+      b: makeBridge({ inDuel: false, phase: "other", collection: null, deckDefinition: null }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a completed suggestion through a results-screen reconnect", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    await act(() => Promise.resolve());
+    expect(store.get(postDuelStateAtom)).toBe("result");
+
+    rerender({
+      b: makeBridge({ inDuel: false, phase: "other", collection: null, deckDefinition: null }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the post-duel snapshot until auto-sync game data is ready", async () => {
     bridgeAutoSync = true;
 

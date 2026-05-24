@@ -1,13 +1,15 @@
 import { useEffect, useRef } from "react";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 
+const MIN_OWNED_CARDS_FOR_DECK = 40;
+
 export interface CollectionSnapshot {
   collection: Record<number, number>;
   deck: number[];
 }
 
 /**
- * Watch bridge.inDuel transitions and detect collection changes after a duel starts.
+ * Watch active duel transitions and detect collection changes after a duel starts.
  * Fires callbacks synchronously from effects — no internal state, just refs.
  */
 export function useDuelCollectionTracker(
@@ -16,8 +18,9 @@ export function useDuelCollectionTracker(
   onDuelStart: () => void,
   onNewCards: (snapshot: CollectionSnapshot) => void,
 ): void {
-  const wasInDuelRef = useRef(false);
+  const wasInActiveDuelRef = useRef(false);
   const preDuelCollectionRef = useRef<Record<number, number> | null>(null);
+  const lastKnownCollectionRef = useRef<Record<number, number> | null>(null);
   const hasFiredRef = useRef(false);
 
   // Keep callbacks fresh without re-triggering effects.
@@ -30,19 +33,26 @@ export function useDuelCollectionTracker(
     onNewCardsRef.current = onNewCards;
   });
 
-  // ── Track duel entry ─────────────────────────────────────────
+  // ── Track active duel entry ──────────────────────────────────
   useEffect(() => {
-    const isInDuel = bridge.inDuel;
-    const wasInDuel = wasInDuelRef.current;
-    wasInDuelRef.current = isInDuel;
+    const isInActiveDuel = bridge.inDuel && bridge.phase !== "ended";
+    const wasInActiveDuel = wasInActiveDuelRef.current;
+    const currentCollection = bridge.collection ? { ...bridge.collection } : null;
+    wasInActiveDuelRef.current = isInActiveDuel;
 
     if (modMismatch) return;
-    if (isInDuel && !wasInDuel) {
-      preDuelCollectionRef.current = bridge.collection ? { ...bridge.collection } : null;
+    if (isInActiveDuel && !wasInActiveDuel) {
+      preDuelCollectionRef.current = currentCollection ?? lastKnownCollectionRef.current;
       hasFiredRef.current = false;
       onDuelStartRef.current();
+    } else if (isInActiveDuel && !preDuelCollectionRef.current && currentCollection) {
+      preDuelCollectionRef.current = currentCollection;
     }
-  }, [bridge.inDuel, bridge.collection, modMismatch]);
+
+    if (currentCollection) {
+      lastKnownCollectionRef.current = currentCollection;
+    }
+  }, [bridge.inDuel, bridge.phase, bridge.collection, modMismatch]);
 
   // ── Detect collection changes after duel start ────────────────
   const { collection, deckDefinition } = bridge;
@@ -56,6 +66,7 @@ export function useDuelCollectionTracker(
     if (gainedCards.length === 0) return;
 
     if (!deckDefinition) return;
+    if (countOwnedCards(collection) < MIN_OWNED_CARDS_FOR_DECK) return;
 
     hasFiredRef.current = true;
     onNewCardsRef.current({
@@ -86,4 +97,12 @@ export function findNewCardQuantities(
     }
   }
   return newCards;
+}
+
+function countOwnedCards(collection: Record<number, number>): number {
+  let total = 0;
+  for (const count of Object.values(collection)) {
+    total += count;
+  }
+  return total;
 }

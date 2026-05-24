@@ -309,4 +309,36 @@ describe("DuelPage", () => {
     expect(lastCall.handCards).toHaveLength(3);
     expect(lastCall.handCards.map((c: { cardId: number }) => c.cardId)).toEqual([10, 20, 30]);
   });
+
+  it("shows the duel-ended state while results are still inside the duel lifecycle", () => {
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        inDuel: true,
+        phase: "ended",
+        lp: [8000, 0],
+      }),
+    );
+
+    render(duelPage());
+
+    expect(screen.getByText("Duel complete")).toBeTruthy();
+    expect(screen.queryByTestId("hand-display")).toBeNull();
+  });
+
+  it("does not fall back to the player view while post-duel content owns the ended screen", () => {
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        inDuel: true,
+        phase: "ended",
+      }),
+    );
+
+    render(<DuelPage postDuel={{ ...idlePostDuel, state: "optimizing" }} />);
+
+    expect(screen.getByTestId("post-duel-suggestion")).toBeTruthy();
+    expect(screen.queryByTestId("hand-display")).toBeNull();
+    expect(screen.queryByText("Duel complete")).toBeNull();
+  });
 });

@@ -143,8 +143,6 @@ export type EndedTracker = {
   wasInDuel: boolean;
 };
 
-export const ENDED_STALE_MS = 15_000;
-
 export const INITIAL_ENDED_TRACKER: EndedTracker = {
   sceneId: null,
   sceneLeft: false,
@@ -320,18 +318,19 @@ export function processBridgeMessage(
       tracker,
       now,
     );
+    const inDuel = interpreted.inDuel || effectivePhase === "ended";
 
     const cpuSwaps = accumulateCpuSwaps(
       currentState.cpuSwaps,
       {
         opponentHand: currentState.opponentHand,
         opponentFieldCount: currentState.opponentField.length,
-        inDuel: currentState.inDuel,
+        inDuel: currentState.inDuel && currentState.phase !== "ended",
       },
       {
         opponentHand: interpreted.opponentHand,
         opponentFieldCount: interpreted.opponentField.length,
-        inDuel: interpreted.inDuel,
+        inDuel: inDuel && effectivePhase !== "ended",
       },
       effectivePhase,
       now,
@@ -380,7 +379,7 @@ export function processBridgeMessage(
       handReliable: interpreted.handReliable,
       phase: effectivePhase,
       opponentPhase: interpreted.opponentPhase,
-      inDuel: interpreted.inDuel,
+      inDuel,
       lp,
       stats,
       collection,
@@ -450,7 +449,6 @@ export function processBridgeMessage(
  * 1. No duel was ever observed ending this session (sceneId null).
  * 2. sceneId changed since the duel ended (user navigated away).
  * 3. sceneId returned to the ended value after leaving (scene-left flag).
- * 4. More than ENDED_STALE_MS elapsed since the duel ended.
  */
 export function resolveEndedPhase(
   interpreted: { inDuel: boolean; phase: DuelPhase },
@@ -487,8 +485,7 @@ export function resolveEndedPhase(
   // Already was not in duel — check staleness
   if (
     prev.sceneId === null || // never observed a duel end this session
-    prev.sceneLeft || // user already navigated away once
-    (prev.at !== null && now - prev.at > ENDED_STALE_MS) // time expired
+    prev.sceneLeft // user already navigated away once
   ) {
     return {
       effectivePhase: "other",
@@ -504,7 +501,7 @@ export function resolveEndedPhase(
     };
   }
 
-  // Still on results screen (sceneId matches, not left, not timed out)
+  // Still on results screen (sceneId matches, not left)
   return {
     effectivePhase: "ended",
     tracker: { ...prev, wasInDuel: false },
