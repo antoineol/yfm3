@@ -56,4 +56,17 @@ describe("duelFocusRowVisible", () => {
     expect(duelFocusRowVisible(bridgeWithTarget({ inDuel: true }), false)).toBe(false);
     expect(duelFocusRowVisible(bridgeWithTarget({ inDuel: false }), true)).toBe(false);
   });
+
+  it("is hidden when the duel has ended", () => {
+    expect(duelFocusRowVisible(bridgeWithTarget({ phase: "ended" }), true)).toBe(false);
+    expect(
+      focusedCardForDisplay(
+        bridgeWithTarget({
+          cursorTarget: { zone: "playerHand", index: 2, cardId: 65, hidden: false },
+          phase: "ended",
+        }),
+        true,
+      ),
+    ).toBeNull();
+  });
 });

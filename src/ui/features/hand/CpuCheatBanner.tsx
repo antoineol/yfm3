@@ -16,7 +16,7 @@ import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
  * Manually dismissable via X button.
  */
 export function CpuCheatBanner() {
-  const { phase } = useBridge();
+  const { inDuel, phase } = useBridge();
   const cpuSwaps = useCpuSwaps();
   const cheatMode = useCheatMode();
   const setLocalSwaps = useSetAtom(localCpuSwapsAtom);
@@ -34,7 +34,7 @@ export function CpuCheatBanner() {
     prevPhaseRef.current = phase;
   }, [phase, clearCpuSwaps]);
 
-  const hasSwaps = cheatMode && cpuSwaps.length > 0;
+  const hasSwaps = inDuel && phase !== "ended" && cheatMode && cpuSwaps.length > 0;
 
   return (
     <div className={`fm-cheat-banner-wrap ${hasSwaps ? "fm-cheat-banner-wrap--open" : ""}`}>

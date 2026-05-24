@@ -21,9 +21,10 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
   useCheatViewAutoSwitch();
 
   const isEnded = bridge.phase === "ended";
+  const inActiveDuel = bridge.inDuel && !isEnded;
   const showEnded = isEnded && !hasPostDuelContent;
-  const showOpponent = bridge.inDuel && !isEnded && cheatMode && cheatView === "opponent";
-  const showPlayer = bridge.inDuel && !isEnded && !showOpponent;
+  const showOpponent = inActiveDuel && cheatMode && cheatView === "opponent";
+  const showPlayer = inActiveDuel && !showOpponent;
   const showIdle = !bridge.inDuel && !showEnded && !hasPostDuelContent;
 
   return (
@@ -32,8 +33,8 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
       <RankTracker />
       {showEnded && <DuelEnded lp={bridge.lp} stats={bridge.stats} />}
       {showIdle && <WaitingForDuel />}
-      <CpuCheatBanner />
-      <CheatViewSwitch />
+      {inActiveDuel && <CpuCheatBanner />}
+      {inActiveDuel && <CheatViewSwitch />}
       {showOpponent && <OpponentDuelView />}
       {showPlayer && <PlayerDuelView />}
     </>

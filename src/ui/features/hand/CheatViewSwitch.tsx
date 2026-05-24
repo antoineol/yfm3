@@ -41,12 +41,12 @@ export function CheatViewSwitch() {
 
 export function focusedCardForDisplay(bridge: BridgeState, cheatMode: boolean): BridgeCard | null {
   const target = bridge.cursorTarget;
-  if (!bridge.inDuel || !cheatMode || !target) return null;
+  if (!duelFocusRowVisible(bridge, cheatMode) || !target) return null;
   return bridge.gameData?.cards.find((card) => card.id === target.cardId) ?? null;
 }
 
 export function duelFocusRowVisible(bridge: BridgeState, cheatMode: boolean): boolean {
-  return bridge.inDuel && cheatMode;
+  return bridge.inDuel && bridge.phase !== "ended" && cheatMode;
 }
 
 function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMode: boolean }) {

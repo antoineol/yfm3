@@ -113,11 +113,11 @@ vi.mock("../hand/use-sync-cpu-swaps.ts", () => ({
 }));
 
 vi.mock("../hand/CpuCheatBanner.tsx", () => ({
-  CpuCheatBanner: () => null,
+  CpuCheatBanner: () => <div data-testid="cpu-cheat-banner" />,
 }));
 
 vi.mock("../hand/CheatViewSwitch.tsx", () => ({
-  CheatViewSwitch: () => null,
+  CheatViewSwitch: () => <div data-testid="cheat-view-switch" />,
 }));
 
 vi.mock("../hand/RankTracker.tsx", () => ({
@@ -199,6 +199,8 @@ describe("DuelPage", () => {
     expect(screen.getByTestId("emulator-bridge-bar")).toBeTruthy();
     expect(screen.queryByTestId("hand-card-selector")).toBeNull();
     expect(screen.getByTestId("field-display")).toBeTruthy();
+    expect(screen.getByTestId("cpu-cheat-banner")).toBeTruthy();
+    expect(screen.getByTestId("cheat-view-switch")).toBeTruthy();
   });
 
   it("hides bridge bar when disconnected", () => {
@@ -324,6 +326,8 @@ describe("DuelPage", () => {
 
     expect(screen.getByText("Duel complete")).toBeTruthy();
     expect(screen.queryByTestId("hand-display")).toBeNull();
+    expect(screen.queryByTestId("cpu-cheat-banner")).toBeNull();
+    expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });
 
   it("does not fall back to the player view while post-duel content owns the ended screen", () => {
@@ -340,5 +344,7 @@ describe("DuelPage", () => {
     expect(screen.getByTestId("post-duel-suggestion")).toBeTruthy();
     expect(screen.queryByTestId("hand-display")).toBeNull();
     expect(screen.queryByText("Duel complete")).toBeNull();
+    expect(screen.queryByTestId("cpu-cheat-banner")).toBeNull();
+    expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });
 });
