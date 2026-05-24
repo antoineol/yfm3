@@ -8,7 +8,7 @@ const FIELD_SIZE = 5;
 
 export function FieldDisplay({ cards, terrain = 0 }: { cards: FieldCard[]; terrain?: number }) {
   const { cardsById } = useCardDb();
-  const slots = Array.from({ length: FIELD_SIZE }, (_, i) => cards[i]);
+  const slots = toFieldSlots(cards);
 
   return (
     <ul
@@ -30,6 +30,15 @@ export function FieldDisplay({ cards, terrain = 0 }: { cards: FieldCard[]; terra
       })}
     </ul>
   );
+}
+
+function toFieldSlots(cards: FieldCard[]): Array<FieldCard | undefined> {
+  const slots = Array<FieldCard | undefined>(FIELD_SIZE).fill(undefined);
+  for (const [i, card] of cards.entries()) {
+    const slotIndex = card.slotIndex ?? i;
+    if (slotIndex >= 0 && slotIndex < FIELD_SIZE) slots[slotIndex] = card;
+  }
+  return slots;
 }
 
 function FieldSlot({

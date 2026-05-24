@@ -1627,6 +1627,7 @@ input[type="number"] {
 .fm-duel-focused-slot {
   display: flex;
   align-items: center;
+  gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
   height: 44px;
@@ -1710,6 +1711,40 @@ input[type="number"] {
   margin-inline: -4px;
   color: var(--color-text-muted);
   font-weight: 400;
+}
+
+.fm-battle-prediction {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, currentColor 38%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 11%, transparent);
+  font-family: var(--font-mono);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fm-battle-prediction--win {
+  color: #48d17b;
+}
+
+.fm-battle-prediction--bothDestroyed {
+  color: var(--color-gold);
+}
+
+.fm-battle-prediction--lose {
+  color: var(--color-stat-atk);
+}
+
+.fm-battle-prediction-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .fm-cheat-switch {

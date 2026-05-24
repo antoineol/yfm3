@@ -89,6 +89,8 @@ export type BridgeState = {
   opponentField: FieldCard[];
   /** Card currently targeted by the in-game cursor, if known. */
   cursorTarget: DuelCursorTarget | null;
+  /** Player attacker + focused opponent target while choosing an attack target. */
+  battleTarget: BattleTarget | null;
   /** CPU card swaps detected during the current duel. */
   cpuSwaps: CpuSwap[];
   /** Duelist IDs unlocked for free duel (from RAM bitfield). Null if bridge unavailable. */
@@ -123,8 +125,14 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   opponentHand: [],
   opponentField: [],
   cursorTarget: null,
+  battleTarget: null,
   cpuSwaps: [],
   unlockedDuelists: null,
+};
+
+export type BattleTarget = {
+  attacker: DuelCursorTarget;
+  defender: DuelCursorTarget;
 };
 
 export type EmulatorBridge = BridgeState & {
@@ -153,11 +161,13 @@ export const INITIAL_ENDED_TRACKER: EndedTracker = {
 
 export type BridgeTracker = EndedTracker & {
   confirmedPlayerHandTarget: DuelCursorTarget | null;
+  pendingPlayerAttackTarget: DuelCursorTarget | null;
 };
 
 export const INITIAL_BRIDGE_TRACKER: BridgeTracker = {
   ...INITIAL_ENDED_TRACKER,
   confirmedPlayerHandTarget: null,
+  pendingPlayerAttackTarget: null,
 };
 
 // ── Reference-stability helpers ──────────────────────────────────────
@@ -186,7 +196,15 @@ function eqFieldArr(a: FieldCard[], b: FieldCard[]): boolean {
     const x = a[i];
     const y = b[i];
     if (!x || !y) return false;
-    if (x.cardId !== y.cardId || x.atk !== y.atk || x.def !== y.def) return false;
+    if (
+      x.cardId !== y.cardId ||
+      x.atk !== y.atk ||
+      x.def !== y.def ||
+      x.status !== y.status ||
+      x.slotIndex !== y.slotIndex
+    ) {
+      return false;
+    }
   }
   return true;
 }
@@ -212,6 +230,12 @@ function eqCursorTarget(a: DuelCursorTarget | null, b: DuelCursorTarget | null):
   if (a === b) return true;
   if (a === null || b === null) return false;
   return a.zone === b.zone && a.index === b.index && a.cardId === b.cardId && a.hidden === b.hidden;
+}
+
+function eqBattleTarget(a: BattleTarget | null, b: BattleTarget | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  return eqCursorTarget(a.attacker, b.attacker) && eqCursorTarget(a.defender, b.defender);
 }
 
 function eqNumRecord(a: Record<number, number> | null, b: Record<number, number> | null): boolean {
@@ -285,6 +309,61 @@ function isAvailableRawHandTarget(raw: RawBridgeState, target: DuelCursorTarget)
       slot.cardId === target.cardId &&
       isAvailableRawHandSlot(slot, raw.handSlots, target.index),
   );
+}
+
+function nextPendingPlayerAttackTarget(
+  raw: RawBridgeState,
+  cursorTarget: DuelCursorTarget | null,
+  previous: DuelCursorTarget | null,
+): DuelCursorTarget | null {
+  if (raw.turnIndicator !== 0 || raw.duelPhase !== 0x05) return null;
+  const explicit = findExplicitPlayerAttacker(raw);
+  if (explicit) return explicit;
+  if (cursorTarget?.zone === "opponentField") {
+    const slotTarget = playerAttackTargetFromFieldSlotSignal(raw);
+    if (slotTarget) return slotTarget;
+  }
+  if (cursorTarget?.zone === "playerField") return cursorTarget;
+  if (cursorTarget?.zone === "opponentField" && isAvailableRawFieldTarget(raw.field, previous)) {
+    return previous;
+  }
+  return null;
+}
+
+function resolveBattleTarget(
+  cursorTarget: DuelCursorTarget | null,
+  pendingPlayerAttackTarget: DuelCursorTarget | null,
+): BattleTarget | null {
+  if (cursorTarget?.zone !== "opponentField" || !pendingPlayerAttackTarget) return null;
+  return { attacker: pendingPlayerAttackTarget, defender: cursorTarget };
+}
+
+function findExplicitPlayerAttacker(raw: RawBridgeState): DuelCursorTarget | null {
+  const index = raw.field.findIndex(
+    (slot) => slot.cardId > 0 && slot.cardId < 723 && slot.status === 0x04,
+  );
+  if (index < 0) return null;
+  const slot = raw.field[index];
+  if (!slot) return null;
+  return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function playerAttackTargetFromFieldSlotSignal(raw: RawBridgeState): DuelCursorTarget | null {
+  if (!("duelCursorFieldSlotIndex" in raw)) return null;
+  const index = raw.duelCursorFieldSlotIndex;
+  if (index == null) return null;
+  const slot = raw.field[index];
+  if (!slot || slot.cardId <= 0 || slot.cardId >= 723 || slot.status === 0) return null;
+  return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function isAvailableRawFieldTarget(
+  slots: RawCardSlot[],
+  target: DuelCursorTarget | null,
+): target is DuelCursorTarget {
+  if (!target || target.zone !== "playerField") return false;
+  const slot = slots[target.index];
+  return Boolean(slot && slot.cardId === target.cardId && slot.status !== 0);
 }
 
 function isAvailableRawHandSlot(
@@ -398,6 +477,13 @@ export function processBridgeMessage(
       raw,
       tracker.confirmedPlayerHandTarget,
     );
+    const pendingPlayerAttackTarget = isActiveDuel
+      ? nextPendingPlayerAttackTarget(raw, resolvedCursorTarget, tracker.pendingPlayerAttackTarget)
+      : null;
+    const resolvedBattleTarget = resolveBattleTarget(
+      resolvedCursorTarget,
+      pendingPlayerAttackTarget,
+    );
     const nextBridgeTracker: BridgeTracker = {
       ...nextTracker,
       confirmedPlayerHandTarget: isActiveDuel
@@ -407,6 +493,7 @@ export function processBridgeMessage(
             tracker.confirmedPlayerHandTarget,
           )
         : null,
+      pendingPlayerAttackTarget,
     };
 
     const cpuSwaps = accumulateCpuSwaps(
@@ -441,6 +528,7 @@ export function processBridgeMessage(
     const lp = keepRef(currentState.lp, interpreted.lp, eqLp);
     const stats = keepRef(currentState.stats, interpreted.stats, eqStats);
     const cursorTarget = keepRef(currentState.cursorTarget, resolvedCursorTarget, eqCursorTarget);
+    const battleTarget = keepRef(currentState.battleTarget, resolvedBattleTarget, eqBattleTarget);
     const collection = keepRef(
       currentState.collection,
       computeOwnedCards(raw.trunk, raw.deckDefinition),
@@ -480,6 +568,7 @@ export function processBridgeMessage(
       opponentHand,
       opponentField,
       cursorTarget,
+      battleTarget,
       cpuSwaps,
       unlockedDuelists,
     };

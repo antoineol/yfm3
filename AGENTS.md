@@ -44,3 +44,4 @@ When choosing a solution, apply these principles:
 - The community x15 drop recipe is Ghost's `Drop More Cards` approach: patch the root executable and `DATA/WA_MRG.MRG`, or the matching raw loop anchors. In `WA_MRG.MRG`, the full blob starts at `0xb4c400 + i*0x75800` for `i=1..7`; code starts 0x40 bytes later.
 - Gold `SLUS_000.04` uses the same community x15 shape as vanilla/FMR, but has a local continuation instruction at `SLUS:0x1247c`; preserve it by writing only the two hook words at `0x1246c`. Do not add custom local reward trampolines or call the drop picker at the later award site.
 - Use `bun run test`, not raw `bun test`: the test suite relies on Vitest features and environment directives such as `vi.hoisted` and `happy-dom`.
+- Duel battle prediction does not yet know the selected guardian star from RAM. Until that byte is mapped, it falls back to each card's primary guardian star, so live checks with manually selected secondary stars may disagree.

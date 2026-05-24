@@ -99,4 +99,4 @@ Return best deck + exact expected ATK
 | **Onboarding Flow** (DONE) | [`docs/onboard/auto-duckstation-setting.md`](onboard/auto-duckstation-setting.md) | Mode chooser, prerequisite steps, shared-memory auto-patch, and bridge-only data in auto-sync mode |
 | **Agent Game Control** | [`docs/steps/agent-game-control.md`](steps/agent-game-control.md) | AI agent control of gameplay via PostMessage input + save state loading through bridge WebSocket |
 | **Rank Scoring Profiles** (CURRENT) | [`docs/steps/rank-scoring-profiles.md`](steps/rank-scoring-profiles.md) | Extract rank tables from the active disc image, with vanilla/RP profiles as fallback |
-| **Duel Cursor Target** (CURRENT) | [`docs/steps/duel-cursor-target.md`](steps/duel-cursor-target.md) | Discover the in-game cursor target, then show the selected card in the duel HUD without revealing opponent hidden cards unless cheat mode is enabled |
+| **Duel Cursor Target** (CURRENT) | [`docs/steps/duel-cursor-target.md`](steps/duel-cursor-target.md) | Show focused cards and target-selection battle prediction in the duel HUD without revealing opponent hidden cards unless cheat mode is enabled |

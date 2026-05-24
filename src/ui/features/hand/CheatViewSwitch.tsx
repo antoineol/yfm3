@@ -6,6 +6,7 @@ import { useBridge } from "../../lib/bridge-context.tsx";
 import type { BridgeState } from "../../lib/bridge-message-processor.ts";
 import { formatCardId } from "../../lib/format.ts";
 import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
+import { type BattlePrediction, predictFocusedBattle } from "../duel/battle-prediction.ts";
 
 /** Focused-card strip plus Player / Opponent segmented switch during a duel. */
 export function CheatViewSwitch() {
@@ -52,6 +53,7 @@ export function duelFocusRowVisible(bridge: BridgeState, cheatMode: boolean): bo
 function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMode: boolean }) {
   const resolveArtwork = useArtworkSrc();
   const focused = focusedCardForDisplay(bridge, cheatMode);
+  const prediction = predictFocusedBattle(bridge);
 
   if (!focused) {
     return <div aria-hidden="true" className="fm-duel-focused-slot" />;
@@ -84,8 +86,26 @@ function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMo
           </div>
         </div>
       </div>
+      <BattlePredictionPill prediction={prediction} />
     </div>
   );
+}
+
+function BattlePredictionPill({ prediction }: { prediction: BattlePrediction | null }) {
+  if (!prediction) return null;
+  return (
+    <div className={`fm-battle-prediction fm-battle-prediction--${prediction.outcome}`}>
+      <span className="fm-battle-prediction-label">
+        {battlePredictionLabel(prediction.outcome)}
+      </span>
+    </div>
+  );
+}
+
+export function battlePredictionLabel(outcome: BattlePrediction["outcome"]): string {
+  if (outcome === "win") return "Win";
+  if (outcome === "bothDestroyed") return "Both destroyed";
+  return "Lose";
 }
 
 function SwitchOption({

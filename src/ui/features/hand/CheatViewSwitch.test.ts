@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { type BridgeState, INITIAL_BRIDGE_STATE } from "../../lib/bridge-message-processor.ts";
-import { duelFocusRowVisible, focusedCardForDisplay } from "./CheatViewSwitch.tsx";
+import {
+  battlePredictionLabel,
+  duelFocusRowVisible,
+  focusedCardForDisplay,
+} from "./CheatViewSwitch.tsx";
 
 function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
   return {
@@ -68,5 +72,13 @@ describe("duelFocusRowVisible", () => {
         true,
       ),
     ).toBeNull();
+  });
+});
+
+describe("battlePredictionLabel", () => {
+  it("returns only the battle outcome state", () => {
+    expect(battlePredictionLabel("win")).toBe("Win");
+    expect(battlePredictionLabel("bothDestroyed")).toBe("Both destroyed");
+    expect(battlePredictionLabel("lose")).toBe("Lose");
   });
 });

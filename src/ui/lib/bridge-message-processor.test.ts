@@ -394,6 +394,80 @@ describe("processBridgeMessage", () => {
         hidden: false,
       });
     });
+
+    it("tracks the player attacker while an opponent target is focused", () => {
+      const field = [
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const opponentField = [
+        { cardId: 493, atk: 1550, def: 1400, status: 0xbc },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+
+      const attackerPoll = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 531,
+          duelCursorFieldSlotIndex: 1,
+        }),
+      );
+      expect(attackerPoll.state.battleTarget).toBeNull();
+
+      const targetPoll = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 493,
+          duelCursorFieldSlotIndex: 1,
+        }),
+        attackerPoll.state,
+        attackerPoll.tracker,
+      );
+
+      expect(targetPoll.state.battleTarget).toEqual({
+        attacker: { zone: "playerField", index: 1, cardId: 531, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
+      });
+    });
+
+    it("recovers the attacker from the current field slot signal without prior cursor history", () => {
+      const { state } = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field: [
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 493, atk: 1550, def: 1400, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 493,
+          duelCursorFieldSlotIndex: 1,
+        }),
+      );
+
+      expect(state.battleTarget).toEqual({
+        attacker: { zone: "playerField", index: 1, cardId: 531, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
+      });
+    });
   });
 
   describe("waiting_for_game message", () => {
@@ -782,6 +856,7 @@ describe("processBridgeMessage", () => {
       "stats",
       "lp",
       "cpuSwaps",
+      "battleTarget",
     ];
 
     for (const slice of slices) {

@@ -521,8 +521,8 @@ describe("interpretRawState", () => {
         }),
       );
       expect(result.field).toEqual([
-        { cardId: 50, atk: 1000, def: 600 },
-        { cardId: 60, atk: 1100, def: 700 },
+        { cardId: 50, atk: 1000, def: 600, status: 0x80, slotIndex: 0 },
+        { cardId: 60, atk: 1100, def: 700, status: 0x04, slotIndex: 1 },
       ]);
     });
 
@@ -538,7 +538,9 @@ describe("interpretRawState", () => {
           ],
         }),
       );
-      expect(result.field).toEqual([{ cardId: 50, atk: 1500, def: 1100 }]);
+      expect(result.field).toEqual([
+        { cardId: 50, atk: 1500, def: 1100, status: 0x80, slotIndex: 0 },
+      ]);
     });
   });
 
@@ -910,7 +912,9 @@ describe("interpretRawState", () => {
         }),
       );
       expect(result.hand).toEqual([102, 569, 130, 397]); // 567 excluded
-      expect(result.field).toEqual([{ cardId: 567, atk: 1200, def: 900 }]);
+      expect(result.field).toEqual([
+        { cardId: 567, atk: 1200, def: 900, status: 0x94, slotIndex: 0 },
+      ]);
       expect(result.phase).toBe("field"); // was incorrectly "hand" before the fix
       expect(result.inDuel).toBe(true);
     });

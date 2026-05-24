@@ -18,7 +18,15 @@ export type DuelStats = {
 };
 
 /** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
-export type FieldCard = { cardId: number; atk: number; def: number };
+export type FieldCard = {
+  cardId: number;
+  atk: number;
+  def: number;
+  /** Raw field status byte; used for battle position when available. */
+  status?: number;
+  /** Zero-based physical field slot index. Manual field cards omit it. */
+  slotIndex?: number;
+};
 
 export type DuelCursorZone = "playerHand" | "playerField" | "opponentHand" | "opponentField";
 
@@ -452,8 +460,10 @@ function filterCardSlots(slots: RawCardSlot[]): number[] {
 
 function filterFieldSlots(slots: RawCardSlot[]): FieldCard[] {
   const result: FieldCard[] = [];
-  for (const s of slots) {
-    if (isActiveSlot(s)) result.push({ cardId: s.cardId, atk: s.atk, def: s.def });
+  for (const [i, s] of slots.entries()) {
+    if (isActiveSlot(s)) {
+      result.push({ cardId: s.cardId, atk: s.atk, def: s.def, status: s.status, slotIndex: i });
+    }
   }
   return result;
 }
