@@ -1688,13 +1688,13 @@ input[type="number"] {
 .fm-duel-focused-stats {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 9px;
   overflow: hidden;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.1;
   white-space: nowrap;
 }
 
