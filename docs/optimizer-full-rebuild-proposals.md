@@ -1,6 +1,6 @@
 # Full-Rebuild Optimizer Proposals
 
-Status: proposal with items 1 and 3 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
+Status: proposal with items 1, 3, and 4 implemented. Goal: improve full rebuild suggestions without increasing the existing optimization time budget.
 
 ## Scope
 
@@ -74,6 +74,8 @@ Risk: exact scoring is expensive on fusion-heavy data. Mitigation: carve the res
 
 ### 4. Better Generic Worker Diversity
 
+Status: implemented in seed generation.
+
 Improve starting points without card-specific assumptions.
 
 Good seeds:
@@ -109,7 +111,7 @@ Risk: more expensive deltas. Mitigation: benchmark first; ship only if iteration
 1. Final greedy polish. Done.
 2. Exact-score worker candidates. Done.
 3. Add diff cleanup if noisy diffs remain.
-4. Replace weak seed diversity with scorer-neutral seeds.
+4. Replace weak seed diversity with scorer-neutral seeds. Done.
 5. Experiment with limited multi-swap moves only after measuring the first four.
 
 ## Validation

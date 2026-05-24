@@ -1,15 +1,21 @@
 import { getConfig } from "../config.ts";
-import { MAX_COPIES } from "../types/constants.ts";
+import { FUSION_NONE, MAX_CARD_ID, MAX_COPIES } from "../types/constants.ts";
 
 /** Sparse cardId → cap map; missing cards fall back to `MAX_COPIES`. */
 export type DeckLimitsMap = Readonly<Record<number, number>>;
+
+export interface SeedGameData {
+  readonly cardAtk: Int16Array;
+  readonly fusionTable: Int16Array;
+  readonly equipCompat: Uint8Array;
+}
 
 /**
  * Generate initial decks for multi-start SA.
  *
  * - Worker 0: no initialDeck (uses the greedy seed built by initializeBuffersBrowser)
- * - Worker 1: greedy seed with 10 random perturbations
- * - Workers 2+: fully random valid decks
+ * - Worker 1: deterministic fusion/equip/ATK-weighted seed when game data is available
+ * - Workers 2+: biased-random valid decks
  *
  * @param collectionRecord  cardId → quantity owned
  * @param numWorkers        total number of workers
@@ -22,21 +28,22 @@ export function generateInitialDecks(
   numWorkers: number,
   rand: () => number,
   deckLimits?: DeckLimitsMap,
+  gameData?: SeedGameData,
 ): Array<number[] | undefined> {
-  const pool = buildPool(collectionRecord, deckLimits);
+  const pool = buildPool(collectionRecord, deckLimits, gameData);
   const decks: Array<number[] | undefined> = new Array(numWorkers);
+  const seen = new Set<string>();
 
   // Worker 0: greedy (no override)
   decks[0] = undefined;
 
   if (numWorkers > 1) {
-    // Worker 1: greedy + perturbation — build a greedy-like deck then perturb
-    const greedy = buildGreedyDeckFromPool(pool);
-    decks[1] = perturbDeck(greedy, pool, 10, rand);
+    decks[1] = gameData ? buildWeightedDeck(pool) : buildUniqueRandomDeck(pool, rand, seen);
+    rememberDeck(decks[1], seen);
   }
 
   for (let i = 2; i < numWorkers; i++) {
-    decks[i] = buildRandomDeck(pool, rand);
+    decks[i] = buildUniqueRandomDeck(pool, rand, seen);
   }
 
   return decks;
@@ -46,34 +53,54 @@ export function generateInitialDecks(
 interface PoolEntry {
   id: number;
   maxCopies: number;
+  weight: number;
 }
 
 /** Build pool entries from the collection record, capped at the per-card limit (or MAX_COPIES). */
 function buildPool(
   collectionRecord: Record<number, number>,
   deckLimits: DeckLimitsMap | undefined,
+  gameData: SeedGameData | undefined,
 ): PoolEntry[] {
-  const pool: PoolEntry[] = [];
+  const basePool: PoolEntry[] = [];
   for (const key in collectionRecord) {
     const id = Number(key);
     const qty = collectionRecord[key] ?? 0;
     const cap = deckLimits?.[id] ?? MAX_COPIES;
     const maxCopies = Math.min(qty, cap);
     if (maxCopies > 0) {
-      pool.push({ id, maxCopies });
+      basePool.push({ id, maxCopies, weight: 1 });
     }
   }
-  return pool;
+
+  if (!gameData) return basePool;
+
+  for (const entry of basePool) {
+    entry.weight = computeSeedWeight(entry.id, basePool, gameData);
+  }
+  return basePool;
 }
 
-/**
- * Build a greedy-like deck from pool entries (sorted by id descending as a proxy —
- * the orchestrator doesn't have ATK data). This gives a deterministic starting point
- * for perturbation. The exact card order doesn't matter much since we perturb it.
- */
-function buildGreedyDeckFromPool(pool: PoolEntry[]): number[] {
+function computeSeedWeight(id: number, pool: PoolEntry[], gameData: SeedGameData): number {
+  let partners = 0;
+  for (const other of pool) {
+    const otherId = other.id;
+    if (
+      gameData.fusionTable[id * MAX_CARD_ID + otherId] !== FUSION_NONE ||
+      gameData.equipCompat[id * MAX_CARD_ID + otherId] ||
+      gameData.equipCompat[otherId * MAX_CARD_ID + id]
+    ) {
+      partners++;
+    }
+  }
+
+  const atk = Math.max(gameData.cardAtk[id] ?? 0, 0);
+  return Math.max(1, atk + partners * 200);
+}
+
+function buildWeightedDeck(pool: PoolEntry[]): number[] {
   const { deckSize } = getConfig();
-  const sorted = [...pool].sort((a, b) => b.id - a.id);
+  const sorted = [...pool].sort((a, b) => b.weight - a.weight || b.maxCopies - a.maxCopies);
   const deck: number[] = [];
   const counts = new Map<number, number>();
 
@@ -90,66 +117,56 @@ function buildGreedyDeckFromPool(pool: PoolEntry[]): number[] {
   return deck;
 }
 
-/**
- * Perturb a deck by swapping `numSwaps` random slots with random cards from the pool.
- * Returns a new deck array.
- */
-function perturbDeck(
-  baseDeck: number[],
-  pool: PoolEntry[],
-  numSwaps: number,
-  rand: () => number,
-): number[] {
-  const deck = [...baseDeck];
-  const counts = new Map<number, number>();
-  for (const id of deck) {
-    counts.set(id, (counts.get(id) ?? 0) + 1);
+function buildUniqueRandomDeck(pool: PoolEntry[], rand: () => number, seen: Set<string>): number[] {
+  let deck = buildBiasedRandomDeck(pool, rand);
+  for (let attempt = 0; attempt < 10 && seen.has(deckKey(deck)); attempt++) {
+    deck = buildBiasedRandomDeck(pool, rand);
   }
+  rememberDeck(deck, seen);
+  return deck;
+}
 
-  for (let s = 0; s < numSwaps; s++) {
-    const slot = (rand() * deck.length) | 0;
-    // Try a few times to find a valid replacement
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const entry = pool[(rand() * pool.length) | 0];
-      if (!entry) continue;
-      const currentCount = counts.get(entry.id) ?? 0;
-      if (currentCount < entry.maxCopies && entry.id !== deck[slot]) {
-        // Remove old card
-        const oldId = deck[slot] ?? 0;
-        counts.set(oldId, (counts.get(oldId) ?? 0) - 1);
-        // Add new card
-        deck[slot] = entry.id;
-        counts.set(entry.id, currentCount + 1);
-        break;
-      }
-    }
+function buildBiasedRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
+  const { deckSize } = getConfig();
+  const deck: number[] = [];
+  const counts = new Map<number, number>();
+
+  while (deck.length < deckSize) {
+    const entry = selectAvailableEntry(pool, counts, rand);
+    if (!entry) break;
+    deck.push(entry.id);
+    counts.set(entry.id, (counts.get(entry.id) ?? 0) + 1);
   }
 
   return deck;
 }
 
-/**
- * Build a fully random valid deck from the pool.
- * Expands each card to maxCopies entries, shuffles, takes first deckSize.
- * The expanded pool guarantees maxCopies is never exceeded.
- */
-function buildRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
-  const { deckSize } = getConfig();
-  // Expand pool into a flat list — each card appears maxCopies times
-  const expanded: number[] = [];
+function selectAvailableEntry(
+  pool: PoolEntry[],
+  counts: Map<number, number>,
+  rand: () => number,
+): PoolEntry | null {
+  let totalWeight = 0;
   for (const entry of pool) {
-    for (let c = 0; c < entry.maxCopies; c++) {
-      expanded.push(entry.id);
-    }
+    const remaining = entry.maxCopies - (counts.get(entry.id) ?? 0);
+    if (remaining > 0) totalWeight += entry.weight * remaining;
   }
+  if (totalWeight <= 0) return null;
 
-  // Fisher-Yates shuffle
-  for (let i = expanded.length - 1; i > 0; i--) {
-    const j = (rand() * (i + 1)) | 0;
-    const tmp = expanded[i] ?? 0;
-    expanded[i] = expanded[j] ?? 0;
-    expanded[j] = tmp;
+  let target = rand() * totalWeight;
+  for (const entry of pool) {
+    const remaining = entry.maxCopies - (counts.get(entry.id) ?? 0);
+    if (remaining <= 0) continue;
+    target -= entry.weight * remaining;
+    if (target <= 0) return entry;
   }
+  return null;
+}
 
-  return expanded.slice(0, deckSize);
+function rememberDeck(deck: number[] | undefined, seen: Set<string>): void {
+  if (deck) seen.add(deckKey(deck));
+}
+
+function deckKey(deck: number[]): string {
+  return [...deck].sort((a, b) => a - b).join(",");
 }

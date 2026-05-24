@@ -1,6 +1,6 @@
 import { getConfig, setConfig } from "./config.ts";
 import type { Collection } from "./data/card-model.ts";
-import { getCachedDeckLimits } from "./initialize-buffers-browser.ts";
+import { getCachedDeckLimits, getSeedGameData } from "./initialize-buffers-browser.ts";
 import { DEFAULT_MOD, MODS, type ModId } from "./mods.ts";
 import { mulberry32 } from "./mulberry32.ts";
 import { generateInitialDecks } from "./optimizer/seed-strategies.ts";
@@ -167,7 +167,14 @@ export async function optimizeDeckParallel(
 
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const deckLimits = gameData?.deckLimits?.byCard ?? getCachedDeckLimits(modId);
-  const initialDecks = generateInitialDecks(collectionRecord, numWorkers, rand, deckLimits);
+  const seedGameData = getSeedGameData(modId, gameData);
+  const initialDecks = generateInitialDecks(
+    collectionRecord,
+    numWorkers,
+    rand,
+    deckLimits,
+    seedGameData,
+  );
 
   // 2. Run SA workers in parallel with convergence detection
   const results = await runSaWorkerPool({

@@ -8,6 +8,7 @@ import {
   loadGameDataWithBridgeTables,
 } from "./data/load-game-data-core.ts";
 import { DEFAULT_MOD, type ModId } from "./mods.ts";
+import type { SeedGameData } from "./optimizer/seed-strategies.ts";
 import type { OptBuffers } from "./types/buffers.ts";
 import { createBuffers } from "./types/buffers.ts";
 import { MAX_CARD_ID } from "./types/constants.ts";
@@ -15,6 +16,7 @@ import type { BridgeGameData } from "./worker/messages.ts";
 
 type CsvCache = { cards: string; fusions: string; equips: string; deckLimits: string };
 const csvCache = new Map<ModId, CsvCache>();
+const seedGameDataCache = new Map<string, SeedGameData>();
 
 /** Fetch CSV game data for a mod. Safe to call multiple times — only fetches once per mod. */
 export async function ensureCsvLoaded(modId: ModId = DEFAULT_MOD): Promise<void> {
@@ -59,6 +61,32 @@ export function getCachedDeckLimits(
   return Object.keys(map).length > 0 ? map : undefined;
 }
 
+export function getSeedGameData(
+  modId: ModId = DEFAULT_MOD,
+  gameData?: BridgeGameData,
+): SeedGameData | undefined {
+  if (!gameData && !csvCache.has(modId)) return undefined;
+  const cacheKey = gameData ? null : seedGameDataCacheKey(modId);
+  const cached = cacheKey ? seedGameDataCache.get(cacheKey) : undefined;
+  if (cached) return cached;
+
+  const { buf, cards } = loadSeedGameBuffers(modId, gameData);
+  const { terrain, useEquipment } = getConfig();
+  if (terrain > 0) {
+    for (const card of cards) {
+      buf.cardAtk[card.id] = applyFieldBonus(card.attack, terrain, card.cardType);
+    }
+  }
+  if (!useEquipment) buf.equipCompat.fill(0);
+  const seedGameData = {
+    cardAtk: buf.cardAtk,
+    fusionTable: buf.fusionTable,
+    equipCompat: buf.equipCompat,
+  };
+  if (cacheKey) seedGameDataCache.set(cacheKey, seedGameData);
+  return seedGameData;
+}
+
 /**
  * Browser-compatible initialization pipeline.
  * When `gameData` is provided, all data comes from the bridge (no CSV).
@@ -90,6 +118,20 @@ export function initializeSuggestionBuffersBrowser(
 }
 
 function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData?: BridgeGameData) {
+  const { buf, cards } = loadSeedGameBuffers(modId, gameData);
+  populateEquipBonusBuffer(buf, gameData?.perEquipBonuses);
+  const { terrain } = getConfig();
+  if (terrain > 0) {
+    for (const card of cards) {
+      buf.cardAtk[card.id] = applyFieldBonus(card.attack, terrain, card.cardType);
+    }
+  }
+  generateHandSlots(buf, rand);
+  buildReverseLookup(buf);
+  return { buf, cards };
+}
+
+function loadSeedGameBuffers(modId: ModId, gameData?: BridgeGameData) {
   const buf = createBuffers();
   let cards: CardSpec[];
   if (gameData) {
@@ -104,16 +146,12 @@ function initializeBrowserGameBuffers(rand: () => number, modId: ModId, gameData
     const csv = getCsvCache(modId);
     cards = loadGameDataFromStrings(buf, csv.cards, csv.fusions, csv.equips, csv.deckLimits);
   }
-  populateEquipBonusBuffer(buf, gameData?.perEquipBonuses);
-  const { terrain } = getConfig();
-  if (terrain > 0) {
-    for (const card of cards) {
-      buf.cardAtk[card.id] = applyFieldBonus(card.attack, terrain, card.cardType);
-    }
-  }
-  generateHandSlots(buf, rand);
-  buildReverseLookup(buf);
   return { buf, cards };
+}
+
+function seedGameDataCacheKey(modId: ModId): string {
+  const { terrain, useEquipment, fieldBonusTable } = getConfig();
+  return `${modId}:${terrain}:${useEquipment}:${fieldBonusTable?.join(".") ?? ""}`;
 }
 
 /**

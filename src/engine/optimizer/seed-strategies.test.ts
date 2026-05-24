@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { resetConfig } from "../config.ts";
 import { mulberry32 } from "../mulberry32.ts";
-import { DECK_SIZE, MAX_COPIES } from "../types/constants.ts";
-import { generateInitialDecks } from "./seed-strategies.ts";
+import { DECK_SIZE, FUSION_NONE, MAX_CARD_ID, MAX_COPIES } from "../types/constants.ts";
+import { generateInitialDecks, type SeedGameData } from "./seed-strategies.ts";
 
 afterEach(() => resetConfig());
 
@@ -21,12 +21,47 @@ describe("generateInitialDecks", () => {
     expect(decks[0]).toBeUndefined();
   });
 
-  it("returns a perturbed deck for worker 1", () => {
+  it("returns a valid override deck for worker 1", () => {
     const rand = mulberry32(0);
     const decks = generateInitialDecks(makeCollectionRecord(), 4, rand);
     const deck = decks[1];
     expect(deck).toBeDefined();
     expect(deck).toHaveLength(DECK_SIZE);
+  });
+
+  it("uses game data for a deterministic weighted worker 1 seed", () => {
+    const gameData = makeSeedGameData();
+    gameData.cardAtk[7] = 3000;
+    gameData.cardAtk[8] = 2500;
+    const decks = generateInitialDecks(
+      makeCollectionRecord(),
+      2,
+      mulberry32(0),
+      undefined,
+      gameData,
+    );
+
+    expect(decks[1]?.slice(0, 6)).toEqual([7, 7, 7, 8, 8, 8]);
+  });
+
+  it("can prioritize low-ATK cards with many generic fusion partners", () => {
+    const gameData = makeSeedGameData();
+    gameData.cardAtk[1] = 100;
+    gameData.cardAtk[2] = 3000;
+    for (let partner = 3; partner <= 20; partner++) {
+      gameData.fusionTable[1 * MAX_CARD_ID + partner] = 500;
+      gameData.fusionTable[partner * MAX_CARD_ID + 1] = 500;
+    }
+
+    const decks = generateInitialDecks(
+      makeCollectionRecord(),
+      2,
+      mulberry32(0),
+      undefined,
+      gameData,
+    );
+
+    expect(decks[1]?.slice(0, 3)).toEqual([1, 1, 1]);
   });
 
   it("returns random decks for workers 2+", () => {
@@ -101,3 +136,13 @@ describe("generateInitialDecks", () => {
     }
   });
 });
+
+function makeSeedGameData(): SeedGameData {
+  const fusionTable = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+  fusionTable.fill(FUSION_NONE);
+  return {
+    cardAtk: new Int16Array(MAX_CARD_ID),
+    fusionTable,
+    equipCompat: new Uint8Array(MAX_CARD_ID * MAX_CARD_ID),
+  };
+}
