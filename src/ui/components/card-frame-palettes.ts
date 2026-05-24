@@ -79,7 +79,7 @@ const labelTextColors: Record<Color, string> = {
   yellow: "#f4d35e",
   blue: "#6aa8ff",
   green: "#5fd17a",
-  purple: "#c084fc",
+  purple: "#ff4dff",
   orange: "#f59e42",
   red: "#ff5a5f",
   pink: "#f472b6",

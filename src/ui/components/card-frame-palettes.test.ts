@@ -38,6 +38,7 @@ describe("card frame palettes", () => {
 
   it("keeps label colors separate from frame palettes", () => {
     expect(labelTextColor("blue")).toBe("#6aa8ff");
+    expect(labelTextColor("purple")).toBe("#ff4dff");
     expect(frameBorderColor("green", "Magic", false)).toBe("#308838");
   });
 });

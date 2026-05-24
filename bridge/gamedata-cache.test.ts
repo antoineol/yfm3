@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -40,6 +40,20 @@ describe("gamedata cache", () => {
   it("rejects cache entries when the source disc changes at the same path", () => {
     writeGameDataCache(tmpDir, discPath, data);
     writeFileSync(discPath, "changed size");
+    expect(readGameDataCache(tmpDir, discPath)).toBeNull();
+  });
+
+  it("rejects cache entries from older extractor versions", () => {
+    const stat = statSync(discPath);
+    writeFileSync(
+      join(tmpDir, "gamedata.json"),
+      JSON.stringify({
+        version: 15,
+        disc: { size: stat.size, mtimeMs: stat.mtimeMs },
+        ...data,
+      }),
+    );
+
     expect(readGameDataCache(tmpDir, discPath)).toBeNull();
   });
 

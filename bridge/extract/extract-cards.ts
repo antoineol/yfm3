@@ -24,7 +24,7 @@ import { NUM_CARDS } from "./types.ts";
 const LABEL_COLORS: Record<number, string> = {
   1: "yellow",
   2: "blue",
-  3: "green",
+  3: "purple",
   4: "purple",
   5: "orange",
   6: "red",

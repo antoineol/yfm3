@@ -81,7 +81,7 @@ describe("FusionResultsList rendering", () => {
     );
 
     expect(screen.getByRole("button", { name: "Blue-Eyes White Dragon" }).style.color).toBe(
-      "#c084fc",
+      "#ff4dff",
     );
   });
 });

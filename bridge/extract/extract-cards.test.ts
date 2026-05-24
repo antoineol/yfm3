@@ -323,6 +323,32 @@ describe("extractCards — card name colors", () => {
     expect(cards[0]?.labelColor).toBe("blue");
   });
 
+  it("maps F8 0A 03 name-prefix colors to purple", () => {
+    const stat = encodeCardStat(350, 200, 7, 8, 4);
+    const nameTableOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
+    const textPoolBase = nameTableOffset + NUM_CARDS * 2 + 100;
+    const nameOffsets = Buffer.alloc(NUM_CARDS * 2);
+    const name = Buffer.concat([
+      Buffer.from([0xf8, 0x0a, 0x03]),
+      encodeTblStrings(["Meteor B. Dragon"]),
+    ]);
+    const slus = makeSlusWithTables(
+      [stat],
+      [8 | (4 << 4)],
+      [
+        { offset: nameTableOffset, data: nameOffsets },
+        { offset: textPoolBase, data: name },
+      ],
+    );
+    const waMrg = makeWaMrg([]);
+    const layout: ExeLayout = { ...exeLayout, nameOffsetTable: nameTableOffset, textPoolBase };
+
+    const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
+
+    expect(cards[0]?.name).toBe("Meteor B. Dragon");
+    expect(cards[0]?.labelColor).toBe("purple");
+  });
+
   it("does not treat other F8 controls as card colors", () => {
     const stat = encodeCardStat(280, 210, 9, 5, 15);
     const nameTableOffset = NUM_CARDS * 4 + NUM_CARDS + 100;
