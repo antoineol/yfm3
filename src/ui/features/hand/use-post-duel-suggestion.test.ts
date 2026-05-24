@@ -83,6 +83,7 @@ function makeBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge {
     stageFailed: false,
     opponentHand: [],
     opponentField: [],
+    cursorTarget: null,
     cpuSwaps: [],
     unlockedDuelists: null,
     opponentPhase: "other" as const,
@@ -196,6 +197,33 @@ describe("buildRewardEvidence", () => {
       matchedCards: 15,
       totalCards: 15,
       possibleVisibleCardIds: [1],
+    });
+  });
+
+  it("prefers the displayed rank pool when all gained cards fit it despite BCD overlap", () => {
+    const saPow = makePool({ 30: 27, 123: 52, 130: 52 });
+    const bcd = makePool({ 123: 57, 130: 57 });
+    const gameData = makeRewardGameData({ saPow, bcd });
+
+    const evidence = buildRewardEvidence(makeRewardStats(), gameData, [
+      { cardId: 30, qty: 1 },
+      { cardId: 123, qty: 1 },
+      { cardId: 130, qty: 1 },
+    ]);
+
+    expect(evidence?.selectorDropPool).toBeNull();
+    expect(evidence?.poolMatches).toMatchObject([
+      { dropPool: "SA-POW", possible: true, matchedCards: 3 },
+      { dropPool: "BCD", possible: false, matchedCards: 2 },
+      { dropPool: "SA-TEC", possible: false, matchedCards: 0 },
+    ]);
+    expect(evidence?.x15Match).toMatchObject({
+      visiblePool: "SA-POW",
+      hiddenPool: "SA-POW",
+      hiddenPoolSource: "inferred",
+      possible: true,
+      matchedCards: 3,
+      totalCards: 3,
     });
   });
 });

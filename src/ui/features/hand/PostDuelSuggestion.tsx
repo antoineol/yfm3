@@ -235,7 +235,7 @@ function buildRewardVerdict(evidence: RewardEvidence): { text: string; className
     if (evidence.x15Match.visiblePool !== evidence.x15Match.hiddenPool) {
       const source = evidence.x15Match.hiddenPoolSource === "inferred" ? "inferred " : "";
       return {
-        text: `Cards fit the local x15 path: visible card from ${evidence.x15Match.visiblePool}, ${source}hidden cards from ${evidence.x15Match.hiddenPool}.`,
+        text: `Cards fit split x15 evidence: visible card from ${evidence.x15Match.visiblePool}, ${source}hidden cards from ${evidence.x15Match.hiddenPool}.`,
         className: "text-stat-atk",
       };
     }

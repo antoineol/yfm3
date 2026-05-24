@@ -60,6 +60,7 @@ export interface AgentGameState {
   trunk: number[];
   deckDefinition: number[];
   cpuShuffledDeck: number[];
+  duelCursorTargetCardId: number | null;
   duelistUnlock: number[];
   rankCounters: number[] | null;
   rewardPoolContext: {
