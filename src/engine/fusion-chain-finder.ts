@@ -172,14 +172,14 @@ function comparePlayCandidates(
 ): number {
   if (candidate.resultAtk !== incumbent.resultAtk) return candidate.resultAtk - incumbent.resultAtk;
 
+  const consumedCountDiff = totalConsumedCards(incumbent) - totalConsumedCards(candidate);
+  if (consumedCountDiff !== 0) return consumedCountDiff;
+
   const candidateRemainingAtk = remainingBestAtk(candidate, context);
   const incumbentRemainingAtk = remainingBestAtk(incumbent, context);
   if (candidateRemainingAtk !== incumbentRemainingAtk) {
     return candidateRemainingAtk - incumbentRemainingAtk;
   }
-
-  const consumedCountDiff = totalConsumedCards(incumbent) - totalConsumedCards(candidate);
-  if (consumedCountDiff !== 0) return consumedCountDiff;
 
   return (
     consumedMaterialAtk(incumbent, context.cardDb) - consumedMaterialAtk(candidate, context.cardDb)

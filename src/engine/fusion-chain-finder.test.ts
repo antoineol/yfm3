@@ -585,6 +585,17 @@ describe("findFusionChains with field cards", () => {
     expect(ab?.resultAtk).toBe(1200);
   });
 
+  it("keeps hand-only and field-material plays separate for the same result", () => {
+    const results = findFusionChains([1, 2, 5], fusionTable, cardDb, 3, undefined, [
+      { cardId: 1, atk: 500, def: 0 },
+    ]);
+    const alphaBetaPlays = results.filter((r) => r.resultCardId === 10);
+
+    expect(alphaBetaPlays).toHaveLength(2);
+    expect(alphaBetaPlays.some((r) => r.fieldMaterialCardIds.length === 0)).toBe(true);
+    expect(alphaBetaPlays.some((r) => r.fieldMaterialCardIds.length > 0)).toBe(true);
+  });
+
   it("multi-step chain: intermediate downgrade skipped but final upgrade kept", () => {
     // Alpha(1) on field with liveAtk=1500, Beta(2)+Gamma(3) in hand
     // Step 1: Alpha(1)+Beta(2) → AlphaBeta(10) at 1200 → skipped (1200 < 1500)
@@ -606,6 +617,30 @@ describe("findFusionChains with field cards", () => {
 // Dedup: choose the best representative path for equivalent displayed plays
 // ---------------------------------------------------------------------------
 describe("findFusionChains prefers simpler plays", () => {
+  it("prefers fewer materials before comparing the remaining best play", () => {
+    const db = createCardDb();
+    addTestCard(db, 110, "Dragon Zombie", 1600);
+    addTestCard(db, 111, "Winged Dragon", 1400);
+    addTestCard(db, 112, "Bolt Escargot", 1400);
+    addTestCard(db, 113, "Blackland Fire Dragon", 1500);
+    addTestCard(db, 114, "Skelgon", 1700);
+    addTestCard(db, 115, "Twin-headed Thunder Dragon", 2800);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 111, 112, 114);
+    setFusion(ft, 114, 111, 115); // First discovered path leaves Dragon Zombie as 1600 raw play.
+    setFusion(ft, 110, 112, 115); // Shorter path leaves Blackland Fire Dragon as 1500 raw play.
+
+    const results = findFusionChains([111, 110, 112, 113, 111], ft, db, 3);
+    const twinHeaded = results.find((r) => r.resultCardId === 115);
+    expect(twinHeaded).toBeDefined();
+    expect(twinHeaded?.materialCardIds).toEqual([110, 112]);
+    expect(twinHeaded?.steps).toEqual([
+      { material1CardId: 110, material2CardId: 112, resultCardId: 115 },
+    ]);
+  });
+
   it("prefers the equivalent path that leaves the strongest remaining play", () => {
     const db = createCardDb();
     addTestCard(db, 90, "Low Dragon", 500);
