@@ -30,7 +30,6 @@ const baseState: GameState = {
   cpuShuffledDeck: [],
   duelistUnlock: [],
   rankCounters: null,
-  rewardPoolContext: null,
   duelCursorTargetCardId: null,
 };
 

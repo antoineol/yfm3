@@ -34,12 +34,7 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
-import type { DuelStats } from "../../lib/bridge-state-interpreter.ts";
-import {
-  buildRewardEvidence,
-  findNewCards,
-  mergeRewardStats,
-} from "./use-duel-collection-tracker.ts";
+import { findNewCards } from "./use-duel-collection-tracker.ts";
 import {
   decksMatch,
   scoringDeckApplied,
@@ -123,108 +118,6 @@ describe("findNewCards", () => {
     const before = {};
     const after = { 1: 1, 2: 1 };
     expect(findNewCards(before, after)).toEqual([1, 2]);
-  });
-});
-
-describe("buildRewardEvidence", () => {
-  it("detects local x15 rewards split between visible rank pool and hidden selector pool", () => {
-    const saPow = makePool({ 1: 2048 });
-    const saTec = makePool({ 2: 2048 });
-    const gameData = makeRewardGameData({ saPow, saTec });
-    const stats = makeRewardStats({
-      rewardPoolContext: { cardCountMode: 5, skillFlag: 1, computedPool: 2 },
-    });
-
-    const evidence = buildRewardEvidence(stats, gameData, [
-      { cardId: 1, qty: 1 },
-      { cardId: 2, qty: 14 },
-    ]);
-
-    expect(evidence?.rankLabel).toBe("S-POW");
-    expect(evidence?.rankDropPool).toBe("SA-POW");
-    expect(evidence?.selectorDropPool).toBe("SA-TEC");
-    expect(evidence?.bestDropPool).toBe("SA-TEC");
-    expect(evidence?.x15Match).toMatchObject({
-      visiblePool: "SA-POW",
-      hiddenPool: "SA-TEC",
-      hiddenPoolSource: "selector",
-      possible: true,
-      matchedCards: 15,
-      totalCards: 15,
-      possibleVisibleCardIds: [1],
-    });
-  });
-
-  it("uses cached reward selector when collection changes after the live selector disappears", () => {
-    const saPow = makePool({ 1: 2048 });
-    const saTec = makePool({ 2: 2048 });
-    const gameData = makeRewardGameData({ saPow, saTec });
-    const cached = makeRewardStats({
-      rewardPoolContext: { cardCountMode: 5, skillFlag: 1, computedPool: 2 },
-    });
-    const late = makeRewardStats({ rewardPoolContext: null });
-
-    const evidence = buildRewardEvidence(mergeRewardStats(cached, late), gameData, [
-      { cardId: 1, qty: 1 },
-      { cardId: 2, qty: 14 },
-    ]);
-
-    expect(evidence?.selectorDropPool).toBe("SA-TEC");
-    expect(evidence?.selectorContext).toEqual({
-      cardCountMode: 5,
-      skillFlag: 1,
-      computedPool: 2,
-    });
-    expect(evidence?.x15Match?.possible).toBe(true);
-  });
-
-  it("infers the hidden x15 pool from cards when the live selector is gone", () => {
-    const saPow = makePool({ 1: 60 });
-    const saTec = makePool({ 2: 170 });
-    const gameData = makeRewardGameData({ saPow, saTec });
-
-    const evidence = buildRewardEvidence(makeRewardStats(), gameData, [
-      { cardId: 1, qty: 1 },
-      { cardId: 2, qty: 14 },
-    ]);
-
-    expect(evidence?.selectorDropPool).toBeNull();
-    expect(evidence?.x15Match).toMatchObject({
-      visiblePool: "SA-POW",
-      hiddenPool: "SA-TEC",
-      hiddenPoolSource: "inferred",
-      possible: true,
-      matchedCards: 15,
-      totalCards: 15,
-      possibleVisibleCardIds: [1],
-    });
-  });
-
-  it("prefers the displayed rank pool when all gained cards fit it despite BCD overlap", () => {
-    const saPow = makePool({ 30: 27, 123: 52, 130: 52 });
-    const bcd = makePool({ 123: 57, 130: 57 });
-    const gameData = makeRewardGameData({ saPow, bcd });
-
-    const evidence = buildRewardEvidence(makeRewardStats(), gameData, [
-      { cardId: 30, qty: 1 },
-      { cardId: 123, qty: 1 },
-      { cardId: 130, qty: 1 },
-    ]);
-
-    expect(evidence?.selectorDropPool).toBeNull();
-    expect(evidence?.poolMatches).toMatchObject([
-      { dropPool: "SA-POW", possible: true, matchedCards: 3 },
-      { dropPool: "BCD", possible: false, matchedCards: 2 },
-      { dropPool: "SA-TEC", possible: false, matchedCards: 0 },
-    ]);
-    expect(evidence?.x15Match).toMatchObject({
-      visiblePool: "SA-POW",
-      hiddenPool: "SA-POW",
-      hiddenPoolSource: "inferred",
-      possible: true,
-      matchedCards: 3,
-      totalCards: 3,
-    });
   });
 });
 
@@ -573,7 +466,7 @@ describe("usePostDuelSuggestion", () => {
         inDuel: false,
         collection: SAMPLE_COLLECTION,
         deckDefinition: SAMPLE_DECK,
-        gameData: makeRewardGameData({}),
+        gameData: makeGameData(),
       }),
     });
 
@@ -877,31 +770,10 @@ describe("usePostDuelSuggestion", () => {
   });
 });
 
-function makePool(weights: Record<number, number> = {}): number[] {
-  const pool = new Array(722).fill(0) as number[];
-  for (const [cardId, weight] of Object.entries(weights)) {
-    pool[Number(cardId) - 1] = weight;
-  }
-  return pool;
-}
-
-function makeRewardGameData(pools: {
-  saPow?: number[];
-  bcd?: number[];
-  saTec?: number[];
-}): BridgeGameData {
+function makeGameData(): BridgeGameData {
   return {
     cards: [],
-    duelists: [
-      {
-        id: 1,
-        name: "Test Duelist",
-        deck: makePool(),
-        saPow: pools.saPow ?? makePool(),
-        bcd: pools.bcd ?? makePool(),
-        saTec: pools.saTec ?? makePool(),
-      },
-    ],
+    duelists: [],
     fusionTable: [],
     equipTable: [],
     equipBonuses: null,
@@ -910,17 +782,6 @@ function makeRewardGameData(pools: {
     rankScoring: null,
     fieldBonusTable: null,
     artworkKey: "test",
-  };
-}
-
-function makeRewardStats(overrides: Partial<DuelStats> = {}): DuelStats {
-  return {
-    fusions: 0,
-    terrain: 0,
-    duelistId: 1,
-    rankCounters: [1, 1, 0, 0, 0, 0, 0, 0, 35, 8000],
-    rewardPoolContext: null,
-    ...overrides,
   };
 }
 

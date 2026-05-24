@@ -6,30 +6,21 @@ import { countById, padWithUtilityCards } from "../../components/card-entries.ts
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
-import type { RewardEvidence } from "./use-duel-collection-tracker.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
 
 export function PostDuelSuggestion({ suggestion }: { suggestion: PostDuelSuggestionData }) {
-  const { state, progress, liveBestScore, result, currentDeck, rewardEvidence, dismiss } =
-    suggestion;
+  const { state, progress, liveBestScore, result, currentDeck, dismiss } = suggestion;
 
   if (state === "optimizing") {
     return <OptimizingState liveBestScore={liveBestScore} progress={progress} />;
   }
 
   if (state === "result" && result) {
-    return (
-      <ResultState
-        currentDeck={currentDeck}
-        onDismiss={dismiss}
-        result={result}
-        rewardEvidence={rewardEvidence}
-      />
-    );
+    return <ResultState currentDeck={currentDeck} onDismiss={dismiss} result={result} />;
   }
 
   if (state === "no_change") {
-    return <NoChangeState onDismiss={dismiss} rewardEvidence={rewardEvidence} />;
+    return <NoChangeState onDismiss={dismiss} />;
   }
 
   return null;
@@ -66,12 +57,10 @@ interface DiffRow {
 function ResultState({
   result,
   currentDeck,
-  rewardEvidence,
   onDismiss,
 }: {
   result: OptimizeDeckParallelResult;
   currentDeck: number[];
-  rewardEvidence: RewardEvidence | null;
   onDismiss: () => void;
 }) {
   const { cardsById } = useCardDb();
@@ -113,7 +102,6 @@ function ResultState({
 
       {removedRows.length > 0 && <DiffSection label="Remove" rows={removedRows} type="removed" />}
       {addedRows.length > 0 && <DiffSection label="Add" rows={addedRows} type="added" />}
-      <RewardEvidencePanel evidence={rewardEvidence} />
 
       <div className="fm-post-duel-footer">
         <span className="text-text-muted text-xs">Update your in-game deck to match</span>
@@ -169,13 +157,7 @@ function DiffSection({
 
 // ── No-change state ──────────────────────────────────────────────────
 
-function NoChangeState({
-  onDismiss,
-  rewardEvidence,
-}: {
-  onDismiss: () => void;
-  rewardEvidence: RewardEvidence | null;
-}) {
+function NoChangeState({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div className="fm-post-duel">
       <div className="fm-post-duel-header">
@@ -184,7 +166,6 @@ function NoChangeState({
       <p className="text-text-muted text-sm text-center py-4">
         No improvements found with the new cards.
       </p>
-      <RewardEvidencePanel evidence={rewardEvidence} />
       <div className="fm-post-duel-footer">
         <span />
         <button
@@ -197,81 +178,6 @@ function NoChangeState({
       </div>
     </div>
   );
-}
-
-function RewardEvidencePanel({ evidence }: { evidence: RewardEvidence | null }) {
-  if (!evidence) return null;
-
-  const verdict = buildRewardVerdict(evidence);
-  return (
-    <div className="fm-post-duel-evidence">
-      <div className="fm-post-duel-evidence-row">
-        <span>Displayed rank</span>
-        <strong>{evidence.rankLabel ?? "unknown"}</strong>
-      </div>
-      <div className="fm-post-duel-evidence-row">
-        <span>Rank pool</span>
-        <strong>{evidence.rankDropPool ?? "unknown"}</strong>
-      </div>
-      <div className="fm-post-duel-evidence-row">
-        <span>Selector pool</span>
-        <strong>{evidence.selectorDropPool ?? "unknown"}</strong>
-      </div>
-      <div className="fm-post-duel-evidence-row">
-        <span>Card evidence</span>
-        <strong>{evidence.bestDropPool ?? "unknown"}</strong>
-      </div>
-      <div className="fm-post-duel-evidence-row">
-        <span>x15 fit</span>
-        <strong>{formatX15Match(evidence)}</strong>
-      </div>
-      <p className={`fm-post-duel-evidence-verdict ${verdict.className}`}>{verdict.text}</p>
-    </div>
-  );
-}
-
-function buildRewardVerdict(evidence: RewardEvidence): { text: string; className: string } {
-  if (evidence.x15Match?.possible) {
-    if (evidence.x15Match.visiblePool !== evidence.x15Match.hiddenPool) {
-      const source = evidence.x15Match.hiddenPoolSource === "inferred" ? "inferred " : "";
-      return {
-        text: `Cards fit split x15 evidence: visible card from ${evidence.x15Match.visiblePool}, ${source}hidden cards from ${evidence.x15Match.hiddenPool}.`,
-        className: "text-stat-atk",
-      };
-    }
-    return { text: "Reward cards fit the captured x15 pool evidence.", className: "text-stat-up" };
-  }
-
-  if (
-    evidence.rankDropPool &&
-    evidence.bestDropPool &&
-    evidence.rankDropPool !== evidence.bestDropPool
-  ) {
-    return {
-      text: `Reward cards do not fit the displayed ${evidence.rankDropPool} pool; best fit is ${evidence.bestDropPool}.`,
-      className: "text-stat-atk",
-    };
-  }
-  if (
-    evidence.rankDropPool &&
-    evidence.selectorDropPool &&
-    evidence.rankDropPool !== evidence.selectorDropPool
-  ) {
-    return {
-      text: `Runtime selector disagrees with displayed rank: ${evidence.selectorDropPool}.`,
-      className: "text-stat-atk",
-    };
-  }
-  return { text: "Reward pool matches the captured rank evidence.", className: "text-stat-up" };
-}
-
-function formatX15Match(evidence: RewardEvidence): string {
-  const match = evidence.x15Match;
-  if (!match) return "unknown";
-  if (match.possible) {
-    return `${match.visiblePool} + ${match.hiddenPool}${match.hiddenPoolSource === "inferred" ? " inferred" : ""}`;
-  }
-  return `${String(match.matchedCards)}/${String(match.totalCards)}`;
 }
 
 // ── Diff computation ─────────────────────────────────────────────────

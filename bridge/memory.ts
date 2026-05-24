@@ -92,20 +92,8 @@ export interface GameState {
    * null when profile is unavailable.
    */
   rankCounters: number[] | null;
-  /**
-   * Reward-context bytes used by the vanilla drop path and the local x15 patch
-   * to choose the drop pool. Null when the global duel context pointer is not
-   * initialized.
-   */
-  rewardPoolContext: RewardPoolContext | null;
   /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
   duelCursorTargetCardId: number | null;
-}
-
-export interface RewardPoolContext {
-  cardCountMode: number;
-  skillFlag: number;
-  computedPool: number;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -133,7 +121,6 @@ const DUELIST_UNLOCK_OFFSET = 0x1d06f4; // Free-duel duelist unlock bitfield (Da
 const DUELIST_UNLOCK_BYTES = 8; // 4 documented + 4 extra for safety (39 duelists need 5 bytes)
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
-const GLOBAL_DUEL_CONTEXT_PTR_OFFSET = 0x1d42d0; // gp+0x02e0, points to reward context
 const DUEL_CURSOR_TARGET_CARD_REL = 0xfe; // NTSC-U: duelPhase + 0xfe = 0x9b338
 
 export const CARD_STATS_OFFSET = 0x1d4244;
@@ -494,9 +481,6 @@ function encodeWideString(str: string): Buffer {
 function readU16(view: DataView, offset: number): number {
   return view.getUint16(offset, true); // little-endian
 }
-function readU32(view: DataView, offset: number): number {
-  return view.getUint32(offset, true);
-}
 function readU8(view: DataView, offset: number): number {
   return view.getUint8(offset);
 }
@@ -620,29 +604,9 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
     rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
-    rewardPoolContext: readRewardPoolContext(view),
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
   };
-}
-
-export function readRewardPoolContext(view: DataView): RewardPoolContext | null {
-  const ptr = readU32(view, GLOBAL_DUEL_CONTEXT_PTR_OFFSET);
-  const offset = ptr - 0x80000000;
-  if (!Number.isInteger(offset) || offset < 0 || offset + 0x3a >= PS1_RAM_SIZE) return null;
-
-  const cardCountMode = readU8(view, offset + 0x38);
-  const skillFlag = readU8(view, offset + 0x39);
-  return {
-    cardCountMode,
-    skillFlag,
-    computedPool: computeRewardPool(cardCountMode, skillFlag),
-  };
-}
-
-function computeRewardPool(cardCountMode: number, skillFlag: number): number {
-  if (cardCountMode < 3) return 1;
-  return skillFlag > 0 ? 2 : 0;
 }
 
 /**

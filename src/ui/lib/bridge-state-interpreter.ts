@@ -15,13 +15,6 @@ export type DuelStats = {
   duelistId: number;
   /** Raw rank counter bytes from RAM (10 values matching scoring table order), null if unavailable. */
   rankCounters: number[] | null;
-  rewardPoolContext: RewardPoolContext | null;
-};
-
-export type RewardPoolContext = {
-  cardCountMode: number;
-  skillFlag: number;
-  computedPool: number;
 };
 
 /** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
@@ -58,8 +51,6 @@ export type RawBridgeState = {
   duelistId: number | null;
   /** Raw rank counter bytes from RAM (10 values in scoring table order). */
   rankCounters?: number[] | null;
-  /** Drop-pool selector context bytes from RAM. */
-  rewardPoolContext?: RewardPoolContext | null;
   /** Hand slot indices (u8[5]): deal index or 0xFF = card left hand. Null if profile unavailable. */
   handSlots: number[] | null;
   // Universal fields — always available.
@@ -137,7 +128,6 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
           terrain: raw.terrain ?? 0,
           duelistId: raw.duelistId ?? 0,
           rankCounters: Array.isArray(raw.rankCounters) ? raw.rankCounters : null,
-          rewardPoolContext: raw.rewardPoolContext ?? null,
         }
       : null;
 
@@ -230,36 +220,60 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {
   if (cardId == null || cardId <= 0) return null;
 
-  for (const { zone, slots, hidden } of cursorZonesForPhase(raw)) {
-    const index = slots.findIndex((slot) => slot.cardId === cardId && isActiveSlot(slot));
-    if (index >= 0) return { zone, index, cardId, hidden };
-  }
-
-  return null;
+  return firstCursorCandidate(cursorZonesByPriority(raw), cardId);
 }
 
-function cursorZonesForPhase(
-  raw: RawBridgeState,
-): Array<{ zone: DuelCursorZone; slots: RawCardSlot[]; hidden: boolean }> {
-  const playerHand = { zone: "playerHand" as const, slots: raw.hand, hidden: false };
-  const playerField = { zone: "playerField" as const, slots: raw.field, hidden: false };
+function cursorZonesByPriority(raw: RawBridgeState): Array<{
+  zone: DuelCursorZone;
+  slots: RawCardSlot[];
+  hidden: boolean;
+  active: (slot: RawCardSlot, index: number) => boolean;
+}> {
+  const playerHand = {
+    zone: "playerHand" as const,
+    slots: raw.hand,
+    hidden: false,
+    active: (slot: RawCardSlot, index: number) => isAvailableHandSlot(slot, raw.handSlots, index),
+  };
+  const playerField = {
+    zone: "playerField" as const,
+    slots: raw.field,
+    hidden: false,
+    active: isActiveSlot,
+  };
   const opponentHand = {
     zone: "opponentHand" as const,
     slots: raw.opponentHand ?? [],
     hidden: true,
+    active: (slot: RawCardSlot, index: number) =>
+      isAvailableHandSlot(slot, raw.opponentHandSlots, index),
   };
   const opponentField = {
     zone: "opponentField" as const,
     slots: raw.opponentField ?? [],
     hidden: true,
+    active: isActiveSlot,
   };
 
   if (raw.turnIndicator === 1) return [opponentField, opponentHand];
-  if (raw.duelPhase === PHASE_DRAW || raw.duelPhase === PHASE_HAND_SELECT) return [playerHand];
-  if (raw.duelPhase === PHASE_FUSION || raw.duelPhase === PHASE_FUSION_RESOLVE) {
-    return [playerHand, playerField];
+  if (raw.duelPhase === PHASE_DRAW || raw.duelPhase === PHASE_HAND_SELECT) {
+    return [playerHand, playerField, opponentField, opponentHand];
   }
-  return [playerField, opponentField];
+  if (raw.duelPhase === PHASE_FUSION || raw.duelPhase === PHASE_FUSION_RESOLVE) {
+    return [playerHand, playerField, opponentField, opponentHand];
+  }
+  return [playerField, opponentField, playerHand, opponentHand];
+}
+
+function firstCursorCandidate(
+  zones: ReturnType<typeof cursorZonesByPriority>,
+  cardId: number,
+): DuelCursorTarget | null {
+  for (const { zone, slots, hidden, active } of zones) {
+    const index = slots.findIndex((slot, i) => slot.cardId === cardId && active(slot, i));
+    if (index >= 0) return { zone, index, cardId, hidden };
+  }
+  return null;
 }
 
 /**
@@ -322,6 +336,16 @@ function isActiveSlot(s: RawCardSlot): boolean {
   // bit on the attacker while keeping other bits (e.g. 0x04 = face-up).
   // Truly empty slots always have status === 0x00.
   return s.cardId > 0 && s.cardId < 723 && s.status !== 0;
+}
+
+function isAvailableHandSlot(
+  slot: RawCardSlot,
+  handSlots: number[] | null | undefined,
+  index: number,
+): boolean {
+  if (slot.cardId <= 0 || slot.cardId >= 723) return false;
+  if (handSlots) return handSlots[index] !== 0xff;
+  return isActiveSlot(slot);
 }
 
 /**
