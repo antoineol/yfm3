@@ -1,7 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { DescriptionText } from "../lib/DescriptionText.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
-import { framePaletteForCard, labelTextColor } from "./card-frame-palettes.ts";
+import { framePaletteForCard } from "./card-frame-palettes.ts";
 
 /** Attribute orb colors — the small sphere next to the card name. */
 const attributeOrb: Record<string, string> = {
@@ -34,7 +34,6 @@ export function GameCard({ card }: { card: CardSpec }) {
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
-  const nameTextColor = labelTextColor(card.labelColor) ?? p.text;
   const typeLabel = !card.isMonster && ct ? getCardTypeLabel(ct) : "";
 
   return (
@@ -47,7 +46,6 @@ export function GameCard({ card }: { card: CardSpec }) {
           "--fm-hi": p.hi,
           "--fm-border": p.border,
           "--fm-text": p.text,
-          "--fm-name-text": nameTextColor,
         } as React.CSSProperties
       }
     >

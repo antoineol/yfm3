@@ -105,7 +105,6 @@ input[type="number"] {
  *   --fm-hi   highlight tone
  *   --fm-border  name band border
  *   --fm-text    dark text on frame
- *   --fm-name-text  optional card-name text override
  * ─────────────────────────────────────────────────────────────── */
 
 .fm-card {
@@ -173,7 +172,7 @@ input[type="number"] {
   font-size: 10px;
   font-weight: 700;
   line-height: 1.3;
-  color: var(--fm-name-text, var(--fm-text));
+  color: var(--fm-text);
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
@@ -456,7 +455,7 @@ input[type="number"] {
   font-size: 8px;
   font-weight: 700;
   line-height: 1.3;
-  color: var(--fm-name-text, var(--fm-text));
+  color: var(--fm-text);
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;

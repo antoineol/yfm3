@@ -1,7 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useOpenCard } from "../lib/card-detail-context.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
-import { framePaletteForCard, labelTextColor } from "./card-frame-palettes.ts";
+import { framePaletteForCard } from "./card-frame-palettes.ts";
 
 const attributeOrb: Record<string, string> = {
   Light: "#e8c840",
@@ -31,7 +31,6 @@ export function MiniGameCard({
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
-  const nameTextColor = labelTextColor(card.labelColor) ?? p.text;
 
   return (
     <div
@@ -43,7 +42,6 @@ export function MiniGameCard({
           "--fm-hi": p.hi,
           "--fm-border": p.border,
           "--fm-text": p.text,
-          "--fm-name-text": nameTextColor,
         } as React.CSSProperties
       }
     >

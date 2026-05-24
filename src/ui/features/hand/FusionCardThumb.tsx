@@ -1,5 +1,5 @@
 import type { CardSpec } from "../../../engine/data/card-model.ts";
-import { framePaletteForCard, labelTextColor } from "../../components/card-frame-palettes.ts";
+import { framePaletteForCard } from "../../components/card-frame-palettes.ts";
 import { useOpenCard } from "../../lib/card-detail-context.tsx";
 import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
 
@@ -20,7 +20,6 @@ export function FusionCardThumb({ card }: { card: CardSpec }) {
   const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
-  const nameTextColor = labelTextColor(card.labelColor) ?? p.text;
 
   return (
     <button
@@ -33,7 +32,6 @@ export function FusionCardThumb({ card }: { card: CardSpec }) {
           "--fm-hi": p.hi,
           "--fm-border": p.border,
           "--fm-text": p.text,
-          "--fm-name-text": nameTextColor,
         } as React.CSSProperties
       }
       type="button"

@@ -4,6 +4,7 @@ import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { displayCardType } from "../../../engine/data/card-type-names.ts";
 import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
+import { labelTextColor } from "../../components/card-frame-palettes.ts";
 import { GameCard } from "../../components/GameCard.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -67,6 +68,11 @@ function DetailPanel({ card }: { card: CardSpec }) {
             </DetailSection>
           </>
         )}
+        {card.labelColor && (
+          <DetailSection label="Label">
+            <LabelColorValue color={card.labelColor} />
+          </DetailSection>
+        )}
         {ownedTotals !== undefined && <OwnedBadge count={ownedTotals[card.id] ?? 0} max={cap} />}
       </div>
 
@@ -92,7 +98,6 @@ function DetailPanel({ card }: { card: CardSpec }) {
 
       <div className="flex gap-4 text-xs text-text-muted">
         {card.color && <span>Frame: {capitalize(card.color)}</span>}
-        {card.labelColor && <span>Label: {capitalize(card.labelColor)}</span>}
         {card.starchipCost !== undefined && <span>Starchips: {card.starchipCost}</span>}
         {card.password !== undefined && (
           <span>Password: {String(card.password).padStart(8, "0")}</span>
@@ -105,6 +110,23 @@ function DetailPanel({ card }: { card: CardSpec }) {
       {card.isMonster && <EquippableBySection cardId={card.id} />}
       {card.cardType === "Equip" && <EquipsToSection cardId={card.id} />}
     </div>
+  );
+}
+
+function LabelColorValue({ color }: { color: string }) {
+  const textColor = labelTextColor(color) ?? "var(--color-text-secondary)";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-sm font-medium"
+      style={{ color: textColor }}
+    >
+      <span
+        aria-hidden="true"
+        className="h-2.5 w-2.5 rounded-full border border-white/20"
+        style={{ backgroundColor: textColor }}
+      />
+      {capitalize(color)}
+    </span>
   );
 }
 
