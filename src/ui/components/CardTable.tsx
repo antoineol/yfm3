@@ -8,7 +8,7 @@ import { useIsDesktop } from "../lib/use-is-desktop.ts";
 import { CardName } from "./CardName.tsx";
 import type { CardEntry, DiffStatus } from "./card-entries.ts";
 import { cardTypeBorderColor } from "./card-entries.ts";
-import type { SortState } from "./sortable-header.tsx";
+import type { SortDir, SortState } from "./sortable-header.tsx";
 import { SortableHeader, sortEntries, toggleSort } from "./sortable-header.tsx";
 
 type SortKey = "id" | "atk" | "cost" | "value";
@@ -43,12 +43,12 @@ const ADDED: DiffColors = {
 };
 
 const REMOVED: DiffColors = {
-  row: " bg-red-950/20",
-  id: "text-stat-atk/70",
+  row: " bg-stat-atk/10",
+  id: "text-stat-atk/85",
   name: "text-stat-atk",
   atk: "text-stat-atk",
-  def: "text-stat-atk/70",
-  qty: "text-stat-atk/70",
+  def: "text-stat-atk/80",
+  qty: "text-stat-atk/80",
 };
 
 function diffColors(status: DiffStatus | undefined): DiffColors {
@@ -132,12 +132,7 @@ export function CardTable<T extends CardEntry>({
           <tr className="text-text-secondary text-xs uppercase tracking-wide">
             {leftActions && <th className="py-1.5 px-1 font-normal" />}
             <th className="py-1.5 w-7" />
-            <SortableHeader
-              dir={sort?.key === "id" ? sort.dir : undefined}
-              label="#"
-              onClick={() => handleSortChange("id")}
-            />
-            <th className="text-left py-1.5 px-1 font-normal">Card</th>
+            <CardHeader dir={sort?.key === "id" ? sort.dir : undefined} onSort={handleSortChange} />
             {showC && (
               <th className="text-center py-1.5 px-1 font-normal" title="In collection">
                 C
@@ -196,6 +191,22 @@ export function CardTable<T extends CardEntry>({
   );
 }
 
+function CardHeader({ dir, onSort }: { dir?: SortDir; onSort: (key: SortKey) => void }) {
+  return (
+    <th className={`text-left py-1.5 px-1 font-normal ${dir ? "text-gold" : ""}`}>
+      <button
+        className="cursor-pointer select-none hover:text-text-primary"
+        onClick={() => onSort("id")}
+        type="button"
+      >
+        <span>#</span>
+        {dir && <span className="ml-0.5">{dir === "asc" ? "\u25B4" : "\u25BE"}</span>}
+      </button>
+      <span className="ml-2">Card</span>
+    </th>
+  );
+}
+
 /* ── Desktop row ── */
 
 function DesktopCardRow<T extends CardEntry>({
@@ -239,9 +250,11 @@ function DesktopCardRow<T extends CardEntry>({
           src={resolveArtwork(e.id)}
         />
       </td>
-      <td className={`py-0.5 px-1 font-mono text-xs ${c.id}`}>{formatCardId(e.id)}</td>
       <td className={`py-0.5 px-1 ${c.name}`}>
-        <CardName cardId={e.id} className={c.name} name={e.name} />
+        <span className="flex min-w-0 items-baseline gap-2">
+          <InlineCardId className={c.id} id={e.id} />
+          <CardName cardId={e.id} className={c.name} name={e.name} />
+        </span>
         {!hasCopyColumns && e.qty > 1 && (
           <span className={`${c.qty} text-xs font-mono ml-1.5`}>{`\u00d7${e.qty}`}</span>
         )}
@@ -324,6 +337,7 @@ function MobileCardRow<T extends CardEntry>({
         {/* Row 1: Name + stats */}
         <div className="flex items-baseline gap-3">
           <span className={`flex-1 min-w-0 truncate flex text-[15px] ${c.name}`}>
+            <InlineCardId className={`${c.id} mr-2`} id={e.id} />
             <CardName cardId={e.id} className={c.name} name={e.name} />
             {!hasCopyColumns && e.qty > 1 && (
               <span className={`${c.qty} text-xs font-mono ml-1`}>{`\u00d7${e.qty}`}</span>
@@ -345,7 +359,6 @@ function MobileCardRow<T extends CardEntry>({
 
         {/* Row 2: Ownership pills + actions */}
         <div className="flex items-center gap-2">
-          <div className={`text-xs font-mono ${c.id}`}>#{formatCardId(e.id)}</div>
           {hasPills && (
             <div className="flex items-center gap-1.5">
               {showC && (
@@ -379,5 +392,13 @@ function MobileCardRow<T extends CardEntry>({
         </div>
       </div>
     </div>
+  );
+}
+
+function InlineCardId({ id, className }: { id: number; className: string }) {
+  return (
+    <span className={`shrink-0 font-mono text-[15px] font-bold tabular-nums ${className}`}>
+      #{formatCardId(id)}
+    </span>
   );
 }

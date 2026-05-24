@@ -79,6 +79,7 @@ Return best deck + exact expected ATK
 | P0c: Shared Infrastructure (DONE) | [`docs/steps/p1.9-shared-infrastructure.md`](steps/p1.9-shared-infrastructure.md) | FusionTable context, CardAutocomplete, tab navigation shell |
 | P1: Hand Fusion Calculator (DONE) | [`docs/steps/p2-hand-fusion-calculator.md`](steps/p2-hand-fusion-calculator.md) | 5-card hand simulation, real-time fusion chains, play fusion |
 | P2: Optimization UX (DONE) | [`docs/steps/p3-optimization-ux.md`](steps/p3-optimization-ux.md) | Progress bar, cancel, accept/reject/re-run |
+| Card Row Readability (DONE) | [`docs/steps/manual-optimization-result-readability.md`](steps/manual-optimization-result-readability.md) | Show card IDs inline with names in the shared card table, including optimization loading/results, and improve remove/error red contrast across the app theme |
 | P3: Deck Intelligence (DONE) | [`docs/steps/p4-deck-intelligence.md`](steps/p4-deck-intelligence.md) | Deck fusion list, score explanation with probabilities |
 | Card Display Hygiene (DONE) | — | Hide monster-only ATK/DFD values for non-monster Best Plays and fusion-reference rows, while preserving type-based card rendering |
 | P4: Collection & Deck Editing (DONE) | [`docs/steps/p5-collection-ux.md`](steps/p5-collection-ux.md) | Last-added hint, collection actions, manual deck add/remove, centralized UI ownership semantics, explicit owned-card naming |

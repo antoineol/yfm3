@@ -149,4 +149,22 @@ describe("SuggestedDeckComparison", () => {
     // Plus sign
     expect(screen.getByText("+")).toBeDefined();
   });
+
+  it("renders card IDs inline with card names in diff rows", () => {
+    const removed = [makeEntry(2, "Dark Magician", 2500, "removed")];
+    const data: ResultData = {
+      entries: removed,
+      removed,
+      added: [],
+      kept: [],
+      swapCount: 1,
+      result: baseResult,
+    };
+    render(<SuggestedDeckComparison data={data} />);
+
+    expect(screen.getByText("#002").parentElement).toBe(
+      screen.getByText("Dark Magician").parentElement,
+    );
+    expect(screen.getByText("#002").className).toContain("font-bold");
+  });
 });
