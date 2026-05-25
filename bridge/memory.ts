@@ -44,6 +44,10 @@ export interface OffsetProfile {
   rankStatsBase: number;
   /** Equip magic counter (u8), right after fusion counter. */
   equipCounter: number;
+  /** Selected card id under the in-game duel cursor (u16), 0 when unmapped. */
+  duelCursorTargetCard: number;
+  /** Active player field cursor slot signal (u8), 0 when unmapped. */
+  duelCursorFieldSlot: number;
 }
 
 export interface SharedMemoryMapping {
@@ -149,6 +153,8 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   handSlots: 0x0ea00a, // lpP1+0x06
   rankStatsBase: 0x0e9ff1, // fusionCounter-7: [turns, effAtk, defWin, faceDown, pureMagic, traps]
   equipCounter: 0x0e9ff9, // fusionCounter+1
+  duelCursorTargetCard: 0x09b338, // duelPhase+0xFE
+  duelCursorFieldSlot: 0x09b34e, // duelPhase+0x114
 };
 
 /**
@@ -181,7 +187,9 @@ export const PAL_PROFILE: OffsetProfile = {
   cardsDealt: 0x0eb290, // lpP1+0x06 (PAL has 3 LP copies before dealt)
   handSlots: 0x0eb292, // lpP1+0x08
   rankStatsBase: 0x0eb278, // fusionCounter-7
-  equipCounter: 0x0eb280, // fusionCounter+1
+  equipCounter: 0, // not mapped; 0x0EB280 tracks fusions, not equips
+  duelCursorTargetCard: 0, // not mapped; NTSC duelPhase+0xFE is invalid for PAL
+  duelCursorFieldSlot: 0, // not mapped; NTSC duelPhase+0x114 is invalid for PAL
 };
 
 /**
@@ -267,6 +275,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       handSlots: DEFAULT_PROFILE.handSlots + d,
       rankStatsBase: DEFAULT_PROFILE.rankStatsBase + d,
       equipCounter: DEFAULT_PROFILE.equipCounter + d,
+      duelCursorTargetCard: DEFAULT_PROFILE.duelCursorTargetCard + d,
+      duelCursorFieldSlot: DEFAULT_PROFILE.duelCursorFieldSlot + d,
     };
 
     // Quick validation: duel phase should be a recognized value (1–13) during a duel
@@ -328,6 +338,8 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
         handSlots: lpP1 + (PAL_PROFILE.handSlots - PAL_PROFILE.lpP1),
         rankStatsBase: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.rankStatsBase),
         equipCounter: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.equipCounter),
+        duelCursorTargetCard: 0,
+        duelCursorFieldSlot: 0,
       };
     }
   } else {
@@ -443,6 +455,8 @@ export function buildProfileFromDiscovery(
     handSlots: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.handSlots - DEFAULT_PROFILE.lpP1) : 0,
     rankStatsBase: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.rankStatsBase) : 0,
     equipCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.equipCounter) : 0,
+    duelCursorTargetCard: phaseAddr + DUEL_CURSOR_TARGET_CARD_REL,
+    duelCursorFieldSlot: phaseAddr + DUEL_CURSOR_FIELD_SLOT_REL,
   };
 }
 
@@ -508,12 +522,13 @@ function readCardSlot(view: DataView, base: number, index: number): CardSlot {
   };
 }
 
-function readDuelCursorTargetCardId(view: DataView, profile: OffsetProfile): number {
-  return readU16(view, profile.duelPhase + DUEL_CURSOR_TARGET_CARD_REL);
+function readDuelCursorTargetCardId(view: DataView, profile: OffsetProfile): number | null {
+  return profile.duelCursorTargetCard ? readU16(view, profile.duelCursorTargetCard) : null;
 }
 
 function readDuelCursorFieldSlotIndex(view: DataView, profile: OffsetProfile): number | null {
-  const oneBasedSlot = readU8(view, profile.duelPhase + DUEL_CURSOR_FIELD_SLOT_REL);
+  if (!profile.duelCursorFieldSlot) return null;
+  const oneBasedSlot = readU8(view, profile.duelCursorFieldSlot);
   return oneBasedSlot >= 1 && oneBasedSlot <= FIELD_SLOTS ? oneBasedSlot - 1 : null;
 }
 
@@ -611,7 +626,8 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentField,
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
-    rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
+    rankCounters:
+      profile?.rankStatsBase && profile.equipCounter ? readRankCounters(view, profile) : null,
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
     duelCursorFieldSlotIndex: profile ? readDuelCursorFieldSlotIndex(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),

@@ -9,6 +9,7 @@ import type {
 } from "../../../engine/ranking/rank-scoring.ts";
 import { computeRankBreakdown } from "../../../engine/ranking/rank-scoring.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
+import type { BridgeState } from "../../lib/bridge-message-processor.ts";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -61,36 +62,14 @@ export function useRankTracker(): RankTrackerState {
   const isVisible = bridge.status === "connected" && (isDuelActive || isDuelEnded);
   const scoring = bridge.gameData?.rankScoring ?? getRankProfile(bridge.modFingerprint);
 
-  const hasFullCounters =
-    bridge.stats?.rankCounters != null && bridge.stats.rankCounters.length === 10;
-  const isPartial = !hasFullCounters;
-
   const factors = useMemo((): RankFactors => {
-    if (hasFullCounters) {
-      const counters = bridge.stats?.rankCounters ?? [];
-      const result: Record<string, number> = {};
-      for (let i = 0; i < RANK_COUNTER_KEYS.length; i++) {
-        const key = RANK_COUNTER_KEYS[i];
-        if (key) result[key] = counters[i] ?? 0;
-      }
-      return result as unknown as RankFactors;
-    }
-
-    // Partial mode: use what we have, fill the rest with neutral values
-    const remainingCards =
-      bridge.shuffledDeck != null
-        ? bridge.shuffledDeck.filter((id) => id !== 0).length
-        : NEUTRAL_FACTORS.remainingCards;
-    const remainingLp = bridge.lp != null ? bridge.lp[0] : NEUTRAL_FACTORS.remainingLp;
-    const fusionsInitiated = bridge.stats?.fusions ?? NEUTRAL_FACTORS.fusionsInitiated;
-
-    return {
-      ...NEUTRAL_FACTORS,
-      fusionsInitiated,
-      remainingCards,
-      remainingLp,
-    };
-  }, [hasFullCounters, bridge.stats, bridge.shuffledDeck, bridge.lp]);
+    return rankFactorsForBridge({
+      stats: bridge.stats,
+      shuffledDeck: bridge.shuffledDeck,
+      lp: bridge.lp,
+    });
+  }, [bridge.stats, bridge.shuffledDeck, bridge.lp]);
+  const isPartial = bridge.stats?.rankCounters == null || bridge.stats.rankCounters.length !== 10;
 
   const victoryType: VictoryType = "normal";
 
@@ -120,6 +99,35 @@ export function useRankTracker(): RankTrackerState {
     isDuelActive,
     isDuelEnded,
     isVisible,
+  };
+}
+
+export function rankFactorsForBridge(
+  bridge: Pick<BridgeState, "stats" | "shuffledDeck" | "lp">,
+): RankFactors {
+  if (bridge.stats?.rankCounters != null && bridge.stats.rankCounters.length === 10) {
+    const counters = bridge.stats.rankCounters;
+    const result: Record<string, number> = {};
+    for (let i = 0; i < RANK_COUNTER_KEYS.length; i++) {
+      const key = RANK_COUNTER_KEYS[i];
+      if (key) result[key] = counters[i] ?? 0;
+    }
+    return result as unknown as RankFactors;
+  }
+
+  // Partial mode: use what we have, fill the rest with neutral values.
+  const remainingCards =
+    bridge.shuffledDeck != null
+      ? bridge.shuffledDeck.filter((id) => id !== 0).length
+      : NEUTRAL_FACTORS.remainingCards;
+  const remainingLp = bridge.lp != null ? bridge.lp[0] : NEUTRAL_FACTORS.remainingLp;
+  const fusionsInitiated = bridge.stats?.fusions ?? NEUTRAL_FACTORS.fusionsInitiated;
+
+  return {
+    ...NEUTRAL_FACTORS,
+    fusionsInitiated,
+    remainingCards,
+    remainingLp,
   };
 }
 

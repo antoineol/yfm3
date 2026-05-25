@@ -14,7 +14,6 @@ import type { GameState, OffsetProfile } from "../memory.ts";
 
 const HIGHLIGHT_BIT = 0x04;
 const STABLE_MS = 150;
-const SUSPECTED_TARGET_CARD_REL = 0xfe; // NTSC-U: 0x9b338, discovered passively.
 
 export type CursorSlotZone = "playerHand" | "playerField" | "opponentHand" | "opponentField";
 
@@ -135,7 +134,7 @@ export function readSuspectedCursorTarget(
   profile: OffsetProfile,
   slots: readonly CursorStatusSlot[],
 ): CursorTargetCandidate {
-  const offset = profile.duelPhase + SUSPECTED_TARGET_CARD_REL;
+  const offset = profile.duelCursorTargetCard;
   const cardId = offset >= 0 && offset + 1 < view.byteLength ? view.getUint16(offset, true) : 0;
   return {
     offset,

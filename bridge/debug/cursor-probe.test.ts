@@ -48,6 +48,8 @@ const profile: OffsetProfile = {
   handSlots: 0x306,
   rankStatsBase: 0x2f1,
   equipCounter: 0x2f9,
+  duelCursorTargetCard: 0x2fe,
+  duelCursorFieldSlot: 0x314,
 };
 
 describe("cursor probe", () => {

@@ -1,6 +1,6 @@
 # PAL Remaining Address Investigation
 
-Status: **3 of 4 confirmed** — terrain address still under investigation.
+Status: **3 of 4 confirmed** — terrain address still under investigation. PAL equip counter is also still unmapped.
 
 ## Goal
 
@@ -47,6 +47,10 @@ Find 4 remaining PAL (SLES-039.48, French vanilla) RAM addresses for the bridge'
 
 Also observed: 0x0EB280 (lpP1-0x0A) tracks identically. Using 0x0EB27F as primary.
 
+### Equip counter — NOT FOUND
+
+`0x0EB280` is not the equip counter. It tracked identically to the fusion counter during PAL testing, so the bridge must not use it for full rank counters. Until the real equip counter is mapped, PAL rank display should stay in partial mode.
+
 ### Duelist ID (0x09C6F3)
 
 | Opponent | Value | Expected |
@@ -74,10 +78,11 @@ Behavior: 0 during duels (including results screen with phase 0x0D), non-zero on
 ## Next steps
 
 1. **Update `PAL_PROFILE` in `bridge/memory.ts`** with the 3 confirmed addresses (sceneId, duelistId, fusionCounter). Set terrain=0 for now.
-2. **Find terrain**: duel an opponent with non-Normal terrain (e.g., a duelist who uses Forest, Yami, etc.) and diff to find the terrain byte. Terrain is nice-to-have, not blocking.
-3. **Run tests** to verify the bridge and webapp work correctly with PAL addresses
-4. **Remove diagnostic code**: set `DIAG_PAL = false` in serve.ts or remove the probe import
-5. **Verify end-to-end**: play a PAL duel and confirm the webapp correctly shows/hides duel state
+2. **Find terrain**: duel an opponent with non-Normal terrain (e.g., a duelist who uses Forest, Yami, etc.) and diff to find the terrain byte.
+3. **Find equip counter**: use a duel with one fusion-only action and one equip-only action, then diff around the LP/rank block.
+4. **Run tests** to verify the bridge and webapp work correctly with PAL addresses.
+5. **Remove diagnostic code**: set `DIAG_PAL = false` in serve.ts or remove the probe import.
+6. **Verify end-to-end**: play a PAL duel and confirm the webapp correctly shows/hides duel state.
 
 ## Investigation methodology
 
