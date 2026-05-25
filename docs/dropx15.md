@@ -1,18 +1,33 @@
-# Drop x15 Patch
+# Reward x15 Patch
 
 Status: production bridge support is based on the community Ghost/FMR
-`Drop More Cards` behavior. The bridge does not install local reward
+`Drop More Cards` behavior, with a verified starchip x15 extension at the
+vanilla reward-save arithmetic. The bridge does not install local reward
 trampolines.
 
 ## Required Behavior
 
-A compatible game should keep the normal reward semantics and simply grant 15
-reward instances:
+A compatible game should keep the normal reward semantics and grant 15 reward
+instances:
 
 - same duelist;
 - same rank/result pool;
 - same vanilla reward-pick timing;
 - 15 independent reward rolls, not 15 copies of one card.
+- 15x the normal rank starchip award, capped by the vanilla `999999` limit.
+
+The starchip patch preserves the result-screen count field and only changes the
+final save update from:
+
+```c
+save->starchips += result->rankStarchips;
+```
+
+to:
+
+```c
+save->starchips += result->rankStarchips * 15;
+```
 
 ## Supported Patch Families
 
@@ -20,7 +35,8 @@ reward instances:
 
 Some mods already contain the Ghost/FMR reward expansion. For those images, the
 bridge scans the raw image for the three loop-limit anchors and changes the
-limits from `6/6/5` to `16/16/15`.
+limits from `6/6/5` to `16/16/15`. It also upgrades the recognized starchip
+save-update sequence to x15.
 
 This path is structure-based and serial-independent: any image with the full
 anchor set is patchable.
@@ -37,6 +53,8 @@ For clean NTSC-U/Gold images, the bridge applies the Ghost tool recipe:
   `0xb4c400 + i * 0x75800`, for `i = 1..7`;
 - set the WA loop limits to `16`, `16`, `15`, plus the first external WA limit
   at `0xbc17e4`.
+- patch the root executable starchip save update so S-rank awards 75 starchips
+  instead of 5.
 
 Gold `SLUS_000.04` passes those checks; its local continuation instruction at
 `SLUS:0x1247c` is preserved because the bridge writes only the hook bytes.
@@ -56,10 +74,13 @@ same Ghost recipe:
   `0xe25400 + i * 0x78000`, for `i = 0..6`;
 - set the PAL WA loop limits to `16`, `16`, `15`, plus the preceding external
   WA limit at `0xe24fe4`.
+- patch the PAL root executable starchip save update. This was runtime-verified
+  on `SLES_039.48`: an S-rank reward changed from `+5` to `+75` starchips while
+  still awarding 15 cards.
 
 Both Ghost injection paths are structure-based. The bridge requires the exact
-verified hook bytes in the executable and clean WA_MRG target prefixes before
-writing.
+verified hook bytes in the executable, clean WA_MRG target prefixes, and the
+recognized starchip reward arithmetic before writing.
 
 ## Rejected Patch Families
 
@@ -80,7 +101,8 @@ Those variants crashed in unrelated screens or before the duel-result screen.
 
 Supported:
 
-- images with the Ghost/FMR loop-limit anchors;
+- images with the Ghost/FMR loop-limit anchors and recognized starchip reward
+  arithmetic;
 - clean images with the Ghost Drop More Cards executable hooks and WA_MRG
   target layout, including verified NTSC-U/Gold layouts;
 - clean PAL French `SLES_039.48` images matching the verified PAL Ghost layout.

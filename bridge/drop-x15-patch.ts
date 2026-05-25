@@ -30,6 +30,10 @@ const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
 const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
 const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
+const STARCHIP_X15_VANILLA = Buffer.from("3a004390e005828c0000000021104300e00582ac", "hex");
+const STARCHIP_X15_PATCHED = Buffer.from("3a004390e005828c002903002318a30021104300e00582ac", "hex");
+const STARCHIP_X15_REPLACEMENT = Buffer.from("002903002318a30021104300e00582ac", "hex");
+const STARCHIP_X15_REPLACEMENT_OFFSET = 8;
 
 const LEGACY_LOCAL_VISIBLE_PICK = 0x0c008604;
 const LEGACY_FREEZE_SELECTOR_VISIBLE_PICK = 0x0c0087da;
@@ -268,6 +272,7 @@ function inspectGhostToolPatchState(
   format: DiscFormat,
 ): DropX15PatchStatus {
   const waEntry = findWaMrgEntry(image, format);
+  const starchipState = inspectStarchipX15PatchState(image);
 
   for (const layout of GHOST_TOOL_LAYOUTS) {
     const hooksVanilla = ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla");
@@ -282,8 +287,20 @@ function inspectGhostToolPatchState(
     const waExpansionPatched = waEntry
       ? ghostToolWaCopiesPatched(image, waEntry, format, layout)
       : false;
+    const cardLayoutClean =
+      hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format, layout);
+    const cardLayoutPatched = hooksPatched && slusExpansionPatched && waExpansionPatched;
 
-    if (hooksPatched && slusExpansionPatched && waExpansionPatched) {
+    if ((cardLayoutClean || cardLayoutPatched) && !starchipState.supported) {
+      return {
+        supported: false,
+        enabled: false,
+        gameSerial: slusEntry.name,
+        reason: "No compatible starchip reward x15 anchor was found.",
+      };
+    }
+
+    if (cardLayoutPatched && starchipState.enabled) {
       return {
         supported: true,
         enabled: true,
@@ -293,7 +310,7 @@ function inspectGhostToolPatchState(
       };
     }
 
-    if (hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format, layout)) {
+    if ((cardLayoutClean || cardLayoutPatched) && starchipState.supported) {
       return {
         supported: true,
         enabled: false,
@@ -336,41 +353,50 @@ function inspectGhostToolPatchState(
 function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscFormat): void {
   const waEntry = findWaMrgEntry(image, format);
   if (!waEntry) throw new Error("DATA/WA_MRG.MRG was not found.");
-  const layout = findCleanGhostToolLayout(image, slusEntry, waEntry, format);
+  const layout = findGhostToolPatchLayout(image, slusEntry, waEntry, format);
   if (!layout) throw new Error("DATA/WA_MRG.MRG does not match a verified Ghost layout.");
 
-  for (const hook of layout.hooks) {
-    writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
-  }
-  writeBytesAt(image, slusEntry.sector, GHOST_TOOL_SLUS_EXPANSION_OFFSET, layout.expansion, format);
+  if (ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla")) {
+    for (const hook of layout.hooks) {
+      writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
+    }
+    writeBytesAt(
+      image,
+      slusEntry.sector,
+      GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+      layout.expansion,
+      format,
+    );
 
-  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
-    writeBytesAt(image, waEntry.sector, copyOffset, layout.expansion, format);
-    writeGhostToolWaLimit(
-      image,
-      waEntry,
-      format,
-      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[0],
-      GHOST_TOOL_FIRST_LIMIT,
-    );
-    writeGhostToolWaLimit(
-      image,
-      waEntry,
-      format,
-      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[1],
-      GHOST_TOOL_FIRST_LIMIT,
-    );
-    writeGhostToolWaLimit(
-      image,
-      waEntry,
-      format,
-      copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[2],
-      GHOST_TOOL_LAST_LIMIT,
-    );
+    for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+      writeBytesAt(image, waEntry.sector, copyOffset, layout.expansion, format);
+      writeGhostToolWaLimit(
+        image,
+        waEntry,
+        format,
+        copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[0],
+        GHOST_TOOL_FIRST_LIMIT,
+      );
+      writeGhostToolWaLimit(
+        image,
+        waEntry,
+        format,
+        copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[1],
+        GHOST_TOOL_FIRST_LIMIT,
+      );
+      writeGhostToolWaLimit(
+        image,
+        waEntry,
+        format,
+        copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[2],
+        GHOST_TOOL_LAST_LIMIT,
+      );
+    }
+    for (const limit of layout.waExtraLimits) {
+      writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
+    }
   }
-  for (const limit of layout.waExtraLimits) {
-    writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
-  }
+  writeStarchipX15Patch(image);
 }
 
 function ghostToolHooksMatch(
@@ -385,7 +411,7 @@ function ghostToolHooksMatch(
   );
 }
 
-function findCleanGhostToolLayout(
+function findGhostToolPatchLayout(
   image: Buffer,
   slusEntry: IsoFile,
   waEntry: IsoFile,
@@ -394,8 +420,17 @@ function findCleanGhostToolLayout(
   return (
     GHOST_TOOL_LAYOUTS.find(
       (layout) =>
-        ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla") &&
-        ghostToolWaTargetsClean(image, waEntry, format, layout),
+        (ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla") &&
+          ghostToolWaTargetsClean(image, waEntry, format, layout)) ||
+        (ghostToolHooksMatch(image, slusEntry, format, layout, "patched") &&
+          bytesMatchAt(
+            image,
+            slusEntry.sector,
+            GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+            layout.expansion,
+            format,
+          ) &&
+          ghostToolWaCopiesPatched(image, waEntry, format, layout)),
     ) ?? null
   );
 }
@@ -507,6 +542,7 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     vanilla: findPatternOffsets(image, pattern.vanilla),
     patched: findPatternOffsets(image, pattern.patched),
   }));
+  const starchipState = inspectStarchipX15PatchState(image);
   const totals = matches.map((match) => match.vanilla.length + match.patched.length);
   const hasAnyGhostAnchor = totals.some((total) => total > 0);
 
@@ -529,11 +565,22 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     };
   }
 
-  const enabled = matches.every((match) => match.patched.length > 0 && match.vanilla.length <= 1);
+  if (!starchipState.supported) {
+    return {
+      supported: false,
+      enabled: false,
+      gameSerial,
+      reason: "No compatible starchip reward x15 anchor was found.",
+    };
+  }
+
+  const cardsEnabled = matches.every(
+    (match) => match.patched.length > 0 && match.vanilla.length <= 1,
+  );
 
   return {
     supported: true,
-    enabled,
+    enabled: cardsEnabled && starchipState.enabled,
     definitionId: GHOST_LOOP_DEFINITION_ID,
     definitionName: GHOST_LOOP_DEFINITION_NAME,
     gameSerial,
@@ -545,6 +592,22 @@ function writeGhostLoopPatch(image: Buffer): void {
     for (const offset of findPatternOffsets(image, pattern.vanilla)) {
       pattern.patched.copy(image, offset);
     }
+  }
+  writeStarchipX15Patch(image);
+}
+
+function inspectStarchipX15PatchState(image: Buffer): { supported: boolean; enabled: boolean } {
+  const vanillaOffsets = findPatternOffsets(image, STARCHIP_X15_VANILLA);
+  const patchedOffsets = findPatternOffsets(image, STARCHIP_X15_PATCHED);
+  return {
+    supported: vanillaOffsets.length > 0 || patchedOffsets.length > 0,
+    enabled: vanillaOffsets.length === 0 && patchedOffsets.length > 0,
+  };
+}
+
+function writeStarchipX15Patch(image: Buffer): void {
+  for (const offset of findPatternOffsets(image, STARCHIP_X15_VANILLA)) {
+    STARCHIP_X15_REPLACEMENT.copy(image, offset + STARCHIP_X15_REPLACEMENT_OFFSET);
   }
 }
 

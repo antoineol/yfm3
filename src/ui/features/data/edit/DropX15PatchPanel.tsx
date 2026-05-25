@@ -6,7 +6,7 @@ import { loadBackupsAtom } from "./atoms.ts";
 import { type DropX15Status, fetchDropX15Status, putDropX15Patch } from "./bridge-client.ts";
 
 const CONFIRM_MESSAGE =
-  "Patching 15-card drops will close the running game in DuckStation if the ISO is locked. " +
+  "Patching 15-card and starchip rewards will close the running game in DuckStation if the ISO is locked. " +
   "Any unsaved in-duel progress will be lost. Continue?";
 
 export function DropX15PatchPanel() {
@@ -24,7 +24,7 @@ export function DropX15PatchPanel() {
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
-        if (alive) toast.error(`15-drop status unavailable: ${message}`);
+        if (alive) toast.error(`15-reward status unavailable: ${message}`);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -43,7 +43,7 @@ export function DropX15PatchPanel() {
       const result = await putDropX15Patch();
       if (!result.ok) {
         const detail = result.reason ? ` (${result.reason})` : "";
-        toast.error(`15-drop patch failed: ${result.error}${detail}`);
+        toast.error(`15-reward patch failed: ${result.error}${detail}`);
         return;
       }
       setStatus({
@@ -54,10 +54,12 @@ export function DropX15PatchPanel() {
       await loadBackups();
       const backupPart = result.backup ? ` · backup ${result.backup.filename}` : "";
       const reloadPart = result.closedGame ? " Reload the game in DuckStation." : "";
-      toast.success(`15-card drops enabled${backupPart}.${reloadPart}`, { duration: 10000 });
+      toast.success(`15-card and starchip rewards enabled${backupPart}.${reloadPart}`, {
+        duration: 10000,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      toast.error(`15-drop patch failed: ${message}`);
+      toast.error(`15-reward patch failed: ${message}`);
     } finally {
       setPending(false);
     }
@@ -88,7 +90,7 @@ export function DropX15PatchPanel() {
         size="sm"
         variant={status?.enabled ? "ghost" : "outline"}
       >
-        {pending ? "Patching..." : status?.enabled ? "15 drops active" : "Enable 15 drops"}
+        {pending ? "Patching..." : status?.enabled ? "15 rewards active" : "Enable 15 rewards"}
       </Button>
     </section>
   );
@@ -102,8 +104,9 @@ function statusLabel(
   if (!status) return { text: "Unknown", className: "border-border-subtle text-text-muted" };
   if (!status.supported)
     return { text: "Unsupported", className: "border-red-500/40 text-red-300" };
-  if (status.enabled) return { text: "15 drops", className: "border-green-500/40 text-green-300" };
-  return { text: "1 drop", className: "border-gold-dim/60 text-gold" };
+  if (status.enabled)
+    return { text: "15 rewards", className: "border-green-500/40 text-green-300" };
+  return { text: "1 reward", className: "border-gold-dim/60 text-gold" };
 }
 
 function statusDetail(status: DropX15Status | null, loading: boolean): string {
@@ -111,5 +114,5 @@ function statusDetail(status: DropX15Status | null, loading: boolean): string {
   if (!status) return "Patch state could not be read.";
   if (!status.supported) return status.reason;
   if (status.enabled) return `${status.discFilename} is already patched.`;
-  return `${status.discFilename} is ready for 15 drops.`;
+  return `${status.discFilename} is ready for 15-card and starchip rewards.`;
 }

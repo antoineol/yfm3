@@ -45,8 +45,8 @@ describe("DropX15PatchPanel", () => {
 
     render(<DropX15PatchPanel />);
 
-    expect(await screen.findByText("15 drops")).toBeDefined();
-    expect(button("15 drops active").disabled).toBe(true);
+    expect(await screen.findByText("15 rewards")).toBeDefined();
+    expect(button("15 rewards active").disabled).toBe(true);
   });
 
   test("keeps the patch button disabled for unsupported discs", async () => {
@@ -63,7 +63,7 @@ describe("DropX15PatchPanel", () => {
 
     expect(await screen.findByText("Unsupported")).toBeDefined();
     expect(screen.getByText(/No compatible 15-card drop patch layout/)).toBeDefined();
-    expect(button("Enable 15 drops").disabled).toBe(true);
+    expect(button("Enable 15 rewards").disabled).toBe(true);
   });
 
   test("enables 15-card drops and refreshes ISO backups", async () => {
@@ -96,13 +96,15 @@ describe("DropX15PatchPanel", () => {
 
     render(<DropX15PatchPanel />);
 
-    expect(await screen.findByText("Compatible.iso is ready for 15 drops.")).toBeDefined();
-    fireEvent.click(await screen.findByRole("button", { name: "Enable 15 drops" }));
+    expect(
+      await screen.findByText("Compatible.iso is ready for 15-card and starchip rewards."),
+    ).toBeDefined();
+    fireEvent.click(await screen.findByRole("button", { name: "Enable 15 rewards" }));
 
     await waitFor(() => expect(putDropX15PatchMock).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
-    await screen.findByRole("button", { name: "15 drops active" });
-    expect(button("15 drops active").disabled).toBe(true);
+    await screen.findByRole("button", { name: "15 rewards active" });
+    expect(button("15 rewards active").disabled).toBe(true);
   });
 });
 

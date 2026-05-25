@@ -53,6 +53,7 @@ describe("drop x15 patch inspection", () => {
     const image = makeDiscImage("SLUS_014.11", false);
     seedGhostLoopPatterns(image, "vanilla", 1);
     seedGhostLoopPatterns(image, "patched", 7);
+    seedStarchipAward(image, 21, 0x126d4, "patched");
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
@@ -116,6 +117,7 @@ describe("drop x15 patch inspection", () => {
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
       expect(patched[waOffset(0xbc17e4)]).toBe(16);
+      expectStarchipX15(patched, 21 * SECTOR_DATA_SIZE + 0x126d4);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -203,6 +205,7 @@ describe("drop x15 patch inspection", () => {
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
       expect(patched[waOffset(0xbc17e4)]).toBe(16);
+      expectStarchipX15(patched, 21 * SECTOR_DATA_SIZE + 0x126d4);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -256,6 +259,33 @@ describe("drop x15 patch inspection", () => {
       }
       expect(patched[waOffset(0xe24fe4)]).toBe(16);
       expect(patched[waOffset(0x116d400)]).toBe(0);
+      expectStarchipX15(patched, slusBase + 0x12790);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("upgrades card-only Ghost/FMR images with starchip x15", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    const image = makeDiscImage("SLUS_014.11", false);
+    seedGhostLoopPatterns(image, "patched");
+    seedStarchipAward(image, 21, 0x126d4, "vanilla");
+    writeFileSync(discPath, image);
+
+    try {
+      expect(inspectDropX15Image(image)).toMatchObject({
+        supported: true,
+        enabled: false,
+        definitionId: "ghost-loop-limits",
+      });
+
+      const result = patchDropX15DiscInPlace(discPath);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status.enabled).toBe(true);
+      expectStarchipX15(patched, 21 * SECTOR_DATA_SIZE + 0x126d4);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -300,6 +330,10 @@ const GHOST_LOOP_PATTERN_BYTES = {
     "080044ac20005690000000000100d6260f0017240200d712",
   ],
 } as const;
+const STARCHIP_AWARD_BYTES = {
+  vanilla: "3a004390e005828c0000000021104300e00582ac",
+  patched: "3a004390e005828c002903002318a30021104300e00582ac",
+} as const;
 
 function makeDiscImage(serial: string, seed = true): Buffer {
   const slusSector = 21;
@@ -311,6 +345,7 @@ function makeDiscImage(serial: string, seed = true): Buffer {
 
   writePrimaryVolumeDescriptor(image, rootSector);
   writeRootDirectory(image, rootSector, slusSector, slusSize, serial);
+  seedStarchipAward(image, slusSector, 0x126d4, "vanilla");
   if (seed) seedGhostToolHooks(image, slusSector);
 
   return image;
@@ -337,6 +372,7 @@ function makeGhostToolDiscImage(serial: string, continuationWord = 0x00021400): 
   });
   seedGhostToolHooks(image, slusSector, continuationWord);
   seedGhostToolWaCleanPrefixes(image);
+  seedStarchipAward(image, slusSector, 0x126d4, "vanilla");
   return image;
 }
 
@@ -361,6 +397,7 @@ function makePalGhostToolDiscImage(serial: string): Buffer {
   });
   seedPalGhostToolHooks(image, slusSector);
   seedPalGhostToolWaCleanPrefixes(image);
+  seedStarchipAward(image, slusSector, 0x12790, "vanilla");
   return image;
 }
 
@@ -375,6 +412,15 @@ function seedGhostLoopPatterns(
       pattern.copy(image, 0x3000 + copy * 0x400 + i * 0x80);
     }
   }
+}
+
+function seedStarchipAward(
+  image: Buffer,
+  slusSector: number,
+  fileOffset: number,
+  mode: keyof typeof STARCHIP_AWARD_BYTES,
+): void {
+  writeBytes(image, slusSector, fileOffset, STARCHIP_AWARD_BYTES[mode]);
 }
 
 function writePrimaryVolumeDescriptor(image: Buffer, rootSector: number): void {
@@ -525,4 +571,10 @@ function writeBytes(image: Buffer, slusSector: number, fileOffset: number, hex: 
 function waOffset(fileOffset: number): number {
   const waSector = 1001;
   return waSector * SECTOR_DATA_SIZE + fileOffset;
+}
+
+function expectStarchipX15(image: Buffer, offset: number): void {
+  expect(image.subarray(offset, offset + 24)).toEqual(
+    Buffer.from(STARCHIP_AWARD_BYTES.patched, "hex"),
+  );
 }
