@@ -13,12 +13,14 @@ export type CollectionSnapshot = PostDuelOptimizationSnapshot;
 export function useDuelCollectionTracker(
   bridge: EmulatorBridge,
   modMismatch: boolean,
+  savedPreDuelCollection: Record<number, number> | null,
   onDuelStart: () => void,
   onNewCards: (snapshot: CollectionSnapshot) => void,
 ): void {
   const wasInActiveDuelRef = useRef(false);
   const preDuelCollectionRef = useRef<Record<number, number> | null>(null);
   const lastKnownCollectionRef = useRef<Record<number, number> | null>(null);
+  const savedPreDuelCollectionRef = useRef<Record<number, number> | null>(savedPreDuelCollection);
   const hasFiredRef = useRef(false);
 
   // Keep callbacks fresh without re-triggering effects.
@@ -30,6 +32,9 @@ export function useDuelCollectionTracker(
   useEffect(() => {
     onNewCardsRef.current = onNewCards;
   });
+  useEffect(() => {
+    savedPreDuelCollectionRef.current = savedPreDuelCollection;
+  }, [savedPreDuelCollection]);
 
   // ── Track active duel entry ──────────────────────────────────
   useEffect(() => {
@@ -66,7 +71,9 @@ export function useDuelCollectionTracker(
   useEffect(() => {
     if (hasFiredRef.current) return;
     if (modMismatch) return;
-    if (bridge.inDuel && bridge.phase !== "ended") return;
+    if (!preDuelCollectionRef.current && bridge.phase === "ended") {
+      preDuelCollectionRef.current = savedPreDuelCollectionRef.current;
+    }
     if (!collection || !preDuelCollectionRef.current) return;
 
     const gainedCards = findNewCardQuantities(preDuelCollectionRef.current, collection);
@@ -80,7 +87,7 @@ export function useDuelCollectionTracker(
       collection: { ...collection },
       deck: [...deckDefinition],
     });
-  }, [bridge.inDuel, bridge.phase, collection, deckDefinition, modMismatch]);
+  }, [bridge.phase, collection, deckDefinition, modMismatch]);
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */

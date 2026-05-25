@@ -132,10 +132,31 @@ describe("resolveEndedPhase", () => {
     expect(effectivePhase).toBe("other");
   });
 
-  it("overrides to 'other' when no duel was observed this session", () => {
+  it("restores 'ended' on startup when already on a known duel scene", () => {
+    const { effectivePhase, tracker } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      0x06c3,
+      initial(),
+      T,
+    );
+    expect(effectivePhase).toBe("ended");
+    expect(tracker).toEqual({ sceneId: 0x06c3, sceneLeft: false, at: T, wasInDuel: false });
+  });
+
+  it("overrides to 'other' when no duel was observed this session on a non-duel scene", () => {
     const { effectivePhase } = resolveEndedPhase(
       { inDuel: false, phase: "ended" },
       42,
+      initial(),
+      T,
+    );
+    expect(effectivePhase).toBe("other");
+  });
+
+  it("overrides to 'other' when no scene is known and no duel was observed this session", () => {
+    const { effectivePhase } = resolveEndedPhase(
+      { inDuel: false, phase: "ended" },
+      null,
       initial(),
       T,
     );
@@ -295,6 +316,13 @@ describe("processBridgeMessage", () => {
 
       expect(leftResults.state.phase).toBe("other");
       expect(leftResults.state.inDuel).toBe(false);
+    });
+
+    it("keeps an initial results-screen ready message inside the duel lifecycle", () => {
+      const ended = process(readyMsg({ sceneId: 0, duelPhase: 0x0d }));
+
+      expect(ended.state.phase).toBe("ended");
+      expect(ended.state.inDuel).toBe(true);
     });
 
     it("restores the confirmed hand target when field preview closes before raw target updates", () => {

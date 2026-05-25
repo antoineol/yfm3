@@ -466,7 +466,7 @@ export function processBridgeMessage(
     const interpreted = interpretRawState(raw);
     const { effectivePhase, tracker: nextTracker } = resolveEndedPhase(
       interpreted,
-      raw.sceneId ?? 0,
+      raw.sceneId,
       tracker,
       now,
     );
@@ -620,13 +620,14 @@ export function processBridgeMessage(
  * phase and an updated tracker.
  *
  * Stale signals (any one triggers override to "other"):
- * 1. No duel was ever observed ending this session (sceneId null).
+ * 1. No duel was ever observed ending this session and the current scene is not a known
+ *    duel/results scene.
  * 2. sceneId changed since the duel ended (user navigated away).
  * 3. sceneId returned to the ended value after leaving (scene-left flag).
  */
 export function resolveEndedPhase(
   interpreted: { inDuel: boolean; phase: DuelPhase },
-  msgSceneId: number,
+  msgSceneId: number | null,
   prev: EndedTracker,
   now: number,
 ): { effectivePhase: DuelPhase; tracker: EndedTracker } {
@@ -656,11 +657,24 @@ export function resolveEndedPhase(
     };
   }
 
-  // Already was not in duel — check staleness
-  if (
-    prev.sceneId === null || // never observed a duel end this session
-    prev.sceneLeft // user already navigated away once
-  ) {
+  // First message after a bridge/app restart may already be the results screen.
+  // Accept only scene IDs known to represent an active duel/results scene; this
+  // keeps stale post-duel phase bytes from menu screens hidden.
+  if (prev.at === null) {
+    if (isKnownDuelScene(msgSceneId)) {
+      return {
+        effectivePhase: "ended",
+        tracker: { sceneId: msgSceneId, sceneLeft: false, at: now, wasInDuel: false },
+      };
+    }
+    return {
+      effectivePhase: "other",
+      tracker: { ...prev, wasInDuel: false },
+    };
+  }
+
+  // Already was not in duel — check staleness.
+  if (prev.sceneLeft) {
     return {
       effectivePhase: "other",
       tracker: { ...prev, wasInDuel: false },
@@ -680,4 +694,8 @@ export function resolveEndedPhase(
     effectivePhase: "ended",
     tracker: { ...prev, wasInDuel: false },
   };
+}
+
+function isKnownDuelScene(sceneId: number | null): boolean {
+  return sceneId === 0 || sceneId === 0x02c3 || sceneId === 0x05c3 || sceneId === 0x06c3;
 }

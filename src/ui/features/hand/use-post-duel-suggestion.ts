@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { modIdForFingerprint } from "../../../engine/mods.ts";
 import { useBridgeAutoSync } from "../../db/use-user-preferences.ts";
@@ -14,6 +14,7 @@ import {
 } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import {
+  collectionKey,
   type LocalPostDuelSuggestion,
   postDuelSuggestionKey,
 } from "../../lib/bridge-snapshot-atoms.ts";
@@ -59,6 +60,10 @@ export function usePostDuelSuggestion(
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
 
   const modId = useSelectedMod();
+  const savedPreDuelCollection = useMemo(
+    () => readLocal<Record<number, number>>(collectionKey(modId)),
+    [modId],
+  );
 
   const saveSuggestion = useCallback(
     (suggestion: LocalPostDuelSuggestion | null) => {
@@ -82,6 +87,7 @@ export function usePostDuelSuggestion(
 
   // ── Tracker callbacks ──────────────────────────────────────────
   const handleDuelStart = useCallback(() => {
+    if (state === "optimizing" || state === "result" || state === "no_change") return;
     setOptimizationSnapshot(null);
     setResult(null);
     setCurrentDeck([]);
@@ -97,6 +103,7 @@ export function usePostDuelSuggestion(
     setLiveBestScore,
     saveSuggestion,
     setOptimizationSnapshot,
+    state,
   ]);
 
   const handleNewCards = useCallback(
@@ -108,7 +115,13 @@ export function usePostDuelSuggestion(
     [setState, setCurrentDeck, setOptimizationSnapshot],
   );
 
-  useDuelCollectionTracker(bridge, modMismatch, handleDuelStart, handleNewCards);
+  useDuelCollectionTracker(
+    bridge,
+    modMismatch,
+    savedPreDuelCollection,
+    handleDuelStart,
+    handleNewCards,
+  );
 
   // ── Optimization callbacks ─────────────────────────────────────
   const handleComplete = useCallback(
