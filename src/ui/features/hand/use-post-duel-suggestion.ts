@@ -58,6 +58,10 @@ export function usePostDuelSuggestion(
   const setProgress = useSetAtom(postDuelProgressAtom);
   const liveBestScore = useAtomValue(postDuelLiveBestScoreAtom);
   const setLiveBestScore = useSetAtom(postDuelLiveBestScoreAtom);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const modId = useSelectedMod();
   const savedPreDuelCollection = useMemo(
@@ -87,12 +91,14 @@ export function usePostDuelSuggestion(
 
   // ── Tracker callbacks ──────────────────────────────────────────
   const handleDuelStart = useCallback(() => {
-    if (state === "optimizing" || state === "result" || state === "no_change") return;
-    setOptimizationSnapshot(null);
+    if (stateRef.current !== "optimizing") {
+      setOptimizationSnapshot(null);
+      setCurrentDeck([]);
+    }
     setResult(null);
-    setCurrentDeck([]);
     setProgress(0);
     setLiveBestScore(0);
+    stateRef.current = "duel_active";
     setState("duel_active");
     saveSuggestion(null);
   }, [
@@ -103,13 +109,13 @@ export function usePostDuelSuggestion(
     setLiveBestScore,
     saveSuggestion,
     setOptimizationSnapshot,
-    state,
   ]);
 
   const handleNewCards = useCallback(
     (snapshot: CollectionSnapshot) => {
       setOptimizationSnapshot(snapshot);
       setCurrentDeck(snapshot.deck.filter((id) => id > 0));
+      stateRef.current = "optimizing";
       setState("optimizing");
     },
     [setState, setCurrentDeck, setOptimizationSnapshot],
@@ -126,10 +132,25 @@ export function usePostDuelSuggestion(
   // ── Optimization callbacks ─────────────────────────────────────
   const handleComplete = useCallback(
     (res: OptimizeDeckParallelResult, deckForOpt: number[]) => {
+      if (stateRef.current !== "optimizing") {
+        setOptimizationSnapshot(null);
+        setResult(null);
+        setCurrentDeck([]);
+        setProgress(0);
+        setLiveBestScore(0);
+        const nextState = stateRef.current === "duel_active" ? "duel_active" : "idle";
+        stateRef.current = nextState;
+        setState(nextState);
+        saveSuggestion(null);
+        return;
+      }
+
       const hasImprovement = res.improvement != null && res.improvement > 0;
+      const nextState = hasImprovement ? "result" : "no_change";
       setOptimizationSnapshot(null);
       setResult(res);
-      setState(hasImprovement ? "result" : "no_change");
+      stateRef.current = nextState;
+      setState(nextState);
       saveSuggestion({
         deck: res.deck,
         expectedAtk: res.expectedAtk,
@@ -139,11 +160,20 @@ export function usePostDuelSuggestion(
         currentDeck: deckForOpt,
       });
     },
-    [setState, setResult, saveSuggestion, setOptimizationSnapshot],
+    [
+      setState,
+      setResult,
+      setCurrentDeck,
+      saveSuggestion,
+      setOptimizationSnapshot,
+      setProgress,
+      setLiveBestScore,
+    ],
   );
 
   const handleError = useCallback(() => {
     setOptimizationSnapshot(null);
+    stateRef.current = "idle";
     setState("idle");
   }, [setState, setOptimizationSnapshot]);
 
@@ -157,6 +187,7 @@ export function usePostDuelSuggestion(
     if (state !== "optimizing" || optimizationSnapshot) return;
     setProgress(0);
     setLiveBestScore(0);
+    stateRef.current = "idle";
     setState("idle");
   }, [state, optimizationSnapshot, setState, setProgress, setLiveBestScore]);
 
@@ -179,7 +210,9 @@ export function usePostDuelSuggestion(
       elapsedMs: saved.elapsedMs,
     });
     setCurrentDeck(saved.currentDeck);
-    setState(hasImprovement ? "result" : "no_change");
+    const nextState = hasImprovement ? "result" : "no_change";
+    stateRef.current = nextState;
+    setState(nextState);
   }, [state, modId, setState, setResult, setCurrentDeck]);
 
   // ── Dismiss ─────────────────────────────────────────────────────
@@ -190,6 +223,7 @@ export function usePostDuelSuggestion(
     setCurrentDeck([]);
     setProgress(0);
     setLiveBestScore(0);
+    stateRef.current = "idle";
     setState("idle");
     saveSuggestion(null);
   }, [

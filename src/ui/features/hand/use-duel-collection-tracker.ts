@@ -38,8 +38,8 @@ export function useDuelCollectionTracker(
 
   // ── Track active duel entry ──────────────────────────────────
   useEffect(() => {
-    const isInActiveDuel = bridge.inDuel && bridge.phase !== "ended";
-    const isConfirmedActiveDuel = isInActiveDuel && bridge.handReliable && bridge.hand.length > 0;
+    const isConfirmedActiveDuel =
+      bridge.inDuel && bridge.phase !== "ended" && bridge.handReliable && bridge.hand.length > 0;
     const wasInActiveDuel = wasInActiveDuelRef.current;
     const currentCollection = bridge.collection ? { ...bridge.collection } : null;
     wasInActiveDuelRef.current = isConfirmedActiveDuel;
@@ -49,7 +49,12 @@ export function useDuelCollectionTracker(
       preDuelCollectionRef.current = currentCollection ?? lastKnownCollectionRef.current;
       hasFiredRef.current = false;
       onDuelStartRef.current();
-    } else if (isInActiveDuel && !preDuelCollectionRef.current && currentCollection) {
+    } else if (
+      bridge.inDuel &&
+      bridge.phase !== "ended" &&
+      !preDuelCollectionRef.current &&
+      currentCollection
+    ) {
       preDuelCollectionRef.current = currentCollection;
     }
 
@@ -88,6 +93,10 @@ export function useDuelCollectionTracker(
       deck: [...deckDefinition],
     });
   }, [bridge.phase, collection, deckDefinition, modMismatch]);
+}
+
+export function isConfirmedActiveBridgeDuel(bridge: EmulatorBridge): boolean {
+  return bridge.inDuel && bridge.phase !== "ended" && bridge.handReliable && bridge.hand.length > 0;
 }
 
 /** Find card IDs whose quantity increased between two collection snapshots. */

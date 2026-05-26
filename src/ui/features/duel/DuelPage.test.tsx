@@ -348,4 +348,21 @@ describe("DuelPage", () => {
     expect(screen.queryByTestId("cpu-cheat-banner")).toBeNull();
     expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });
+
+  it("hides post-duel content while a live hand confirms a new active duel", () => {
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        inDuel: true,
+        phase: "hand",
+        hand: [1, 2, 3, 4, 5],
+        handReliable: true,
+      }),
+    );
+
+    render(<DuelPage postDuel={{ ...idlePostDuel, state: "result" }} />);
+
+    expect(screen.queryByTestId("post-duel-suggestion")).toBeNull();
+    expect(screen.getByTestId("hand-display")).toBeTruthy();
+  });
 });

@@ -1,6 +1,7 @@
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { PostDuelSuggestion } from "../hand/PostDuelSuggestion.tsx";
 import { useAutoSyncHand } from "../hand/use-auto-sync-hand.ts";
+import { isConfirmedActiveBridgeDuel } from "../hand/use-duel-collection-tracker.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionState } from "../hand/use-post-duel-suggestion.ts";
 import { DeckAnalyzer } from "./DeckAnalyzer.tsx";
 import { SyncedShell } from "./SyncedShell.tsx";
@@ -18,9 +19,10 @@ export function DuelPage({ postDuel }: { postDuel: PostDuelSuggestionState }) {
   useAutoSyncHand(bridge);
 
   const hasPostDuelContent =
-    postDuel.state === "optimizing" ||
-    postDuel.state === "result" ||
-    postDuel.state === "no_change";
+    !isConfirmedActiveBridgeDuel(bridge) &&
+    (postDuel.state === "optimizing" ||
+      postDuel.state === "result" ||
+      postDuel.state === "no_change");
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">

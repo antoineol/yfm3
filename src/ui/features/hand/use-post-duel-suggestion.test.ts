@@ -38,8 +38,8 @@ import {
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
-import { collectionKey } from "../../lib/bridge-snapshot-atoms.ts";
-import { writeLocal } from "../../lib/local-store.ts";
+import { collectionKey, postDuelSuggestionKey } from "../../lib/bridge-snapshot-atoms.ts";
+import { readLocal, writeLocal } from "../../lib/local-store.ts";
 import { findNewCards } from "./use-duel-collection-tracker.ts";
 import {
   decksMatch,
@@ -406,7 +406,7 @@ describe("usePostDuelSuggestion", () => {
       }),
     });
 
-    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
     expect(store.get(postDuelResultAtom)).toBeNull();
     expect(store.get(postDuelOptimizationSnapshotAtom)).not.toBeNull();
     expect(signal.aborted).toBe(false);
@@ -420,10 +420,9 @@ describe("usePostDuelSuggestion", () => {
         elapsedMs: 100,
       });
     });
-    expect(store.get(postDuelStateAtom)).toBe("result");
-    expect(store.get(postDuelResultAtom)).toEqual(
-      expect.objectContaining({ expectedAtk: 2500, improvement: 500 }),
-    );
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelResultAtom)).toBeNull();
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
   });
 
   it("keeps optimization running when the results screen advances directly into a new duel", async () => {
@@ -471,7 +470,7 @@ describe("usePostDuelSuggestion", () => {
       }),
     });
 
-    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
     expect(store.get(postDuelOptimizationSnapshotAtom)).not.toBeNull();
     expect(signal.aborted).toBe(false);
 
@@ -484,10 +483,9 @@ describe("usePostDuelSuggestion", () => {
         elapsedMs: 100,
       });
     });
-    expect(store.get(postDuelStateAtom)).toBe("result");
-    expect(store.get(postDuelResultAtom)).toEqual(
-      expect.objectContaining({ expectedAtk: 2500, improvement: 500 }),
-    );
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelResultAtom)).toBeNull();
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
   });
 
   it("keeps optimization running through an unconfirmed active-duel flicker", async () => {
@@ -866,6 +864,50 @@ describe("usePostDuelSuggestion", () => {
 
     expect(store.get(postDuelStateAtom)).toBe("result");
     expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses a completed suggestion when a new active duel is confirmed", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: { 1: 1 },
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "ended",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+    await act(() => Promise.resolve());
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(readLocal(postDuelSuggestionKey("rp"))).not.toBeNull();
+
+    rerender({
+      b: makeBridge({
+        inDuel: true,
+        phase: "hand",
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: SAMPLE_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("duel_active");
+    expect(store.get(postDuelResultAtom)).toBeNull();
+    expect(readLocal(postDuelSuggestionKey("rp"))).toBeNull();
   });
 
   it("runs post-duel optimization when auto-sync game data is missing", async () => {
