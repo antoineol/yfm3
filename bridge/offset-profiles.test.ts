@@ -1,0 +1,21 @@
+import { describe, expect, it } from "vitest";
+import { DEFAULT_PROFILE, PAL_PROFILE } from "./offset-profiles.ts";
+
+describe("offset profiles", () => {
+  it("keeps NTSC rank stats at the known fusion-relative base", () => {
+    expect(DEFAULT_PROFILE.rankStatsBase).toBe(DEFAULT_PROFILE.lpP1 - 0x13);
+    expect(DEFAULT_PROFILE.rankLp).toBe(DEFAULT_PROFILE.lpP1);
+    expect(DEFAULT_PROFILE.fusionCounter).toBe(DEFAULT_PROFILE.lpP1 - 0x0c);
+    expect(DEFAULT_PROFILE.equipCounter).toBe(DEFAULT_PROFILE.rankStatsBase + 0x08);
+    expect(DEFAULT_PROFILE.rankCardsUsed).toBe(DEFAULT_PROFILE.rankStatsBase + 0x17);
+  });
+
+  it("keeps PAL rank stats at the live SLES result-stat block", () => {
+    expect(PAL_PROFILE.rankStatsBase).toBe(0x0eb279);
+    expect(PAL_PROFILE.fusionCounter).toBe(0x0eb280);
+    expect(PAL_PROFILE.equipCounter).toBe(0x0eb281);
+    expect(PAL_PROFILE.rankLp).toBe(0x0eb28a);
+    expect(PAL_PROFILE.rankCardsUsed).toBe(0x0eb296);
+    expect(PAL_PROFILE.rankCardsUsed).not.toBe(PAL_PROFILE.cardsDealt);
+  });
+});

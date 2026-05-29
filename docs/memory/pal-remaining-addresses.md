@@ -1,6 +1,6 @@
 # PAL Remaining Address Investigation
 
-Status: **3 of 4 confirmed** — terrain address still under investigation. PAL equip counter is also still unmapped.
+Status: **rank counters confirmed** — terrain address still under investigation.
 
 ## Goal
 
@@ -17,7 +17,12 @@ Find 4 remaining PAL (SLES-039.48, French vanilla) RAM addresses for the bridge'
 | **sceneId** | 0x09B26C | phase+0x32 | **0x09C4C2** | **phase-0xA2** | **Confirmed (session 2)** |
 | **duelistId** | 0x09B361 | phase+0x127 | **0x09C6F3** | **phase+0x18F** | **Confirmed (session 2)** |
 | **terrain** | 0x09B364 | phase+0x12A | **?** | **?** | **NOT FOUND — see notes** |
-| **fusionCounter** | 0x0E9FF8 | lpP1-0x0C | **0x0EB27F** | **lpP1-0x0B** | **Confirmed (session 2)** |
+| **rankStatsBase** | 0x0E9FF1 | NTSC result block | **0x0EB279** | **lpP1-0x11** | **Live SLES_039.48 result recap** |
+| **recapComboCounter** | — | display-only | **0x0EB27F** | **rankStatsBase+0x06** | **Live SLES_039.48 result recap** |
+| **fusionCounter** | 0x0E9FF8 | rankStatsBase+0x07 | **0x0EB280** | **rankStatsBase+0x07** | **NTSC routine shape + live recap** |
+| **equipMagicCounter** | 0x0E9FF9 | rankStatsBase+0x08 | **0x0EB281** | **rankStatsBase+0x08** | **Live SLES_039.48 result recap** |
+| **rankCardsUsed** | 0x0EA008 | rankStatsBase+0x17 | **0x0EB296** | **rankStatsBase+0x1D** | **Live SLES_039.48 result recap** |
+| **handCardsDealt** | 0x0EA008 | lpP1+0x04 | **0x0EB290** | **lpP1+0x06** | **Hand-slot tracking only** |
 
 ### Key findings
 
@@ -26,7 +31,7 @@ Find 4 remaining PAL (SLES-039.48, French vanilla) RAM addresses for the bridge'
    - sceneId shifted by -0xD4 (phase+0x32 → phase-0xA2), now BELOW phase instead of above
    - duelistId shifted by +0x68 (phase+0x127 → phase+0x18F)
    - terrain shifted by +0x62 (phase+0x12A → phase+0x18C)
-   - fusionCounter shifted by +1 (lpP1-0x0C → lpP1-0x0B)
+   - the recap combo counter is `lpP1-0x0B`; the rank fusion counter is `lpP1-0x0A`
 
 2. **PAL scene ID behaves differently from NTSC-U**: 0 during duels, non-zero on menu screens. NTSC-U scene ID is non-zero during duels. For `resolveEndedPhase()`, this still works: it records sceneId=0 at duel end and detects the change to non-zero when the user navigates away from results.
 
@@ -36,7 +41,7 @@ Find 4 remaining PAL (SLES-039.48, French vanilla) RAM addresses for the bridge'
 
 ## Verification evidence
 
-### Fusion counter (0x0EB27F)
+### Combo and fusion counters (0x0EB27F / 0x0EB280)
 
 | Event | Value | Delta |
 |-------|-------|-------|
@@ -45,11 +50,33 @@ Find 4 remaining PAL (SLES-039.48, French vanilla) RAM addresses for the bridge'
 | After fusion 2 | 2 | +1 |
 | New duel start | 0 | reset |
 
-Also observed: 0x0EB280 (lpP1-0x0A) tracks identically. Using 0x0EB27F as primary.
+The result recap distinguishes "Jeux combo" from "Initier fusion". Live recap for the screenshot has `Jeux combo = 2` at `0x0EB27F`, `Initier fusion = 1` at `0x0EB280`, and `Equiper magie = 1` at `0x0EB281`.
 
-### Equip counter — NOT FOUND
+The decompiled NTSC scoring routine uses the same result-struct shape for rank rows 8 and 9: `rankStatsBase+0x07` for the app's "Fusions" row and `rankStatsBase+0x08` for the app's "Equips" row. Therefore the bridge scores `0x0EB280` and `0x0EB281`; `0x0EB27F` is kept as recap evidence, not as a score factor.
 
-`0x0EB280` is not the equip counter. It tracked identically to the fusion counter during PAL testing, so the bridge must not use it for full rank counters. Until the real equip counter is mapped, PAL rank display should stay in partial mode.
+### Cards used (0x0EB296)
+
+The live PAL result block maps cards used to `0x0EB296`. This is not the PAL hand/deal helper counter at `0x0EB290`. A result recap with `Cartes utilisées = 8` must therefore score as `32` cards left even if the hand counter contains an unrelated or advanced value.
+
+### Rank stat block (0x0EB279)
+
+Live SLES_039.48 result-screen evidence maps the player rank stat block relative to actual LP:
+
+| Offset from lpP1 | PAL FR addr | Meaning |
+|------------------|-------------|---------|
+| -0x11 | 0x0EB279 | Turns played |
+| -0x10 | 0x0EB27A | Effective attacks |
+| -0x0F | 0x0EB27B | Defensive wins |
+| -0x0E | 0x0EB27C | Face-down plays |
+| -0x0D | 0x0EB27D | Pure magic cards played |
+| -0x0C | 0x0EB27E | Traps triggered by opponent |
+| -0x0B | 0x0EB27F | Recap combo plays |
+| -0x0A | 0x0EB280 | Initiated fusions (rank "Fusions" row) |
+| -0x09 | 0x0EB281 | Equip magic used |
+| +0x00 | 0x0EB28A | Actual LP |
+| +0x0C | 0x0EB296 | Cards used for rank |
+
+Earlier notes pointed to `0x0EAE59`, but live `readMem` showed that address contains code/table-looking bytes (`ae 0e 00 58 ...`), not result counters. The screenshot fixture is verified by `bun scripts/check-live-rank.ts`.
 
 ### Duelist ID (0x09C6F3)
 
@@ -79,10 +106,9 @@ Behavior: 0 during duels (including results screen with phase 0x0D), non-zero on
 
 1. **Update `PAL_PROFILE` in `bridge/memory.ts`** with the 3 confirmed addresses (sceneId, duelistId, fusionCounter). Set terrain=0 for now.
 2. **Find terrain**: duel an opponent with non-Normal terrain (e.g., a duelist who uses Forest, Yami, etc.) and diff to find the terrain byte.
-3. **Find equip counter**: use a duel with one fusion-only action and one equip-only action, then diff around the LP/rank block.
-4. **Run tests** to verify the bridge and webapp work correctly with PAL addresses.
-5. **Remove diagnostic code**: set `DIAG_PAL = false` in serve.ts or remove the probe import.
-6. **Verify end-to-end**: play a PAL duel and confirm the webapp correctly shows/hides duel state.
+3. **Run tests** to verify the bridge and webapp work correctly with PAL addresses.
+4. **Remove diagnostic code**: set `DIAG_PAL = false` in serve.ts or remove the probe import.
+5. **Verify end-to-end**: play a PAL duel and confirm the webapp correctly shows/hides duel state.
 
 ## Investigation methodology
 

@@ -17,6 +17,7 @@ export interface RankTrackerState {
   breakdown: RankBreakdown;
   scoring: RankScoringConfig;
   isPartial: boolean;
+  estimatedFactorNames: readonly string[];
   isDuelActive: boolean;
   isDuelEnded: boolean;
   isVisible: boolean;
@@ -51,6 +52,19 @@ const RANK_COUNTER_KEYS: readonly (keyof RankFactors)[] = [
   "remainingLp",
 ];
 
+const FACTOR_NAME_BY_KEY: Record<keyof RankFactors, string> = {
+  turns: "Turns",
+  effectiveAttacks: "Eff. attacks",
+  defensiveWins: "Def. wins",
+  faceDownPlays: "Face-downs",
+  fusionsInitiated: "Fusions",
+  equipMagicUsed: "Equips",
+  pureMagicUsed: "Magic",
+  trapsTriggered: "Traps",
+  remainingCards: "Cards left",
+  remainingLp: "Remaining LP",
+};
+
 // ── Hook ───────────────────────────────────────────────────────────────
 
 export function useRankTracker(): RankTrackerState {
@@ -69,7 +83,16 @@ export function useRankTracker(): RankTrackerState {
       lp: bridge.lp,
     });
   }, [bridge.stats, bridge.shuffledDeck, bridge.lp]);
-  const isPartial = bridge.stats?.rankCounters == null || bridge.stats.rankCounters.length !== 10;
+  const estimatedFactorNames = useMemo(
+    () =>
+      estimatedRankFactorNames({
+        stats: bridge.stats,
+        shuffledDeck: bridge.shuffledDeck,
+        lp: bridge.lp,
+      }),
+    [bridge.stats, bridge.shuffledDeck, bridge.lp],
+  );
+  const isPartial = estimatedFactorNames.length > 0;
 
   const victoryType: VictoryType = "normal";
 
@@ -96,6 +119,7 @@ export function useRankTracker(): RankTrackerState {
     breakdown: effectiveBreakdown,
     scoring,
     isPartial,
+    estimatedFactorNames,
     isDuelActive,
     isDuelEnded,
     isVisible,
@@ -110,7 +134,7 @@ export function rankFactorsForBridge(
     const result: Record<string, number> = {};
     for (let i = 0; i < RANK_COUNTER_KEYS.length; i++) {
       const key = RANK_COUNTER_KEYS[i];
-      if (key) result[key] = counters[i] ?? 0;
+      if (key) result[key] = counters[i] ?? NEUTRAL_FACTORS[key];
     }
     return result as unknown as RankFactors;
   }
@@ -129,6 +153,34 @@ export function rankFactorsForBridge(
     remainingCards,
     remainingLp,
   };
+}
+
+export function estimatedRankFactorNames(
+  bridge: Pick<BridgeState, "stats" | "shuffledDeck" | "lp">,
+): readonly string[] {
+  const counters = bridge.stats?.rankCounters;
+  if (counters != null && counters.length === 10) {
+    const missing: string[] = [];
+    for (let i = 0; i < RANK_COUNTER_KEYS.length; i++) {
+      const key = RANK_COUNTER_KEYS[i];
+      if (key && counters[i] == null) missing.push(FACTOR_NAME_BY_KEY[key]);
+    }
+    return missing;
+  }
+
+  const estimated: string[] = [
+    "Turns",
+    "Eff. attacks",
+    "Def. wins",
+    "Face-downs",
+    "Equips",
+    "Magic",
+    "Traps",
+  ];
+  if (bridge.stats == null) estimated.push("Fusions");
+  if (bridge.shuffledDeck == null) estimated.push("Cards left");
+  if (bridge.lp == null) estimated.push("Remaining LP");
+  return estimated;
 }
 
 function getRankProfile(fingerprint: string | null): RankScoringProfile {

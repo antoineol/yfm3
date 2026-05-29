@@ -179,7 +179,7 @@ function keepRef<T>(prev: T, next: T, eq: (a: T, b: T) => boolean): T {
   return eq(prev, next) ? prev : next;
 }
 
-function eqNumArr(a: number[] | null, b: number[] | null): boolean {
+function eqNumArr(a: Array<number | null> | null, b: Array<number | null> | null): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
   if (a.length !== b.length) return false;

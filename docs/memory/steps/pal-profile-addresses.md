@@ -22,7 +22,12 @@ export const PAL_PROFILE: OffsetProfile = {
   duelistId: 0x09c6f3,     // was 0 — phase+0x18F, uint8
   lpP1: 0x0eb28a,
   lpP2: 0x0eb2aa,
-  fusionCounter: 0x0eb27f,  // was 0 — lpP1-0x0B, uint8
+  rankLp: 0x0eb28a,         // PAL result-stat actual LP
+  fusionCounter: 0x0eb280,  // initiated fusions, uint8
+  rankCardsUsed: 0x0eb296,  // result-stat cards-used byte
+  cardsDealt: 0x0eb290,     // lpP1+0x06, hand-slot tracking counter
+  rankStatsBase: 0x0eb279,
+  equipCounter: 0x0eb281,
 };
 ```
 

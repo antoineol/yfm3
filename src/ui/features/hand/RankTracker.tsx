@@ -106,8 +106,8 @@ function RankTrackerDetails({ tracker }: { tracker: RankTrackerState }) {
   };
 
   const factors = useMemo(
-    () => buildFactorRows(tracker.breakdown, tracker.isPartial),
-    [tracker.breakdown, tracker.isPartial],
+    () => buildFactorRows(tracker.breakdown, tracker.estimatedFactorNames),
+    [tracker.breakdown, tracker.estimatedFactorNames],
   );
   const zoneDefinitions = useMemo(
     () => getFactorZoneDefinitions(tracker.scoring),
@@ -156,24 +156,17 @@ interface FactorRowData {
   isEstimated: boolean;
 }
 
-/** Factor keys that are estimated (not read from RAM) in partial mode. */
-const PARTIAL_ESTIMATED_KEYS = new Set([
-  "Turns",
-  "Eff. attacks",
-  "Def. wins",
-  "Face-downs",
-  "Equips",
-  "Magic",
-  "Traps",
-]);
-
-function buildFactorRows(breakdown: RankBreakdown, isPartial: boolean): FactorRowData[] {
+function buildFactorRows(
+  breakdown: RankBreakdown,
+  estimatedFactorNames: readonly string[],
+): FactorRowData[] {
+  const estimated = new Set(estimatedFactorNames);
   return breakdown.factors.map((f, i) => ({
     name: f.name,
     rawValue: f.rawValue,
     points: f.points,
     factorIndex: i,
-    isEstimated: isPartial && PARTIAL_ESTIMATED_KEYS.has(f.name),
+    isEstimated: estimated.has(f.name),
   }));
 }
 

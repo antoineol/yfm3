@@ -63,7 +63,7 @@ export interface AgentGameState {
   duelCursorTargetCardId: number | null;
   duelCursorFieldSlotIndex: number | null;
   duelistUnlock: number[];
-  rankCounters: number[] | null;
+  rankCounters: Array<number | null> | null;
 }
 
 export interface CommandResult {

@@ -4,9 +4,9 @@
  * Verifies that the hand slot index array discovered on PAL (lpP1+0x06..0x0C)
  * exists at the same relative offsets on NTSC-U.
  *
- * PAL has fusionCounter at lpP1-0x0B, NTSC-U at lpP1-0x0C, so there may be
- * a 1-byte structural shift. The probe dumps a wider region (lpP1-0x10 to
- * lpP1+0x20) to catch offsets even if shifted.
+ * PAL has the recap combo counter at lpP1-0x0B and the rank fusion counter at
+ * lpP1-0x0A, while NTSC-U has rank fusion at lpP1-0x0C. The probe dumps a
+ * wider region (lpP1-0x10 to lpP1+0x20) to catch offsets even if shifted.
  *
  * Usage from serve.ts:
  *

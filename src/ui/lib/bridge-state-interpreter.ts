@@ -14,7 +14,7 @@ export type DuelStats = {
   terrain: number;
   duelistId: number;
   /** Raw rank counter bytes from RAM (10 values matching scoring table order), null if unavailable. */
-  rankCounters: number[] | null;
+  rankCounters: Array<number | null> | null;
 };
 
 /** A monster on the field with its live (equip-boosted) ATK/DEF from RAM. */
@@ -58,7 +58,7 @@ export type RawBridgeState = {
   terrain: number | null;
   duelistId: number | null;
   /** Raw rank counter bytes from RAM (10 values in scoring table order). */
-  rankCounters?: number[] | null;
+  rankCounters?: Array<number | null> | null;
   /** Hand slot indices (u8[5]): deal index or 0xFF = card left hand. Null if profile unavailable. */
   handSlots: number[] | null;
   // Universal fields — always available.

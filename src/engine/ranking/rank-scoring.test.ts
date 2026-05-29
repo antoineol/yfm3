@@ -612,6 +612,28 @@ describe("scenario: Perfect S-POW", () => {
   });
 });
 
+describe("scenario: PAL French result recap screenshots", () => {
+  const factors: RankFactors = {
+    turns: 3,
+    effectiveAttacks: 0,
+    defensiveWins: 0,
+    faceDownPlays: 0,
+    fusionsInitiated: 1,
+    equipMagicUsed: 1,
+    pureMagicUsed: 0,
+    trapsTriggered: 0,
+    remainingCards: 32,
+    remainingLp: 8000,
+  };
+
+  it("matches the game S-POW result", () => {
+    const breakdown = computeRankBreakdown(factors, "normal");
+
+    expect(breakdown.total).toBe(93);
+    expect(breakdown.rank.label).toBe("S-POW");
+  });
+});
+
 describe("scenario: Easy A-TEC via deck-out", () => {
   // deck-out victory with neutral stats
   // All factors at neutral (0 contribution where possible)

@@ -19,36 +19,12 @@
 
 import { dlopen, type Pointer, ptr, toArrayBuffer } from "bun:ffi";
 import { execSync } from "node:child_process";
+import { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
+import { readRankCounters } from "./rank-counters.ts";
+
+export { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
 
 // ── Types ────────────────────────────────────────────────────────
-
-export interface OffsetProfile {
-  label: string;
-  duelPhase: number;
-  turnIndicator: number;
-  sceneId: number;
-  terrain: number;
-  duelistId: number;
-  lpP1: number;
-  lpP2: number;
-  fusionCounter: number;
-  /** Absolute address of total-cards-dealt counter (u8). */
-  cardsDealt: number;
-  /** Absolute address of hand slot index array (u8[5], 0xFF = card left hand). */
-  handSlots: number;
-  /**
-   * Rank counter base: 6 contiguous u8 counters starting here.
-   * [turns, effAttacks, defWins, faceDown, pureMagic, traps]
-   * Derived: fusionCounter-7 for NTSC-U (0x0E9FF1).
-   */
-  rankStatsBase: number;
-  /** Equip magic counter (u8), right after fusion counter. */
-  equipCounter: number;
-  /** Selected card id under the in-game duel cursor (u16), 0 when unmapped. */
-  duelCursorTargetCard: number;
-  /** Active player field cursor slot signal (u8), 0 when unmapped. */
-  duelCursorFieldSlot: number;
-}
 
 export interface SharedMemoryMapping {
   handle: Pointer;
@@ -92,10 +68,11 @@ export interface GameState {
   duelistUnlock: number[];
   /**
    * 10 rank scoring counters, ordered to match the engine's RankFactors:
-   * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp]
+   * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp].
+   * Individual entries are null when a profile has not mapped that specific counter yet.
    * null when profile is unavailable.
    */
-  rankCounters: number[] | null;
+  rankCounters: Array<number | null> | null;
   /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
   duelCursorTargetCardId: number | null;
   /** Player field cursor slot index when an active field card is focused. Null for empty slots/unknown. */
@@ -135,62 +112,6 @@ export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
 const FINGERPRINT_BYTES = 16;
 
 const PS1_RAM_SIZE = 0x200000;
-
-// ── Version-dependent offset profiles ─────────────────────────────
-
-/** Default profile: NTSC-U (SLUS-01411) — also used by RP mod. */
-export const DEFAULT_PROFILE: OffsetProfile = {
-  label: "NTSC-U",
-  duelPhase: 0x09b23a,
-  turnIndicator: 0x09b1d5,
-  sceneId: 0x09b26c,
-  terrain: 0x09b364,
-  duelistId: 0x09b361,
-  lpP1: 0x0ea004,
-  lpP2: 0x0ea024,
-  fusionCounter: 0x0e9ff8,
-  cardsDealt: 0x0ea008, // lpP1+0x04 (NTSC-U has 2 LP copies before dealt)
-  handSlots: 0x0ea00a, // lpP1+0x06
-  rankStatsBase: 0x0e9ff1, // fusionCounter-7: [turns, effAtk, defWin, faceDown, pureMagic, traps]
-  equipCounter: 0x0e9ff9, // fusionCounter+1
-  duelCursorTargetCard: 0x09b338, // duelPhase+0xFE
-  duelCursorFieldSlot: 0x09b34e, // duelPhase+0x114
-};
-
-/**
- * PAL profile: SLES-039.47 / SLES-039.48 (EU multi-language, including French).
- *
- * The PAL binary has a different compiled layout — both the absolute addresses
- * AND the relative distances between variables differ from NTSC-U.
- * Phase/turn are in one segment (delta +0x132A from NTSC-U), LP in another
- * (delta +0x1286).
- *
- * PAL scene ID is 0 during duels and non-zero on menu screens (opposite of
- * NTSC-U). This still works for resolveEndedPhase(): it records sceneId=0 at
- * duel end and detects the change to non-zero when the user navigates away.
- *
- * Terrain is not yet mapped — all tested duels had neutral terrain, making it
- * impossible to identify via diffing. Needs a duel with non-Normal terrain.
- *
- * See docs/memory/pal-remaining-addresses.md for investigation evidence.
- */
-export const PAL_PROFILE: OffsetProfile = {
-  label: "PAL",
-  duelPhase: 0x09c564,
-  turnIndicator: 0x09c504,
-  sceneId: 0x09c4c2, // phase-0xA2, uint16: 0 in duel, non-zero on menus
-  terrain: 0, // not yet discovered — needs non-Normal terrain duel
-  duelistId: 0x09c6f3, // phase+0x18F, uint8
-  lpP1: 0x0eb28a,
-  lpP2: 0x0eb2aa,
-  fusionCounter: 0x0eb27f, // lpP1-0x0B, uint8
-  cardsDealt: 0x0eb290, // lpP1+0x06 (PAL has 3 LP copies before dealt)
-  handSlots: 0x0eb292, // lpP1+0x08
-  rankStatsBase: 0x0eb278, // fusionCounter-7
-  equipCounter: 0, // not mapped; 0x0EB280 tracks fusions, not equips
-  duelCursorTargetCard: 0, // not mapped; NTSC duelPhase+0xFE is invalid for PAL
-  duelCursorFieldSlot: 0, // not mapped; NTSC duelPhase+0x114 is invalid for PAL
-};
 
 /**
  * Validate that a profile's LP addresses point to reasonable values.
@@ -270,7 +191,9 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       duelistId: DEFAULT_PROFILE.duelistId + d,
       lpP1,
       lpP2: lpP1 + LpStride,
+      rankLp: DEFAULT_PROFILE.rankLp + d,
       fusionCounter,
+      rankCardsUsed: DEFAULT_PROFILE.rankCardsUsed + d,
       cardsDealt: DEFAULT_PROFILE.cardsDealt + d,
       handSlots: DEFAULT_PROFILE.handSlots + d,
       rankStatsBase: DEFAULT_PROFILE.rankStatsBase + d,
@@ -333,11 +256,15 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
         duelistId: pc.offset + duelistDist,
         lpP1,
         lpP2: lpP1 + 0x20,
-        fusionCounter: lpP1 - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter),
+        rankLp: lpP1 + (PAL_PROFILE.rankLp - PAL_PROFILE.lpP1),
+        fusionCounter: lpP1 + (PAL_PROFILE.fusionCounter - PAL_PROFILE.lpP1),
+        rankCardsUsed: lpP1 + (PAL_PROFILE.rankCardsUsed - PAL_PROFILE.lpP1),
         cardsDealt: lpP1 + (PAL_PROFILE.cardsDealt - PAL_PROFILE.lpP1),
         handSlots: lpP1 + (PAL_PROFILE.handSlots - PAL_PROFILE.lpP1),
-        rankStatsBase: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.rankStatsBase),
-        equipCounter: lpP1 - (PAL_PROFILE.lpP1 - PAL_PROFILE.equipCounter),
+        rankStatsBase: lpP1 + (PAL_PROFILE.rankStatsBase - PAL_PROFILE.lpP1),
+        equipCounter: PAL_PROFILE.equipCounter
+          ? lpP1 + (PAL_PROFILE.equipCounter - PAL_PROFILE.lpP1)
+          : 0,
         duelCursorTargetCard: 0,
         duelCursorFieldSlot: 0,
       };
@@ -450,7 +377,9 @@ export function buildProfileFromDiscovery(
     duelistId: phaseAddr + duelistDist,
     lpP1: lpP1Addr || 0,
     lpP2: lpP1Addr ? lpP1Addr + lpStride : 0,
+    rankLp: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.rankLp - DEFAULT_PROFILE.lpP1) : 0,
     fusionCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.fusionCounter) : 0,
+    rankCardsUsed: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.rankCardsUsed - DEFAULT_PROFILE.lpP1) : 0,
     cardsDealt: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.cardsDealt - DEFAULT_PROFILE.lpP1) : 0,
     handSlots: lpP1Addr ? lpP1Addr + (DEFAULT_PROFILE.handSlots - DEFAULT_PROFILE.lpP1) : 0,
     rankStatsBase: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.rankStatsBase) : 0,
@@ -626,8 +555,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentField,
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
-    rankCounters:
-      profile?.rankStatsBase && profile.equipCounter ? readRankCounters(view, profile) : null,
+    rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
     duelCursorFieldSlotIndex: profile ? readDuelCursorFieldSlotIndex(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
@@ -668,38 +596,6 @@ export function readShuffledDeck(view: DataView): number[] {
  */
 export function readCpuShuffledDeck(view: DataView): number[] {
   return readU16Array(view, CPU_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
-}
-
-/**
- * Read the 10 rank scoring counters from RAM.
- *
- * The game stores duel stats in two groups:
- * - 6 contiguous u8 at rankStatsBase: [turns, effAttacks, defWins, faceDown, pureMagic, traps]
- * - fusionCounter (u8), equipCounter (u8): separate addresses
- * - cardsDealt (u8), lpP1 (u16): in the LP block
- *
- * Returns them in the engine's RankFactors order:
- * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp]
- */
-function readRankCounters(view: DataView, profile: OffsetProfile): number[] {
-  const base = readU8Array(view, profile.rankStatsBase, 6); // turns, effAtk, defWin, faceDown, pureMagic, traps
-  const fusions = readU8(view, profile.fusionCounter);
-  const equips = readU8(view, profile.equipCounter);
-  const cardsDealt = readU8(view, profile.cardsDealt);
-  const lp = readU16(view, profile.lpP1);
-
-  return [
-    base[0] ?? 0, // turns
-    base[1] ?? 0, // effectiveAttacks
-    base[2] ?? 0, // defensiveWins
-    base[3] ?? 0, // faceDownPlays
-    fusions, // fusionsInitiated
-    equips, // equipMagicUsed
-    base[4] ?? 0, // pureMagicUsed
-    base[5] ?? 0, // trapsTriggered
-    40 - cardsDealt, // remainingCards (convert dealt→remaining)
-    lp, // remainingLp
-  ];
 }
 
 /**
