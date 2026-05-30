@@ -80,6 +80,7 @@ function hasUsableCardMetadata(cards: CardStats[]): boolean {
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     if (!card || card.id !== i + 1) return false;
+    if (!CARD_TYPE_NAMES.has(card.type)) return false;
     if (hasStats(card) && NON_MONSTER_TYPE_NAMES.has(card.type)) return false;
     if (CARD_TYPE_NAMES.has(card.gs1) || CARD_TYPE_NAMES.has(card.gs2)) return false;
     if (!GUARDIAN_STAR_NAMES.has(card.gs1) || !GUARDIAN_STAR_NAMES.has(card.gs2)) return false;

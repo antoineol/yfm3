@@ -363,6 +363,90 @@ describe("interpretRawState", () => {
       });
     });
 
+    it("resolves PAL field focus when only the target card address is mapped", () => {
+      const raw = makeRaw({
+        gameSerial: "SLES_039.48",
+        duelPhase: 0x05,
+        duelCursorTargetCardId: 277,
+        field: [
+          { cardId: 401, atk: 2150, def: 1950, status: 0x84 },
+          { cardId: 487, atk: 1800, def: 1400, status: 0x84 },
+          { cardId: 41, atk: 1400, def: 1200, status: 0x84 },
+          { cardId: 41, atk: 1400, def: 1200, status: 0 },
+          { cardId: 0, atk: 0, def: 0, status: 0 },
+        ],
+        opponentHand: [
+          { cardId: 277, atk: 300, def: 1300, status: 0xb0 },
+          { cardId: 432, atk: 1100, def: 700, status: 0xa0 },
+          { cardId: 298, atk: 900, def: 900, status: 0xa0 },
+          { cardId: 116, atk: 900, def: 800, status: 0xa0 },
+          { cardId: 206, atk: 900, def: 700, status: 0xa0 },
+        ],
+        opponentField: [
+          { cardId: 277, atk: 300, def: 1300, status: 0xbc },
+          { cardId: 0, atk: 0, def: 0, status: 0 },
+          { cardId: 0, atk: 0, def: 0, status: 0 },
+          { cardId: 0, atk: 0, def: 0, status: 0 },
+          { cardId: 0, atk: 0, def: 0, status: 0 },
+        ],
+      });
+      const { duelCursorFieldSlotIndex: _fieldSlot, ...rawWithoutFieldSlot } = raw;
+
+      const result = interpretRawState(rawWithoutFieldSlot);
+
+      expect(result.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 277,
+        hidden: true,
+      });
+    });
+
+    it("uses PAL's non-zero field focus signal without treating it as a trusted slot index", () => {
+      const result = interpretRawState(
+        makeRaw({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 531,
+          duelCursorFieldSlotIndex: 1,
+          field: [
+            { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0 },
+            { cardId: 122, atk: 900, def: 300, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 531,
+        hidden: false,
+      });
+    });
+
+    it("clears PAL field focus when the focus-present signal is empty but the target id is stale", () => {
+      const result = interpretRawState(
+        makeRaw({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 531,
+          duelCursorFieldSlotIndex: null,
+          field: [
+            { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0 },
+            { cardId: 531, atk: 2100, def: 1700, status: 0 },
+            { cardId: 122, atk: 900, def: 300, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
     it("clears a stale opponent hidden target when the field cursor is on an empty slot", () => {
       const result = interpretRawState(
         makeRaw({

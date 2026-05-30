@@ -95,6 +95,14 @@ describe("detectAttributeMapping", () => {
     });
   });
 
+  it("keeps PAL attributes canonical when PAL text is loaded from WA_MRG", () => {
+    const exe = Buffer.alloc(0x1000);
+    const mapping = detectAttributeMapping(exe, defaultLayout, 1);
+    expect(mapping[0]).toBe("Light");
+    expect(mapping[1]).toBe("Dark");
+    expect(mapping[4]).toBe("Fire");
+  });
+
   it("returns RP mapping when color prefix {F8 0A XX} is found", () => {
     // Build a synthetic EXE with name offset table and text pool
     const nameOffsetTable = 0x100;

@@ -18,4 +18,13 @@ describe("offset profiles", () => {
     expect(PAL_PROFILE.rankCardsUsed).toBe(0x0eb296);
     expect(PAL_PROFILE.rankCardsUsed).not.toBe(PAL_PROFILE.cardsDealt);
   });
+
+  it("maps the PAL cursor target without reusing NTSC relative offsets", () => {
+    expect(PAL_PROFILE.duelCursorTargetCard).toBe(0x09c6b8);
+    expect(PAL_PROFILE.duelCursorTargetCard).not.toBe(
+      PAL_PROFILE.duelPhase + (DEFAULT_PROFILE.duelCursorTargetCard - DEFAULT_PROFILE.duelPhase),
+    );
+    expect(PAL_PROFILE.duelCursorFieldSlot).toBe(0x09c6d1);
+    expect(PAL_PROFILE.duelCursorFieldSlot).not.toBe(0x09c6e8);
+  });
 });

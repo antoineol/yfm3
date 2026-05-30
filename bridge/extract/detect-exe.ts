@@ -149,14 +149,14 @@ function normalizeName(name: string): string {
   return name.replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-/** Per-language attribute names for PAL discs (indexed by langIdx). */
-const PAL_ATTRIBUTES: Record<number, string>[] = [
-  { 0: "Light", 1: "Dark", 2: "Earth", 3: "Water", 4: "Fire", 5: "Wind" }, // EN
-  { 0: "Lumière", 1: "Ténèbres", 2: "Terre", 3: "Eau", 4: "Feu", 5: "Vent" }, // FR
-  { 0: "Licht", 1: "Finsternis", 2: "Erde", 3: "Wasser", 4: "Feuer", 5: "Wind" }, // DE
-  { 0: "Luce", 1: "Oscurità", 2: "Terra", 3: "Acqua", 4: "Fuoco", 5: "Vento" }, // IT
-  { 0: "Luz", 1: "Oscuridad", 2: "Tierra", 3: "Agua", 4: "Fuego", 5: "Viento" }, // ES
-];
+const VANILLA_ATTRIBUTES: Record<number, string> = {
+  0: "Light",
+  1: "Dark",
+  2: "Earth",
+  3: "Water",
+  4: "Fire",
+  5: "Wind",
+};
 
 /** Determine the attribute encoding based on whether card names use color prefixes.
  *  RP mod uses {F8 0A XX} color prefixes → distinct encoding.
@@ -164,19 +164,10 @@ const PAL_ATTRIBUTES: Record<number, string>[] = [
 export function detectAttributeMapping(
   exe: Buffer,
   layout: ExeLayout,
-  langIdx?: number,
+  _langIdx?: number,
 ): Record<number, string> {
   if (layout.nameOffsetTable === -1 || layout.textPoolBase === -1) {
-    return (
-      PAL_ATTRIBUTES[langIdx ?? 0] ?? {
-        0: "Light",
-        1: "Dark",
-        2: "Earth",
-        3: "Water",
-        4: "Fire",
-        5: "Wind",
-      }
-    );
+    return VANILLA_ATTRIBUTES;
   }
 
   let hasColorPrefix = false;
@@ -197,7 +188,7 @@ export function detectAttributeMapping(
   if (hasColorPrefix) {
     return { 0: "", 1: "Light", 2: "Dark", 3: "Water", 4: "Fire", 5: "Earth", 6: "Wind" };
   }
-  return { 0: "Light", 1: "Dark", 2: "Earth", 3: "Water", 4: "Fire", 5: "Wind" };
+  return VANILLA_ATTRIBUTES;
 }
 
 // ---------------------------------------------------------------------------

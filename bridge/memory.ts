@@ -75,8 +75,8 @@ export interface GameState {
   rankCounters: Array<number | null> | null;
   /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
   duelCursorTargetCardId: number | null;
-  /** Player field cursor slot index when an active field card is focused. Null for empty slots/unknown. */
-  duelCursorFieldSlotIndex: number | null;
+  /** Field focus signal converted to an index shape. Null for empty slots; PAL does not expose a trusted physical index. */
+  duelCursorFieldSlotIndex?: number | null;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -391,7 +391,7 @@ export function buildProfileFromDiscovery(
 
 // ── Load Windows kernel32 via bun:ffi ────────────────────────────
 
-const { symbols: k32 } = dlopen("kernel32.dll", {
+const KERNEL32_DEFINITIONS = {
   OpenFileMappingW: {
     args: ["u32", "i32", "ptr"],
     returns: "ptr",
@@ -412,7 +412,18 @@ const { symbols: k32 } = dlopen("kernel32.dll", {
     args: [],
     returns: "u32",
   },
-});
+} as const;
+
+function loadKernel32() {
+  return dlopen("kernel32.dll", KERNEL32_DEFINITIONS).symbols;
+}
+
+let k32: ReturnType<typeof loadKernel32> | null = null;
+
+function getKernel32(): ReturnType<typeof loadKernel32> {
+  k32 ??= loadKernel32();
+  return k32;
+}
 
 /** Encode a JavaScript string as a null-terminated UTF-16LE buffer for Win32 W APIs. */
 function encodeWideString(str: string): Buffer {
@@ -481,6 +492,7 @@ export async function findDuckStationPids(): Promise<number[]> {
 }
 
 export function openSharedMemory(pid: number, { quiet = false } = {}): SharedMemoryMapping | null {
+  const k32 = getKernel32();
   const name = `duckstation_${pid}`;
   const nameBuf = encodeWideString(name);
   const handle = k32.OpenFileMappingW(FILE_MAP_READ, 0, ptr(nameBuf));
@@ -505,6 +517,7 @@ export function refreshView(m: SharedMemoryMapping): void {
 }
 
 export function closeSharedMemory(mapping: SharedMemoryMapping): void {
+  const k32 = getKernel32();
   if (mapping.viewPtr) k32.UnmapViewOfFile(mapping.viewPtr);
   if (mapping.handle) k32.CloseHandle(mapping.handle);
 }
@@ -538,6 +551,15 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     profile && off ? readU16(view, off) : null;
   const duelPhase = u8(profile?.duelPhase);
 
+  const cursorFields = profile?.duelCursorFieldSlot
+    ? {
+        duelCursorTargetCardId: readDuelCursorTargetCardId(view, profile),
+        duelCursorFieldSlotIndex: readDuelCursorFieldSlotIndex(view, profile),
+      }
+    : {
+        duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
+      };
+
   return {
     sceneId: u16(profile?.sceneId),
     duelPhase,
@@ -557,9 +579,8 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
     rankCounters: profile?.rankStatsBase ? readLiveRankCounters(view, profile, duelPhase) : null,
-    duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
-    duelCursorFieldSlotIndex: profile ? readDuelCursorFieldSlotIndex(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
+    ...cursorFields,
   };
 }
 

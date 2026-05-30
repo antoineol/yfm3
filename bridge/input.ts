@@ -69,7 +69,7 @@ const KEYEVENTF_KEYUP = 0x0002;
 
 // ── user32.dll FFI ──────────────────────────────────────────────
 
-const { symbols: u32 } = dlopen("user32.dll", {
+const USER32_DEFINITIONS = {
   keybd_event: {
     args: ["u8", "u8", "u32", "u64"],
     returns: "void",
@@ -86,7 +86,18 @@ const { symbols: u32 } = dlopen("user32.dll", {
     args: ["ptr", "i32"],
     returns: "i32",
   },
-});
+} as const;
+
+function loadUser32() {
+  return dlopen("user32.dll", USER32_DEFINITIONS).symbols;
+}
+
+let user32: ReturnType<typeof loadUser32> | null = null;
+
+function getUser32(): ReturnType<typeof loadUser32> {
+  user32 ??= loadUser32();
+  return user32;
+}
 
 // ── Key name → VK code mapping ──────────────────────────────────
 
@@ -216,7 +227,7 @@ export function readPadBindings(settingsContent: string): Partial<Record<Ps1Butt
     if (!match) continue;
 
     const iniKey = match[1];
-    const keyName = match[2];
+    const keyName = match[2]?.split("&", 1)[0]?.trim();
     if (!iniKey || !keyName) continue;
 
     const ps1Button = INI_KEY_TO_PS1[iniKey];
@@ -312,6 +323,7 @@ function sleep(ms: number): Promise<void> {
  * background processes), then restore focus to the previous window.
  */
 function stealFocus(hwnd: Hwnd): Hwnd | null {
+  const u32 = getUser32();
   const prev = u32.GetForegroundWindow() as Hwnd;
   u32.keybd_event(VK_MENU, 0, 0, 0);
   u32.SetForegroundWindow(hwnd);
@@ -320,6 +332,7 @@ function stealFocus(hwnd: Hwnd): Hwnd | null {
 }
 
 function restoreFocus(prev: Hwnd): void {
+  const u32 = getUser32();
   u32.keybd_event(VK_MENU, 0, 0, 0);
   u32.SetForegroundWindow(prev);
   u32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
@@ -347,6 +360,7 @@ export async function tapButton(
   const vk = resolveVk(button);
   if (vk === null) return false;
 
+  const u32 = getUser32();
   const prev = stealFocus(hwnd);
   await sleep(30);
 
@@ -387,6 +401,7 @@ export async function holdButton(
  * EBUSY cleanly instead of corrupting anything.
  */
 export async function sendCloseGameWithoutSaving(hwnd: Hwnd): Promise<boolean> {
+  const u32 = getUser32();
   const prev = stealFocus(hwnd);
   await sleep(30);
 
@@ -427,6 +442,7 @@ export async function loadState(hwnd: Hwnd, slot: number): Promise<boolean> {
   if (vk === undefined) return false;
   if (BLOCKED_VK.has(vk)) return false;
 
+  const u32 = getUser32();
   const prev = stealFocus(hwnd);
   await sleep(30);
 
@@ -476,6 +492,7 @@ export function areBindingsLoaded(): boolean {
  * Bring DuckStation to the foreground (for manual use).
  */
 export function focusDuckStation(hwnd: Hwnd): boolean {
+  const u32 = getUser32();
   return u32.SetForegroundWindow(hwnd) !== 0;
 }
 
@@ -483,5 +500,6 @@ export function focusDuckStation(hwnd: Hwnd): boolean {
  * Check if DuckStation is currently the foreground window.
  */
 export function isDuckStationFocused(hwnd: Hwnd): boolean {
+  const u32 = getUser32();
   return (u32.GetForegroundWindow() as Hwnd) === hwnd;
 }

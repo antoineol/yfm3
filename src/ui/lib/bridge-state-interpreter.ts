@@ -75,7 +75,7 @@ export type RawBridgeState = {
   cpuShuffledDeck: number[];
   /** Suspected selected card id under the in-game cursor. */
   duelCursorTargetCardId?: number | null;
-  /** Zero-based player field slot index when an active field card is focused. */
+  /** Field focus signal in index shape; null for empty field slots. Some profiles do not expose a trusted physical index. */
   duelCursorFieldSlotIndex?: number | null;
   /** Free-duel duelist unlock bitfield (raw bytes from 0x1D06F4). */
   duelistUnlock?: number[];

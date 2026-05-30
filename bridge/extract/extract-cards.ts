@@ -78,13 +78,6 @@ const ES_CHAR_TABLE: string[] = (() => {
   return t;
 })();
 
-/** WA_MRG name block layout:
- *  722 card names, 1 separator, 24 type names, 10 GS names (indices 1–10), 1 label, 39 duelists.
- *  Type names start at entry 723, GS names at entry 747. */
-const WAMRG_NAME_TYPE_START = 723; // 722 cards + 1 separator
-const WAMRG_NAME_GS_START = 747; // 722 + 1 + 24
-const WAMRG_NAME_GS_COUNT = 10; // GS indices 1–10 (index 0 = "None" is not stored)
-
 export function extractCards(
   slus: Buffer,
   waMrg: Buffer,
@@ -94,46 +87,19 @@ export function extractCards(
   waMrgTextBlocks: WaMrgTextBlock[],
   langIdx?: number,
 ): CardStats[] {
-  let cardTypes = extractNameTable(
+  const cardTypeNames = extractNameTable(
     slus,
     exeLayout.typeNamesTable,
     NUM_TYPE_NAMES,
     DEFAULT_CARD_TYPES,
   );
-  let gsNames = extractGuardianStarNames(slus, exeLayout.gsNamesTable, DEFAULT_GUARDIAN_STARS);
-
-  // PAL: override type & GS names from the WA_MRG name block (correct language)
-  const blockIdx = langIdx ?? 0;
-  const palBlock = waMrgTextBlocks[blockIdx];
-  if (exeLayout.typeNamesTable === -1 && palBlock) {
-    const skip = WAMRG_NAME_SKIP[blockIdx] ?? 0;
-    const start =
-      skip > 0 ? skipWaMrgEntries(waMrg, palBlock.nameBlockStart, skip) : palBlock.nameBlockStart;
-    const charTable = blockIdx === 4 ? ES_CHAR_TABLE : PAL_CHAR_TABLE;
-    const allNames = extractWaMrgStrings(
-      waMrg,
-      start,
-      WAMRG_NAME_GS_START + WAMRG_NAME_GS_COUNT,
-      charTable,
-    );
-    // Type names (24 entries → indices 0–23)
-    const types: Record<number, string> = {};
-    for (let i = 0; i < NUM_TYPE_NAMES; i++) {
-      const name = allNames[WAMRG_NAME_TYPE_START + i];
-      if (name) types[i] = name;
-    }
-    if (Object.keys(types).length > 0) cardTypes = types;
-    // GS names (10 entries → GS indices 1–10; index 0 stays as default "None")
-    const gs: Record<number, string> = { 0: gsNames[0] ?? "None" };
-    for (let i = 0; i < WAMRG_NAME_GS_COUNT; i++) {
-      const name = allNames[WAMRG_NAME_GS_START + i];
-      if (name) gs[i + 1] = name;
-    }
-    if (Object.keys(gs).length > 1) gsNames = gs;
-  }
+  const gsNames = extractGuardianStarNames(slus, exeLayout.gsNamesTable, DEFAULT_GUARDIAN_STARS);
 
   const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks, langIdx);
-  const iconNames = Array.from({ length: NUM_TYPE_NAMES }, (_, i) => cardTypes[i] ?? `Type ${i}`);
+  const iconNames = Array.from(
+    { length: NUM_TYPE_NAMES },
+    (_, i) => cardTypeNames[i] ?? `Type ${i}`,
+  );
   const descriptions = extractCardDescriptions(
     slus,
     waMrg,
@@ -150,7 +116,7 @@ export function extractCards(
     const raw = slus.readUInt32LE(exeLayout.cardStats + i * 4);
     const text = texts[i] ?? { name: "", color: "" };
     const rawType = (raw >> 26) & 0x1f;
-    const type = cardTypes[rawType] ?? String(rawType);
+    const type = cardTypeNames[rawType] ?? String(rawType);
     const levelAttr = exeLayout.levelAttr >= 0 ? (slus[exeLayout.levelAttr + i] ?? 0) : 0;
     const sc = starchips[i] ?? { cost: 0, password: "" };
     cards.push({

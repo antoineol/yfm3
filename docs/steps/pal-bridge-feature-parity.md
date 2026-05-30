@@ -6,7 +6,8 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 
 ## Current Step
 
-- Map PAL cursor target, field-slot focus, terrain, selected guardian star, and free-duel unlock bytes with live PAL probes.
+- Verify PAL cursor target display beyond the current player-field cases, then map opponent field-slot focus, terrain, selected guardian star, and free-duel unlock bytes with live PAL probes.
+- Keep PAL card names/descriptions localized while exporting structural card metadata as canonical app enums. Type, guardian-star, and attribute labels must match NTSC/RP enum values even though WA_MRG stores localized type/star display strings.
 - Keep incomplete PAL data out of "full" UI modes. PAL rank counters expose mapped counters from the decompiled rank routine; active-duel cards-left uses the live deal counter because the PAL result cards-used byte is only reliable once the result screen writes it.
 - Keep post-duel result UI tied to the results lifecycle: confirmed active hands dismiss visible post-duel content without aborting any background optimization already in flight.
 
@@ -28,7 +29,7 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 2. For each field, capture before/after snapshots from one small live scenario and write the confirmed address into `PAL_PROFILE`.
 3. Add bridge-level guards for unmapped fields so the UI shows partial/empty data rather than wrong data.
 4. Keep duel-lifecycle UI tests around active-duel/post-duel transitions before changing PAL phase or scene interpretation.
-5. Add unit tests for interpretation and fallback behavior; use live PAL verification for raw RAM addresses that cannot be tested in Linux CI because `bridge/memory.ts` loads Windows FFI.
+5. Add unit tests for interpretation and fallback behavior; use live PAL verification for raw RAM addresses that cannot be proven from Linux tests. Pure RAM readers can be tested without opening Windows shared memory.
 6. Update this file and `AGENTS.md` with any address that was surprising or easy to misread.
 
 ## Notes
@@ -39,5 +40,8 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 - PAL rank cards used is `0x0EB296` on the result screen, not the hand/deal counter at `0x0EB290`. During active play, `0x0EB296` can be `0xFF` or stale; use `0x0EB290` for live cards-left.
 - PAL rank LP is `0x0EB28A`.
 - Use `bun scripts/check-live-rank.ts` on the result screen to compare live bridge counters to the screenshot fixture.
-- PAL cursor fields must not assume `duelPhase + 0xfe` or `duelPhase + 0x114`; those are NTSC findings.
+- PAL cursor target is `0x09C6B8` (`duelPhase+0x154`) in live `SLES_039.48` field-target evidence. The NTSC `duelPhase+0xfe` address reads the wrong PAL byte.
+- PAL field-card focus uses `0x09C6D1` as a non-zero focus-present signal. It read `0x02` on an active player field card and `0x00` on the adjacent empty slot while `0x09C6B8` stayed stale on card `531`; do not rely on its numeric value as a slot index.
+- `0x09C6E8` is not the PAL field cursor slot. It matched one empty-slot snapshot but belongs to a previously rejected per-duelist area and made valid PAL card focus resolve as empty.
+- PAL WA_MRG name blocks include localized type and guardian-star labels, but those labels are not safe for `CardStats.type`, `gs1`, or `gs2`. Keep those structural fields canonical so shared engine/UI code sees `Magic`, `Sun`, etc.
 - Terrain needs a duel with a non-Normal field. Prior neutral-field duels could not identify it.

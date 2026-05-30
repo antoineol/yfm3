@@ -69,6 +69,17 @@ describe("gamedata cache", () => {
     expect(readGameDataCache(tmpDir, discPath)).toBeNull();
   });
 
+  it("rejects cache entries with localized structural card types", () => {
+    const bad = structuredClone(data);
+    const card = bad.cards[620];
+    if (!card) throw new Error("missing test card");
+    card.type = "Magie";
+
+    writeGameDataCache(tmpDir, discPath, bad);
+
+    expect(readGameDataCache(tmpDir, discPath)).toBeNull();
+  });
+
   it("rejects cache entries with card type names in guardian-star fields", () => {
     const bad = structuredClone(data);
     const card = bad.cards[0];

@@ -26,7 +26,7 @@ export interface OffsetProfile {
   equipCounter: number;
   /** Selected card id under the in-game duel cursor (u16), 0 when unmapped. */
   duelCursorTargetCard: number;
-  /** Active player field cursor slot signal (u8), 0 when unmapped. */
+  /** Active player field cursor focus signal (u8), 0 when unmapped or no active field card. */
   duelCursorFieldSlot: number;
 }
 
@@ -73,6 +73,6 @@ export const PAL_PROFILE: OffsetProfile = {
   handSlots: 0x0eb292, // lpP1+0x08
   rankStatsBase: 0x0eb279,
   equipCounter: 0x0eb281,
-  duelCursorTargetCard: 0,
-  duelCursorFieldSlot: 0,
+  duelCursorTargetCard: 0x09c6b8,
+  duelCursorFieldSlot: 0x09c6d1,
 };

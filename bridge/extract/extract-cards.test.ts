@@ -491,6 +491,48 @@ describe("extractCards — type name extraction from exe", () => {
     const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
     expect(cards[0]?.type).toBe("Dragon");
   });
+
+  it("keeps PAL-localized WA_MRG type and guardian-star labels out of structural card data", () => {
+    const stat = encodeCardStat(0, 0, 9, 8, 20); // type=20 (Magic), gs1=Sun, gs2=Moon
+    const nameStart = NUM_CARDS * 8;
+    const cardNames = Array(NUM_CARDS).fill("") as string[];
+    cardNames[0] = "Boules de Feu";
+    const localizedTypeNames = cardTypes.map((type) => (type === "Magic" ? "Magie" : type));
+    const localizedGsNames = guardianStars.slice(1).map((star) => {
+      if (star === "Sun") return "Soleil";
+      if (star === "Moon") return "Lune";
+      return star;
+    });
+    const waMrg = Buffer.concat([
+      makeWaMrg([]),
+      encodePalTblStrings([
+        "ignored",
+        ...cardNames,
+        "",
+        ...localizedTypeNames,
+        ...localizedGsNames,
+      ]),
+    ]);
+    const slus = makeSlus([stat], [0]);
+
+    const cards = extractCards(
+      slus,
+      waMrg,
+      exeLayout,
+      waMrgLayout,
+      defaultAttributes,
+      [
+        { nameBlockStart: waMrg.length, descBlockStart: waMrg.length },
+        { nameBlockStart: nameStart, descBlockStart: waMrg.length },
+      ],
+      1,
+    );
+
+    expect(cards[0]?.name).toBe("Boules de Feu");
+    expect(cards[0]?.type).toBe("Magic");
+    expect(cards[0]?.gs1).toBe("Sun");
+    expect(cards[0]?.gs2).toBe("Moon");
+  });
 });
 
 describe("extractCards — GS name extraction from exe", () => {
