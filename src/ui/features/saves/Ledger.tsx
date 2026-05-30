@@ -29,7 +29,8 @@ export function Ledger() {
     if (ownedFilter === "missing" && totalOwned > 0) continue;
     if (needle !== "") {
       const card = cardsById.get(i + 1);
-      const hay = `${i} ${card?.id ?? ""} ${card?.name ?? ""} ${card?.type ?? ""}`.toLowerCase();
+      const hay =
+        `${i} ${card?.id ?? ""} ${card?.name ?? ""} ${card?.type ?? ""} ${card?.typeLabel ?? ""}`.toLowerCase();
       if (!hay.includes(needle)) continue;
     }
     visible.push(i);

@@ -1,4 +1,5 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
+import { displayCardType } from "../../engine/data/card-type-names.ts";
 import type { CardDb } from "../../engine/data/game-db.ts";
 import { DECK_SIZE } from "../../engine/types/constants.ts";
 import { frameBorderColor } from "./card-frame-palettes.ts";
@@ -10,12 +11,16 @@ export interface CardEntry {
   name: string;
   isMonster: boolean;
   cardType?: string;
+  cardTypeLabel?: string;
   atk: number;
   def: number;
   qty: number;
   kind1?: string;
+  kindLabel1?: string;
   kind2?: string;
+  kindLabel2?: string;
   kind3?: string;
+  kindLabel3?: string;
   color?: string;
   diffStatus?: DiffStatus;
   /** Copies available in collection (not in deck). */
@@ -42,12 +47,16 @@ export function buildCardEntries(
       name: card?.name ?? `#${id}`,
       isMonster: card?.isMonster ?? true,
       cardType: card?.cardType,
+      cardTypeLabel: card?.cardTypeLabel,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty,
       kind1: card?.kinds[0],
+      kindLabel1: card ? cardKindLabel(card, 0) : undefined,
       kind2: card?.kinds[1],
+      kindLabel2: card ? cardKindLabel(card, 1) : undefined,
       kind3: card?.kinds[2],
+      kindLabel3: card ? cardKindLabel(card, 2) : undefined,
       color: card?.color,
     });
   }
@@ -67,17 +76,32 @@ export function buildFlatEntries(ids: number[], cardDb: CardDb): CardEntry[] {
       name: card?.name ?? `#${id}`,
       isMonster: card?.isMonster ?? true,
       cardType: card?.cardType,
+      cardTypeLabel: card?.cardTypeLabel,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty: 1,
       kind1: card?.kinds[0],
+      kindLabel1: card ? cardKindLabel(card, 0) : undefined,
       kind2: card?.kinds[1],
+      kindLabel2: card ? cardKindLabel(card, 1) : undefined,
       kind3: card?.kinds[2],
+      kindLabel3: card ? cardKindLabel(card, 2) : undefined,
       color: card?.color,
       rowKey: `${id}-${idx}`,
     });
   }
   return entries.sort((a, b) => b.atk - a.atk);
+}
+
+export function cardTypeDisplayLabel(card: Pick<CardSpec, "cardType" | "cardTypeLabel">): string {
+  const type = card.cardType ?? "";
+  return card.cardTypeLabel || (type ? displayCardType(type) : "");
+}
+
+export function cardKindLabel(card: CardSpec, index: number): string | undefined {
+  const kind = card.kinds[index];
+  if (!kind) return undefined;
+  return card.cardType === kind ? cardTypeDisplayLabel(card) : displayCardType(kind);
 }
 
 export function countById(ids: number[]): Map<number, number> {

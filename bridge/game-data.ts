@@ -54,7 +54,7 @@ export interface GameData {
   perEquipBonuses: Record<number, number> | null;
   /**
    * Per-card deck-copy limit (cardId → 1 or 2). Cards absent from this map
-   * default to 3. `null` when the mod doesn't ship a limit dispatcher.
+   * default to 3. `null` when the disc has no detected limit logic.
    */
   deckLimits: DeckLimits | null;
   /** Rank threshold table extracted from the active disc image, or null if not found. */

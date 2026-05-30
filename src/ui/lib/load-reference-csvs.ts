@@ -91,12 +91,14 @@ export function parseCardsCsv(csv: string): RefCard[] {
     const password = parseInt(cols[11] ?? "", 10);
     const description = cols[12] ?? "";
     const labelColor = cols[13] ?? "";
+    const typeLabel = cols[14] ?? "";
     if (!Number.isFinite(id) || !Number.isFinite(atk) || !Number.isFinite(def)) continue;
     cards.push({
       id,
       atk,
       def,
       type,
+      typeLabel: typeLabel || undefined,
       guardianStar1: gs1,
       guardianStar2: gs2,
       name: name || `Card #${id}`,
@@ -184,6 +186,7 @@ export function bridgeGameDataToReference(gameData: BridgeGameData): {
     atk: c.atk,
     def: c.def,
     type: c.type,
+    typeLabel: c.typeLabel,
     guardianStar1: c.gs1,
     guardianStar2: c.gs2,
     color: c.color || undefined,

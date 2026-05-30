@@ -50,6 +50,17 @@ describe("parseCardsCsv colors", () => {
   });
 });
 
+describe("parseCardsCsv type labels", () => {
+  it("parses extracted type labels when present", () => {
+    const csv = `${HEADER},label_color,type_label\n${csvRow(1, "")},blue,Magie`;
+
+    expect(parseCardsCsv(csv)[0]).toMatchObject({
+      type: "Dragon",
+      typeLabel: "Magie",
+    });
+  });
+});
+
 describe("bridgeGameDataToReference", () => {
   it("keeps bridge label colors separate from frame colors", () => {
     const result = bridgeGameDataToReference({
@@ -62,6 +73,7 @@ describe("bridgeGameDataToReference", () => {
           gs1: "None",
           gs2: "None",
           type: "Magic",
+          typeLabel: "Magie",
           color: "green",
           labelColor: "blue",
           level: 0,
@@ -82,6 +94,10 @@ describe("bridgeGameDataToReference", () => {
       artworkKey: "test",
     });
 
-    expect(result.cards[0]).toMatchObject({ color: "green", labelColor: "blue" });
+    expect(result.cards[0]).toMatchObject({
+      color: "green",
+      labelColor: "blue",
+      typeLabel: "Magie",
+    });
   });
 });

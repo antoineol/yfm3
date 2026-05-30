@@ -5,8 +5,23 @@ extract them automatically from any mod that shares the same code shape.
 
 ## TL;DR
 
-The rule is encoded entirely in the SLUS — code + a small u16 table. No
-overlay load, no WA_MRG block, no runtime-only state.
+Deck-copy limits are encoded entirely in the executable code/data. No overlay
+load, no WA_MRG block, no runtime-only state.
+
+Two code shapes are known:
+
+- **Vanilla SLUS/SLES**: Exodia cards `17..21` are hard-capped at 1 by
+  inline deck-edit code: `cardId - 17 < 5` switches the validation from the
+  default `deckCount < 3` to `deckCount < 1`.
+- **RP/Alpha-family mods**: a dispatcher function adds a small u16 lookup
+  table for 1-copy / 2-copy per-card limits; those builds may also keep the
+  inline Exodia range check.
+
+The earlier conclusion that PAL French vanilla had no per-card limits was
+wrong: it only checked for the RP/Alpha dispatcher. Live PAL and the
+`SLES_039.48` executable both enforce Exodia as one-copy cards.
+
+## RP/Alpha Dispatcher
 
 - **Table**: 25 × u16 LE at `DAT_801cf324` (Alpha SLUS file offset
   `0x1bfb24`). Each non-zero entry encodes `card_id + 31452` (the `31452`
@@ -121,9 +136,11 @@ For a given SLUS, the extractor needs to find:
    earlier in the prologue (`addiu rt, zero, 17` and
    `addiu rt, zero, 28` in Alpha) give the `2-copy window end` and
    `1-copy window end` counters. Iterate entries accordingly.
-4. **The Exodia range.** Scan the caller for an `slti`/`sltiu` pair that
-   brackets `[17, 22)` before the `jal` to the dispatcher. If absent,
-   omit the hard-1-copy range.
+4. **The Exodia / inline one-copy range.** Scan for a validated inline
+   `addiu rt, cardReg, -N; sltiu rt, rt, M` range check that is followed by
+   `deckCount[cardId] < 1` and the normal `deckCount[cardId] < 3` default.
+   This catches vanilla PAL/NTSC and also catches RP-family builds even when
+   the dispatcher caller is not the first jump target found.
 
 A fallback: locate the dispatcher by byte signature (the 10-instruction
 prologue starting with `addiu v0, v0, -336; sw t0, 0(v0); ...`) — this
@@ -140,7 +157,7 @@ the repo:
 - `gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin`
   — serial `SLES_039.48` (PAL French, the baseline we have for "vanilla").
 
-Method: (a) byte-match the 7-instruction dispatcher prologue
+Original dispatcher-only method: (a) byte-match the 7-instruction dispatcher prologue
 (`addiu v0,v0,-336; sw t0..t5,0..20(v0)`) to see whether each SLUS even
 has the function; (b) scan the full text for any run of 25 u16 values
 where non-zero entries decode to valid card IDs `[0..721]` via
@@ -154,14 +171,15 @@ Results:
 |---|---|---|---|
 | **Alpha** (SLUS_027.11) | ✓ byte-identical | 14 × 2-copy + 10 × 1-copy | ✓ |
 | **RP** (SLUS_014.11)    | ✓ byte-identical | 1 × 1-copy (card 348) only | ✓ |
-| **Vanilla** (SLES_039.48) | ✗ not present | all zeros | ✗ |
+| **Vanilla** (SLES_039.48) | ✗ not present | all zeros | inline only |
 
-Conclusions:
+Updated conclusions:
 
-1. **Vanilla has no per-card deck-copy restriction system at all.** The
-   dispatcher function does not exist; the caller at `FUN_800336f0` is
-   entirely different code; there's no Exodia range check. Every card in
-   a vanilla deck is implicitly capped at 3.
+1. **Vanilla has no dispatcher table, but it still has Exodia limits.** The
+   general table mechanism does not exist; Exodia cards `17..21` are enforced
+   by inline deck-edit code. On PAL French `SLES_039.48`, the add-from-trunk
+   check is around file `0x24514` / RAM `0x80033d14`; display-side red-limit
+   coloring has the same range around file `0x227d0` / RAM `0x80031fd0`.
 2. **The mechanism was introduced by RP** (Remastered Perfected). Alpha
    inherited Byte-for-Byte identical dispatcher + caller logic and only
    added more entries to the table. Any mod that shares this dispatcher
@@ -175,9 +193,7 @@ Conclusions:
    in-game if we plan to rely on RP's table.
 4. **Extractor robustness.** The dispatcher bytes (Alpha ↔ RP) match
    exactly, including the magic constants `17`, `28`, `31452`, and the
-   table address `0x801cf324`. A simple byte-signature scan of the
-   10-instruction prologue is enough to reject vanilla and accept
-   RP-family mods. Once located, the constants can be read out instead
-   of hard-coded, so the extractor survives any future mod that tweaks
-   them.
-
+   table address `0x801cf324`. Dispatcher constants are read out instead
+   of hard-coded. Separately, the vanilla inline path scans for the semantic
+   shape `cardId - N < M`, `deckCount < 1`, then default `deckCount < 3`, so
+   PAL/NTSC address shifts do not matter.

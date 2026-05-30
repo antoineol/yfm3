@@ -94,6 +94,22 @@ describe("loadGameDataFromStrings", () => {
     expect(cards[0]?.labelColor).toBe("blue");
   });
 
+  it("parses card type labels from CSV rows", () => {
+    const buf = createBuffers();
+    const cards = loadGameDataFromStrings(
+      buf,
+      [
+        "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description,label_color,type_label",
+        '1,"Localized",1000,1000,Mars,Jupiter,Magic,green,4,Light,0,,"",blue,Magie',
+      ].join("\n"),
+      "material1_id,material2_id,result_id,result_atk\n",
+      "equip_id,monster_id\n",
+    );
+
+    expect(cards[0]?.cardType).toBe("Magic");
+    expect(cards[0]?.cardTypeLabel).toBe("Magie");
+  });
+
   it("parses card color from bridge rows", () => {
     const buf = createBuffers();
     const card: BridgeCard = {
@@ -104,6 +120,7 @@ describe("loadGameDataFromStrings", () => {
       gs1: "Mars",
       gs2: "Jupiter",
       type: "Dragon",
+      typeLabel: "Dragon local",
       color: "purple",
       labelColor: "red",
       level: 4,
@@ -117,6 +134,7 @@ describe("loadGameDataFromStrings", () => {
 
     expect(cards[0]?.color).toBe("purple");
     expect(cards[0]?.labelColor).toBe("red");
+    expect(cards[0]?.cardTypeLabel).toBe("Dragon local");
   });
 
   it("populates fusion table with known binary fusions", () => {

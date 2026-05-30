@@ -467,6 +467,7 @@ describe("extractCards — type name extraction from exe", () => {
 
     const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
     expect(cards[0]?.type).toBe("Warrior");
+    expect(cards[0]?.typeLabel).toBe("Warrior");
   });
 
   it("reads custom type names from modded exe", () => {
@@ -481,6 +482,7 @@ describe("extractCards — type name extraction from exe", () => {
 
     const cards = extractCards(slus, waMrg, layout, waMrgLayout, defaultAttributes, []);
     expect(cards[0]?.type).toBe("Wyrm");
+    expect(cards[0]?.typeLabel).toBe("Wyrm");
   });
 
   it("falls back to defaults when typeNamesTable is -1", () => {
@@ -490,6 +492,7 @@ describe("extractCards — type name extraction from exe", () => {
 
     const cards = extractCards(slus, waMrg, exeLayout, waMrgLayout, defaultAttributes, []);
     expect(cards[0]?.type).toBe("Dragon");
+    expect(cards[0]?.typeLabel).toBe("Dragon");
   });
 
   it("keeps PAL-localized WA_MRG type and guardian-star labels out of structural card data", () => {
@@ -530,6 +533,7 @@ describe("extractCards — type name extraction from exe", () => {
 
     expect(cards[0]?.name).toBe("Boules de Feu");
     expect(cards[0]?.type).toBe("Magic");
+    expect(cards[0]?.typeLabel).toBe("Magie");
     expect(cards[0]?.gs1).toBe("Sun");
     expect(cards[0]?.gs2).toBe("Moon");
   });

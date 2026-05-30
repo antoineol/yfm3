@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
-import { displayCardType } from "../../../engine/data/card-type-names.ts";
 import { maxCopiesFor } from "../../../engine/data/game-db.ts";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 import { cardLabelColorStyle } from "../../components/CardName.tsx";
+import { cardKindLabel, cardTypeDisplayLabel } from "../../components/card-entries.ts";
 import { GameCard } from "../../components/GameCard.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
@@ -35,7 +35,7 @@ export function CardDetailBody({ card, header }: { card: CardSpec; header: React
 /* ── Detail Panel (right side) ───────────────────────────────── */
 
 function DetailPanel({ card }: { card: CardSpec }) {
-  const typeDisplay = card.kinds[0] ? formatKind(card.kinds[0]) : card.cardType;
+  const typeDisplay = card.kinds[0] ? cardKindLabel(card, 0) : cardTypeDisplayLabel(card);
   const ownedTotals = useOwnedCardTotals();
   const cardDb = useCardDb();
   const cap = maxCopiesFor(cardDb, card.id);
@@ -210,10 +210,6 @@ function GuardianStarRow({ star }: { star: string }) {
       {star}
     </span>
   );
-}
-
-function formatKind(kind: string): string {
-  return displayCardType(kind);
 }
 
 function capitalize(s: string): string {

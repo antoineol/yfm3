@@ -1,6 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { useOpenCard } from "../lib/card-detail-context.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
+import { cardTypeDisplayLabel } from "./card-entries.ts";
 import { framePaletteForCard } from "./card-frame-palettes.ts";
 
 const attributeOrb: Record<string, string> = {
@@ -28,7 +29,7 @@ export function MiniGameCard({
   const openCard = useOpenCard();
   const resolveArtwork = useArtworkSrc();
   const artSrc = resolveArtwork(card.id);
-  const ct = card.cardType ?? "";
+  const typeLabel = cardTypeDisplayLabel(card);
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
 
@@ -89,7 +90,7 @@ export function MiniGameCard({
               </div>
             ) : (
               <div className="fm-mini-stats">
-                <span className="fm-mini-stat-type">{ct || "Magic"}</span>
+                <span className="fm-mini-stat-type">{typeLabel || "Magic"}</span>
               </div>
             )}
           </div>

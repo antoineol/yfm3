@@ -53,6 +53,8 @@ export interface CardStats {
   gs1: string;
   gs2: string;
   type: string;
+  /** Localized display label for `type`, when available from game text. */
+  typeLabel?: string;
   /** Frame/background color. */
   color: string;
   /** Name/label text color from the card-name control prefix, when present. */

@@ -8,10 +8,10 @@ import { NUM_CARDS } from "./types.ts";
 
 export function cardsToCsv(cards: CardStats[]): string {
   const header =
-    "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description,label_color";
+    "id,name,atk,def,guardian_star_1,guardian_star_2,type,color,level,attribute,starchip_cost,password,description,label_color,type_label";
   const rows = cards.map(
     (c) =>
-      `${c.id},"${c.name.replace(/"/g, '""')}",${c.atk},${c.def},${c.gs1},${c.gs2},${c.type},${c.color},${c.level},${c.attribute},${c.starchipCost},${c.password},"${c.description.replace(/"/g, '""').replace(/\n/g, "\\n")}",${c.labelColor}`,
+      `${c.id},"${c.name.replace(/"/g, '""')}",${c.atk},${c.def},${c.gs1},${c.gs2},${c.type},${c.color},${c.level},${c.attribute},${c.starchipCost},${c.password},"${c.description.replace(/"/g, '""').replace(/\n/g, "\\n")}",${c.labelColor},${c.typeLabel ?? ""}`,
   );
   return `${header}\n${rows.join("\n")}\n`;
 }

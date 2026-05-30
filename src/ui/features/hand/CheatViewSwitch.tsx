@@ -81,7 +81,7 @@ function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMo
                 <span className="fm-duel-focused-def">{String(focused.def)}</span>
               </>
             ) : (
-              <span>{focused.type || "Magic"}</span>
+              <span>{focused.typeLabel || focused.type || "Magic"}</span>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CardSpec } from "../../../engine/data/card-model.ts";
 import { addCard, createCardDb } from "../../../engine/data/game-db.ts";
@@ -18,6 +18,8 @@ const cheapHighValue: CardSpec = {
   attack: 2000,
   defense: 1000,
   kinds: ["Dragon"],
+  cardType: "Dragon",
+  cardTypeLabel: "Dragon FR",
   isMonster: true,
   starchipCost: 100,
 };
@@ -58,6 +60,8 @@ const premium: CardSpec = {
   attack: 3000,
   defense: 2500,
   kinds: ["Dragon"],
+  cardType: "Dragon",
+  cardTypeLabel: "Dragon FR",
   isMonster: true,
   starchipCost: 5000,
 };
@@ -88,5 +92,15 @@ describe("StarchipPanel", () => {
     renderPanel({ [cheapHighValue.id]: 3 });
     expect(screen.queryByText("Cheap High Value")).toBeNull();
     expect(screen.getAllByText("Premium Monster").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders kind filter options with extracted labels", () => {
+    renderPanel();
+    expect(screen.getByRole("option", { name: "Dragon FR" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "Dragon" } });
+
+    expect(screen.getAllByText("Cheap High Value").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Weak Card")).toBeNull();
   });
 });

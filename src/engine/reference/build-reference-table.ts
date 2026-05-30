@@ -24,6 +24,7 @@ export interface RefCard {
   atk: number;
   def: number;
   type: string;
+  typeLabel?: string;
   guardianStar1: string;
   guardianStar2: string;
   name: string;
@@ -110,6 +111,7 @@ export function buildReferenceTableData(rows: {
       defense: c.def,
       kinds: kind && isMonster ? [kind] : [],
       cardType: c.type || undefined,
+      cardTypeLabel: c.typeLabel,
       isMonster,
       color: parseColor(c.color),
       labelColor: parseColor(c.labelColor),

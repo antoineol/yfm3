@@ -11,6 +11,8 @@ export type BridgeCard = {
   gs1: string;
   gs2: string;
   type: string;
+  /** Localized display label for `type`, when available from game text. */
+  typeLabel?: string;
   /** Frame/background color. */
   color: string;
   /** Name/label text color. */
@@ -44,8 +46,8 @@ export type BridgeRankScoringData = {
  * Game data received from the emulator bridge (all game tables from disc image + RAM).
  *
  * Every field is **required**: the boundary parser must set each one. Nullable
- * fields encode "not present for this mod" (e.g. vanilla has no deck-limit
- * dispatcher, so `deckLimits` is `null`). This distinguishes "legitimately
+ * fields encode "not present for this mod" (e.g. no detected deck-limit
+ * logic, so `deckLimits` is `null`). This distinguishes "legitimately
  * absent" (null) from "silently dropped in transit" (which would now be a
  * type error instead of a runtime no-op — that exact bug is what this shape
  * prevents).
@@ -60,9 +62,9 @@ export type BridgeGameData = {
   /** Per-equip ATK bonuses parsed from card descriptions, or null if unavailable. */
   perEquipBonuses: Record<number, number> | null;
   /**
-   * Per-card deck-copy limit from the SLUS dispatcher table. cardId → 1 or 2
-   * (sparse — absent IDs default to 3). `null` when the running mod has no
-   * dispatcher (e.g. vanilla).
+   * Per-card deck-copy limit from the executable's deck-edit logic. cardId →
+   * 1 or 2 (sparse — absent IDs default to 3). `null` when no limit logic is
+   * detected.
    */
   deckLimits: { byCard: Record<number, number> } | null;
   /** Rank threshold table extracted from the active disc image, or null if unavailable. */

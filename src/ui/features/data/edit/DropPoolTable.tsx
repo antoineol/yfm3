@@ -103,7 +103,8 @@ export function DropPoolTable({ view }: { view: EditView }) {
       if (needle === "" && !showAll && !anyNonzero && !isPinned && !isModified) continue;
       const card = cardDb.cardsById.get(cardId);
       if (needle !== "") {
-        const hay = `${cardId} ${card?.name ?? ""} ${card?.cardType ?? ""}`.toLowerCase();
+        const hay =
+          `${cardId} ${card?.name ?? ""} ${card?.cardType ?? ""} ${card?.cardTypeLabel ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) continue;
       }
       out.push({

@@ -285,9 +285,15 @@ function DesktopCardRow<T extends CardEntry>({
       )}
       {showKinds && (
         <>
-          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">{e.kind1}</td>
-          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">{e.kind2}</td>
-          <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">{e.kind3}</td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+            {e.kindLabel1 ?? e.kind1}
+          </td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden sm:table-cell">
+            {e.kindLabel2 ?? e.kind2}
+          </td>
+          <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">
+            {e.kindLabel3 ?? e.kind3}
+          </td>
           <td className="py-0.5 px-1 text-text-muted text-xs hidden md:table-cell">{e.color}</td>
         </>
       )}

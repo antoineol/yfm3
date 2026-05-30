@@ -2,6 +2,7 @@ import type { OptBuffers } from "../types/buffers.ts";
 import { FUSION_NONE, MAX_CARD_ID, MAX_COPIES } from "../types/constants.ts";
 import type { BridgeCard } from "../worker/messages.ts";
 import { type CardSpec, type Color, nonMonsterTypes } from "./card-model.ts";
+import { displayCardType } from "./card-type-names.ts";
 import { addCard, createCardDb } from "./game-db.ts";
 import { colors } from "./rp-types.ts";
 
@@ -39,6 +40,7 @@ export function loadGameDataFromStrings(
       attack: atk,
       defense: def,
       cardType: type || undefined,
+      cardTypeLabel: cols[14] || displayCardType(type),
       kinds: [],
       isMonster: !nonMonsterTypes.has(type),
       color,
@@ -107,6 +109,7 @@ export function loadGameDataWithBridgeTables(
       attack: c.atk,
       defense: c.def,
       cardType: c.type || undefined,
+      cardTypeLabel: c.typeLabel || displayCardType(c.type),
       kinds: [],
       isMonster: !nonMonsterTypes.has(c.type),
       color: parseColor(c.color),

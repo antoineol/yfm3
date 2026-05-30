@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------
-// Per-card deck-copy limit extraction (RP + Alpha family mods)
+// Per-card deck-copy limit extraction
 // ---------------------------------------------------------------------------
 //
 // Where the data lives:
-//   - A 7-instruction MIPS prologue at the start of the "limit dispatcher"
-//     function, followed by a u16 lookup table.
-//   - The dispatcher is present in mods derived from Remastered Perfected
-//     (RP, Alpha, …) and absent in vanilla SLUS/SLES.
+//   - RP-family mods: a 7-instruction MIPS prologue at the start of the
+//     "limit dispatcher" function, followed by a u16 lookup table.
+//   - Vanilla SLUS/SLES: no dispatcher. Exodia's one-copy rule is an inline
+//     range check in deck-edit code.
 //
 // How we read it:
 //   1. Signature-match the dispatcher prologue (addiu v0,v0,-336; sw t0..t5,
@@ -30,17 +30,18 @@ export const DEFAULT_MAX_COPIES = 3;
  * Decoded per-card deck-copy limits, sparse: only cards whose cap differs
  * from `DEFAULT_MAX_COPIES` appear. Absent IDs default to 3.
  *
- * When the dispatcher isn't present (e.g. vanilla SLUS/SLES), this whole
+ * When neither the dispatcher nor an inline cap check is present, this whole
  * object is `null` and the caller should treat every card as cap 3.
  */
 export interface DeckLimits {
   byCard: Record<number, number>;
   /** For diagnostics / round-trip tests. */
   discovered: {
-    dispatcherRamAddr: number;
-    tableRamAddr: number;
-    encodingOffset: number;
-    blockEndCounters: [number, number];
+    source: "dispatcher" | "inline-range";
+    dispatcherRamAddr: number | null;
+    tableRamAddr: number | null;
+    encodingOffset: number | null;
+    blockEndCounters: [number, number] | null;
     exodiaRange: { start: number; length: number } | null;
   };
 }
@@ -67,13 +68,14 @@ const MIPS_INSTR_BYTES = 4;
 export function extractDeckLimits(exe: Buffer): DeckLimits | null {
   const header = parsePsxExeHeader(exe);
   const dispatcherOff = findDispatcherOffset(exe);
-  if (dispatcherOff === -1) return null;
+  const inlineRanges = findInlineOneCopyRanges(exe, header);
+  if (dispatcherOff === -1) return buildInlineDeckLimits(inlineRanges);
 
   const prologue = parseDispatcherPrologue(exe, dispatcherOff);
-  if (!prologue) return null;
+  if (!prologue) return buildInlineDeckLimits(inlineRanges);
 
   const tableFileOff = ramToFile(prologue.tableRamAddr, header);
-  if (tableFileOff === -1) return null;
+  if (tableFileOff === -1) return buildInlineDeckLimits(inlineRanges);
   const entries = readTableEntries(
     exe,
     tableFileOff,
@@ -86,7 +88,10 @@ export function extractDeckLimits(exe: Buffer): DeckLimits | null {
 
   const byCard: Record<number, number> = {};
   for (const { cardId, maxCopies } of entries) byCard[cardId] = maxCopies;
-  if (exodiaRange) {
+  for (const range of inlineRanges) {
+    for (let id = range.start; id < range.start + range.length; id++) byCard[id] = 1;
+  }
+  if (exodiaRange && inlineRanges.length === 0) {
     for (let id = exodiaRange.start; id < exodiaRange.start + exodiaRange.length; id++) {
       byCard[id] = 1;
     }
@@ -95,13 +100,149 @@ export function extractDeckLimits(exe: Buffer): DeckLimits | null {
   return {
     byCard,
     discovered: {
+      source: "dispatcher",
       dispatcherRamAddr: prologue.dispatcherRamAddr,
       tableRamAddr: prologue.tableRamAddr,
       encodingOffset: prologue.encodingOffset,
       blockEndCounters: prologue.blockEndCounters,
-      exodiaRange,
+      exodiaRange: inlineRanges[0] ?? exodiaRange,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Internal: vanilla inline Exodia-style hard caps
+// ---------------------------------------------------------------------------
+
+function buildInlineDeckLimits(
+  ranges: Array<{ start: number; length: number }>,
+): DeckLimits | null {
+  if (ranges.length === 0) return null;
+
+  const byCard: Record<number, number> = {};
+  for (const range of ranges) {
+    for (let id = range.start; id < range.start + range.length; id++) byCard[id] = 1;
+  }
+
+  return {
+    byCard,
+    discovered: {
+      source: "inline-range",
+      dispatcherRamAddr: null,
+      tableRamAddr: null,
+      encodingOffset: null,
+      blockEndCounters: null,
+      exodiaRange: ranges[0] ?? null,
+    },
+  };
+}
+
+/**
+ * Vanilla deck edit has no RP-style dispatcher. Instead, it inlines:
+ *
+ *   if (cardId - 17 < 5) canAdd = deckCount[cardId] < 1;
+ *   ... later, for every card: deckCount[cardId] < 3
+ *
+ * Scan for that semantic shape rather than fixed addresses so PAL/NTSC and
+ * nearby display/action routines all resolve to the same contiguous 1-copy
+ * range.
+ */
+function findInlineOneCopyRanges(
+  exe: Buffer,
+  header: PsxExeHeader,
+): Array<{ start: number; length: number }> {
+  const ranges = new Map<string, { start: number; length: number }>();
+  const textStart = PSX_EXE_HEADER_SIZE;
+  const textEnd = Math.min(exe.length, textStart + header.textSize);
+  for (let off = textStart; off + 2 * MIPS_INSTR_BYTES <= textEnd; off += MIPS_INSTR_BYTES) {
+    const subIns = exe.readUInt32LE(off);
+    if (subIns >>> 26 !== OP_ADDIU) continue;
+
+    const range = parseNegativeRangeCheck(exe, off);
+    if (!range || !hasInlineOneCopyDeckCountCheck(exe, off, textEnd)) continue;
+    ranges.set(`${range.start}:${range.length}`, range);
+  }
+  return [...ranges.values()].sort((a, b) => a.start - b.start || a.length - b.length);
+}
+
+function parseNegativeRangeCheck(
+  exe: Buffer,
+  off: number,
+): { start: number; length: number } | null {
+  const subIns = exe.readUInt32LE(off);
+  const rawImm = subIns & 0xffff;
+  const sImm = rawImm & 0x8000 ? rawImm - 0x10000 : rawImm;
+  if (sImm >= 0 || sImm < -NUM_CARDS) return null;
+
+  const rt = (subIns >> 16) & 0x1f;
+  const next = exe.readUInt32LE(off + MIPS_INSTR_BYTES);
+  if (next >>> 26 !== OP_SLTIU) return null;
+  if (((next >> 21) & 0x1f) !== rt || ((next >> 16) & 0x1f) !== rt) return null;
+
+  const length = next & 0xffff;
+  if (length < 2 || length > 32) return null;
+  return { start: -sImm, length };
+}
+
+function hasInlineOneCopyDeckCountCheck(exe: Buffer, off: number, textEnd: number): boolean {
+  const nearEnd = Math.min(textEnd, off + 20 * MIPS_INSTR_BYTES);
+  const farEnd = Math.min(textEnd, off + 80 * MIPS_INSTR_BYTES);
+  return (
+    hasLoadByteOffset(exe, off, nearEnd, DECK_COUNT_OFFSET) &&
+    hasUnsignedLessThanOne(exe, off, nearEnd) &&
+    hasDefaultThreeCopyCheck(exe, off, farEnd)
+  );
+}
+
+function hasDefaultThreeCopyCheck(exe: Buffer, start: number, end: number): boolean {
+  for (let off = start; off + 2 * MIPS_INSTR_BYTES <= end; off += MIPS_INSTR_BYTES) {
+    const load = exe.readUInt32LE(off);
+    if (!isLoadByteOffset(load, DECK_COUNT_OFFSET)) continue;
+    const cmp = exe.readUInt32LE(off + 2 * MIPS_INSTR_BYTES);
+    if (cmp >>> 26 !== OP_SLTIU) continue;
+    if ((cmp & 0xffff) === DEFAULT_MAX_COPIES) return true;
+  }
+  return false;
+}
+
+function hasLoadByteOffset(exe: Buffer, start: number, end: number, offset: number): boolean {
+  for (let off = start; off + MIPS_INSTR_BYTES <= end; off += MIPS_INSTR_BYTES) {
+    if (isLoadByteOffset(exe.readUInt32LE(off), offset)) return true;
+  }
+  return false;
+}
+
+function hasUnsignedLessThanOne(exe: Buffer, start: number, end: number): boolean {
+  for (let off = start; off + MIPS_INSTR_BYTES <= end; off += MIPS_INSTR_BYTES) {
+    const instr = exe.readUInt32LE(off);
+    if (instr >>> 26 !== 0) continue;
+    if ((instr & 0x3f) !== FN_SLTU) continue;
+    const rt = (instr >> 16) & 0x1f;
+    if (rt === 0 || hasAddiuFromZero(exe, start, off, rt, 1)) return true;
+  }
+  return false;
+}
+
+function hasAddiuFromZero(
+  exe: Buffer,
+  start: number,
+  end: number,
+  rt: number,
+  value: number,
+): boolean {
+  for (let off = start; off < end; off += MIPS_INSTR_BYTES) {
+    const instr = exe.readUInt32LE(off);
+    if (instr >>> 26 !== OP_ADDIU) continue;
+    if (((instr >> 21) & 0x1f) !== 0) continue;
+    if (((instr >> 16) & 0x1f) !== rt) continue;
+    if (signExtend16(instr & 0xffff) === value) return true;
+  }
+  return false;
+}
+
+function isLoadByteOffset(instr: number, offset: number): boolean {
+  if (instr >>> 26 !== OP_LBU) return false;
+  return signExtend16(instr & 0xffff) === offset;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +423,10 @@ function findExodiaRangeCheck(
 
 const OP_ADDIU = 9;
 const OP_LUI = 0xf;
+const OP_LBU = 0x24;
 const OP_SLTIU = 0xb;
+const FN_SLTU = 0x2b;
+const DECK_COUNT_OFFSET = 0x5ac4;
 
 function immediate(
   instr: number,
@@ -293,8 +437,7 @@ function immediate(
   if (instr >>> 26 !== expectedOp) return null;
   if (((instr >> 21) & 0x1f) !== expectedRs) return null;
   if (((instr >> 16) & 0x1f) !== expectedRt) return null;
-  const raw = instr & 0xffff;
-  return raw & 0x8000 ? raw - 0x10000 : raw;
+  return signExtend16(instr & 0xffff);
 }
 
 function upperImmediate(instr: number, expectedRt: number): number | null {
@@ -311,4 +454,8 @@ function ramToFile(ramAddr: number, header: PsxExeHeader): number {
 
 function fileToRam(fileOff: number, header: PsxExeHeader): number {
   return header.loadAddr + (fileOff - PSX_EXE_HEADER_SIZE);
+}
+
+function signExtend16(value: number): number {
+  return value & 0x8000 ? value - 0x10000 : value;
 }

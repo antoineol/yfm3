@@ -2,7 +2,7 @@ import { useAtomValue } from "jotai";
 import type { CardDb } from "../../../engine/data/game-db.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import type { CardEntry, DiffStatus } from "../../components/card-entries.ts";
-import { countById, padWithUtilityCards } from "../../components/card-entries.ts";
+import { cardKindLabel, countById, padWithUtilityCards } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useDeckSize } from "../../db/use-user-preferences.ts";
 import { resultAtom } from "../../lib/atoms.ts";
@@ -61,12 +61,17 @@ function buildDiffEntries(
       id,
       name: card?.name ?? `#${id}`,
       isMonster: card?.isMonster ?? true,
+      cardType: card?.cardType,
+      cardTypeLabel: card?.cardTypeLabel,
       atk: card?.attack ?? 0,
       def: card?.defense ?? 0,
       qty: 1,
       kind1: card?.kinds[0],
+      kindLabel1: card ? cardKindLabel(card, 0) : undefined,
       kind2: card?.kinds[1],
+      kindLabel2: card ? cardKindLabel(card, 1) : undefined,
       kind3: card?.kinds[2],
+      kindLabel3: card ? cardKindLabel(card, 2) : undefined,
       color: card?.color,
     };
 

@@ -2,6 +2,7 @@
 // Card stats, names, descriptions, starchip/password extraction
 // ---------------------------------------------------------------------------
 
+import { displayCardType } from "../../src/engine/data/card-type-names.ts";
 import { cardTypes, guardianStars } from "../../src/engine/data/rp-types.ts";
 import { PAL_CHAR_TABLE } from "./char-tables.ts";
 import {
@@ -93,12 +94,20 @@ export function extractCards(
     NUM_TYPE_NAMES,
     DEFAULT_CARD_TYPES,
   );
+  const cardTypeLabels = extractCardTypeLabels(
+    slus,
+    waMrg,
+    exeLayout,
+    waMrgTextBlocks,
+    langIdx,
+    cardTypeNames,
+  );
   const gsNames = extractGuardianStarNames(slus, exeLayout.gsNamesTable, DEFAULT_GUARDIAN_STARS);
 
   const texts = extractCardTexts(slus, waMrg, exeLayout, waMrgTextBlocks, langIdx);
   const iconNames = Array.from(
     { length: NUM_TYPE_NAMES },
-    (_, i) => cardTypeNames[i] ?? `Type ${i}`,
+    (_, i) => cardTypeLabels[i] ?? cardTypeNames[i] ?? `Type ${i}`,
   );
   const descriptions = extractCardDescriptions(
     slus,
@@ -127,6 +136,7 @@ export function extractCards(
       gs1: gsNames[(raw >> 22) & 0xf] ?? String((raw >> 22) & 0xf),
       gs2: gsNames[(raw >> 18) & 0xf] ?? String((raw >> 18) & 0xf),
       type,
+      typeLabel: cardTypeLabels[rawType],
       color: resolveFrameColor(frameColors[i], type, rawType < 20),
       labelColor: text.color,
       level: levelAttr & 0xf,
@@ -138,6 +148,57 @@ export function extractCards(
   }
 
   return cards;
+}
+
+function extractCardTypeLabels(
+  exe: Buffer,
+  waMrg: Buffer,
+  exeLayout: ExeLayout,
+  waMrgTextBlocks: WaMrgTextBlock[],
+  langIdx: number | undefined,
+  typeNames: Record<number, string>,
+): Record<number, string> {
+  const waMrgLabels = extractWaMrgTypeLabels(waMrg, waMrgTextBlocks, langIdx);
+  if (waMrgLabels) return waMrgLabels;
+  if (exeLayout.typeNamesTable !== -1) {
+    return extractNameTable(exe, exeLayout.typeNamesTable, NUM_TYPE_NAMES, displayTypeNames());
+  }
+
+  const labels: Record<number, string> = {};
+  for (let i = 0; i < NUM_TYPE_NAMES; i++) {
+    const type = typeNames[i];
+    labels[i] = type ? displayCardType(type) : `Type ${i}`;
+  }
+  return labels;
+}
+
+function extractWaMrgTypeLabels(
+  waMrg: Buffer,
+  waMrgTextBlocks: WaMrgTextBlock[],
+  langIdx: number | undefined,
+): Record<number, string> | null {
+  const blockIdx = langIdx ?? 0;
+  const textBlock = waMrgTextBlocks[blockIdx];
+  if (!textBlock) return null;
+
+  const skip = WAMRG_NAME_SKIP[blockIdx] ?? 0;
+  const namesStart =
+    skip > 0 ? skipWaMrgEntries(waMrg, textBlock.nameBlockStart, skip) : textBlock.nameBlockStart;
+  let labelsStart = skipWaMrgEntries(waMrg, namesStart, NUM_CARDS);
+  const charTable = blockIdx === 4 ? ES_CHAR_TABLE : PAL_CHAR_TABLE;
+
+  for (let i = 0; i < 8; i++) {
+    const [candidate = ""] = extractWaMrgStrings(waMrg, labelsStart, 1, charTable);
+    if (candidate.trim()) break;
+    labelsStart = skipWaMrgEntries(waMrg, labelsStart, 1);
+  }
+
+  const names = extractWaMrgStrings(waMrg, labelsStart, NUM_TYPE_NAMES, charTable);
+  if (names.length < NUM_TYPE_NAMES || !names.every((name) => name.trim())) return null;
+
+  const labels: Record<number, string> = {};
+  for (let i = 0; i < NUM_TYPE_NAMES; i++) labels[i] = names[i] as string;
+  return labels;
 }
 
 function resolveFrameColor(
@@ -240,6 +301,15 @@ function extractGuardianStarNames(
 function indexedNames(names: readonly string[]): Record<number, string> {
   const result: Record<number, string> = {};
   for (let i = 0; i < names.length; i++) result[i] = names[i] as string;
+  return result;
+}
+
+function displayTypeNames(): Record<number, string> {
+  const result: Record<number, string> = {};
+  for (let i = 0; i < cardTypes.length; i++) {
+    const type = cardTypes[i];
+    if (type) result[i] = displayCardType(type);
+  }
   return result;
 }
 

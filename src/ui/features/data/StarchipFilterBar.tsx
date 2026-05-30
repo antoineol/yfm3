@@ -1,4 +1,3 @@
-import { cardKinds } from "../../../engine/data/rp-types.ts";
 import { Input } from "../../components/Input.tsx";
 import { Select } from "../../components/Select.tsx";
 
@@ -12,9 +11,11 @@ export interface StarchipFilters {
 export function StarchipFilterBar({
   filters,
   onChange,
+  kindOptions,
 }: {
   filters: StarchipFilters;
   onChange: (next: StarchipFilters) => void;
+  kindOptions: Array<{ value: string; label: string }>;
 }) {
   const set = <K extends keyof StarchipFilters>(key: K, value: StarchipFilters[K]) =>
     onChange({ ...filters, [key]: value });
@@ -30,9 +31,9 @@ export function StarchipFilterBar({
           value={filters.kind}
         >
           <option value="all">All</option>
-          {cardKinds.map((k) => (
-            <option key={k} value={k}>
-              {k}
+          {kindOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </Select>

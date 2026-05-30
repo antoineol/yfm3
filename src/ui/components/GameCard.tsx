@@ -1,6 +1,7 @@
 import type { CardSpec } from "../../engine/data/card-model.ts";
 import { DescriptionText } from "../lib/DescriptionText.tsx";
 import { useArtworkSrc } from "../lib/use-artwork-src.ts";
+import { cardTypeDisplayLabel } from "./card-entries.ts";
 import { framePaletteForCard } from "./card-frame-palettes.ts";
 
 /** Attribute orb colors — the small sphere next to the card name. */
@@ -13,28 +14,12 @@ const attributeOrb: Record<string, string> = {
   Wind: "#48a048",
 };
 
-function getCardTypeLabel(cardType: string): string {
-  switch (cardType) {
-    case "Magic":
-      return "Normal Magic Card";
-    case "Equip":
-      return "Equip Magic Card";
-    case "Trap":
-      return "Trap Card";
-    case "Ritual":
-      return "Ritual Card";
-    default:
-      return "";
-  }
-}
-
 export function GameCard({ card }: { card: CardSpec }) {
   const resolveArtwork = useArtworkSrc();
   const artSrc = resolveArtwork(card.id);
-  const ct = card.cardType ?? "";
   const orbColor = card.attribute ? attributeOrb[card.attribute] : undefined;
   const p = framePaletteForCard(card);
-  const typeLabel = !card.isMonster && ct ? getCardTypeLabel(ct) : "";
+  const typeLabel = !card.isMonster ? cardTypeDisplayLabel(card) : "";
 
   return (
     <div

@@ -103,6 +103,50 @@ function buildTestExe(params: {
   return exe;
 }
 
+function buildInlineLimitExe(params: {
+  loadAddr: number;
+  checkRamAddr: number;
+  start: number;
+  length: number;
+}): Buffer {
+  const headerSize = 0x800;
+  const textSize = 0x20_000;
+  const exe = Buffer.alloc(headerSize + textSize);
+  exe.write("PS-X EXE", 0, "ascii");
+  exe.writeUInt32LE(params.loadAddr, 0x18);
+  exe.writeUInt32LE(textSize, 0x1c);
+
+  const ramToFile = (ram: number) => ram - params.loadAddr + headerSize;
+  const addiu = (rt: number, rs: number, simm: number) =>
+    (9 << 26) | ((rs & 0x1f) << 21) | ((rt & 0x1f) << 16) | (simm & 0xffff);
+  const sltiu = (rt: number, rs: number, uimm: number) =>
+    (0xb << 26) | ((rs & 0x1f) << 21) | ((rt & 0x1f) << 16) | (uimm & 0xffff);
+  const lbu = (rt: number, rs: number, simm: number) =>
+    (0x24 << 26) | ((rs & 0x1f) << 21) | ((rt & 0x1f) << 16) | (simm & 0xffff);
+  const sltu = (rd: number, rs: number, rt: number) =>
+    ((rs & 0x1f) << 21) | ((rt & 0x1f) << 16) | ((rd & 0x1f) << 11) | 0x2b;
+
+  const off = ramToFile(params.checkRamAddr);
+  const instructions = [
+    addiu(2, 16, -params.start), // addiu v0, s0, -start
+    sltiu(2, 2, params.length), // sltiu v0, v0, length
+    0x10400005, // beq v0, zero, not_range
+    addiu(3, 0, 1), // addiu v1, zero, 1
+    0x02301021, // addu v0, s1, s0
+    lbu(2, 2, 0x5ac4), // lbu v0, deckCount(v0)
+    0,
+    sltu(3, 2, 3), // sltu v1, v0, v1
+    0x02301821, // addu v1, s1, s0
+    lbu(2, 3, 0x5ac4), // lbu v0, deckCount(v1)
+    0,
+    sltiu(2, 2, DEFAULT_MAX_COPIES), // sltiu v0, v0, 3
+  ];
+  for (let i = 0; i < instructions.length; i++) {
+    exe.writeUInt32LE((instructions[i] as number) >>> 0, off + i * 4);
+  }
+  return exe;
+}
+
 describe("extractDeckLimits", () => {
   it("returns null when dispatcher is absent (vanilla-style EXE)", () => {
     const exe = Buffer.alloc(0x800 + 0x1000);
@@ -110,6 +154,27 @@ describe("extractDeckLimits", () => {
     exe.writeUInt32LE(0x8001_0000, 0x18);
     exe.writeUInt32LE(0x1000, 0x1c);
     expect(extractDeckLimits(exe)).toBeNull();
+  });
+
+  it("detects vanilla inline Exodia-style one-copy ranges without a dispatcher", () => {
+    const exe = buildInlineLimitExe({
+      loadAddr: 0x8001_0000,
+      checkRamAddr: 0x8001_2000,
+      start: 17,
+      length: 5,
+    });
+
+    const limits = extractDeckLimits(exe);
+
+    expect(limits?.byCard).toEqual({ 17: 1, 18: 1, 19: 1, 20: 1, 21: 1 });
+    expect(limits?.discovered).toEqual({
+      source: "inline-range",
+      dispatcherRamAddr: null,
+      tableRamAddr: null,
+      encodingOffset: null,
+      blockEndCounters: null,
+      exodiaRange: { start: 17, length: 5 },
+    });
   });
 
   it("decodes a table with 2-copy and 1-copy entries using real Alpha constants", () => {
@@ -248,6 +313,22 @@ describe("extractDeckLimits — real fixture parity (Alpha / RP / vanilla)", asy
         tableRamAddr: 0x801c_f324,
         encodingOffset: 31452,
         blockEndCounters: [17, 28],
+        exodiaRange: { start: 17, length: 5 },
+      });
+    });
+  }
+
+  const palFrPath = "./gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin";
+  if (existsSync(palFrPath)) {
+    const { readDiscExe } = await import("./index.ts");
+
+    it("decodes PAL French vanilla's inline Exodia one-copy rule", () => {
+      const { slus, serial } = readDiscExe(palFrPath);
+      expect(serial).toBe("SLES_039.48");
+      const limits = extractDeckLimits(slus);
+      expect(limits?.byCard).toEqual({ 17: 1, 18: 1, 19: 1, 20: 1, 21: 1 });
+      expect(limits?.discovered).toMatchObject({
+        source: "inline-range",
         exodiaRange: { start: 17, length: 5 },
       });
     });
