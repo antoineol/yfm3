@@ -1,5 +1,5 @@
 import type { FunctionArgs } from "convex/server";
-import { z } from "zod";
+import * as z from "zod";
 import type { api } from "../../../../convex/_generated/api.js";
 import { DECK_SIZE, HAND_SIZE, MAX_FUSION_DEPTH } from "../../../engine/types/constants.ts";
 

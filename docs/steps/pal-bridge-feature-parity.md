@@ -7,7 +7,7 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 ## Current Step
 
 - Map PAL cursor target, field-slot focus, terrain, selected guardian star, and free-duel unlock bytes with live PAL probes.
-- Keep incomplete PAL data out of "full" UI modes. PAL rank counters now expose mapped counters from the decompiled rank routine, including the separate PAL rank cards-used byte.
+- Keep incomplete PAL data out of "full" UI modes. PAL rank counters expose mapped counters from the decompiled rank routine; active-duel cards-left uses the live deal counter because the PAL result cards-used byte is only reliable once the result screen writes it.
 - Keep post-duel result UI tied to the results lifecycle: confirmed active hands dismiss visible post-duel content without aborting any background optimization already in flight.
 
 ## Confirmed In Scope
@@ -36,7 +36,7 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 - PAL rank stats use the live SLES_039.48 result block at `0x0EB279`.
 - PAL recap "Jeux combo" is `0x0EB27F`, but the decompiled rank row matching app "Fusions" uses initiated fusions at `0x0EB280`.
 - PAL equip magic is `0x0EB281`.
-- PAL rank cards used is `0x0EB296`, not the hand/deal counter at `0x0EB290`.
+- PAL rank cards used is `0x0EB296` on the result screen, not the hand/deal counter at `0x0EB290`. During active play, `0x0EB296` can be `0xFF` or stale; use `0x0EB290` for live cards-left.
 - PAL rank LP is `0x0EB28A`.
 - Use `bun scripts/check-live-rank.ts` on the result screen to compare live bridge counters to the screenshot fixture.
 - PAL cursor fields must not assume `duelPhase + 0xfe` or `duelPhase + 0x114`; those are NTSC findings.

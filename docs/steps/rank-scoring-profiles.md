@@ -15,6 +15,7 @@
 - The app stores the equivalent `remainingCards` value, so RP 1.3 maps to thresholds `[4, 8, 26, 32]` with points `[-7, -5, 0, 20, 32]`.
 - Extraction now scans for the table structure itself: 10 rows, each with 5 `[exclusiveLimit, points]` signed-short pairs, and each row ending at `0x7fff`. This no longer depends on the vanilla turns row staying unchanged.
 - PAL French result-screen fixture: turns `3`, cards used `8`, LP `8000`, effective attacks `0`, defensive wins `0`, recap combo plays `2`, initiated fusions `1`, equip magic `1`, magic `0`, traps `0` scores `93`, matching S-POW.
+- PAL French active-duel cards-left must not read the result cards-used byte before results. Live evidence in phase `0x08` showed `0x0EB296 = 0xFF` while `0x0EB290 = 7`, so active-duel cards-left is `40 - 7 = 33`; result phases still use `0x0EB296`.
 
 ## Current Step
 

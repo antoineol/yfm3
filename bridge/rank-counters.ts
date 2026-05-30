@@ -11,11 +11,21 @@ import type { OffsetProfile } from "./offset-profiles.ts";
  * Returns them in the engine's RankFactors order:
  * [turns, effAttacks, defWins, faceDown, fusions, equips, pureMagic, traps, remainingCards, remainingLp]
  */
+export function readLiveRankCounters(
+  view: DataView,
+  profile: OffsetProfile,
+  duelPhase: number | null,
+): Array<number | null> {
+  const counters = readRankCounters(view, profile);
+  counters[8] = readRemainingCards(view, profile, isActiveDuelPhase(duelPhase));
+  return counters;
+}
+
 export function readRankCounters(view: DataView, profile: OffsetProfile): Array<number | null> {
   const base = readU8Array(view, profile.rankStatsBase, 6); // turns, effAtk, defWin, faceDown, pureMagic, traps
   const fusions = readU8(view, profile.fusionCounter);
   const equips = profile.equipCounter > 0 ? readU8(view, profile.equipCounter) : null;
-  const cardsUsed = readU8(view, profile.rankCardsUsed);
+  const remainingCards = readRemainingCards(view, profile, false);
   const lp = readU16(view, profile.rankLp);
 
   return [
@@ -27,9 +37,32 @@ export function readRankCounters(view: DataView, profile: OffsetProfile): Array<
     equips, // equipMagicUsed
     base[4] ?? 0, // pureMagicUsed
     base[5] ?? 0, // trapsTriggered
-    40 - cardsUsed, // remainingCards (convert used→remaining)
+    remainingCards,
     lp, // remainingLp
   ];
+}
+
+function readRemainingCards(
+  view: DataView,
+  profile: OffsetProfile,
+  preferLiveDealCounter: boolean,
+): number | null {
+  const rankCardsUsed = readValidCardsUsed(view, profile.rankCardsUsed);
+  const liveCardsDealt = readValidCardsUsed(view, profile.cardsDealt);
+  const cardsUsed = preferLiveDealCounter
+    ? (liveCardsDealt ?? rankCardsUsed)
+    : (rankCardsUsed ?? liveCardsDealt);
+  return cardsUsed == null ? null : 40 - cardsUsed;
+}
+
+function isActiveDuelPhase(duelPhase: number | null): boolean {
+  return duelPhase != null && duelPhase >= 0x01 && duelPhase <= 0x0a;
+}
+
+function readValidCardsUsed(view: DataView, offset: number): number | null {
+  if (offset <= 0) return null;
+  const value = readU8(view, offset);
+  return value >= 0 && value <= 40 ? value : null;
 }
 
 function readU8(view: DataView, offset: number): number {

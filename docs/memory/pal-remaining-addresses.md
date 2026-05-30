@@ -58,6 +58,8 @@ The decompiled NTSC scoring routine uses the same result-struct shape for rank r
 
 The live PAL result block maps cards used to `0x0EB296`. This is not the PAL hand/deal helper counter at `0x0EB290`. A result recap with `Cartes utilisées = 8` must therefore score as `32` cards left even if the hand counter contains an unrelated or advanced value.
 
+During an active duel, `0x0EB296` is not stable: it can contain `0xFF` or an older result value before the result block is finalized. The bridge uses the live hand/deal counter at `0x0EB290` for in-duel cards-left, then switches back to `0x0EB296` for ended/result phases.
+
 ### Rank stat block (0x0EB279)
 
 Live SLES_039.48 result-screen evidence maps the player rank stat block relative to actual LP:

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUpdatePreferences = vi.fn();
 
@@ -137,8 +137,16 @@ import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionState } from "../hand/use-post-duel-suggestion.ts";
 import { DuelPage } from "./DuelPage.tsx";
 
+beforeEach(() => {
+  mockBridge.mockImplementation(() => defaultBridge());
+  vi.mocked(useCheatMode).mockReturnValue(false);
+  vi.mocked(useCheatView).mockReturnValue("player");
+});
+
 afterEach(() => {
   cleanup();
+  mockBridge.mockReset();
+  fusionResultsProps.mockClear();
   vi.restoreAllMocks();
 });
 

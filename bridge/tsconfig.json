@@ -4,7 +4,7 @@
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "ESNext",
-    "types": ["bun"],
+    "types": ["bun", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */

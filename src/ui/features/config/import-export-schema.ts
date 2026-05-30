@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { MAX_CARD_ID } from "../../../engine/types/constants.ts";
 
 const cardIdSchema = z

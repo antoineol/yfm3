@@ -20,7 +20,7 @@
 import { dlopen, type Pointer, ptr, toArrayBuffer } from "bun:ffi";
 import { execSync } from "node:child_process";
 import { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
-import { readRankCounters } from "./rank-counters.ts";
+import { readLiveRankCounters } from "./rank-counters.ts";
 
 export { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
 
@@ -536,10 +536,11 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     profile && off ? readU8(view, off) : null;
   const u16 = (off: number | undefined): number | null =>
     profile && off ? readU16(view, off) : null;
+  const duelPhase = u8(profile?.duelPhase);
 
   return {
     sceneId: u16(profile?.sceneId),
-    duelPhase: u8(profile?.duelPhase),
+    duelPhase,
     turnIndicator: u8(profile?.turnIndicator),
     hand,
     field,
@@ -555,7 +556,7 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentField,
     opponentHandSlots,
     cpuShuffledDeck: readCpuShuffledDeck(view),
-    rankCounters: profile?.rankStatsBase ? readRankCounters(view, profile) : null,
+    rankCounters: profile?.rankStatsBase ? readLiveRankCounters(view, profile, duelPhase) : null,
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
     duelCursorFieldSlotIndex: profile ? readDuelCursorFieldSlotIndex(view, profile) : null,
     duelistUnlock: readDuelistUnlock(view),
