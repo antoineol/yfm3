@@ -39,6 +39,7 @@ describe("DropX15PatchPanel", () => {
       enabled: true,
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
+      cardDropCount: 15,
       gameSerial: "SLUS_014.11",
       discFilename: "Compatible.iso",
     });
@@ -73,6 +74,7 @@ describe("DropX15PatchPanel", () => {
       enabled: false,
       definitionId: "ghost-drop-more-cards",
       definitionName: "Ghost Drop More Cards x15",
+      cardDropCount: 15,
       gameSerial: "SLUS_014.11",
       discFilename: "Compatible.iso",
     });
@@ -90,6 +92,7 @@ describe("DropX15PatchPanel", () => {
         enabled: true,
         definitionId: "ghost-loop-limits",
         definitionName: "Ghost/FMR loop-limit x15",
+        cardDropCount: 15,
         gameSerial: "SLUS_014.11",
       },
     });
@@ -105,6 +108,25 @@ describe("DropX15PatchPanel", () => {
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
     await screen.findByRole("button", { name: "15 rewards active" });
     expect(button("15 rewards active").disabled).toBe(true);
+  });
+
+  test("shows the PAL 30-card reward target", async () => {
+    fetchDropX15StatusMock.mockResolvedValue({
+      supported: true,
+      enabled: false,
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x30",
+      cardDropCount: 30,
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL.bin",
+    });
+
+    render(<DropX15PatchPanel />);
+
+    expect(
+      await screen.findByText("PAL.bin is ready for 30-card and starchip rewards."),
+    ).toBeDefined();
+    expect(button("Enable 30 rewards").disabled).toBe(false);
   });
 });
 

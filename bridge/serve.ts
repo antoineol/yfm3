@@ -661,8 +661,8 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
 // know the path. These routes expose:
 //   GET  /api/active-iso              — metadata (serial, filename, backup count)
 //   PUT  /api/active-iso/duelist-pool — patch one {duelistId, poolType, weights}
-//   GET  /api/active-iso/drop-x15     — 15-card/starchip reward patch status
-//   PUT  /api/active-iso/drop-x15     — enable 15-card/starchip rewards when supported
+//   GET  /api/active-iso/drop-x15     — multi-card/starchip reward patch status
+//   PUT  /api/active-iso/drop-x15     — enable multi-card/starchip rewards when supported
 //   GET  /api/active-iso/backups      — list rotating backups
 //   POST /api/active-iso/backups/:filename/restore
 

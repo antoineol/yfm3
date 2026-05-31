@@ -21,15 +21,25 @@ const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
-const GHOST_TOOL_DEFINITION_NAME = "Ghost Drop More Cards x15";
 const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b400;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
+const GHOST_TOOL_X30_DROP_COUNT = 30;
+const GHOST_TOOL_X30_FIRST_LIMIT = GHOST_TOOL_X30_DROP_COUNT + 1;
+const GHOST_TOOL_X30_LAST_LIMIT = GHOST_TOOL_X30_DROP_COUNT;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
 const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
 const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
+const GHOST_TOOL_X30_EDITS = [
+  { offset: 0x44, before: "00acbd27", after: "00b5bd27" },
+  { offset: 0x78, before: "10001724", after: "1f001724" },
+  { offset: 0x150, before: "00ac8424", after: "00b58424" },
+  { offset: 0x174, before: "10001724", after: "1f001724" },
+  { offset: 0x1d0, before: "00ac4224", after: "00b54224" },
+  { offset: 0x1ec, before: "0f001724", after: "1e001724" },
+] as const;
 const STARCHIP_X15_VANILLA = Buffer.from("3a004390e005828c0000000021104300e00582ac", "hex");
 const STARCHIP_X15_PATCHED = Buffer.from("3a004390e005828c002903002318a30021104300e00582ac", "hex");
 const STARCHIP_X15_REPLACEMENT = Buffer.from("002903002318a30021104300e00582ac", "hex");
@@ -80,6 +90,7 @@ const GHOST_TOOL_EXPANSION = Buffer.from(
   "hex",
 );
 const GHOST_TOOL_PAL_EXPANSION = makePalGhostToolExpansion();
+const GHOST_TOOL_PAL_X30_EXPANSION = makeGhostToolX30Expansion(GHOST_TOOL_PAL_EXPANSION);
 
 function makePalGhostToolExpansion(): Buffer {
   const expansion = Buffer.from(GHOST_TOOL_EXPANSION);
@@ -103,6 +114,21 @@ function makePalGhostToolExpansion(): Buffer {
   return expansion;
 }
 
+function makeGhostToolX30Expansion(x15Expansion: Buffer): Buffer {
+  const expansion = Buffer.from(x15Expansion);
+  for (const edit of GHOST_TOOL_X30_EDITS) {
+    const before = Buffer.from(edit.before, "hex");
+    const after = Buffer.from(edit.after, "hex");
+    if (!expansion.subarray(edit.offset, edit.offset + before.length).equals(before)) {
+      throw new Error(
+        `Ghost x30 edit anchor mismatch at blob offset 0x${edit.offset.toString(16)}.`,
+      );
+    }
+    after.copy(expansion, edit.offset);
+  }
+  return expansion;
+}
+
 interface GhostToolHook {
   offset: number;
   vanilla: Buffer;
@@ -112,17 +138,23 @@ interface GhostToolHook {
 interface GhostToolLayout {
   hooks: readonly GhostToolHook[];
   expansion: Buffer;
+  definitionName: string;
+  targetDropCount: number;
+  targetExpansion?: Buffer;
   waCopyOffset: number;
   waCopyStride: number;
   waCopyStart: number;
   waCopyCount: number;
   waExtraLimits: readonly { offset: number; value: number }[];
+  targetWaExtraLimits?: readonly { offset: number; value: number }[];
 }
 
 const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
   {
     hooks: GHOST_TOOL_SLUS_HOOKS,
     expansion: GHOST_TOOL_EXPANSION,
+    definitionName: "Ghost Drop More Cards x15",
+    targetDropCount: 15,
     waCopyOffset: 0xb4c400,
     waCopyStride: 0x75800,
     waCopyStart: 1,
@@ -158,11 +190,15 @@ const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
       },
     ],
     expansion: GHOST_TOOL_PAL_EXPANSION,
+    definitionName: "Ghost Drop More Cards x30",
+    targetDropCount: 30,
+    targetExpansion: GHOST_TOOL_PAL_X30_EXPANSION,
     waCopyOffset: 0xe25400,
     waCopyStride: 0x78000,
     waCopyStart: 0,
     waCopyCount: 7,
     waExtraLimits: [{ offset: 0xe24fe4, value: GHOST_TOOL_FIRST_LIMIT }],
+    targetWaExtraLimits: [{ offset: 0xe24fe4, value: GHOST_TOOL_X30_FIRST_LIMIT }],
   },
 ];
 
@@ -190,6 +226,7 @@ export type DropX15PatchStatus =
       enabled: boolean;
       definitionId: string;
       definitionName: string;
+      cardDropCount: number;
       gameSerial: string;
       reason?: string;
     }
@@ -214,12 +251,11 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
   const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
+  const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
+  if (shouldPreferGhostToolState(ghostToolState, ghostState)) return ghostToolState;
   if (ghostState.supported || ghostState.reason !== GHOST_NO_ANCHORS_REASON) {
     return ghostState;
   }
-
-  const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
-  if (ghostToolState.supported) return ghostToolState;
 
   const legacyState = inspectLegacyUnsafePatchState(image, slusEntry, format);
   if (isSpecificLegacyPatchState(legacyState)) return legacyState;
@@ -233,10 +269,10 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   const slusEntry = findExecutableEntry(image, format);
 
   const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
-  let before: DropX15PatchStatus = ghostState;
-  if (!before.supported) {
-    before = inspectGhostToolPatchState(image, slusEntry, format);
-  }
+  const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
+  let before: DropX15PatchStatus = shouldPreferGhostToolState(ghostToolState, ghostState)
+    ? ghostToolState
+    : ghostState;
   if (!before.supported) {
     const legacyState = inspectLegacyUnsafePatchState(image, slusEntry, format);
     if (isSpecificLegacyPatchState(legacyState)) before = legacyState;
@@ -254,8 +290,16 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
 
   const after = inspectDropX15Image(readFileSync(discPath));
   if (!after.supported) throw new Error(after.reason);
-  if (!after.enabled) throw new Error("15-card drop patch did not persist after writing.");
+  if (!after.enabled) throw new Error("Drop reward patch did not persist after writing.");
   return { changed: true, status: after };
+}
+
+function shouldPreferGhostToolState(
+  ghostToolState: DropX15PatchStatus,
+  ghostState: DropX15PatchStatus,
+): ghostToolState is Extract<DropX15PatchStatus, { supported: true }> {
+  if (!ghostToolState.supported) return false;
+  return !ghostState.supported || ghostToolState.cardDropCount > ghostState.cardDropCount;
 }
 
 function isSpecificLegacyPatchState(status: DropX15PatchStatus): boolean {
@@ -277,21 +321,23 @@ function inspectGhostToolPatchState(
   for (const layout of GHOST_TOOL_LAYOUTS) {
     const hooksVanilla = ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla");
     const hooksPatched = ghostToolHooksMatch(image, slusEntry, format, layout, "patched");
-    const slusExpansionPatched = bytesMatchAt(
-      image,
-      slusEntry.sector,
-      GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-      layout.expansion,
-      format,
-    );
+    const slusExpansionPatched = ghostToolExpansionPatched(image, slusEntry.sector, format, layout);
     const waExpansionPatched = waEntry
-      ? ghostToolWaCopiesPatched(image, waEntry, format, layout)
+      ? ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")
       : false;
+    const cardLayoutUpgradeable =
+      hooksPatched &&
+      ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
+      !!waEntry &&
+      ghostToolWaCopiesPatched(image, waEntry, format, layout, "base");
     const cardLayoutClean =
       hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format, layout);
     const cardLayoutPatched = hooksPatched && slusExpansionPatched && waExpansionPatched;
 
-    if ((cardLayoutClean || cardLayoutPatched) && !starchipState.supported) {
+    if (
+      (cardLayoutClean || cardLayoutPatched || cardLayoutUpgradeable) &&
+      !starchipState.supported
+    ) {
       return {
         supported: false,
         enabled: false,
@@ -305,17 +351,22 @@ function inspectGhostToolPatchState(
         supported: true,
         enabled: true,
         definitionId: GHOST_TOOL_DEFINITION_ID,
-        definitionName: GHOST_TOOL_DEFINITION_NAME,
+        definitionName: layout.definitionName,
+        cardDropCount: layout.targetDropCount,
         gameSerial: slusEntry.name,
       };
     }
 
-    if ((cardLayoutClean || cardLayoutPatched) && starchipState.supported) {
+    if (
+      (cardLayoutClean || cardLayoutPatched || cardLayoutUpgradeable) &&
+      starchipState.supported
+    ) {
       return {
         supported: true,
         enabled: false,
         definitionId: GHOST_TOOL_DEFINITION_ID,
-        definitionName: GHOST_TOOL_DEFINITION_NAME,
+        definitionName: layout.definitionName,
+        cardDropCount: layout.targetDropCount,
         gameSerial: slusEntry.name,
       };
     }
@@ -360,39 +411,45 @@ function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscForm
     for (const hook of layout.hooks) {
       writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
     }
+  }
+
+  if (
+    !ghostToolExpansionPatched(image, slusEntry.sector, format, layout) ||
+    !ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")
+  ) {
     writeBytesAt(
       image,
       slusEntry.sector,
       GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-      layout.expansion,
+      ghostToolTargetExpansion(layout),
       format,
     );
 
     for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
-      writeBytesAt(image, waEntry.sector, copyOffset, layout.expansion, format);
+      writeBytesAt(image, waEntry.sector, copyOffset, ghostToolTargetExpansion(layout), format);
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[0],
-        GHOST_TOOL_FIRST_LIMIT,
+        ghostToolFirstLimit(layout),
       );
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[1],
-        GHOST_TOOL_FIRST_LIMIT,
+        ghostToolFirstLimit(layout),
       );
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[2],
-        GHOST_TOOL_LAST_LIMIT,
+        ghostToolLastLimit(layout),
       );
     }
-    for (const limit of layout.waExtraLimits) {
+    for (const limit of ghostToolTargetWaExtraLimits(layout)) {
       writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
     }
   }
@@ -423,15 +480,27 @@ function findGhostToolPatchLayout(
         (ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla") &&
           ghostToolWaTargetsClean(image, waEntry, format, layout)) ||
         (ghostToolHooksMatch(image, slusEntry, format, layout, "patched") &&
-          bytesMatchAt(
-            image,
-            slusEntry.sector,
-            GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-            layout.expansion,
-            format,
-          ) &&
-          ghostToolWaCopiesPatched(image, waEntry, format, layout)),
+          ((ghostToolExpansionPatched(image, slusEntry.sector, format, layout) &&
+            ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")) ||
+            (ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
+              ghostToolWaCopiesPatched(image, waEntry, format, layout, "base")))),
     ) ?? null
+  );
+}
+
+function ghostToolExpansionPatched(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  variant: "target" | "base" = "target",
+): boolean {
+  return bytesMatchAt(
+    image,
+    slusSector,
+    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+    variant === "target" ? ghostToolTargetExpansion(layout) : layout.expansion,
+    format,
   );
 }
 
@@ -440,14 +509,35 @@ function ghostToolWaCopiesPatched(
   waEntry: IsoFile,
   format: DiscFormat,
   layout: GhostToolLayout,
+  variant: "target" | "base",
 ): boolean {
   if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
+  const expansion = variant === "target" ? ghostToolTargetExpansion(layout) : layout.expansion;
   for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
-    if (!bytesMatchAt(image, waEntry.sector, copyOffset, layout.expansion, format)) return false;
+    if (!bytesMatchAt(image, waEntry.sector, copyOffset, expansion, format)) return false;
   }
-  return layout.waExtraLimits.every(
+  const limits = variant === "target" ? ghostToolTargetWaExtraLimits(layout) : layout.waExtraLimits;
+  return limits.every(
     (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === limit.value,
   );
+}
+
+function ghostToolTargetExpansion(layout: GhostToolLayout): Buffer {
+  return layout.targetExpansion ?? layout.expansion;
+}
+
+function ghostToolTargetWaExtraLimits(
+  layout: GhostToolLayout,
+): readonly { offset: number; value: number }[] {
+  return layout.targetWaExtraLimits ?? layout.waExtraLimits;
+}
+
+function ghostToolFirstLimit(layout: GhostToolLayout): number {
+  return layout.targetDropCount === 30 ? GHOST_TOOL_X30_FIRST_LIMIT : GHOST_TOOL_FIRST_LIMIT;
+}
+
+function ghostToolLastLimit(layout: GhostToolLayout): number {
+  return layout.targetDropCount === 30 ? GHOST_TOOL_X30_LAST_LIMIT : GHOST_TOOL_LAST_LIMIT;
 }
 
 function ghostToolWaTargetsClean(
@@ -583,6 +673,7 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     enabled: cardsEnabled && starchipState.enabled,
     definitionId: GHOST_LOOP_DEFINITION_ID,
     definitionName: GHOST_LOOP_DEFINITION_NAME,
+    cardDropCount: 15,
     gameSerial,
   };
 }

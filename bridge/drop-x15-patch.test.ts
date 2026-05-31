@@ -19,6 +19,7 @@ describe("drop x15 patch inspection", () => {
       enabled: false,
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
+      cardDropCount: 15,
       gameSerial: serial,
     });
   });
@@ -60,6 +61,7 @@ describe("drop x15 patch inspection", () => {
       enabled: true,
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
+      cardDropCount: 15,
       gameSerial: "SLUS_014.11",
     });
   });
@@ -76,6 +78,7 @@ describe("drop x15 patch inspection", () => {
       enabled: false,
       definitionId: "ghost-drop-more-cards",
       definitionName: "Ghost Drop More Cards x15",
+      cardDropCount: 15,
       gameSerial: serial,
     });
   });
@@ -130,7 +133,8 @@ describe("drop x15 patch inspection", () => {
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
-      definitionName: "Ghost Drop More Cards x15",
+      definitionName: "Ghost Drop More Cards x30",
+      cardDropCount: 30,
       gameSerial: "SLES_039.48",
     });
   });
@@ -189,11 +193,13 @@ describe("drop x15 patch inspection", () => {
         supported: true,
         enabled: true,
         definitionId: "ghost-loop-limits",
+        cardDropCount: 15,
       });
       expect(inspectDropX15Image(patched)).toMatchObject({
         supported: true,
         enabled: true,
         definitionId: "ghost-loop-limits",
+        cardDropCount: 15,
       });
       expect(
         patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b400, 21 * SECTOR_DATA_SIZE + 0x19b410),
@@ -225,12 +231,14 @@ describe("drop x15 patch inspection", () => {
       expect(result.status).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 30,
       });
       expect(inspectDropX15Image(patched)).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 30,
       });
       expect(patched.subarray(slusBase + 0x120f0, slusBase + 0x120f8)).toEqual(
         Buffer.from("95AB060800000000", "hex"),
@@ -243,7 +251,22 @@ describe("drop x15 patch inspection", () => {
       );
       expect(patched.subarray(slusBase + 0x19b400, slusBase + 0x19b410)).toEqual(Buffer.alloc(16));
       expect(patched.subarray(slusBase + 0x19b440, slusBase + 0x19b448)).toEqual(
-        Buffer.from("1B001D3C00ACBD27", "hex"),
+        Buffer.from("1B001D3C00B5BD27", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b478, slusBase + 0x19b47c)).toEqual(
+        Buffer.from("1F001724", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b550, slusBase + 0x19b554)).toEqual(
+        Buffer.from("00B58424", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b574, slusBase + 0x19b578)).toEqual(
+        Buffer.from("1F001724", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b5d0, slusBase + 0x19b5d4)).toEqual(
+        Buffer.from("00B54224", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b5ec, slusBase + 0x19b5f0)).toEqual(
+        Buffer.from("1E001724", "hex"),
       );
       expect(patched.readUInt32LE(slusBase + 0x19b538)).toBe(0x3c03801c);
       expect(patched.readUInt32LE(slusBase + 0x19b544)).toBe(0x0800874c);
@@ -253,11 +276,14 @@ describe("drop x15 patch inspection", () => {
 
       for (let copy = 0; copy < 7; copy++) {
         const base = 0xe25400 + copy * 0x78000;
-        expect(patched[waOffset(base + 0x78)]).toBe(16);
-        expect(patched[waOffset(base + 0x174)]).toBe(16);
-        expect(patched[waOffset(base + 0x1ec)]).toBe(15);
+        expect(patched.subarray(waOffset(base + 0x44), waOffset(base + 0x48))).toEqual(
+          Buffer.from("00B5BD27", "hex"),
+        );
+        expect(patched[waOffset(base + 0x78)]).toBe(31);
+        expect(patched[waOffset(base + 0x174)]).toBe(31);
+        expect(patched[waOffset(base + 0x1ec)]).toBe(30);
       }
-      expect(patched[waOffset(0xe24fe4)]).toBe(16);
+      expect(patched[waOffset(0xe24fe4)]).toBe(31);
       expect(patched[waOffset(0x116d400)]).toBe(0);
       expectStarchipX15(patched, slusBase + 0x12790);
     } finally {

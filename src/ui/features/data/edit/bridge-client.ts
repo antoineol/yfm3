@@ -28,6 +28,7 @@ export type DropX15Status =
       enabled: boolean;
       definitionId: string;
       definitionName: string;
+      cardDropCount: number;
       gameSerial: string;
       discFilename: string;
       reason?: string;
