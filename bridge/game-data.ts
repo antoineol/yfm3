@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { startArtworkExtraction } from "./artwork-extraction.ts";
 import {
@@ -23,7 +23,7 @@ import { type DeckLimits, extractDeckLimits } from "./extract/extract-deck-limit
 import { extractDuelists } from "./extract/extract-duelists.ts";
 import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
-import { extractRankScoring } from "./extract/extract-rank-scoring.ts";
+import { extractRankScoringFromFile } from "./extract/extract-rank-scoring.ts";
 import { langIdxForSerial, loadDiscData, readDiscExe } from "./extract/index.ts";
 import { buildPerEquipBonuses } from "./extract/parse-equip-bonus.ts";
 import type {
@@ -107,7 +107,7 @@ export async function acquireGameData(
   const gameDataHash = computeGameDataHash(cardStats);
 
   const { cuePaths, isoPaths } = findDiscImages(pid);
-  const discPaths = [...cuesToBins(cuePaths), ...isoPaths];
+  const discPaths = [...new Set([...cuesToBins(cuePaths), ...isoPaths])];
 
   if (discPaths.length === 0) {
     console.warn("No disc images found in DuckStation game directories");
@@ -264,7 +264,24 @@ export function parseGameDirs(iniContent: string): string[] {
 }
 
 const MAX_SCAN_DEPTH = 5;
-function scanForDiscImages(dir: string, cues: string[], isos: string[], depth: number): void {
+const SKIPPED_DISC_SCAN_DIRS = new Set([
+  ".yfm3-iso-backups",
+  ".yfm3-backups",
+  ".yfm3-rename-backups",
+]);
+
+export function shouldSkipDiscScanDir(name: string): boolean {
+  return SKIPPED_DISC_SCAN_DIRS.has(name.toLowerCase());
+}
+
+export function scanForDiscImages(
+  dir: string,
+  cues: string[],
+  isos: string[],
+  depth: number,
+): void {
+  const dirName = dir.split(/[\\/]/).pop();
+  if (dirName && shouldSkipDiscScanDir(dirName)) return;
   if (depth > MAX_SCAN_DEPTH || !existsSync(dir)) return;
   let entries: string[];
   try {
@@ -275,14 +292,14 @@ function scanForDiscImages(dir: string, cues: string[], isos: string[], depth: n
   for (const name of entries) {
     const lower = name.toLowerCase();
     const full = join(dir, name);
+    if (shouldSkipDiscScanDir(name)) continue;
     if (lower.endsWith(".cue")) {
       cues.push(full);
     } else if (lower.endsWith(".iso")) {
       isos.push(full);
     } else {
       try {
-        const stat = readdirSync(full); // throws if not a directory
-        if (stat) scanForDiscImages(full, cues, isos, depth + 1);
+        if (statSync(full).isDirectory()) scanForDiscImages(full, cues, isos, depth + 1);
       } catch {
         // not a directory, skip
       }
@@ -395,7 +412,7 @@ function extractFromWinner(
     const equipBonuses = detectEquipBonuses(slus);
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
     const deckLimits = extractDeckLimits(slus);
-    const rankScoring = extractRankScoring(readFileSync(match.binPath));
+    const rankScoring = extractRankScoringFromFile(match.binPath);
 
     startArtworkExtraction(dirKey, artworkDir, waMrg, waMrgLayout.artworkBlockSize);
 

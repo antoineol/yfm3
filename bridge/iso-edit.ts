@@ -138,17 +138,30 @@ export function getDropX15PatchStatus(discPath: string): DropX15PatchStatus {
   return inspectDropX15Patch(discPath);
 }
 
-export function patchDropX15(discPath: string): {
+export function patchDropX15(
+  discPath: string,
+  targetDropCount?: number,
+): {
   backup: IsoBackupEntry | null;
   changed: boolean;
   status: Extract<DropX15PatchStatus, { supported: true }>;
 } {
   const before = inspectDropX15Patch(discPath);
   if (!before.supported) throw new Error(before.reason);
-  if (before.enabled) return { backup: null, changed: false, status: before };
+  const desiredDropCount = targetDropCount ?? before.cardDropCount;
+  if (
+    before.cardDropCount === desiredDropCount &&
+    before.starchipMultiplier === desiredDropCount &&
+    (before.enabled || desiredDropCount === 1)
+  ) {
+    return { backup: null, changed: false, status: before };
+  }
+  if (!before.availableDropCounts.includes(desiredDropCount)) {
+    throw new Error(`${before.gameSerial} does not support ${desiredDropCount}-card rewards.`);
+  }
 
   const backup = backupIso(discPath);
-  const result = patchDropX15DiscInPlace(discPath);
+  const result = patchDropX15DiscInPlace(discPath, desiredDropCount);
   pruneOldBackups(discPath);
   return { backup, changed: result.changed, status: result.status };
 }

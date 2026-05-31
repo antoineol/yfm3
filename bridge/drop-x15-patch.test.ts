@@ -20,6 +20,8 @@ describe("drop x15 patch inspection", () => {
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
       cardDropCount: 15,
+      starchipMultiplier: 1,
+      availableDropCounts: [15],
       gameSerial: serial,
     });
   });
@@ -36,7 +38,7 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, image);
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
+      const result = patchDropX15DiscInPlace(discPath, 15);
 
       expect(result.changed).toBe(true);
       expect(result.status.enabled).toBe(true);
@@ -62,6 +64,8 @@ describe("drop x15 patch inspection", () => {
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
       cardDropCount: 15,
+      starchipMultiplier: 15,
+      availableDropCounts: [15],
       gameSerial: "SLUS_014.11",
     });
   });
@@ -77,8 +81,10 @@ describe("drop x15 patch inspection", () => {
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
-      definitionName: "Ghost Drop More Cards x15",
-      cardDropCount: 15,
+      definitionName: "Ghost Drop More Cards x1",
+      cardDropCount: 1,
+      starchipMultiplier: 1,
+      availableDropCounts: [15],
       gameSerial: serial,
     });
   });
@@ -100,7 +106,7 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, image);
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
+      const result = patchDropX15DiscInPlace(discPath, 15);
       const patched = readFileSync(discPath);
 
       expect(result.changed).toBe(true);
@@ -133,8 +139,10 @@ describe("drop x15 patch inspection", () => {
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
-      definitionName: "Ghost Drop More Cards x30",
-      cardDropCount: 30,
+      definitionName: "Ghost Drop More Cards x1",
+      cardDropCount: 1,
+      starchipMultiplier: 1,
+      availableDropCounts: [1, 5, 15, 50, 150],
       gameSerial: "SLES_039.48",
     });
   });
@@ -185,7 +193,7 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, makeGhostToolDiscImage("SLUS_014.11"));
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
+      const result = patchDropX15DiscInPlace(discPath, 15);
       const patched = readFileSync(discPath);
 
       expect(result.changed).toBe(true);
@@ -223,7 +231,7 @@ describe("drop x15 patch inspection", () => {
     writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
 
     try {
-      const result = patchDropX15DiscInPlace(discPath);
+      const result = patchDropX15DiscInPlace(discPath, 150);
       const patched = readFileSync(discPath);
       const slusBase = 21 * SECTOR_DATA_SIZE;
 
@@ -232,13 +240,15 @@ describe("drop x15 patch inspection", () => {
         supported: true,
         enabled: true,
         definitionId: "ghost-drop-more-cards",
-        cardDropCount: 30,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
       });
       expect(inspectDropX15Image(patched)).toMatchObject({
         supported: true,
         enabled: true,
         definitionId: "ghost-drop-more-cards",
-        cardDropCount: 30,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
       });
       expect(patched.subarray(slusBase + 0x120f0, slusBase + 0x120f8)).toEqual(
         Buffer.from("95AB060800000000", "hex"),
@@ -254,19 +264,19 @@ describe("drop x15 patch inspection", () => {
         Buffer.from("1B001D3C00B5BD27", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b478, slusBase + 0x19b47c)).toEqual(
-        Buffer.from("1F001724", "hex"),
+        Buffer.from("97001724", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b550, slusBase + 0x19b554)).toEqual(
         Buffer.from("00B58424", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b574, slusBase + 0x19b578)).toEqual(
-        Buffer.from("1F001724", "hex"),
+        Buffer.from("97001724", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b5d0, slusBase + 0x19b5d4)).toEqual(
         Buffer.from("00B54224", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b5ec, slusBase + 0x19b5f0)).toEqual(
-        Buffer.from("1E001724", "hex"),
+        Buffer.from("96001724", "hex"),
       );
       expect(patched.readUInt32LE(slusBase + 0x19b538)).toBe(0x3c03801c);
       expect(patched.readUInt32LE(slusBase + 0x19b544)).toBe(0x0800874c);
@@ -279,13 +289,223 @@ describe("drop x15 patch inspection", () => {
         expect(patched.subarray(waOffset(base + 0x44), waOffset(base + 0x48))).toEqual(
           Buffer.from("00B5BD27", "hex"),
         );
-        expect(patched[waOffset(base + 0x78)]).toBe(31);
-        expect(patched[waOffset(base + 0x174)]).toBe(31);
-        expect(patched[waOffset(base + 0x1ec)]).toBe(30);
+        expect(patched[waOffset(base + 0x78)]).toBe(151);
+        expect(patched[waOffset(base + 0x174)]).toBe(151);
+        expect(patched[waOffset(base + 0x1ec)]).toBe(150);
       }
-      expect(patched[waOffset(0xe24fe4)]).toBe(31);
+      expect(patched[waOffset(0xe24fe4)]).toBe(151);
       expect(patched[waOffset(0x116d400)]).toBe(0);
-      expectStarchipX15(patched, slusBase + 0x12790);
+      expectPalStarchipMultiplier(patched, slusBase, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test.each([
+    { multiplier: 150, rankStarchips: 5, before: 2727, after: 3477 },
+    { multiplier: 150, rankStarchips: 22, before: 2727, after: 6027 },
+    { multiplier: 50, rankStarchips: 5, before: 2727, after: 2977 },
+  ])("executes the PAL x$multiplier starchip helper as save += rankStarchips * multiplier", ({
+    multiplier,
+    rankStarchips,
+    before,
+    after,
+  }) => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, multiplier);
+      const patched = readFileSync(discPath);
+
+      expect(executePalStarchipSaveUpdate(patched, before, rankStarchips)).toBe(after);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("upgrades existing PAL x150 cards from starchip x15 to matching x150", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    const image = makePalGhostToolDiscImage("SLES_039.48");
+    writeFileSync(discPath, image);
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const withOldStarchips = readFileSync(discPath);
+      seedStarchipAward(withOldStarchips, 21, 0x12790, "patched");
+      writeFileSync(discPath, withOldStarchips);
+
+      expect(inspectDropX15Image(withOldStarchips)).toMatchObject({
+        supported: true,
+        enabled: false,
+        cardDropCount: 150,
+        starchipMultiplier: 15,
+      });
+
+      const result = patchDropX15DiscInPlace(discPath, 150);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: true,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expectPalStarchipMultiplier(patched, 21 * SECTOR_DATA_SIZE, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refreshes PAL x150 when the root starchip helper is missing from WA copies", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const rootOnlyHelper = readFileSync(discPath);
+      for (let copy = 0; copy < 7; copy++) {
+        Buffer.alloc(PAL_STARCHIP_X150_HELPER.length).copy(
+          rootOnlyHelper,
+          waOffset(0xe25400 + copy * 0x78000 + 0x300),
+        );
+      }
+      writeFileSync(discPath, rootOnlyHelper);
+
+      expect(inspectDropX15Image(rootOnlyHelper)).toMatchObject({
+        supported: true,
+        enabled: false,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+
+      const result = patchDropX15DiscInPlace(discPath, 150);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: true,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expectPalStarchipMultiplier(patched, 21 * SECTOR_DATA_SIZE, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refreshes the PAL x150 helper that missed the MIPS load-delay slot", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const staleHelper = readFileSync(discPath);
+      writeBytes(
+        staleHelper,
+        21,
+        0x19b700,
+        PAL_STARCHIP_X150_STALE_LOAD_DELAY_HELPER.toString("hex"),
+      );
+      for (let copy = 0; copy < 7; copy++) {
+        PAL_STARCHIP_X150_STALE_LOAD_DELAY_HELPER.copy(
+          staleHelper,
+          waOffset(0xe25400 + copy * 0x78000 + 0x300),
+        );
+      }
+      writeFileSync(discPath, staleHelper);
+
+      expect(inspectDropX15Image(staleHelper)).toMatchObject({
+        supported: true,
+        enabled: false,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expect(executePalStarchipSaveUpdate(staleHelper, 2727, 5)).toBe(1490);
+
+      const result = patchDropX15DiscInPlace(discPath, 150);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: true,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expect(executePalStarchipSaveUpdate(patched, 2727, 5)).toBe(3477);
+      expectPalStarchipMultiplier(patched, 21 * SECTOR_DATA_SIZE, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refreshes the first PAL x150 starchip helper variant", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const oldHelper = readFileSync(discPath);
+      writeBytes(
+        oldHelper,
+        21,
+        0x19b700,
+        "c041030000290300214005018028030021400501402803002118050121104300e00582ace987000800000000",
+      );
+      writeFileSync(discPath, oldHelper);
+
+      expect(inspectDropX15Image(oldHelper)).toMatchObject({
+        supported: true,
+        enabled: false,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+
+      const result = patchDropX15DiscInPlace(discPath, 150);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: true,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expectPalStarchipMultiplier(patched, 21 * SECTOR_DATA_SIZE, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("can revert PAL card and starchip rewards to x1", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const result = patchDropX15DiscInPlace(discPath, 1);
+      const patched = readFileSync(discPath);
+      const slusBase = 21 * SECTOR_DATA_SIZE;
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: false,
+        cardDropCount: 1,
+        starchipMultiplier: 1,
+      });
+      expect(patched.subarray(slusBase + 0x12790, slusBase + 0x127a4)).toEqual(
+        Buffer.from(STARCHIP_AWARD_BYTES.vanilla, "hex"),
+      );
+      expect(inspectDropX15Image(patched)).toMatchObject({
+        enabled: false,
+        cardDropCount: 1,
+        starchipMultiplier: 1,
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -306,7 +526,7 @@ describe("drop x15 patch inspection", () => {
         definitionId: "ghost-loop-limits",
       });
 
-      const result = patchDropX15DiscInPlace(discPath);
+      const result = patchDropX15DiscInPlace(discPath, 15);
       const patched = readFileSync(discPath);
 
       expect(result.changed).toBe(true);
@@ -603,4 +823,156 @@ function expectStarchipX15(image: Buffer, offset: number): void {
   expect(image.subarray(offset, offset + 24)).toEqual(
     Buffer.from(STARCHIP_AWARD_BYTES.patched, "hex"),
   );
+}
+
+function executePalStarchipSaveUpdate(
+  image: Buffer,
+  starchipsBefore: number,
+  rankStarchips: number,
+): number {
+  const slusBase = 21 * SECTOR_DATA_SIZE;
+  const fileToRamDelta = 0x8000f800;
+  const returnAddress = fileToRamDelta + 0x12790 + 24;
+  const memory = Buffer.alloc(0x2000);
+  const resultPointer = 0x10000000;
+  const savePointer = resultPointer + 0x1000;
+  const registers = new Uint32Array(32);
+  let pendingLoad: { register: number; value: number } | null = null;
+  registers[2] = resultPointer;
+  registers[4] = savePointer;
+  memory[0x3a] = rankStarchips;
+  memory.writeUInt32LE(starchipsBefore, 0x1000 + 0x5e0);
+
+  let pc = fileToRamDelta + 0x12790;
+  for (let step = 0; step < 40 && pc !== returnAddress; step++) {
+    pc = executeInstruction(readInstruction(image, slusBase, fileToRamDelta, pc), pc);
+  }
+  expect(pc).toBe(returnAddress);
+  return memory.readUInt32LE(0x1000 + 0x5e0);
+
+  function executeInstruction(instruction: number, currentPc: number): number {
+    const opcode = instruction >>> 26;
+    if (opcode === 0x02) {
+      const target = ((currentPc + 4) & 0xf0000000) | ((instruction & 0x03ff_ffff) << 2);
+      applyLoadDelay(null);
+      executeWithLoadDelay(readInstruction(image, slusBase, fileToRamDelta, currentPc + 4));
+      registers[0] = 0;
+      return target >>> 0;
+    }
+    executeWithLoadDelay(instruction);
+    registers[0] = 0;
+    return (currentPc + 4) >>> 0;
+  }
+
+  function executeWithLoadDelay(instruction: number): void {
+    const sourceRegisters = pendingLoad ? new Uint32Array(registers) : registers;
+    if (pendingLoad) registers[pendingLoad.register] = pendingLoad.value;
+    pendingLoad = executeNonBranch(instruction, sourceRegisters);
+    registers[0] = 0;
+  }
+
+  function applyLoadDelay(nextLoad: { register: number; value: number } | null): void {
+    if (pendingLoad) registers[pendingLoad.register] = pendingLoad.value;
+    pendingLoad = nextLoad;
+    registers[0] = 0;
+  }
+
+  function executeNonBranch(
+    instruction: number,
+    sourceRegisters: Uint32Array,
+  ): { register: number; value: number } | null {
+    const opcode = instruction >>> 26;
+    if (instruction === 0) return null;
+    if (opcode === 0) {
+      executeSpecial(instruction, sourceRegisters);
+      return null;
+    }
+
+    const rs = (instruction >>> 21) & 0x1f;
+    const rt = (instruction >>> 16) & 0x1f;
+    const immediate = instruction & 0xffff;
+    const signedImmediate = immediate & 0x8000 ? immediate | 0xffff_0000 : immediate;
+    const address = ((sourceRegisters[rs] ?? 0) + signedImmediate) >>> 0;
+
+    if (opcode === 0x23) {
+      return { register: rt, value: readDataWord(address) };
+    }
+    if (opcode === 0x24) {
+      return { register: rt, value: readDataByte(address) };
+    }
+    if (opcode === 0x2b) {
+      writeDataWord(address, sourceRegisters[rt] ?? 0);
+      return null;
+    }
+    throw new Error(`Unsupported test MIPS opcode 0x${opcode.toString(16)}.`);
+  }
+
+  function executeSpecial(instruction: number, sourceRegisters: Uint32Array): void {
+    const rs = (instruction >>> 21) & 0x1f;
+    const rt = (instruction >>> 16) & 0x1f;
+    const rd = (instruction >>> 11) & 0x1f;
+    const shift = (instruction >>> 6) & 0x1f;
+    const funct = instruction & 0x3f;
+    if (funct === 0x00) {
+      registers[rd] = ((sourceRegisters[rt] ?? 0) << shift) >>> 0;
+      return;
+    }
+    if (funct === 0x21) {
+      registers[rd] = ((sourceRegisters[rs] ?? 0) + (sourceRegisters[rt] ?? 0)) >>> 0;
+      return;
+    }
+    if (funct === 0x23) {
+      registers[rd] = ((sourceRegisters[rs] ?? 0) - (sourceRegisters[rt] ?? 0)) >>> 0;
+      return;
+    }
+    throw new Error(`Unsupported test MIPS function 0x${funct.toString(16)}.`);
+  }
+
+  function readDataByte(address: number): number {
+    return memory[address - resultPointer] ?? 0;
+  }
+
+  function readDataWord(address: number): number {
+    return memory.readUInt32LE(address - resultPointer);
+  }
+
+  function writeDataWord(address: number, value: number): void {
+    memory.writeUInt32LE(value >>> 0, address - resultPointer);
+  }
+}
+
+function readInstruction(
+  image: Buffer,
+  slusBase: number,
+  fileToRamDelta: number,
+  pc: number,
+): number {
+  return image.readUInt32LE(slusBase + pc - fileToRamDelta);
+}
+
+const PAL_STARCHIP_X150_HELPER = Buffer.from(
+  "c0110300002903002110450080280300211045004028030021184500e005828c0000000021104300e00582acea87000800000000",
+  "hex",
+);
+
+const PAL_STARCHIP_X150_STALE_LOAD_DELAY_HELPER = Buffer.from(
+  "c0110300002903002110450080280300211045004028030021184500e005828c21104300e00582acea87000800000000",
+  "hex",
+);
+
+function expectPalStarchipMultiplier(image: Buffer, slusBase: number, multiplier: 150): void {
+  expect(multiplier).toBe(150);
+  expect(image.subarray(slusBase + 0x12798, slusBase + 0x127a4)).toEqual(
+    Buffer.from("c0ab06080000000000000000", "hex"),
+  );
+  expect(
+    image.subarray(slusBase + 0x19b700, slusBase + 0x19b700 + PAL_STARCHIP_X150_HELPER.length),
+  ).toEqual(PAL_STARCHIP_X150_HELPER);
+  expect(image.subarray(slusBase + 0x19b734, slusBase + 0x19b740)).toEqual(Buffer.alloc(0x0c));
+  for (let copy = 0; copy < 7; copy++) {
+    const helperOffset = waOffset(0xe25400 + copy * 0x78000 + 0x300);
+    expect(image.subarray(helperOffset, helperOffset + PAL_STARCHIP_X150_HELPER.length)).toEqual(
+      PAL_STARCHIP_X150_HELPER,
+    );
+  }
 }

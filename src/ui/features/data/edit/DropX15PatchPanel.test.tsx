@@ -40,6 +40,8 @@ describe("DropX15PatchPanel", () => {
       definitionId: "ghost-loop-limits",
       definitionName: "Ghost/FMR loop-limit x15",
       cardDropCount: 15,
+      starchipMultiplier: 15,
+      availableDropCounts: [15],
       gameSerial: "SLUS_014.11",
       discFilename: "Compatible.iso",
     });
@@ -47,7 +49,7 @@ describe("DropX15PatchPanel", () => {
     render(<DropX15PatchPanel />);
 
     expect(await screen.findByText("15 rewards")).toBeDefined();
-    expect(button("15 rewards active").disabled).toBe(true);
+    expect(button("Apply").disabled).toBe(true);
   });
 
   test("keeps the patch button disabled for unsupported discs", async () => {
@@ -64,19 +66,21 @@ describe("DropX15PatchPanel", () => {
 
     expect(await screen.findByText("Unsupported")).toBeDefined();
     expect(screen.getByText(/No compatible 15-card drop patch layout/)).toBeDefined();
-    expect(button("Enable 15 rewards").disabled).toBe(true);
+    expect(button("Apply").disabled).toBe(true);
   });
 
-  test("enables 15-card drops and refreshes ISO backups", async () => {
+  test("changes the selected drop count and refreshes ISO backups", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     fetchDropX15StatusMock.mockResolvedValue({
       supported: true,
       enabled: false,
       definitionId: "ghost-drop-more-cards",
-      definitionName: "Ghost Drop More Cards x15",
-      cardDropCount: 15,
-      gameSerial: "SLUS_014.11",
-      discFilename: "Compatible.iso",
+      definitionName: "Ghost Drop More Cards x1",
+      cardDropCount: 1,
+      starchipMultiplier: 1,
+      availableDropCounts: [1, 5, 15],
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL.bin",
     });
     putDropX15PatchMock.mockResolvedValue({
       ok: true,
@@ -90,43 +94,95 @@ describe("DropX15PatchPanel", () => {
       status: {
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
-        definitionName: "Ghost/FMR loop-limit x15",
+        definitionId: "ghost-drop-more-cards",
+        definitionName: "Ghost Drop More Cards x15",
         cardDropCount: 15,
-        gameSerial: "SLUS_014.11",
+        starchipMultiplier: 15,
+        availableDropCounts: [1, 5, 15],
+        gameSerial: "SLES_039.48",
       },
     });
 
     render(<DropX15PatchPanel />);
 
-    expect(
-      await screen.findByText("Compatible.iso is ready for 15-card and starchip rewards."),
-    ).toBeDefined();
-    fireEvent.click(await screen.findByRole("button", { name: "Enable 15 rewards" }));
+    expect(await screen.findByText("PAL.bin: 1 card per duel.")).toBeDefined();
+    expect(button("Apply").disabled).toBe(true);
 
-    await waitFor(() => expect(putDropX15PatchMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(button("x15"));
+    expect(button("Apply").disabled).toBe(false);
+    fireEvent.click(button("Apply"));
+
+    await waitFor(() => expect(putDropX15PatchMock).toHaveBeenCalledWith(15));
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
-    await screen.findByRole("button", { name: "15 rewards active" });
-    expect(button("15 rewards active").disabled).toBe(true);
+    await screen.findByText("15 rewards");
+    expect(button("Apply").disabled).toBe(true);
   });
 
-  test("shows the PAL 30-card reward target", async () => {
+  test("shows PAL x30 as active but not selectable", async () => {
     fetchDropX15StatusMock.mockResolvedValue({
       supported: true,
-      enabled: false,
+      enabled: true,
       definitionId: "ghost-drop-more-cards",
       definitionName: "Ghost Drop More Cards x30",
       cardDropCount: 30,
+      starchipMultiplier: 30,
+      availableDropCounts: [1, 5, 15, 50, 150],
       gameSerial: "SLES_039.48",
       discFilename: "PAL.bin",
     });
 
     render(<DropX15PatchPanel />);
 
+    expect(await screen.findByText("30 rewards")).toBeDefined();
     expect(
-      await screen.findByText("PAL.bin is ready for 30-card and starchip rewards."),
+      screen.getByText("PAL.bin: 30 cards per duel. Choose a supported target to change it."),
     ).toBeDefined();
-    expect(button("Enable 30 rewards").disabled).toBe(false);
+    expect(button("x50")).toBeDefined();
+    expect(button("Apply").disabled).toBe(true);
+  });
+
+  test("allows reapplying the selected count when starchips do not match cards", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fetchDropX15StatusMock.mockResolvedValue({
+      supported: true,
+      enabled: false,
+      definitionId: "ghost-drop-more-cards",
+      definitionName: "Ghost Drop More Cards x150",
+      cardDropCount: 150,
+      starchipMultiplier: 15,
+      availableDropCounts: [1, 5, 15, 50, 150],
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL.bin",
+    });
+    putDropX15PatchMock.mockResolvedValue({
+      ok: true,
+      backup: null,
+      changed: true,
+      closedGame: false,
+      status: {
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-drop-more-cards",
+        definitionName: "Ghost Drop More Cards x150",
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+        availableDropCounts: [1, 5, 15, 50, 150],
+        gameSerial: "SLES_039.48",
+      },
+    });
+
+    render(<DropX15PatchPanel />);
+
+    expect(
+      await screen.findByText(
+        "PAL.bin: 150 cards per duel. Starchips are x15; apply x150 to match them.",
+      ),
+    ).toBeDefined();
+    expect(button("Apply").disabled).toBe(false);
+
+    fireEvent.click(button("Apply"));
+
+    await waitFor(() => expect(putDropX15PatchMock).toHaveBeenCalledWith(150));
   });
 });
 

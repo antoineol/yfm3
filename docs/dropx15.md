@@ -1,10 +1,10 @@
 # Reward Multi-card Patch
 
 Status: production bridge support is based on the community Ghost/FMR
-`Drop More Cards` behavior, with a verified starchip x15 extension at the
-vanilla reward-save arithmetic. NTSC-U/Gold support remains x15. PAL French
-`SLES_039.48` now uses the verified x30 card-drop extension. The bridge does
-not install local reward trampolines.
+`Drop More Cards` behavior, with a verified starchip reward-save extension.
+NTSC-U/Gold support remains x15. PAL French `SLES_039.48` exposes selectable
+card and starchip reward multipliers. The bridge does not install local reward
+drop-picker trampolines.
 
 ## Required Behavior
 
@@ -15,7 +15,8 @@ reward instances:
 - same rank/result pool;
 - same vanilla reward-pick timing;
 - independent reward rolls, not copies of one card.
-- 15x the normal rank starchip award, capped by the vanilla `999999` limit.
+- the same multiplier applied to the normal rank starchip award, capped by the
+  vanilla `999999` limit.
 
 The starchip patch preserves the result-screen count field and only changes the
 final save update from:
@@ -28,6 +29,22 @@ to:
 
 ```c
 save->starchips += result->rankStarchips * 15;
+```
+
+For PAL French x50/x150, the original inline save-update site does not have
+enough spare instructions for the multiply. The bridge replaces the three-word
+`nop; addu; sw` tail with a jump to a helper at `SLES:0x19b700` /
+`0x801aaf00`. The helper computes the selected multiplier with shifts/adds,
+reloads `save->starchips`, waits through the PS1/MIPS load-delay slot, writes
+the new total, then returns to the cap check at the same continuation used by
+the verified inline x15 patch. The helper is written both to the root executable
+and to every PAL WA copy at
+`0xe25400 + i * 0x78000 + 0x300`; a root-only helper can be wiped when the
+reward flow reloads the Ghost area from `WA_MRG.MRG`. This keeps the C-level
+behavior equivalent to:
+
+```c
+save->starchips += result->rankStarchips * selectedRewardMultiplier;
 ```
 
 ## Supported Patch Families
@@ -61,7 +78,7 @@ Gold `SLUS_000.04` passes those checks; its local continuation instruction at
 `SLUS:0x1247c` is preserved because the bridge writes only the hook bytes.
 
 For PAL French `SLES_039.48`, the bridge applies the verified PAL port of the
-same Ghost recipe, then extends card rewards to x30:
+same Ghost recipe, then lets the user choose card rewards:
 
 - patch root executable hooks at `SLES:0x120f0`, `0x12528`, and `0x127cc`;
 - patch the picker delay slot at `SLES:0x12100` to `nop`, because the Ghost
@@ -74,12 +91,25 @@ same Ghost recipe, then extends card rewards to x30:
 - inject the same PAL-adjusted blob in `DATA/WA_MRG.MRG` at
   `0xe25400 + i * 0x78000`, for `i = 0..6`;
 - move the Ghost scratch area from `0x801aac00` to `0x801ab500`;
-- set the PAL WA loop limits to `31`, `31`, `30`, plus the preceding external
-  WA limit at `0xe24fe4`.
-- patch the PAL root executable starchip save update. This was runtime-verified
-  on `SLES_039.48`: an S-rank reward changed from `+5` to `+75` starchips while
-  awarding 15 cards. The x30 card extension intentionally keeps this existing
-  starchip x15 behavior.
+- set the PAL WA loop limits from the selected count: `count + 1`,
+  `count + 1`, `count`, plus the preceding external WA limit at `0xe24fe4`.
+- patch the PAL root executable starchip save update to the same selected
+  multiplier and mirror the x50/x150 helper into every PAL WA copy. The x15 form
+  was runtime-verified on `SLES_039.48`: an S-rank reward changed from `+5` to
+  `+75` starchips while awarding 15 cards.
+
+Selectable PAL French card counts:
+
+- `x1`
+- `x5`
+- `x15`
+- `x50`
+- `x150`
+
+The previous verified `x30` card state is still recognized so existing patched
+discs can move cleanly to one of the selectable targets. If such a disc still
+has the older starchip x15 arithmetic, the bridge reports the mismatch and
+reapplying a selectable target updates starchips to match cards.
 
 Runtime testing on PAL French verified both the RAM-only edit and the persistent
 disc patch:
@@ -89,8 +119,16 @@ disc patch:
 - accepting the reward increased collection counts by exactly 30 cards.
 
 Both Ghost injection paths are structure-based. The bridge requires the exact
-verified hook bytes in the executable, clean WA_MRG target prefixes, and the
-recognized starchip reward arithmetic before writing.
+verified hook bytes in the executable, clean WA_MRG target prefixes, and either
+the recognized vanilla/x15 starchip arithmetic or the bridge's recognized PAL
+starchip helper before writing.
+
+Automated coverage now executes the patched PAL helper bytes with a minimal
+MIPS interpreter instead of only checking that the bytes were written. It models
+the PS1 load-delay slot so the stale x150 helper that wrote `1490` from `2727`
+and a `5`-starchip rank reward is recognized and refreshed. Current regression
+cases include `2727 + 5 * 150 = 3477` and `2727 + 22 * 150 = 6027`, and x50/x150
+helpers must return to the same continuation as the verified inline x15 patch.
 
 ## Rejected Patch Families
 
@@ -117,7 +155,11 @@ Supported:
   target layout, including verified NTSC-U/Gold layouts;
 - clean PAL French `SLES_039.48` images matching the verified PAL Ghost layout;
 - PAL French `SLES_039.48` images already carrying the previous verified x15
-  PAL Ghost layout; these are upgraded to the x30 scratch/loop layout.
+  PAL Ghost layout; these can be moved to one of the selectable scratch/loop
+  layouts;
+- PAL French `SLES_039.48` images already carrying the previous verified x30
+  PAL Ghost layout; these are recognized as active and can be moved to one of
+  the selectable targets.
 
 Unsupported:
 
@@ -138,7 +180,7 @@ engine limit. It was a Ghost scratch/code overlap:
   `16/16/15` to `31/31/30` produced 30 independent picks and 30 collection
   increments on PAL French.
 
-The current production patch implements that PAL French x30 layout in both the
-root executable and every verified `WA_MRG.MRG` copy. The collection/chest
-recent-drop "new" marker is still a separate 16-entry vanilla UI history and is
-not expanded by this patch.
+The current production patch generalizes that PAL French layout by changing only
+the scratch base and loop-limit immediates in both the root executable and every
+verified `WA_MRG.MRG` copy. The collection/chest recent-drop "new" marker is
+still a separate 16-entry vanilla UI history and is not expanded by this patch.

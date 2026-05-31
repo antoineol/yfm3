@@ -12,7 +12,7 @@
 
 import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { existsSync, watch } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const __dirname = import.meta.dir;
 const ROOT = join(__dirname, "..");
@@ -23,10 +23,22 @@ const DEBOUNCE_MS = 300;
 // Match the version of bun running this watcher (WSL2 side).
 
 const BUN_VERSION = process.versions.bun ?? "1.3.4";
-const BUN_EXE_PATH = join(ROOT, ".cache", `bun-${BUN_VERSION}-win-x64`, "bun.exe");
+const BUN_EXE_PATH =
+  localWindowsBunExePath() ?? join(ROOT, ".cache", `bun-${BUN_VERSION}-win-x64`, "bun.exe");
+const WSL_BUN_EXE_PATH = join(ROOT, ".cache", `bun-${BUN_VERSION}-win-x64`, "bun.exe");
 
 function ensureBunExe(): void {
   if (existsSync(BUN_EXE_PATH)) return;
+  ensureWslBunExe();
+  if (BUN_EXE_PATH !== WSL_BUN_EXE_PATH) {
+    execSync(`mkdir -p "${dirname(BUN_EXE_PATH)}"`, { stdio: "pipe" });
+    execSync(`cp "${WSL_BUN_EXE_PATH}" "${BUN_EXE_PATH}"`, { stdio: "pipe" });
+    console.log(`[watch] copied bun.exe to local Windows cache: ${BUN_EXE_PATH}`);
+  }
+}
+
+function ensureWslBunExe(): void {
+  if (existsSync(WSL_BUN_EXE_PATH)) return;
 
   const cacheDir = join(ROOT, ".cache");
   const zipPath = join(cacheDir, `bun-${BUN_VERSION}-win-x64.zip`);
@@ -46,7 +58,29 @@ function ensureBunExe(): void {
   });
   // Cleanup
   execSync(`rm -rf "${zipPath}" "${join(cacheDir, "bun-windows-x64")}"`, { stdio: "pipe" });
-  console.log(`[watch] cached bun.exe at ${BUN_EXE_PATH}`);
+  console.log(`[watch] cached bun.exe at ${WSL_BUN_EXE_PATH}`);
+}
+
+function localWindowsBunExePath(): string | null {
+  try {
+    const localAppData = execSync("cmd.exe /C echo %LOCALAPPDATA%", {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+      timeout: 3000,
+    }).trim();
+    if (!localAppData || localAppData.includes("%LOCALAPPDATA%")) return null;
+    const wslPath = execSync(
+      `wslpath -u "${localAppData}\\YFM3\\bridge-bun\\bun-${BUN_VERSION}\\bun.exe"`,
+      {
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
+        timeout: 3000,
+      },
+    ).trim();
+    return wslPath || null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Ghost cleanup ─────────────────────────────────────────────────

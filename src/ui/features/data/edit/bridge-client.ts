@@ -29,6 +29,8 @@ export type DropX15Status =
       definitionId: string;
       definitionName: string;
       cardDropCount: number;
+      starchipMultiplier: number;
+      availableDropCounts: number[];
       gameSerial: string;
       discFilename: string;
       reason?: string;
@@ -107,8 +109,12 @@ export async function fetchDropX15Status(): Promise<DropX15Status> {
   return parseJson(await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/drop-x15`));
 }
 
-export async function putDropX15Patch(): Promise<PutDropX15Result> {
-  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/drop-x15`, { method: "PUT" });
+export async function putDropX15Patch(cardDropCount: number): Promise<PutDropX15Result> {
+  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/drop-x15`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cardDropCount }),
+  });
   if (res.status === 409) return (await res.json()) as PutDropX15Result;
   return parseJson<PutDropX15Result>(res);
 }

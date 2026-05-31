@@ -106,6 +106,12 @@ export function readIsoFile(bin: Buffer, file: IsoFile, fmt: DiscFormat = MODE2_
   return raw.subarray(0, file.size);
 }
 
+export function readIsoFileFromFd(fd: number, file: IsoFile, fmt: DiscFormat): Buffer {
+  const sectorCount = Math.ceil(file.size / SECTOR_DATA_SIZE);
+  const raw = readSectorsFromFd(fd, file.sector, sectorCount, fmt);
+  return raw.subarray(0, file.size);
+}
+
 /**
  * Read a range of sectors directly from an open file descriptor, returning
  * concatenated 2048-byte data portions. Used by path-based disc readers that

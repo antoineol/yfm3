@@ -1,5 +1,8 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { extractRankScoring } from "./extract-rank-scoring.ts";
+import { extractRankScoring, extractRankScoringFromFile } from "./extract-rank-scoring.ts";
 
 type Row = Array<[number, number]>;
 
@@ -125,6 +128,42 @@ describe("extractRankScoring", () => {
 
   it("returns null when no rank table is present", () => {
     expect(extractRankScoring(Buffer.alloc(512))).toBeNull();
+  });
+
+  it("streams rank tables that cross read chunk boundaries", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "yfm-rank-scoring-"));
+    try {
+      const buffer = Buffer.alloc(4 * 1024 * 1024 + 512);
+      writeTable(buffer, 4 * 1024 * 1024 - 10, VANILLA_ROWS);
+      const path = join(tmpDir, "game.bin");
+      writeFileSync(path, buffer);
+
+      const result = extractRankScoringFromFile(path);
+
+      expect(result?.tableCount).toBe(1);
+      const cardsLeft = result?.factors.find((factor) => factor.key === "remainingCards");
+      expect(cardsLeft?.thresholds).toEqual([4, 8, 28, 32]);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not discard tables first seen incomplete at a chunk boundary", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "yfm-rank-scoring-"));
+    try {
+      const buffer = Buffer.alloc(4 * 1024 * 1024 + 512);
+      writeTable(buffer, 4 * 1024 * 1024 - 50, VANILLA_ROWS);
+      const path = join(tmpDir, "game.bin");
+      writeFileSync(path, buffer);
+
+      const result = extractRankScoringFromFile(path);
+
+      expect(result?.tableCount).toBe(1);
+      const cardsLeft = result?.factors.find((factor) => factor.key === "remainingCards");
+      expect(cardsLeft?.points).toEqual([-7, -5, 0, 12, 15]);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

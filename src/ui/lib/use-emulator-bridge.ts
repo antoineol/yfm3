@@ -11,6 +11,7 @@ import {
 const BRIDGE_URL = "ws://localhost:3333";
 const RECONNECT_MS = 500;
 const RECONNECT_GRACE_MS = 15_000;
+const GAME_DATA_REQUEST_MS = 3_000;
 
 export function bridgeStateAfterSocketClose(prev: BridgeState): BridgeState {
   if (prev.updating) return { ...INITIAL_BRIDGE_STATE, updating: true };
@@ -125,6 +126,28 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
       wsRef.current.send(JSON.stringify({ type: "scan" }));
     }
   }, []);
+
+  const requestGameData = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "request_game_data" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      !enabled ||
+      state.status !== "connected" ||
+      state.detail !== "ready" ||
+      state.gameData ||
+      state.gameDataError
+    ) {
+      return;
+    }
+
+    requestGameData();
+    const timer = setInterval(requestGameData, GAME_DATA_REQUEST_MS);
+    return () => clearInterval(timer);
+  }, [enabled, requestGameData, state.detail, state.gameData, state.gameDataError, state.status]);
 
   const restartEmulator = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

@@ -116,7 +116,7 @@ describe("BridgeSetupGuide", () => {
 
     expect(screen.getByText("Connected")).toBeDefined();
     expect(screen.getByText("Game loaded — reading game data")).toBeDefined();
-    expect(screen.getByText(/Auto-sync will not use CSV fallback data/)).toBeDefined();
+    expect(screen.getByText(/Waiting for bridge gameData from the active disc/)).toBeDefined();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 

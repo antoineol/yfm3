@@ -1,3 +1,4 @@
+import { closeSync, openSync, readSync } from "node:fs";
 import type { RankFactorKey, RankScoringData, RankScoringFactor } from "./types.ts";
 
 type RawRankRow = {
@@ -13,6 +14,8 @@ const TABLE_SIZE = ROW_COUNT * ROW_SIZE;
 const OPEN_LIMIT = 0x7fff;
 const STARTING_DECK_SIZE = 40;
 const OPEN_LIMIT_BYTES = Buffer.from([0xff, 0x7f]);
+const STREAM_CHUNK_SIZE = 4 * 1024 * 1024;
+const STREAM_OVERLAP_SIZE = TABLE_SIZE + OPEN_LIMIT_BYTES.length;
 
 const GAME_TO_APP_FACTORS: readonly {
   gameIndex: number;
@@ -37,6 +40,37 @@ export function extractRankScoring(image: Buffer | Uint8Array): RankScoringData 
     ? image
     : Buffer.from(image.buffer, image.byteOffset, image.byteLength);
   const tables = findRankTables(buffer);
+  return rankScoringFromTables(tables);
+}
+
+export function extractRankScoringFromFile(path: string): RankScoringData | null {
+  const tables: RawRankRow[][] = [];
+  const seen = new Set<number>();
+  const fd = openSync(path, "r");
+  try {
+    const chunk = Buffer.allocUnsafe(STREAM_CHUNK_SIZE);
+    let position = 0;
+    let tail = Buffer.alloc(0);
+
+    while (true) {
+      const bytesRead = readSync(fd, chunk, 0, chunk.length, position);
+      if (bytesRead === 0) break;
+
+      const current = chunk.subarray(0, bytesRead);
+      const buffer = tail.length === 0 ? current : Buffer.concat([tail, current]);
+      collectRankTables(buffer, position - tail.length, seen, tables);
+
+      position += bytesRead;
+      tail = buffer.subarray(Math.max(0, buffer.length - STREAM_OVERLAP_SIZE));
+    }
+  } finally {
+    closeSync(fd);
+  }
+
+  return rankScoringFromTables(tables);
+}
+
+function rankScoringFromTables(tables: RawRankRow[][]): RankScoringData | null {
   if (tables.length === 0) return null;
 
   const variants = countVariants(tables);
@@ -66,17 +100,29 @@ export function extractRankScoring(image: Buffer | Uint8Array): RankScoringData 
 function findRankTables(buffer: Buffer): RawRankRow[][] {
   const tables: RawRankRow[][] = [];
   const seen = new Set<number>();
+  collectRankTables(buffer, 0, seen, tables);
+  return tables;
+}
+
+function collectRankTables(
+  buffer: Buffer,
+  baseOffset: number,
+  seen: Set<number>,
+  tables: RawRankRow[][],
+): void {
   let offset = buffer.indexOf(OPEN_LIMIT_BYTES);
   while (offset !== -1) {
     const tableOffset = offset - (PAIRS_PER_ROW - 1) * PAIR_SIZE;
-    if (!seen.has(tableOffset)) {
-      seen.add(tableOffset);
+    const absoluteTableOffset = baseOffset + tableOffset;
+    if (!seen.has(absoluteTableOffset)) {
       const table = parseTable(buffer, tableOffset);
-      if (table) tables.push(table);
+      if (table) {
+        seen.add(absoluteTableOffset);
+        tables.push(table);
+      }
     }
     offset = buffer.indexOf(OPEN_LIMIT_BYTES, offset + 1);
   }
-  return tables;
 }
 
 function parseTable(buffer: Buffer, offset: number): RawRankRow[] | null {

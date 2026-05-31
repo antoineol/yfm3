@@ -22,28 +22,27 @@ const GHOST_NO_ANCHORS_REASON =
 
 const GHOST_TOOL_DEFINITION_ID = "ghost-drop-more-cards";
 const GHOST_TOOL_SLUS_EXPANSION_OFFSET = 0x19b400;
+const GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET = 0x19b700;
+const GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA =
+  GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET - GHOST_TOOL_SLUS_EXPANSION_OFFSET;
+const GHOST_TOOL_STARCHIP_TRAMPOLINE_MAX_LENGTH = 0x40;
+const GHOST_TOOL_STARCHIP_TRAMPOLINE_RAM = 0x801aaf00;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
-const GHOST_TOOL_LAST_LIMIT = GHOST_TOOL_DROP_COUNT;
-const GHOST_TOOL_X30_DROP_COUNT = 30;
-const GHOST_TOOL_X30_FIRST_LIMIT = GHOST_TOOL_X30_DROP_COUNT + 1;
-const GHOST_TOOL_X30_LAST_LIMIT = GHOST_TOOL_X30_DROP_COUNT;
+const PAL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150] as const;
+const PAL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150] as const;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
 const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
 const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
-const GHOST_TOOL_X30_EDITS = [
-  { offset: 0x44, before: "00acbd27", after: "00b5bd27" },
-  { offset: 0x78, before: "10001724", after: "1f001724" },
-  { offset: 0x150, before: "00ac8424", after: "00b58424" },
-  { offset: 0x174, before: "10001724", after: "1f001724" },
-  { offset: 0x1d0, before: "00ac4224", after: "00b54224" },
-  { offset: 0x1ec, before: "0f001724", after: "1e001724" },
-] as const;
 const STARCHIP_X15_VANILLA = Buffer.from("3a004390e005828c0000000021104300e00582ac", "hex");
 const STARCHIP_X15_PATCHED = Buffer.from("3a004390e005828c002903002318a30021104300e00582ac", "hex");
 const STARCHIP_X15_REPLACEMENT = Buffer.from("002903002318a30021104300e00582ac", "hex");
 const STARCHIP_X15_REPLACEMENT_OFFSET = 8;
+const STARCHIP_VANILLA_PATCH_SITE = Buffer.from("0000000021104300e00582ac", "hex");
+const STARCHIP_PATCH_SITE_OFFSET = 8;
+const STARCHIP_HOOK_WORD_COUNT = 3;
+const PSX_EXE_FILE_OFFSET_TO_RAM_DELTA = 0x8000f800;
 
 const LEGACY_LOCAL_VISIBLE_PICK = 0x0c008604;
 const LEGACY_FREEZE_SELECTOR_VISIBLE_PICK = 0x0c0087da;
@@ -90,7 +89,6 @@ const GHOST_TOOL_EXPANSION = Buffer.from(
   "hex",
 );
 const GHOST_TOOL_PAL_EXPANSION = makePalGhostToolExpansion();
-const GHOST_TOOL_PAL_X30_EXPANSION = makeGhostToolX30Expansion(GHOST_TOOL_PAL_EXPANSION);
 
 function makePalGhostToolExpansion(): Buffer {
   const expansion = Buffer.from(GHOST_TOOL_EXPANSION);
@@ -114,21 +112,6 @@ function makePalGhostToolExpansion(): Buffer {
   return expansion;
 }
 
-function makeGhostToolX30Expansion(x15Expansion: Buffer): Buffer {
-  const expansion = Buffer.from(x15Expansion);
-  for (const edit of GHOST_TOOL_X30_EDITS) {
-    const before = Buffer.from(edit.before, "hex");
-    const after = Buffer.from(edit.after, "hex");
-    if (!expansion.subarray(edit.offset, edit.offset + before.length).equals(before)) {
-      throw new Error(
-        `Ghost x30 edit anchor mismatch at blob offset 0x${edit.offset.toString(16)}.`,
-      );
-    }
-    after.copy(expansion, edit.offset);
-  }
-  return expansion;
-}
-
 interface GhostToolHook {
   offset: number;
   vanilla: Buffer;
@@ -138,28 +121,30 @@ interface GhostToolHook {
 interface GhostToolLayout {
   hooks: readonly GhostToolHook[];
   expansion: Buffer;
-  definitionName: string;
-  targetDropCount: number;
-  targetExpansion?: Buffer;
+  selectableDropCounts: readonly number[];
+  recognizedDropCounts: readonly number[];
+  scratchBase: number;
   waCopyOffset: number;
   waCopyStride: number;
   waCopyStart: number;
   waCopyCount: number;
   waExtraLimits: readonly { offset: number; value: number }[];
-  targetWaExtraLimits?: readonly { offset: number; value: number }[];
+  starchipAwardOffset: number;
 }
 
 const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
   {
     hooks: GHOST_TOOL_SLUS_HOOKS,
     expansion: GHOST_TOOL_EXPANSION,
-    definitionName: "Ghost Drop More Cards x15",
-    targetDropCount: 15,
+    selectableDropCounts: [15],
+    recognizedDropCounts: [15],
+    scratchBase: 0xac00,
     waCopyOffset: 0xb4c400,
     waCopyStride: 0x75800,
     waCopyStart: 1,
     waCopyCount: 7,
     waExtraLimits: [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }],
+    starchipAwardOffset: 0x126d4,
   },
   {
     hooks: [
@@ -190,15 +175,15 @@ const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
       },
     ],
     expansion: GHOST_TOOL_PAL_EXPANSION,
-    definitionName: "Ghost Drop More Cards x30",
-    targetDropCount: 30,
-    targetExpansion: GHOST_TOOL_PAL_X30_EXPANSION,
+    selectableDropCounts: PAL_SELECTABLE_DROP_COUNTS,
+    recognizedDropCounts: PAL_RECOGNIZED_DROP_COUNTS,
+    scratchBase: 0xb500,
     waCopyOffset: 0xe25400,
     waCopyStride: 0x78000,
     waCopyStart: 0,
     waCopyCount: 7,
     waExtraLimits: [{ offset: 0xe24fe4, value: GHOST_TOOL_FIRST_LIMIT }],
-    targetWaExtraLimits: [{ offset: 0xe24fe4, value: GHOST_TOOL_X30_FIRST_LIMIT }],
+    starchipAwardOffset: 0x12790,
   },
 ];
 
@@ -227,6 +212,8 @@ export type DropX15PatchStatus =
       definitionId: string;
       definitionName: string;
       cardDropCount: number;
+      starchipMultiplier: number;
+      availableDropCounts: number[];
       gameSerial: string;
       reason?: string;
     }
@@ -240,6 +227,10 @@ export type DropX15PatchStatus =
 export interface PatchDropX15Result {
   changed: boolean;
   status: Extract<DropX15PatchStatus, { supported: true }>;
+}
+
+export function isSupportedDropCount(status: DropX15PatchStatus, dropCount: number): boolean {
+  return status.supported && status.availableDropCounts.includes(dropCount);
 }
 
 export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
@@ -263,7 +254,10 @@ export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   return ghostToolState;
 }
 
-export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
+export function patchDropX15DiscInPlace(
+  discPath: string,
+  targetDropCount?: number,
+): PatchDropX15Result {
   const image = readFileSync(discPath);
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
@@ -279,18 +273,38 @@ export function patchDropX15DiscInPlace(discPath: string): PatchDropX15Result {
   }
   if (!before.supported && isSpecificLegacyPatchState(before)) throw new Error(before.reason);
   if (!before.supported) throw new Error(before.reason);
-  if (before.enabled) return { changed: false, status: before };
+  const desiredDropCount = targetDropCount ?? before.cardDropCount;
+  if (
+    before.cardDropCount === desiredDropCount &&
+    before.starchipMultiplier === desiredDropCount &&
+    (before.enabled || desiredDropCount === 1)
+  ) {
+    return { changed: false, status: before };
+  }
+  if (!isSupportedDropCount(before, desiredDropCount)) {
+    throw new Error(
+      `${before.gameSerial} does not support ${desiredDropCount}-card rewards through this patch.`,
+    );
+  }
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
+    if (desiredDropCount !== 15) {
+      throw new Error("Ghost/FMR loop-limit images only support 15-card rewards.");
+    }
     writeGhostLoopPatch(image);
   } else {
-    writeGhostToolPatch(image, slusEntry, format);
+    writeGhostToolPatch(image, slusEntry, format, desiredDropCount);
   }
   writeFileSync(discPath, image);
 
   const after = inspectDropX15Image(readFileSync(discPath));
   if (!after.supported) throw new Error(after.reason);
-  if (!after.enabled) throw new Error("Drop reward patch did not persist after writing.");
+  if (after.cardDropCount !== desiredDropCount || after.starchipMultiplier !== desiredDropCount) {
+    throw new Error("Drop reward patch did not persist after writing.");
+  }
+  if (desiredDropCount !== 1 && !after.enabled) {
+    throw new Error("Drop reward patch did not persist after writing.");
+  }
   return { changed: true, status: after };
 }
 
@@ -299,6 +313,7 @@ function shouldPreferGhostToolState(
   ghostState: DropX15PatchStatus,
 ): ghostToolState is Extract<DropX15PatchStatus, { supported: true }> {
   if (!ghostToolState.supported) return false;
+  if (ghostToolState.availableDropCounts.length > 1) return true;
   return !ghostState.supported || ghostToolState.cardDropCount > ghostState.cardDropCount;
 }
 
@@ -316,23 +331,29 @@ function inspectGhostToolPatchState(
   format: DiscFormat,
 ): DropX15PatchStatus {
   const waEntry = findWaMrgEntry(image, format);
-  const starchipState = inspectStarchipX15PatchState(image);
 
   for (const layout of GHOST_TOOL_LAYOUTS) {
+    const starchipState = inspectGhostToolStarchipPatchState(
+      image,
+      slusEntry,
+      waEntry,
+      format,
+      layout,
+    );
     const hooksVanilla = ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla");
     const hooksPatched = ghostToolHooksMatch(image, slusEntry, format, layout, "patched");
-    const slusExpansionPatched = ghostToolExpansionPatched(image, slusEntry.sector, format, layout);
-    const waExpansionPatched = waEntry
-      ? ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")
-      : false;
+    const patchedDropCount =
+      hooksPatched && waEntry
+        ? ghostToolPatchedDropCount(image, slusEntry, waEntry, format, layout)
+        : null;
     const cardLayoutUpgradeable =
       hooksPatched &&
       ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
       !!waEntry &&
-      ghostToolWaCopiesPatched(image, waEntry, format, layout, "base");
+      ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base");
     const cardLayoutClean =
       hooksVanilla && waEntry && ghostToolWaTargetsClean(image, waEntry, format, layout);
-    const cardLayoutPatched = hooksPatched && slusExpansionPatched && waExpansionPatched;
+    const cardLayoutPatched = patchedDropCount != null;
 
     if (
       (cardLayoutClean || cardLayoutPatched || cardLayoutUpgradeable) &&
@@ -342,17 +363,21 @@ function inspectGhostToolPatchState(
         supported: false,
         enabled: false,
         gameSerial: slusEntry.name,
-        reason: "No compatible starchip reward x15 anchor was found.",
+        reason: "No compatible starchip reward-save anchor was found.",
       };
     }
 
-    if (cardLayoutPatched && starchipState.enabled) {
+    if (cardLayoutPatched) {
+      const cardDropCount = patchedDropCount ?? 1;
       return {
         supported: true,
-        enabled: true,
+        enabled:
+          cardDropCount > 1 && starchipState.multiplier === cardDropCount && starchipState.current,
         definitionId: GHOST_TOOL_DEFINITION_ID,
-        definitionName: layout.definitionName,
-        cardDropCount: layout.targetDropCount,
+        definitionName: ghostToolDefinitionName(cardDropCount),
+        cardDropCount,
+        starchipMultiplier: starchipState.multiplier,
+        availableDropCounts: [...layout.selectableDropCounts],
         gameSerial: slusEntry.name,
       };
     }
@@ -365,8 +390,10 @@ function inspectGhostToolPatchState(
         supported: true,
         enabled: false,
         definitionId: GHOST_TOOL_DEFINITION_ID,
-        definitionName: layout.definitionName,
-        cardDropCount: layout.targetDropCount,
+        definitionName: ghostToolDefinitionName(cardLayoutUpgradeable ? 15 : 1),
+        cardDropCount: cardLayoutUpgradeable ? 15 : 1,
+        starchipMultiplier: starchipState.multiplier,
+        availableDropCounts: [...layout.selectableDropCounts],
         gameSerial: slusEntry.name,
       };
     }
@@ -401,7 +428,12 @@ function inspectGhostToolPatchState(
   };
 }
 
-function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscFormat): void {
+function writeGhostToolPatch(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+  targetDropCount: number,
+): void {
   const waEntry = findWaMrgEntry(image, format);
   if (!waEntry) throw new Error("DATA/WA_MRG.MRG was not found.");
   const layout = findGhostToolPatchLayout(image, slusEntry, waEntry, format);
@@ -414,46 +446,41 @@ function writeGhostToolPatch(image: Buffer, slusEntry: IsoFile, format: DiscForm
   }
 
   if (
-    !ghostToolExpansionPatched(image, slusEntry.sector, format, layout) ||
-    !ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")
+    !ghostToolExpansionPatched(image, slusEntry.sector, format, layout, targetDropCount) ||
+    !ghostToolWaCopiesPatched(image, waEntry, format, layout, targetDropCount)
   ) {
-    writeBytesAt(
-      image,
-      slusEntry.sector,
-      GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-      ghostToolTargetExpansion(layout),
-      format,
-    );
+    const expansion = ghostToolExpansionForDropCount(layout, targetDropCount);
+    writeBytesAt(image, slusEntry.sector, GHOST_TOOL_SLUS_EXPANSION_OFFSET, expansion, format);
 
     for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
-      writeBytesAt(image, waEntry.sector, copyOffset, ghostToolTargetExpansion(layout), format);
+      writeBytesAt(image, waEntry.sector, copyOffset, expansion, format);
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[0],
-        ghostToolFirstLimit(layout),
+        firstLoopLimit(targetDropCount),
       );
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[1],
-        ghostToolFirstLimit(layout),
+        firstLoopLimit(targetDropCount),
       );
       writeGhostToolWaLimit(
         image,
         waEntry,
         format,
         copyOffset + GHOST_TOOL_WA_LIMIT_OFFSETS[2],
-        ghostToolLastLimit(layout),
+        targetDropCount,
       );
     }
-    for (const limit of ghostToolTargetWaExtraLimits(layout)) {
-      writeGhostToolWaLimit(image, waEntry, format, limit.offset, limit.value);
+    for (const limit of layout.waExtraLimits) {
+      writeGhostToolWaLimit(image, waEntry, format, limit.offset, firstLoopLimit(targetDropCount));
     }
   }
-  writeStarchipX15Patch(image);
+  writeGhostToolStarchipPatch(image, slusEntry, waEntry, format, layout, targetDropCount);
 }
 
 function ghostToolHooksMatch(
@@ -480,12 +507,36 @@ function findGhostToolPatchLayout(
         (ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla") &&
           ghostToolWaTargetsClean(image, waEntry, format, layout)) ||
         (ghostToolHooksMatch(image, slusEntry, format, layout, "patched") &&
-          ((ghostToolExpansionPatched(image, slusEntry.sector, format, layout) &&
-            ghostToolWaCopiesPatched(image, waEntry, format, layout, "target")) ||
+          (ghostToolPatchedDropCount(image, slusEntry, waEntry, format, layout) != null ||
             (ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
-              ghostToolWaCopiesPatched(image, waEntry, format, layout, "base")))),
+              ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base")))),
     ) ?? null
   );
+}
+
+function ghostToolPatchedDropCount(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+): number | null {
+  for (const dropCount of layout.recognizedDropCounts) {
+    if (
+      ghostToolExpansionPatched(image, slusEntry.sector, format, layout, dropCount) &&
+      ghostToolWaCopiesPatched(image, waEntry, format, layout, dropCount)
+    ) {
+      return dropCount;
+    }
+  }
+  if (
+    layout.recognizedDropCounts.includes(15) &&
+    ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
+    ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base")
+  ) {
+    return 15;
+  }
+  return null;
 }
 
 function ghostToolExpansionPatched(
@@ -493,13 +544,15 @@ function ghostToolExpansionPatched(
   slusSector: number,
   format: DiscFormat,
   layout: GhostToolLayout,
-  variant: "target" | "base" = "target",
+  dropCountOrVariant: number | "base",
 ): boolean {
   return bytesMatchAt(
     image,
     slusSector,
     GHOST_TOOL_SLUS_EXPANSION_OFFSET,
-    variant === "target" ? ghostToolTargetExpansion(layout) : layout.expansion,
+    dropCountOrVariant === "base"
+      ? layout.expansion
+      : ghostToolExpansionForDropCount(layout, dropCountOrVariant),
     format,
   );
 }
@@ -509,35 +562,43 @@ function ghostToolWaCopiesPatched(
   waEntry: IsoFile,
   format: DiscFormat,
   layout: GhostToolLayout,
-  variant: "target" | "base",
+  dropCount: number,
+  variant: "target" | "base" = "target",
 ): boolean {
   if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
-  const expansion = variant === "target" ? ghostToolTargetExpansion(layout) : layout.expansion;
+  const expansion =
+    variant === "target" ? ghostToolExpansionForDropCount(layout, dropCount) : layout.expansion;
   for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
     if (!bytesMatchAt(image, waEntry.sector, copyOffset, expansion, format)) return false;
   }
-  const limits = variant === "target" ? ghostToolTargetWaExtraLimits(layout) : layout.waExtraLimits;
-  return limits.every(
-    (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === limit.value,
+  const extraLimit = variant === "target" ? firstLoopLimit(dropCount) : GHOST_TOOL_FIRST_LIMIT;
+  return layout.waExtraLimits.every(
+    (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === extraLimit,
   );
 }
 
-function ghostToolTargetExpansion(layout: GhostToolLayout): Buffer {
-  return layout.targetExpansion ?? layout.expansion;
+function ghostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: number): Buffer {
+  const expansion = Buffer.from(layout.expansion);
+  writeAddiuImmediate(expansion, 0x44, layout.scratchBase);
+  writeAddiuImmediate(expansion, 0x78, firstLoopLimit(dropCount));
+  writeAddiuImmediate(expansion, 0x150, layout.scratchBase);
+  writeAddiuImmediate(expansion, 0x174, firstLoopLimit(dropCount));
+  writeAddiuImmediate(expansion, 0x1d0, layout.scratchBase);
+  writeAddiuImmediate(expansion, 0x1ec, dropCount);
+  return expansion;
 }
 
-function ghostToolTargetWaExtraLimits(
-  layout: GhostToolLayout,
-): readonly { offset: number; value: number }[] {
-  return layout.targetWaExtraLimits ?? layout.waExtraLimits;
+function writeAddiuImmediate(buffer: Buffer, offset: number, immediate: number): void {
+  const instruction = buffer.readUInt32LE(offset);
+  buffer.writeUInt32LE(((instruction & 0xffff0000) | (immediate & 0xffff)) >>> 0, offset);
 }
 
-function ghostToolFirstLimit(layout: GhostToolLayout): number {
-  return layout.targetDropCount === 30 ? GHOST_TOOL_X30_FIRST_LIMIT : GHOST_TOOL_FIRST_LIMIT;
+function firstLoopLimit(dropCount: number): number {
+  return dropCount + 1;
 }
 
-function ghostToolLastLimit(layout: GhostToolLayout): number {
-  return layout.targetDropCount === 30 ? GHOST_TOOL_X30_LAST_LIMIT : GHOST_TOOL_LAST_LIMIT;
+function ghostToolDefinitionName(dropCount: number): string {
+  return `Ghost Drop More Cards x${dropCount}`;
 }
 
 function ghostToolWaTargetsClean(
@@ -559,7 +620,14 @@ function ghostToolWaCopiesInRange(waEntry: IsoFile, layout: GhostToolLayout): bo
   const offsets = ghostToolWaCopyOffsets(layout);
   const lastCopyOffset = offsets[offsets.length - 1] ?? 0;
   const lastExtraOffset = Math.max(...layout.waExtraLimits.map((limit) => limit.offset));
-  return lastCopyOffset + layout.expansion.length <= waEntry.size && lastExtraOffset < waEntry.size;
+  const lastHelperOffset =
+    lastCopyOffset +
+    GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA +
+    GHOST_TOOL_STARCHIP_TRAMPOLINE_MAX_LENGTH;
+  return (
+    Math.max(lastCopyOffset + layout.expansion.length, lastHelperOffset) <= waEntry.size &&
+    lastExtraOffset < waEntry.size
+  );
 }
 
 function ghostToolWaCopyOffsets(layout: GhostToolLayout): number[] {
@@ -674,6 +742,8 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     definitionId: GHOST_LOOP_DEFINITION_ID,
     definitionName: GHOST_LOOP_DEFINITION_NAME,
     cardDropCount: 15,
+    starchipMultiplier: starchipState.multiplier,
+    availableDropCounts: [15],
     gameSerial,
   };
 }
@@ -687,12 +757,17 @@ function writeGhostLoopPatch(image: Buffer): void {
   writeStarchipX15Patch(image);
 }
 
-function inspectStarchipX15PatchState(image: Buffer): { supported: boolean; enabled: boolean } {
+function inspectStarchipX15PatchState(image: Buffer): {
+  supported: boolean;
+  enabled: boolean;
+  multiplier: number;
+} {
   const vanillaOffsets = findPatternOffsets(image, STARCHIP_X15_VANILLA);
   const patchedOffsets = findPatternOffsets(image, STARCHIP_X15_PATCHED);
   return {
     supported: vanillaOffsets.length > 0 || patchedOffsets.length > 0,
     enabled: vanillaOffsets.length === 0 && patchedOffsets.length > 0,
+    multiplier: vanillaOffsets.length === 0 && patchedOffsets.length > 0 ? 15 : 1,
   };
 }
 
@@ -700,6 +775,243 @@ function writeStarchipX15Patch(image: Buffer): void {
   for (const offset of findPatternOffsets(image, STARCHIP_X15_VANILLA)) {
     STARCHIP_X15_REPLACEMENT.copy(image, offset + STARCHIP_X15_REPLACEMENT_OFFSET);
   }
+}
+
+function inspectGhostToolStarchipPatchState(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile | null,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+): { supported: boolean; multiplier: number; current: boolean } {
+  if (
+    bytesMatchAt(image, slusEntry.sector, layout.starchipAwardOffset, STARCHIP_X15_VANILLA, format)
+  ) {
+    return { supported: true, multiplier: 1, current: true };
+  }
+  if (
+    bytesMatchAt(image, slusEntry.sector, layout.starchipAwardOffset, STARCHIP_X15_PATCHED, format)
+  ) {
+    return { supported: true, multiplier: 15, current: true };
+  }
+
+  const hookOffset = layout.starchipAwardOffset + STARCHIP_PATCH_SITE_OFFSET;
+  const hookMatches =
+    readU32LeAt(image, slusEntry.sector, hookOffset, format) ===
+      j(GHOST_TOOL_STARCHIP_TRAMPOLINE_RAM) &&
+    readU32LeAt(image, slusEntry.sector, hookOffset + 4, format) === 0 &&
+    readU32LeAt(image, slusEntry.sector, hookOffset + 8, format) === 0;
+  if (!hookMatches) return { supported: false, multiplier: 1, current: false };
+
+  const returnAddress =
+    PSX_EXE_FILE_OFFSET_TO_RAM_DELTA + layout.starchipAwardOffset + STARCHIP_X15_PATCHED.length;
+  const legacyReturnAddress =
+    PSX_EXE_FILE_OFFSET_TO_RAM_DELTA + layout.starchipAwardOffset + STARCHIP_X15_VANILLA.length;
+  for (const multiplier of layout.recognizedDropCounts) {
+    const currentHelper = starchipTrampolineForMultiplier(multiplier, returnAddress);
+    if (
+      bytesMatchAt(
+        image,
+        slusEntry.sector,
+        GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET,
+        currentHelper,
+        format,
+      )
+    ) {
+      return {
+        supported: true,
+        multiplier,
+        current:
+          !waEntry ||
+          ghostToolWaStarchipHelpersPatched(image, waEntry, format, layout, currentHelper),
+      };
+    }
+    if (
+      bytesMatchAt(
+        image,
+        slusEntry.sector,
+        GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET,
+        legacyStarchipTrampolineForMultiplier(multiplier, legacyReturnAddress),
+        format,
+      )
+    ) {
+      return { supported: true, multiplier, current: false };
+    }
+    if (
+      bytesMatchAt(
+        image,
+        slusEntry.sector,
+        GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET,
+        staleLoadDelayStarchipTrampolineForMultiplier(multiplier, returnAddress),
+        format,
+      )
+    ) {
+      return { supported: true, multiplier, current: false };
+    }
+  }
+  return { supported: false, multiplier: 1, current: false };
+}
+
+function writeGhostToolStarchipPatch(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  multiplier: number,
+): void {
+  if (layout.selectableDropCounts.length === 1) {
+    writeStarchipX15Patch(image);
+    return;
+  }
+
+  const patchSiteOffset = layout.starchipAwardOffset + STARCHIP_PATCH_SITE_OFFSET;
+  if (multiplier === 1) {
+    writeBytesAt(image, slusEntry.sector, patchSiteOffset, STARCHIP_VANILLA_PATCH_SITE, format);
+    return;
+  }
+
+  for (let i = 0; i < STARCHIP_HOOK_WORD_COUNT; i++) {
+    writeU32LeAt(
+      image,
+      slusEntry.sector,
+      patchSiteOffset + i * 4,
+      i === 0 ? j(GHOST_TOOL_STARCHIP_TRAMPOLINE_RAM) : 0,
+      format,
+    );
+  }
+  const returnAddress =
+    PSX_EXE_FILE_OFFSET_TO_RAM_DELTA + layout.starchipAwardOffset + STARCHIP_X15_PATCHED.length;
+  const helper = starchipTrampolineForMultiplier(multiplier, returnAddress);
+  writeBytesAt(image, slusEntry.sector, GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET, helper, format);
+  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+    writeBytesAt(
+      image,
+      waEntry.sector,
+      copyOffset + GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA,
+      helper,
+      format,
+    );
+  }
+}
+
+function ghostToolWaStarchipHelpersPatched(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  helper: Buffer,
+): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
+  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+    if (
+      !bytesMatchAt(
+        image,
+        waEntry.sector,
+        copyOffset + GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA,
+        helper,
+        format,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function starchipTrampolineForMultiplier(multiplier: number, returnAddress: number): Buffer {
+  const words = [
+    ...starchipMultiplierWords(multiplier),
+    0x8c8205e0,
+    0,
+    addu(2, 2, 3),
+    0xac8205e0,
+    j(returnAddress),
+    0,
+  ];
+  const buffer = Buffer.alloc(words.length * 4);
+  for (let i = 0; i < words.length; i++) {
+    buffer.writeUInt32LE(words[i] ?? 0, i * 4);
+  }
+  return buffer;
+}
+
+function staleLoadDelayStarchipTrampolineForMultiplier(
+  multiplier: number,
+  returnAddress: number,
+): Buffer {
+  const words = [
+    ...starchipMultiplierWords(multiplier),
+    0x8c8205e0,
+    addu(2, 2, 3),
+    0xac8205e0,
+    j(returnAddress),
+    0,
+  ];
+  const buffer = Buffer.alloc(words.length * 4);
+  for (let i = 0; i < words.length; i++) {
+    buffer.writeUInt32LE(words[i] ?? 0, i * 4);
+  }
+  return buffer;
+}
+
+function starchipMultiplierWords(multiplier: number): number[] {
+  if (multiplier === 1) return [];
+  if (multiplier === 5) return [sll(5, 3, 2), addu(3, 5, 3)];
+  if (multiplier === 15) return [sll(5, 3, 4), subu(3, 5, 3)];
+  if (multiplier === 30) return [sll(2, 3, 5), sll(5, 3, 1), subu(3, 2, 5)];
+  if (multiplier === 50) {
+    return [sll(2, 3, 5), sll(5, 3, 4), addu(2, 2, 5), sll(5, 3, 1), addu(3, 2, 5)];
+  }
+  if (multiplier === 150) {
+    return [
+      sll(2, 3, 7),
+      sll(5, 3, 4),
+      addu(2, 2, 5),
+      sll(5, 3, 2),
+      addu(2, 2, 5),
+      sll(5, 3, 1),
+      addu(3, 2, 5),
+    ];
+  }
+  throw new Error(`Unsupported starchip multiplier x${multiplier}.`);
+}
+
+function legacyStarchipTrampolineForMultiplier(multiplier: number, returnAddress: number): Buffer {
+  const words = [
+    ...legacyStarchipMultiplierWords(multiplier),
+    addu(2, 2, 3),
+    0xac8205e0,
+    j(returnAddress),
+    0,
+  ];
+  const buffer = Buffer.alloc(words.length * 4);
+  for (let i = 0; i < words.length; i++) {
+    buffer.writeUInt32LE(words[i] ?? 0, i * 4);
+  }
+  return buffer;
+}
+
+function legacyStarchipMultiplierWords(multiplier: number): number[] {
+  if (multiplier === 1) return [];
+  if (multiplier === 5) return [sll(5, 3, 2), addu(3, 5, 3)];
+  if (multiplier === 15) return [sll(5, 3, 4), subu(3, 5, 3)];
+  if (multiplier === 30) return [sll(5, 3, 5), sll(8, 3, 1), subu(3, 5, 8)];
+  if (multiplier === 50) {
+    return [sll(8, 3, 5), sll(5, 3, 4), addu(8, 8, 5), sll(5, 3, 1), addu(3, 8, 5)];
+  }
+  if (multiplier === 150) {
+    return [
+      sll(8, 3, 7),
+      sll(5, 3, 4),
+      addu(8, 8, 5),
+      sll(5, 3, 2),
+      addu(8, 8, 5),
+      sll(5, 3, 1),
+      addu(3, 8, 5),
+    ];
+  }
+  throw new Error(`Unsupported legacy starchip multiplier x${multiplier}.`);
 }
 
 function findPatternOffsets(image: Buffer, pattern: Buffer): number[] {
@@ -818,12 +1130,34 @@ function readU32LeAt(
   );
 }
 
+function writeU32LeAt(
+  image: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  value: number,
+  format: DiscFormat,
+): void {
+  image.writeUInt32LE(value >>> 0, discOffset(fileStartSector, fileOffset, format));
+}
+
 function j(address: number): number {
   return (0x08000000 | ((address >>> 2) & 0x03ffffff)) >>> 0;
 }
 
 function jal(address: number): number {
   return (0x0c000000 | ((address >>> 2) & 0x03ffffff)) >>> 0;
+}
+
+function sll(rd: number, rt: number, shift: number): number {
+  return ((rt << 16) | (rd << 11) | (shift << 6)) >>> 0;
+}
+
+function addu(rd: number, rs: number, rt: number): number {
+  return ((rs << 21) | (rt << 16) | (rd << 11) | 0x21) >>> 0;
+}
+
+function subu(rd: number, rs: number, rt: number): number {
+  return ((rs << 21) | (rt << 16) | (rd << 11) | 0x23) >>> 0;
 }
 
 function writeU32LeToBuffer(buffer: Buffer, offset: number, value: number): void {

@@ -17,12 +17,15 @@
  * Uses bun:ffi to call Windows kernel32.dll for shared memory access.
  */
 
-import { dlopen, type Pointer, ptr, toArrayBuffer } from "bun:ffi";
+import type { Pointer } from "bun:ffi";
 import { execSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
 import { readLiveRankCounters } from "./rank-counters.ts";
 
 export { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
+
+const require = createRequire(import.meta.url);
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -415,7 +418,12 @@ const KERNEL32_DEFINITIONS = {
 } as const;
 
 function loadKernel32() {
+  const { dlopen } = loadBunFfi();
   return dlopen("kernel32.dll", KERNEL32_DEFINITIONS).symbols;
+}
+
+function loadBunFfi(): typeof import("bun:ffi") {
+  return require("bun:ffi");
 }
 
 let k32: ReturnType<typeof loadKernel32> | null = null;
@@ -475,15 +483,18 @@ function readDuelCursorFieldSlotIndex(view: DataView, profile: OffsetProfile): n
 // ── Exported functions ─────────────────────────────────────────────
 export async function findDuckStationPids(): Promise<number[]> {
   try {
-    const output = execSync('tasklist /FI "IMAGENAME eq duckstation*" /FO CSV /NH', {
+    const output = execSync("tasklist /FO CSV /NH", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],
       cwd: "C:\\",
     });
     const pids: number[] = [];
     for (const line of output.split("\n")) {
-      const match = line.match(/"[^"]*","(\d+)"/);
-      if (match) pids.push(Number(match[1]));
+      const match = line.match(/^"([^"]+)","(\d+)"/);
+      if (!match) continue;
+      const imageName = match[1]?.toLowerCase() ?? "";
+      if (!imageName.startsWith("duckstation")) continue;
+      pids.push(Number(match[2]));
     }
     return pids;
   } catch {
@@ -493,6 +504,7 @@ export async function findDuckStationPids(): Promise<number[]> {
 
 export function openSharedMemory(pid: number, { quiet = false } = {}): SharedMemoryMapping | null {
   const k32 = getKernel32();
+  const { ptr, toArrayBuffer } = loadBunFfi();
   const name = `duckstation_${pid}`;
   const nameBuf = encodeWideString(name);
   const handle = k32.OpenFileMappingW(FILE_MAP_READ, 0, ptr(nameBuf));
@@ -513,6 +525,7 @@ export function openSharedMemory(pid: number, { quiet = false } = {}): SharedMem
 
 /** Re-create the DataView from the existing mapped pointer (refreshes stale toArrayBuffer snapshots). */
 export function refreshView(m: SharedMemoryMapping): void {
+  const { toArrayBuffer } = loadBunFfi();
   m.view = new DataView(toArrayBuffer(m.viewPtr, 0, PS1_RAM_SIZE));
 }
 

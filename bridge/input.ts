@@ -14,10 +14,15 @@
  * Uses user32.dll via bun:ffi (Windows-only, same pattern as memory.ts).
  */
 
-import { dlopen, type Pointer } from "bun:ffi";
-import { execSync } from "node:child_process";
+import type { Pointer } from "bun:ffi";
+import { execFile, execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { promisify } from "node:util";
 import { findDuckStationDataDir } from "./settings.ts";
+
+const require = createRequire(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -64,8 +69,10 @@ const BLOCKED_VK = new Set([0x71]);
 
 const VK_MENU = 0x12; // Alt key
 const VK_S = 0x53;
-const VK_W = 0x57;
+const VK_DOWN = 0x28;
+const VK_RETURN = 0x0d;
 const KEYEVENTF_KEYUP = 0x0002;
+const GW_OWNER = 4;
 
 // ── user32.dll FFI ──────────────────────────────────────────────
 
@@ -86,10 +93,31 @@ const USER32_DEFINITIONS = {
     args: ["ptr", "i32"],
     returns: "i32",
   },
+  EnumWindows: {
+    args: ["ptr", "i64"],
+    returns: "i32",
+  },
+  GetWindowThreadProcessId: {
+    args: ["ptr", "ptr"],
+    returns: "u32",
+  },
+  IsWindowVisible: {
+    args: ["ptr"],
+    returns: "i32",
+  },
+  GetWindow: {
+    args: ["ptr", "u32"],
+    returns: "ptr",
+  },
 } as const;
 
 function loadUser32() {
+  const { dlopen } = loadBunFfi();
   return dlopen("user32.dll", USER32_DEFINITIONS).symbols;
+}
+
+function loadBunFfi(): typeof import("bun:ffi") {
+  return require("bun:ffi");
 }
 
 let user32: ReturnType<typeof loadUser32> | null = null;
@@ -299,6 +327,9 @@ export function loadBindings(pid?: number): void {
 // ── HWND lookup ─────────────────────────────────────────────────
 
 export function findMainWindowHandle(pid: number): Hwnd | null {
+  const hwnd = findMainWindowHandleByEnumWindows(pid);
+  if (hwnd) return hwnd;
+
   try {
     const output = execSync(
       `powershell -NoProfile -Command "(Get-Process -Id ${pid}).MainWindowHandle"`,
@@ -306,6 +337,34 @@ export function findMainWindowHandle(pid: number): Hwnd | null {
     ).trim();
     const hwnd = Number(output);
     return hwnd > 0 ? (hwnd as Hwnd) : null;
+  } catch {
+    return null;
+  }
+}
+
+function findMainWindowHandleByEnumWindows(pid: number): Hwnd | null {
+  try {
+    const u32 = getUser32();
+    const { JSCallback } = loadBunFfi();
+    let found: Hwnd | null = null;
+    const cb = new JSCallback(
+      (hwnd: Hwnd) => {
+        const pidBuf = Buffer.alloc(4);
+        u32.GetWindowThreadProcessId(hwnd, pidBuf);
+        if (pidBuf.readUInt32LE(0) !== pid) return 1;
+        if (!u32.IsWindowVisible(hwnd)) return 1;
+        if (u32.GetWindow(hwnd, GW_OWNER)) return 1;
+        found = hwnd;
+        return 0;
+      },
+      { args: ["ptr", "i64"], returns: "i32" },
+    );
+    try {
+      u32.EnumWindows(cb.ptr, 0n);
+    } finally {
+      cb.close();
+    }
+    return found;
   } catch {
     return null;
   }
@@ -392,15 +451,79 @@ export async function holdButton(
  *
  * Chose menu-accelerator over a settings.ini hotkey binding because it works
  * immediately with no DuckStation restart and no config changes. Sends:
- *   Alt down → S down → S up → Alt up → (menu opens) → W down → W up
+ *   Alt+S → (menu opens with "Close Game" highlighted) → Down → Enter
  *
- * The "W" accelerator is not localized in DuckStation's French build as of
- * 0.1-11026 (the menu item reads "Close Game Without Saving" even with the
- * rest of the menu translated), so this is stable for typical builds. If
- * DuckStation ever fully translates that item the write step will surface
- * EBUSY cleanly instead of corrupting anything.
+ * The older "W" accelerator was brittle with localized DuckStation menus.
+ * The menu position is stable across English and French builds: "Close Game
+ * Without Saving" is directly below "Close Game".
  */
 export async function sendCloseGameWithoutSaving(hwnd: Hwnd): Promise<boolean> {
+  if (await invokeCloseGameWithoutSavingAction(hwnd)) return true;
+  return sendCloseGameWithoutSavingViaMenu(hwnd);
+}
+
+async function invokeCloseGameWithoutSavingAction(hwnd: Hwnd): Promise<boolean> {
+  const hwndNumber = Number(hwnd);
+  if (!Number.isFinite(hwndNumber) || hwndNumber <= 0) return false;
+
+  const script = `
+Add-Type -AssemblyName UIAutomationClient
+$root = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]${hwndNumber})
+if ($null -eq $root) { throw "root_not_found" }
+$menuItemCondition = [System.Windows.Automation.PropertyCondition]::new(
+  [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+  [System.Windows.Automation.ControlType]::MenuItem
+)
+$systemMenu = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $menuItemCondition)
+if ($null -eq $systemMenu) { throw "system_menu_not_found" }
+$pattern = $null
+if ($systemMenu.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$pattern)) {
+  $pattern.Expand()
+} elseif ($systemMenu.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) {
+  $pattern.Invoke()
+} else {
+  throw "system_menu_not_expandable"
+}
+Start-Sleep -Milliseconds 150
+$desktop = [System.Windows.Automation.AutomationElement]::RootElement
+$exact = [System.Windows.Automation.PropertyCondition]::new(
+  [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+  "QApplication.MainWindow.menuBar.QAction.menuSystem.actionCloseGameWithoutSaving"
+)
+$target = $desktop.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $exact)
+if ($null -eq $target) {
+  $all = $desktop.FindAll([System.Windows.Automation.TreeScope]::Descendants, $menuItemCondition)
+  for ($i = 0; $i -lt $all.Count; $i++) {
+    if ($all.Item($i).Current.AutomationId -like "*actionCloseGameWithoutSaving") {
+      $target = $all.Item($i)
+      break
+    }
+  }
+}
+if ($null -eq $target) { throw "close_without_saving_action_not_found" }
+$invoke = $null
+if (-not $target.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+  throw "close_without_saving_action_not_invokable"
+}
+$invoke.Invoke()
+`;
+
+  try {
+    await execFileAsync("powershell.exe", ["-NoProfile", "-Command", script], {
+      timeout: 3000,
+      windowsHide: true,
+    });
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `input: UIA close-without-saving action failed, falling back to menu keys: ${message}`,
+    );
+    return false;
+  }
+}
+
+async function sendCloseGameWithoutSavingViaMenu(hwnd: Hwnd): Promise<boolean> {
   const u32 = getUser32();
   const prev = stealFocus(hwnd);
   await sleep(30);
@@ -415,10 +538,15 @@ export async function sendCloseGameWithoutSaving(hwnd: Hwnd): Promise<boolean> {
   // Wait for the menu to render before sending the accelerator
   await sleep(250);
 
-  // W selects "Close Game Without Saving"
-  u32.keybd_event(VK_W, 0, 0, 0);
+  // The close-game row is highlighted when the menu opens; move to the
+  // no-save row immediately below it and confirm.
+  u32.keybd_event(VK_DOWN, 0, 0, 0);
+  await sleep(40);
+  u32.keybd_event(VK_DOWN, 0, KEYEVENTF_KEYUP, 0);
+  await sleep(40);
+  u32.keybd_event(VK_RETURN, 0, 0, 0);
   await sleep(80);
-  u32.keybd_event(VK_W, 0, KEYEVENTF_KEYUP, 0);
+  u32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0);
 
   // Leave DuckStation in the foreground: after close, its game list is
   // visible and the previously-played row is highlighted. Restoring focus

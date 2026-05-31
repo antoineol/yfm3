@@ -131,8 +131,7 @@ function GameDataStatus() {
           {hasError ? "Game loaded — game data unavailable" : "Game loaded — reading game data"}
         </p>
         <p className="mt-1 text-xs text-text-muted">
-          {bridge.gameDataError ??
-            "Waiting for bridge gameData from the active disc. Auto-sync will not use CSV fallback data."}
+          {bridge.gameDataError ?? "Waiting for bridge gameData from the active disc."}
         </p>
       </div>
     </div>

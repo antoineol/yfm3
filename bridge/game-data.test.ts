@@ -1,5 +1,13 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type DiscCandidate, decideDiscMatch } from "./game-data.ts";
+import {
+  type DiscCandidate,
+  decideDiscMatch,
+  scanForDiscImages,
+  shouldSkipDiscScanDir,
+} from "./game-data.ts";
 
 const DISC_A = "/games/Mod_A.iso";
 const DISC_B = "/games/Mod_B.iso";
@@ -8,6 +16,35 @@ const DISC_C = "/games/Mod_C.iso";
 function candidate(binPath: string, exeSerial: string | null = null): DiscCandidate {
   return { binPath, discSerial: "SLUS_027.11", exeSerial };
 }
+
+describe("scanForDiscImages", () => {
+  it("skips bridge backup directories", () => {
+    expect(shouldSkipDiscScanDir(".yfm3-iso-backups")).toBe(true);
+    expect(shouldSkipDiscScanDir(".YFM3-ISO-BACKUPS")).toBe(true);
+    expect(shouldSkipDiscScanDir("Vanilla")).toBe(false);
+  });
+
+  it("does not treat ISO backups as active disc candidates", () => {
+    const root = mkdtempSync(join(tmpdir(), "yfm3-discs-"));
+    try {
+      mkdirSync(join(root, ".yfm3-iso-backups", "Game.bin"), { recursive: true });
+      mkdirSync(join(root, "Vanilla"), { recursive: true });
+      writeFileSync(join(root, ".yfm3-iso-backups", "Game.bin", "20260531.iso"), "");
+      writeFileSync(join(root, "Vanilla", "Game.iso"), "");
+
+      const cues: string[] = [];
+      const isos: string[] = [];
+      scanForDiscImages(root, cues, isos, 0);
+
+      expect(isos).toEqual([join(root, "Vanilla", "Game.iso")]);
+
+      scanForDiscImages(join(root, ".yfm3-iso-backups"), cues, isos, 0);
+      expect(isos).toEqual([join(root, "Vanilla", "Game.iso")]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("decideDiscMatch", () => {
   it("returns winner when exactly one candidate is locked", () => {

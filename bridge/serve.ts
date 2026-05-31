@@ -203,6 +203,7 @@ let gameDataFingerprint: string | null = null; // mod fingerprint we last attemp
 let gameDataRetryAt: number | null = null; // timestamp for next retry (null = no retry scheduled)
 let gameDataRetries = 0;
 let waitingForSerialLogged = false; // avoid spamming the defer log on every poll
+let lastGameDataMessage: string | null = null;
 /**
  * Set when `acquireGameData` returns `ambiguous` — multiple disc images in
  * DuckStation's games dir share the running game's EXE hash and we can't
@@ -222,6 +223,7 @@ function resetGameData(): void {
   gameDataRetries = 0;
   waitingForSerialLogged = false;
   ambiguousDiscCandidates = null;
+  lastGameDataMessage = null;
 }
 
 function describeDiscAmbiguity(candidates: readonly string[]): string {
@@ -288,6 +290,33 @@ function buildGameDataMessage(data: GameData): string {
     artworkKey: artworkCacheKey(data.gameDataHash, data.discPath),
   };
   return JSON.stringify(msg);
+}
+
+function broadcastGameData(data: GameData): void {
+  lastGameDataMessage = buildGameDataMessage(data);
+  broadcast(lastGameDataMessage);
+}
+
+function broadcastGameDataError(error: string): void {
+  lastGameDataMessage = JSON.stringify({ type: "gameData", error });
+  broadcast(lastGameDataMessage);
+}
+
+function sendGameDataSnapshot(ws: { send(data: string): void }): void {
+  if (currentGameData) {
+    const message = buildGameDataMessage(currentGameData);
+    lastGameDataMessage = message;
+    ws.send(message);
+  } else if (lastGameDataMessage) {
+    ws.send(lastGameDataMessage);
+  }
+}
+
+function requestGameDataRefresh(): void {
+  if (!mapping || !isGameLoaded(mapping.view) || currentGameData) return;
+  gameDataFingerprint = null;
+  gameDataRetryAt = Date.now();
+  gameDataRetries = 0;
 }
 
 // ── Offset profile resolution ─────────────────────────────────────
@@ -537,6 +566,18 @@ function methodNotAllowed(): Response {
   return new Response("Method not allowed", { status: 405, headers: CORS_HEADERS });
 }
 
+async function readOptionalJson(req: Request): Promise<unknown> {
+  const text = await req.text();
+  if (!text.trim()) return null;
+  return JSON.parse(text) as unknown;
+}
+
+function readTargetDropCount(body: unknown): number | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const value = (body as { cardDropCount?: unknown }).cardDropCount;
+  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
+}
+
 function readActiveSerial(): string | null {
   if (!mapping || !isGameLoaded(mapping.view)) return null;
   return readGameSerial(mapping.view);
@@ -606,7 +647,7 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
         // bytes. Close the game first so our write wins and the user can
         // reload to pick up the edits. Mirrors `/api/active-iso` PUT.
         let closedGame = false;
-        const hwnd = ensureHwnd();
+        const hwnd = await ensureHwnd();
         if (hwnd) {
           console.log("[save] PUT: closing DuckStation game before memcard write");
           await sendCloseGameWithoutSaving(hwnd);
@@ -741,7 +782,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
       const duelists = reReadDuelists(discPath, currentGameData.cardStats);
       currentGameData = { ...currentGameData, duelists };
       persistGameDataCache(currentGameData);
-      broadcast(buildGameDataMessage(currentGameData));
+      broadcastGameData(currentGameData);
       console.log(
         `[iso] PUT duelist-pool duelist=${body.duelistId} pool=${body.poolType}${backup ? ` · backup ${backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
       );
@@ -766,6 +807,8 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     }
     if (req.method === "PUT") {
       try {
+        const body = await readOptionalJson(req);
+        const targetDropCount = readTargetDropCount(body);
         const currentStatus = getDropX15PatchStatus(discPath);
         if (!currentStatus.supported) {
           return jsonResponse(
@@ -773,7 +816,20 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
             { status: 400 },
           );
         }
-        const applyPatch = () => patchDropX15(discPath);
+        if (
+          targetDropCount != null &&
+          !currentStatus.availableDropCounts.includes(targetDropCount)
+        ) {
+          return jsonResponse(
+            {
+              ok: false,
+              error: "unsupported_drop_count",
+              reason: `${gameSerial} does not support ${targetDropCount}-card rewards.`,
+            },
+            { status: 400 },
+          );
+        }
+        const applyPatch = () => patchDropX15(discPath, targetDropCount);
 
         let result: ReturnType<typeof patchDropX15>;
         let closedGame = false;
@@ -824,7 +880,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
       const duelists = reReadDuelists(discPath, currentGameData.cardStats);
       currentGameData = { ...currentGameData, duelists };
       persistGameDataCache(currentGameData);
-      broadcast(buildGameDataMessage(currentGameData));
+      broadcastGameData(currentGameData);
       return jsonResponse({
         ok: true,
         preRestore,
@@ -892,10 +948,7 @@ const server = Bun.serve({
               logStateChange(state);
               lastJson = json;
             }
-            // Send game data if already acquired
-            if (currentGameData) {
-              ws.send(buildGameDataMessage(currentGameData));
-            }
+            sendGameDataSnapshot(ws);
             // Notify about pre-staged update
             if (updateStaged) {
               ws.send(JSON.stringify({ type: "update_staged" }));
@@ -922,6 +975,9 @@ const server = Bun.serve({
         if (msg.type === "scan") {
           console.log("Received scan/reconnect request from client");
           void forceReconnect();
+        } else if (msg.type === "request_game_data") {
+          sendGameDataSnapshot(ws);
+          requestGameDataRefresh();
         } else if (msg.type === "shutdown") {
           console.log("Received shutdown request from newer bridge — exiting");
 
@@ -1029,17 +1085,23 @@ function sendResult(ws: BridgeWs, type: string, ok: boolean, error?: string): vo
  * Ensure the HWND is resolved for the current DuckStation process.
  * Caches the result until the mapping changes.
  */
-function ensureHwnd(): Hwnd | null {
+async function ensureHwnd(): Promise<Hwnd | null> {
   if (dsHwnd) return dsHwnd;
-  if (!mapping) return null;
-  dsHwnd = findMainWindowHandle(mapping.pid);
-  if (dsHwnd) {
-    console.log(`Resolved DuckStation HWND: ${dsHwnd} (PID ${mapping.pid})`);
-    if (!areBindingsLoaded()) {
-      loadBindings(mapping.pid);
+  const livePids = await findDuckStationPids();
+  const pids = mapping
+    ? [mapping.pid, ...livePids.filter((pid) => pid !== mapping?.pid)]
+    : livePids;
+  for (const pid of pids) {
+    dsHwnd = findMainWindowHandle(pid);
+    if (dsHwnd) {
+      console.log(`Resolved DuckStation HWND: ${dsHwnd} (PID ${pid})`);
+      if (!areBindingsLoaded()) {
+        loadBindings(pid);
+      }
+      return dsHwnd;
     }
   }
-  return dsHwnd;
+  return null;
 }
 
 /**
@@ -1050,7 +1112,7 @@ function ensureHwnd(): Hwnd | null {
 async function closeDuckStationGameAndWaitForUnlock(
   discPath: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const hwnd = ensureHwnd();
+  const hwnd = await ensureHwnd();
   if (!hwnd) return { ok: false, reason: "duckstation_window_not_found" };
 
   await sendCloseGameWithoutSaving(hwnd);
@@ -1066,7 +1128,7 @@ async function closeDuckStationGameAndWaitForUnlock(
 }
 
 async function handleInputMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {
-  const hwnd = ensureHwnd();
+  const hwnd = await ensureHwnd();
   if (!hwnd) {
     sendResult(ws, "input_result", false, "DuckStation window not found");
     return;
@@ -1085,7 +1147,7 @@ async function handleInputMessage(ws: BridgeWs, msg: Record<string, unknown>): P
 }
 
 async function handleLoadStateMessage(ws: BridgeWs, msg: Record<string, unknown>): Promise<void> {
-  const hwnd = ensureHwnd();
+  const hwnd = await ensureHwnd();
   if (!hwnd) {
     sendResult(ws, "loadState_result", false, "DuckStation window not found");
     return;
@@ -1623,7 +1685,7 @@ async function poll(): Promise<void> {
               currentGameData = result.data;
               ambiguousDiscCandidates = null;
               gameDataRetries = 0;
-              broadcast(buildGameDataMessage(result.data));
+              broadcastGameData(result.data);
             } else if (result.kind === "ambiguous") {
               // Stop retrying — only user action (moving/renaming a disc image)
               // can resolve this. Keep `currentGameData` null so the active-iso
@@ -1631,12 +1693,7 @@ async function poll(): Promise<void> {
               currentGameData = null;
               ambiguousDiscCandidates = result.candidates;
               gameDataRetries = 0;
-              broadcast(
-                JSON.stringify({
-                  type: "gameData",
-                  error: describeDiscAmbiguity(result.candidates),
-                }),
-              );
+              broadcastGameDataError(describeDiscAmbiguity(result.candidates));
             } else {
               currentGameData = null;
               ambiguousDiscCandidates = null;
@@ -1647,13 +1704,10 @@ async function poll(): Promise<void> {
                 );
                 gameDataRetryAt = Date.now() + GAME_DATA_RETRY_DELAY_MS;
               }
-              broadcast(
-                JSON.stringify({
-                  type: "gameData",
-                  error: serial
-                    ? "Could not find or read game disc image — check bridge.log"
-                    : "No game serial detected",
-                }),
+              broadcastGameDataError(
+                serial
+                  ? "Could not find or read game disc image — check bridge.log"
+                  : "No game serial detected",
               );
             }
           } catch (err: unknown) {
@@ -1663,7 +1717,7 @@ async function poll(): Promise<void> {
             if (gameDataRetries <= GAME_DATA_MAX_RETRIES) {
               gameDataRetryAt = Date.now() + GAME_DATA_RETRY_DELAY_MS;
             }
-            broadcast(JSON.stringify({ type: "gameData", error: msg }));
+            broadcastGameDataError(msg);
           }
         }
 
