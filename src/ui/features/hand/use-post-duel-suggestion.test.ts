@@ -38,7 +38,7 @@ import {
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import { postDuelCurrentDeckAtom } from "../../lib/atoms.ts";
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
-import { collectionKey, postDuelSuggestionKey } from "../../lib/bridge-snapshot-atoms.ts";
+import { collectionKey, deckKey, postDuelSuggestionKey } from "../../lib/bridge-snapshot-atoms.ts";
 import { readLocal, writeLocal } from "../../lib/local-store.ts";
 import { findNewCards } from "./use-duel-collection-tracker.ts";
 import {
@@ -110,6 +110,7 @@ const SAMPLE_COLLECTION: Record<number, number> = {};
 for (let i = 1; i <= 50; i++) SAMPLE_COLLECTION[i] = 1;
 
 const SAMPLE_DECK = Array.from({ length: 40 }, (_, i) => i + 1);
+const EMPTY_DECK = Array.from({ length: 40 }, () => 0);
 
 describe("findNewCards", () => {
   it("returns card IDs that increased in quantity", () => {
@@ -585,7 +586,7 @@ describe("usePostDuelSuggestion", () => {
     );
   });
 
-  it("waits for deck definition before consuming a collection change", async () => {
+  it("uses the last valid active-duel deck when the results deck is transiently empty", async () => {
     const bridge = makeBridge({ inDuel: false });
     const { rerender } = renderHook(
       ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
@@ -602,7 +603,42 @@ describe("usePostDuelSuggestion", () => {
       b: makeBridge({
         inDuel: false,
         collection: SAMPLE_COLLECTION,
-        deckDefinition: null,
+        deckDefinition: EMPTY_DECK,
+      }),
+    });
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+    expect(mockOptimize).toHaveBeenCalledWith(
+      expect.any(Map),
+      expect.objectContaining({
+        currentDeck: SAMPLE_DECK,
+      }),
+    );
+  });
+
+  it("waits for a valid deck before consuming a collection change without a deck fallback", async () => {
+    const bridge = makeBridge({ inDuel: false });
+    const { rerender } = renderHook(
+      ({ b }: { b: EmulatorBridge }) => usePostDuelSuggestion(b, undefined),
+      {
+        wrapper: makeWrapper(store),
+        initialProps: { b: bridge },
+      },
+    );
+
+    rerender({
+      b: makeBridge({ inDuel: true, collection: { 1: 1 }, deckDefinition: null }),
+    });
+    rerender({
+      b: makeBridge({
+        inDuel: false,
+        collection: SAMPLE_COLLECTION,
+        deckDefinition: EMPTY_DECK,
       }),
     });
 
@@ -623,6 +659,37 @@ describe("usePostDuelSuggestion", () => {
     expect(store.get(postDuelStateAtom)).toBe("result");
     expect(store.get(postDuelOptimizationSnapshotAtom)).toBeNull();
     expect(mockOptimize).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the saved bridge deck when mounted on the results screen before deck RAM is valid", async () => {
+    writeLocal(collectionKey("rp"), { 1: 1 });
+    writeLocal(deckKey("rp"), SAMPLE_DECK);
+
+    renderHook(
+      () =>
+        usePostDuelSuggestion(
+          makeBridge({
+            inDuel: true,
+            phase: "ended",
+            collection: SAMPLE_COLLECTION,
+            deckDefinition: EMPTY_DECK,
+          }),
+          undefined,
+        ),
+      { wrapper: makeWrapper(store) },
+    );
+
+    expect(store.get(postDuelStateAtom)).toBe("optimizing");
+    await act(() => Promise.resolve());
+
+    expect(store.get(postDuelStateAtom)).toBe("result");
+    expect(mockOptimize).toHaveBeenCalledTimes(1);
+    expect(mockOptimize).toHaveBeenCalledWith(
+      expect.any(Map),
+      expect.objectContaining({
+        currentDeck: SAMPLE_DECK,
+      }),
+    );
   });
 
   it("waits for a complete collection before consuming a collection change", async () => {

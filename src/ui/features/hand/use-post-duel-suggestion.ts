@@ -15,6 +15,7 @@ import {
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
 import {
   collectionKey,
+  deckKey,
   type LocalPostDuelSuggestion,
   postDuelSuggestionKey,
 } from "../../lib/bridge-snapshot-atoms.ts";
@@ -68,6 +69,7 @@ export function usePostDuelSuggestion(
     () => readLocal<Record<number, number>>(collectionKey(modId)),
     [modId],
   );
+  const savedPreDuelDeck = useMemo(() => readLocal<number[]>(deckKey(modId)), [modId]);
 
   const saveSuggestion = useCallback(
     (suggestion: LocalPostDuelSuggestion | null) => {
@@ -125,6 +127,7 @@ export function usePostDuelSuggestion(
     bridge,
     modMismatch,
     savedPreDuelCollection,
+    savedPreDuelDeck,
     handleDuelStart,
     handleNewCards,
   );
