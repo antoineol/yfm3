@@ -17,6 +17,10 @@ function addTestCard(db: CardDb, id: number, name: string, atk: number, cardType
   addCard(db, { id, name, kinds: [], cardType, isMonster: true, attack: atk, defense: 0 });
 }
 
+function addTestCardWithDef(db: CardDb, id: number, name: string, atk: number, def: number): void {
+  addCard(db, { id, name, kinds: [], isMonster: true, attack: atk, defense: def });
+}
+
 function setFusion(ft: Int16Array, a: number, b: number, result: number): void {
   ft[a * MAX_CARD_ID + b] = result;
   ft[b * MAX_CARD_ID + a] = result;
@@ -616,6 +620,41 @@ describe("findFusionChains with field cards", () => {
     expect(ab?.resultAtk).toBe(1200);
   });
 
+  it("field card fusion keeps equal ATK only when result DEF improves", () => {
+    const db = createCardDb();
+    addTestCardWithDef(db, 1, "Field Wall", 1200, 500);
+    addTestCard(db, 2, "Material", 600);
+    addTestCardWithDef(db, 10, "Better Wall", 1200, 800);
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 1, 2, 10);
+
+    const results = findFusionChains([2], ft, db, 3, undefined, [
+      { cardId: 1, atk: 1200, def: 500 },
+    ]);
+
+    const betterWall = results.find((r) => r.resultCardId === 10);
+    expect(betterWall).toBeDefined();
+    expect(betterWall?.resultAtk).toBe(1200);
+    expect(betterWall?.resultDef).toBe(800);
+  });
+
+  it("field card fusion skips equal ATK when result DEF is not better", () => {
+    const db = createCardDb();
+    addTestCardWithDef(db, 1, "Field Wall", 1200, 500);
+    addTestCard(db, 2, "Material", 600);
+    addTestCardWithDef(db, 10, "Worse Wall", 1200, 400);
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 1, 2, 10);
+
+    const results = findFusionChains([2], ft, db, 3, undefined, [
+      { cardId: 1, atk: 1200, def: 500 },
+    ]);
+
+    expect(results.find((r) => r.resultCardId === 10)).toBeUndefined();
+  });
+
   it("keeps hand-only and field-material plays separate for the same result", () => {
     const results = findFusionChains([1, 2, 5], fusionTable, cardDb, 3, undefined, [
       { cardId: 1, atk: 500, def: 0 },
@@ -725,6 +764,34 @@ describe("findFusionChains prefers simpler plays", () => {
     });
   });
 
+  it("uses higher remaining DEF when equivalent paths leave the same remaining ATK", () => {
+    const db = createCardDb();
+    addTestCard(db, 90, "Low Dragon", 500);
+    addTestCard(db, 91, "High Dragon", 600);
+    addTestCard(db, 92, "Thunder", 400);
+    addTestCardWithDef(db, 93, "Storm Dragon", 2000, 1000);
+    addTestCard(db, 94, "Follow Material", 300);
+    addTestCardWithDef(db, 95, "Low-DEF Follow-up", 1800, 500);
+    addTestCardWithDef(db, 96, "High-DEF Follow-up", 1800, 1500);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 90, 92, 93); // First discovered path leaves lower-DEF follow-up.
+    setFusion(ft, 91, 92, 93);
+    setFusion(ft, 91, 94, 95);
+    setFusion(ft, 90, 94, 96);
+
+    const results = findFusionChains([90, 91, 92, 94], ft, db, 3);
+    const storm = results.find((r) => r.resultCardId === 93);
+    expect(storm).toBeDefined();
+    expect(storm?.materialCardIds).toEqual([91, 92]);
+    expect(storm?.steps[0]).toEqual({
+      material1CardId: 91,
+      material2CardId: 92,
+      resultCardId: 93,
+    });
+  });
+
   it("uses lower material ATK when equivalent paths leave the same remaining play", () => {
     const db = createCardDb();
     addTestCard(db, 100, "Weak Dragon", 500);
@@ -736,6 +803,30 @@ describe("findFusionChains prefers simpler plays", () => {
     const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
     ft.fill(FUSION_NONE);
     setFusion(ft, 101, 102, 104); // First discovered path, but consumes the stronger dragon.
+    setFusion(ft, 100, 102, 104);
+
+    const results = findFusionChains([101, 100, 102, 103], ft, db, 3);
+    const storm = results.find((r) => r.resultCardId === 104);
+    expect(storm).toBeDefined();
+    expect(storm?.materialCardIds).toEqual([100, 102]);
+    expect(storm?.steps[0]).toEqual({
+      material1CardId: 100,
+      material2CardId: 102,
+      resultCardId: 104,
+    });
+  });
+
+  it("uses lower material DEF when equivalent paths consume the same material ATK", () => {
+    const db = createCardDb();
+    addTestCardWithDef(db, 100, "Low-DEF Dragon", 500, 500);
+    addTestCardWithDef(db, 101, "High-DEF Dragon", 500, 2000);
+    addTestCard(db, 102, "Thunder", 400);
+    addTestCardWithDef(db, 103, "Filler", 900, 900);
+    addTestCard(db, 104, "Storm Dragon", 2000);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 101, 102, 104); // First discovered path consumes the higher-DEF dragon.
     setFusion(ft, 100, 102, 104);
 
     const results = findFusionChains([101, 100, 102, 103], ft, db, 3);
@@ -799,6 +890,23 @@ describe("findFusionChains prefers simpler plays", () => {
     // Direct play (0 steps) should come before fusion (1 step)
     expect(idx1000[0]?.steps).toHaveLength(0);
     expect(idx1000[1]?.steps).toHaveLength(1);
+  });
+
+  it("sorts by DEF descending before steps when ATK is equal across different cards", () => {
+    const db = createCardDb();
+    addTestCard(db, 80, "M1", 400);
+    addTestCard(db, 81, "M2", 500);
+    addTestCardWithDef(db, 82, "FusionResult", 1000, 1800);
+    addTestCardWithDef(db, 83, "DirectCard", 1000, 500);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 80, 81, 82);
+
+    const results = findFusionChains([80, 81, 83], ft, db, 3);
+    const tied = results.filter((r) => r.resultAtk === 1000);
+    expect(tied.map((r) => r.resultCardId)).toEqual([82, 83]);
+    expect(tied.map((r) => r.resultDef)).toEqual([1800, 500]);
   });
 });
 

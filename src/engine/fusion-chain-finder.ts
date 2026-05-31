@@ -43,8 +43,9 @@ type PlaySelectionContext = {
   equipCompat: Uint8Array | undefined;
   terrain: number;
   perEquipBonuses: Record<number, number> | undefined;
-  remainingBestAtkCache: Map<string, number>;
+  remainingBestStatsCache: Map<string, CardStats>;
 };
+type CardStats = { atk: number; def: number };
 
 /**
  * A card in the working hand with its source tracked.
@@ -60,7 +61,7 @@ type TaggedCard = {
   liveDef?: number;
 };
 
-type ConsumedCard = { cardId: number; source: CardSource; liveAtk?: number };
+type ConsumedCard = { cardId: number; source: CardSource; liveAtk?: number; liveDef?: number };
 
 /**
  * Find all achievable fusion chains from a hand of up to 5 cards,
@@ -143,7 +144,7 @@ function selectBestCandidates(
     equipCompat,
     terrain,
     perEquipBonuses,
-    remainingBestAtkCache: new Map(),
+    remainingBestStatsCache: new Map(),
   };
   return Array.from(candidates.values(), (group) => selectBestCandidate(group, context));
 }
@@ -170,29 +171,44 @@ function comparePlayCandidates(
   incumbent: FusionChainResult,
   context: PlaySelectionContext,
 ): number {
-  if (candidate.resultAtk !== incumbent.resultAtk) return candidate.resultAtk - incumbent.resultAtk;
+  const resultDiff = compareStats(
+    candidate.resultAtk,
+    candidate.resultDef,
+    incumbent.resultAtk,
+    incumbent.resultDef,
+  );
+  if (resultDiff !== 0) return resultDiff;
 
   const consumedCountDiff = totalConsumedCards(incumbent) - totalConsumedCards(candidate);
   if (consumedCountDiff !== 0) return consumedCountDiff;
 
-  const candidateRemainingAtk = remainingBestAtk(candidate, context);
-  const incumbentRemainingAtk = remainingBestAtk(incumbent, context);
-  if (candidateRemainingAtk !== incumbentRemainingAtk) {
-    return candidateRemainingAtk - incumbentRemainingAtk;
-  }
+  const candidateRemaining = remainingBestStats(candidate, context);
+  const incumbentRemaining = remainingBestStats(incumbent, context);
+  const remainingDiff = compareStats(
+    candidateRemaining.atk,
+    candidateRemaining.def,
+    incumbentRemaining.atk,
+    incumbentRemaining.def,
+  );
+  if (remainingDiff !== 0) return remainingDiff;
 
-  return (
-    consumedMaterialAtk(incumbent, context.cardDb) - consumedMaterialAtk(candidate, context.cardDb)
+  const candidateConsumed = consumedMaterialStats(candidate, context.cardDb);
+  const incumbentConsumed = consumedMaterialStats(incumbent, context.cardDb);
+  return compareStats(
+    incumbentConsumed.atk,
+    incumbentConsumed.def,
+    candidateConsumed.atk,
+    candidateConsumed.def,
   );
 }
 
-function remainingBestAtk(play: FusionChainResult, context: PlaySelectionContext): number {
+function remainingBestStats(play: FusionChainResult, context: PlaySelectionContext): CardStats {
   const remaining = removeConsumedHandCards(context.handCardIds, [
     ...play.materialCardIds,
     ...play.equipCardIds,
   ]);
   const cacheKey = remaining.join(",");
-  const cached = context.remainingBestAtkCache.get(cacheKey);
+  const cached = context.remainingBestStatsCache.get(cacheKey);
   if (cached != null) return cached;
 
   const results = findFusionChains(
@@ -205,9 +221,9 @@ function remainingBestAtk(play: FusionChainResult, context: PlaySelectionContext
     context.terrain,
     context.perEquipBonuses,
   );
-  const bestAtk = results[0]?.resultAtk ?? 0;
-  context.remainingBestAtkCache.set(cacheKey, bestAtk);
-  return bestAtk;
+  const bestStats = { atk: results[0]?.resultAtk ?? 0, def: results[0]?.resultDef ?? 0 };
+  context.remainingBestStatsCache.set(cacheKey, bestStats);
+  return bestStats;
 }
 
 function removeConsumedHandCards(handCardIds: number[], consumedCardIds: number[]): number[] {
@@ -223,11 +239,21 @@ function totalConsumedCards(play: FusionChainResult): number {
   return play.materialCardIds.length + play.fieldMaterialCardIds.length + play.equipCardIds.length;
 }
 
-function consumedMaterialAtk(play: FusionChainResult, cardDb: CardDb): number {
+function consumedMaterialStats(play: FusionChainResult, cardDb: CardDb): CardStats {
   return [...play.materialCardIds, ...play.fieldMaterialCardIds].reduce(
-    (sum, cardId) => sum + (cardDb.cardsById.get(cardId)?.attack ?? 0),
-    0,
+    (sum, cardId) => {
+      const card = cardDb.cardsById.get(cardId);
+      sum.atk += card?.attack ?? 0;
+      sum.def += card?.defense ?? 0;
+      return sum;
+    },
+    { atk: 0, def: 0 },
   );
+}
+
+function compareStats(aAtk: number, aDef: number, bAtk: number, bDef: number): number {
+  if (aAtk !== bAtk) return aAtk - bAtk;
+  return aDef - bDef;
 }
 
 /** Find equip card IDs in `hand` compatible with `monsterId`, skipping indices in `skipIndices`. */
@@ -296,9 +322,19 @@ function dfs(
       // Track which original cards are consumed
       const newConsumed = [...consumedCards];
       if (m1.source !== "result")
-        newConsumed.push({ cardId: m1.cardId, source: m1.source, liveAtk: m1.liveAtk });
+        newConsumed.push({
+          cardId: m1.cardId,
+          source: m1.source,
+          liveAtk: m1.liveAtk,
+          liveDef: m1.liveDef,
+        });
       if (m2.source !== "result")
-        newConsumed.push({ cardId: m2.cardId, source: m2.source, liveAtk: m2.liveAtk });
+        newConsumed.push({
+          cardId: m2.cardId,
+          source: m2.source,
+          liveAtk: m2.liveAtk,
+          liveDef: m2.liveDef,
+        });
 
       // Check equip bonuses from remaining hand cards
       let equips: number[] = [];
@@ -352,7 +388,7 @@ function buildRemainingHand(
   return remaining;
 }
 
-/** Record a fusion result, unless it sacrifices a field card with higher ATK than the result. */
+/** Record a fusion result, unless it sacrifices a field card with higher ATK/DEF than the result. */
 function recordResult(
   resultId: number,
   steps: FusionStep[],
@@ -370,16 +406,20 @@ function recordResult(
   const card = cardDb.cardsById.get(resultId);
   const effectiveAtk =
     applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType) + equipBonusTotal;
+  const effectiveDef =
+    applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType) + equipBonusTotal;
 
-  // Skip fusions that sacrifice a field card with higher ATK than the result
+  // Skip fusions that sacrifice a field card with better ATK/DEF than the result.
   for (const c of consumedCards) {
     if (c.source === "field" && c.liveAtk != null) {
-      const consumedAtk = applyLiveFieldBonus(
-        c.liveAtk,
+      const consumedCard = cardDb.cardsById.get(c.cardId);
+      const consumedAtk = applyLiveFieldBonus(c.liveAtk, terrain, consumedCard?.cardType);
+      const consumedDef = applyLiveFieldBonus(
+        c.liveDef ?? consumedCard?.defense ?? 0,
         terrain,
-        cardDb.cardsById.get(c.cardId)?.cardType,
+        consumedCard?.cardType,
       );
-      if (effectiveAtk <= consumedAtk) return;
+      if (compareStats(effectiveAtk, effectiveDef, consumedAtk, consumedDef) <= 0) return;
     }
   }
 
@@ -387,7 +427,7 @@ function recordResult(
   upsertPlay(results, `${fieldPrefix}${String(resultId)}+${equipCardIds.join(",")}`, {
     resultCardId: resultId,
     resultAtk: effectiveAtk,
-    resultDef: applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType) + equipBonusTotal,
+    resultDef: effectiveDef,
     resultName: card?.name ?? `Card #${resultId}`,
     steps,
     materialCardIds,
@@ -481,7 +521,7 @@ function upsertPlay(results: PlayCandidateMap, key: string, candidate: FusionCha
 /**
  * Remove plays dominated by strictly better alternatives.
  * A play is dominated if another play exists with the same result card and field
- * origin, a strict superset of equips, and equal-or-higher ATK.
+ * origin, a strict superset of equips, and equal-or-higher ATK/DEF.
  */
 function pruneDominatedPlays(results: FusionChainResult[]): FusionChainResult[] {
   return results.filter((a) => {
@@ -491,7 +531,7 @@ function pruneDominatedPlays(results: FusionChainResult[]): FusionChainResult[] 
       if (a.resultCardId !== b.resultCardId) return false;
       if (aIsField !== b.fieldMaterialCardIds.length > 0) return false;
       if (a.equipCardIds.length >= b.equipCardIds.length) return false;
-      if (a.resultAtk > b.resultAtk) return false;
+      if (compareStats(b.resultAtk, b.resultDef, a.resultAtk, a.resultDef) < 0) return false;
       const bEquipSet = new Set(b.equipCardIds);
       return a.equipCardIds.every((eq) => bEquipSet.has(eq));
     });
@@ -501,6 +541,7 @@ function pruneDominatedPlays(results: FusionChainResult[]): FusionChainResult[] 
 function sortByAtkDesc(results: FusionChainResult[]): FusionChainResult[] {
   return results.sort((a, b) => {
     if (b.resultAtk !== a.resultAtk) return b.resultAtk - a.resultAtk;
+    if (b.resultDef !== a.resultDef) return b.resultDef - a.resultDef;
     return a.steps.length - b.steps.length;
   });
 }
