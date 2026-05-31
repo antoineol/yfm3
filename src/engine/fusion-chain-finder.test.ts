@@ -13,8 +13,8 @@ import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 let cardDb: CardDb;
 let fusionTable: Int16Array;
 
-function addTestCard(db: CardDb, id: number, name: string, atk: number): void {
-  addCard(db, { id, name, kinds: [], isMonster: true, attack: atk, defense: 0 });
+function addTestCard(db: CardDb, id: number, name: string, atk: number, cardType?: string): void {
+  addCard(db, { id, name, kinds: [], cardType, isMonster: true, attack: atk, defense: 0 });
 }
 
 function setFusion(ft: Int16Array, a: number, b: number, result: number): void {
@@ -562,6 +562,37 @@ describe("findFusionChains with field cards", () => {
     expect(equipped?.resultDef).toBe(1000); // 500 (live) + 500 (new equip)
   });
 
+  it("field card direct plays include terrain on top of live equip stats", () => {
+    const eqDb = createCardDb();
+    addTestCard(eqDb, 60, "Fiend", 2000, "Fiend");
+    addCard(eqDb, {
+      id: 62,
+      name: "Power Sword",
+      kinds: [],
+      isMonster: false,
+      attack: 0,
+      defense: 0,
+    });
+    const eqFt = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    eqFt.fill(FUSION_NONE);
+    const ec = new Uint8Array(MAX_CARD_ID * MAX_CARD_ID);
+    ec[62 * MAX_CARD_ID + 60] = 1;
+
+    const results = findFusionChains(
+      [62],
+      eqFt,
+      eqDb,
+      3,
+      ec,
+      [{ cardId: 60, atk: 2300, def: 500 }],
+      6,
+    );
+
+    const equipped = results.find((r) => r.resultCardId === 60);
+    expect(equipped?.resultAtk).toBe(3300); // 2300 live + 500 Yami + 500 equip
+    expect(equipped?.resultDef).toBe(1500);
+  });
+
   it("field card fusion downgrade is excluded (result ATK < field live ATK)", () => {
     // Alpha(1) on field with liveAtk=2000 (boosted), Beta(2) in hand
     // Fusion: Alpha+Beta → AlphaBeta(10) at 1200 base ATK
@@ -610,6 +641,31 @@ describe("findFusionChains with field cards", () => {
     const abg = results.find((r) => r.resultCardId === 11 && r.fieldMaterialCardIds.length > 0);
     expect(abg).toBeDefined();
     expect(abg?.resultAtk).toBe(1800);
+  });
+
+  it("field card fusion downgrade comparison includes terrain on the consumed field card", () => {
+    const db = createCardDb();
+    addTestCard(db, 1, "Fiend Field", 800, "Fiend");
+    addTestCard(db, 2, "Beta", 600);
+    addTestCard(db, 10, "AlphaBeta", 1200);
+    addTestCard(db, 5, "Filler", 900);
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 1, 2, 10);
+
+    const results = findFusionChains(
+      [2, 5],
+      ft,
+      db,
+      3,
+      undefined,
+      [{ cardId: 1, atk: 800, def: 0 }],
+      6,
+    );
+
+    expect(
+      results.find((r) => r.resultCardId === 10 && r.fieldMaterialCardIds.length > 0),
+    ).toBeUndefined();
   });
 });
 

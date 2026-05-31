@@ -93,4 +93,13 @@ describe("readGameState", () => {
     expect(state.duelCursorTargetCardId).toBe(531);
     expect(state.duelCursorFieldSlotIndex).toBeNull();
   });
+
+  it("reads the PAL terrain byte from the live field-bonus routine address", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint8(PAL_PROFILE.terrain, 6);
+
+    const state = readGameState(view, PAL_PROFILE);
+
+    expect(state.terrain).toBe(6);
+  });
 });

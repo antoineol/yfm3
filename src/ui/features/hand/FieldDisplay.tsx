@@ -50,9 +50,8 @@ function FieldSlot({
   fieldCard: FieldCard;
   terrain?: number;
 }) {
-  const fb = fieldBonus(terrain, card.cardType);
-  const displayAtk = fieldCard.atk + fb;
-  const displayDef = fieldCard.def + fb;
+  const displayAtk = applyLiveFieldBonus(fieldCard.atk, terrain, card.cardType);
+  const displayDef = applyLiveFieldBonus(fieldCard.def, terrain, card.cardType);
   const atkChanged = card.isMonster && displayAtk !== card.attack;
   const defChanged = card.isMonster && displayDef !== card.defense;
   return (
@@ -64,6 +63,14 @@ function FieldSlot({
       />
     </li>
   );
+}
+
+function applyLiveFieldBonus(
+  liveStat: number,
+  terrain: number,
+  cardType: string | undefined,
+): number {
+  return Math.max(0, liveStat + fieldBonus(terrain, cardType));
 }
 
 function EmptyFieldSlot({ index }: { index: number }) {

@@ -27,4 +27,11 @@ describe("offset profiles", () => {
     expect(PAL_PROFILE.duelCursorFieldSlot).toBe(0x09c6d1);
     expect(PAL_PROFILE.duelCursorFieldSlot).not.toBe(0x09c6e8);
   });
+
+  it("maps PAL terrain from the field-bonus routine terrain byte", () => {
+    expect(PAL_PROFILE.terrain).toBe(0x09c6f9);
+    expect(PAL_PROFILE.terrain).not.toBe(
+      PAL_PROFILE.duelPhase + (DEFAULT_PROFILE.terrain - DEFAULT_PROFILE.duelPhase),
+    );
+  });
 });

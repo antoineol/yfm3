@@ -77,7 +77,7 @@ describe("predictBattleOutcome", () => {
     expect(result?.defenderValue).toBe(2300);
   });
 
-  it("does not add terrain again when live RAM stats already describe the field battle", () => {
+  it("uses live field stats without terrain when terrain is Normal", () => {
     const result = predictBattleOutcome(
       {
         card: card({
@@ -99,6 +99,24 @@ describe("predictBattleOutcome", () => {
     expect(result?.attackerAtk).toBe(2100);
     expect(result?.defenderValue).toBe(1900);
   });
+
+  it("applies terrain to base live field stats before predicting battle", () => {
+    const result = predictBattleOutcome(
+      {
+        card: card({ id: 401, name: "Ushi Oni", atk: 2150, def: 1950, type: "Fiend" }),
+        field: field({ cardId: 401, atk: 2150, def: 1950, status: 0x84 }),
+      },
+      {
+        card: card({ id: 111, name: "Doma", atk: 1600, def: 1400, type: "Fairy" }),
+        field: field({ cardId: 111, atk: 1600, def: 1400, status: 0x86 }),
+      },
+      6,
+    );
+
+    expect(result?.outcome).toBe("win");
+    expect(result?.attackerAtk).toBe(2650);
+    expect(result?.defenderValue).toBe(1100);
+  });
 });
 
 describe("predictFocusedBattle", () => {
@@ -106,7 +124,7 @@ describe("predictFocusedBattle", () => {
     const bridge: BridgeState = {
       ...INITIAL_BRIDGE_STATE,
       inDuel: true,
-      stats: { fusions: 0, terrain: 0, duelistId: 1, rankCounters: null },
+      stats: { fusions: 0, terrain: 6, duelistId: 1, rankCounters: null },
       field: [field({ cardId: 1, atk: 2000, slotIndex: 2 })],
       opponentField: [field({ cardId: 2, atk: 1500, status: 0x86, slotIndex: 4 })],
       battleTarget: {
@@ -127,6 +145,8 @@ describe("predictFocusedBattle", () => {
       },
     };
 
-    expect(predictFocusedBattle(bridge)?.outcome).toBe("win");
+    const result = predictFocusedBattle(bridge);
+    expect(result?.outcome).toBe("win");
+    expect(result?.attackerAtk).toBe(2000);
   });
 });

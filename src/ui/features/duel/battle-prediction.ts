@@ -1,3 +1,4 @@
+import { fieldBonus } from "../../../engine/data/field-bonus.ts";
 import type { BridgeCard } from "../../../engine/worker/messages.ts";
 import type { BattleTarget, BridgeState } from "../../lib/bridge-message-processor.ts";
 import type { FieldCard } from "../../lib/bridge-state-interpreter.ts";
@@ -28,18 +29,19 @@ export function predictFocusedBattle(bridge: BridgeState): BattlePrediction | nu
   );
   if (!attacker || !defender) return null;
 
-  return predictBattleOutcome(attacker, defender);
+  return predictBattleOutcome(attacker, defender, bridge.stats?.terrain ?? 0);
 }
 
 export function predictBattleOutcome(
   attacker: BattleCard,
   defender: BattleCard,
+  terrain = 0,
 ): BattlePrediction | null {
   if (attacker.card.atk <= 0 || defender.card.atk <= 0) return null;
 
   const guardian = guardianBattleBonus(attacker.card, defender.card);
-  const attackerStats = effectiveBattleStats(attacker, guardian.attacker);
-  const defenderStats = effectiveBattleStats(defender, guardian.defender);
+  const attackerStats = effectiveBattleStats(attacker, guardian.attacker, terrain);
+  const defenderStats = effectiveBattleStats(defender, guardian.defender, terrain);
   const defenderPosition = isAttackPosition(defender.field.status) ? "attack" : "defense";
   const defenderValue = defenderPosition === "attack" ? defenderStats.atk : defenderStats.def;
 
@@ -66,10 +68,12 @@ function battleCardForTarget(
 function effectiveBattleStats(
   battleCard: BattleCard,
   guardianBonus: number,
+  terrain: number,
 ): { atk: number; def: number } {
+  const terrainBonus = fieldBonus(terrain, battleCard.card.type);
   return {
-    atk: Math.max(0, battleCard.field.atk + guardianBonus),
-    def: Math.max(0, battleCard.field.def + guardianBonus),
+    atk: Math.max(0, battleCard.field.atk + terrainBonus + guardianBonus),
+    def: Math.max(0, battleCard.field.def + terrainBonus + guardianBonus),
   };
 }
 

@@ -62,7 +62,7 @@ export const PAL_PROFILE: OffsetProfile = {
   duelPhase: 0x09c564,
   turnIndicator: 0x09c504,
   sceneId: 0x09c4c2,
-  terrain: 0,
+  terrain: 0x09c6f9,
   duelistId: 0x09c6f3,
   lpP1: 0x0eb28a,
   lpP2: 0x0eb2aa,

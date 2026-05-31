@@ -1,9 +1,11 @@
+import { fieldBonus } from "../../../engine/data/field-bonus.ts";
 import type { BridgeCard } from "../../../engine/worker/messages.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import type { BridgeState } from "../../lib/bridge-message-processor.ts";
+import type { DuelCursorTarget, FieldCard } from "../../lib/bridge-state-interpreter.ts";
 import { formatCardId } from "../../lib/format.ts";
 import { useArtworkSrc } from "../../lib/use-artwork-src.ts";
 import { type BattlePrediction, predictFocusedBattle } from "../duel/battle-prediction.ts";
@@ -46,6 +48,22 @@ export function focusedCardForDisplay(bridge: BridgeState, cheatMode: boolean): 
   return bridge.gameData?.cards.find((card) => card.id === target.cardId) ?? null;
 }
 
+export function focusedStatsForDisplay(
+  bridge: BridgeState,
+  focused: BridgeCard,
+): { atk: number; def: number } | null {
+  if (focused.atk <= 0 && focused.def <= 0) return null;
+
+  const fieldCard = fieldCardForTarget(bridge, bridge.cursorTarget);
+  if (!fieldCard) return { atk: focused.atk, def: focused.def };
+
+  const bonus = fieldBonus(bridge.stats?.terrain ?? 0, focused.type);
+  return {
+    atk: Math.max(0, fieldCard.atk + bonus),
+    def: Math.max(0, fieldCard.def + bonus),
+  };
+}
+
 export function duelFocusRowVisible(bridge: BridgeState, cheatMode: boolean): boolean {
   return bridge.inDuel && bridge.phase !== "ended" && cheatMode;
 }
@@ -54,6 +72,7 @@ function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMo
   const resolveArtwork = useArtworkSrc();
   const focused = focusedCardForDisplay(bridge, cheatMode);
   const prediction = predictFocusedBattle(bridge);
+  const stats = focused ? focusedStatsForDisplay(bridge, focused) : null;
 
   if (!focused) {
     return <div aria-hidden="true" className="fm-duel-focused-slot" />;
@@ -74,11 +93,11 @@ function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMo
             <CardName cardId={focused.id} className="fm-duel-focused-name" name={focused.name} />
           </div>
           <div className="fm-duel-focused-stats">
-            {focused.atk > 0 || focused.def > 0 ? (
+            {stats ? (
               <>
-                <span className="fm-duel-focused-atk">{String(focused.atk)}</span>
+                <span className="fm-duel-focused-atk">{String(stats.atk)}</span>
                 <span className="fm-duel-focused-separator">/</span>
-                <span className="fm-duel-focused-def">{String(focused.def)}</span>
+                <span className="fm-duel-focused-def">{String(stats.def)}</span>
               </>
             ) : (
               <span>{focused.typeLabel || focused.type || "Magic"}</span>
@@ -88,6 +107,20 @@ function FocusedCardTarget({ bridge, cheatMode }: { bridge: BridgeState; cheatMo
       </div>
       <BattlePredictionPill prediction={prediction} />
     </div>
+  );
+}
+
+function fieldCardForTarget(
+  bridge: BridgeState,
+  target: DuelCursorTarget | null,
+): FieldCard | null {
+  if (!target) return null;
+  const field = target.zone === "playerField" ? bridge.field : bridge.opponentField;
+  if (target.zone !== "playerField" && target.zone !== "opponentField") return null;
+  return (
+    field.find((fc, i) => fc.cardId === target.cardId && (fc.slotIndex ?? i) === target.index) ??
+    field.find((fc) => fc.cardId === target.cardId) ??
+    null
   );
 }
 

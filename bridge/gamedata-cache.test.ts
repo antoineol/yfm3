@@ -43,6 +43,20 @@ describe("gamedata cache", () => {
     expect(readGameDataCache(tmpDir, discPath)).toBeNull();
   });
 
+  it("accepts cache entries when Windows rounds sub-millisecond mtimes", () => {
+    const stat = statSync(discPath);
+    writeFileSync(
+      join(tmpDir, "gamedata.json"),
+      JSON.stringify({
+        version: 18,
+        disc: { size: stat.size, mtimeMs: Math.trunc(stat.mtimeMs) },
+        ...data,
+      }),
+    );
+
+    expect(readGameDataCache(tmpDir, discPath)).toEqual(data);
+  });
+
   it("rejects cache entries from older extractor versions", () => {
     const stat = statSync(discPath);
     writeFileSync(

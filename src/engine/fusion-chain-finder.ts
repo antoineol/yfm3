@@ -374,7 +374,11 @@ function recordResult(
   // Skip fusions that sacrifice a field card with higher ATK than the result
   for (const c of consumedCards) {
     if (c.source === "field" && c.liveAtk != null) {
-      const consumedAtk = c.liveAtk + fieldBonus(terrain, cardDb.cardsById.get(c.cardId)?.cardType);
+      const consumedAtk = applyLiveFieldBonus(
+        c.liveAtk,
+        terrain,
+        cardDb.cardsById.get(c.cardId)?.cardType,
+      );
       if (effectiveAtk <= consumedAtk) return;
     }
   }
@@ -408,16 +412,15 @@ function enumerateDirectPlays(
     const monster = tagged[i];
     if (!monster) continue;
     const card = cardDb.cardsById.get(monster.cardId);
-    const fb = fieldBonus(terrain, card?.cardType);
     // For field cards, use live ATK (includes existing equip boosts) + field bonus;
     // otherwise use DB base ATK with field bonus applied.
     const baseAtk =
       monster.liveAtk != null
-        ? monster.liveAtk + fb
+        ? applyLiveFieldBonus(monster.liveAtk, terrain, card?.cardType)
         : applyFieldBonus(card?.attack ?? 0, terrain, card?.cardType);
     const baseDef =
       monster.liveDef != null
-        ? monster.liveDef + fb
+        ? applyLiveFieldBonus(monster.liveDef, terrain, card?.cardType)
         : applyFieldBonus(card?.defense ?? 0, terrain, card?.cardType);
     if (baseAtk === 0) continue;
     const name = card?.name ?? `Card #${monster.cardId}`;
@@ -451,6 +454,14 @@ function enumerateDirectPlays(
       equipCardIds: equips,
     });
   }
+}
+
+function applyLiveFieldBonus(
+  liveStat: number,
+  terrain: number,
+  cardType: string | undefined,
+): number {
+  return Math.max(0, liveStat + fieldBonus(terrain, cardType));
 }
 
 /**

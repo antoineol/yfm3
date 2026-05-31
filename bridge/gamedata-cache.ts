@@ -116,5 +116,5 @@ function sameDiscSignature(
   cached: DiscCacheSignature | undefined,
   current: DiscCacheSignature,
 ): boolean {
-  return cached?.size === current.size && cached.mtimeMs === current.mtimeMs;
+  return cached?.size === current.size && Math.abs(cached.mtimeMs - current.mtimeMs) < 1;
 }

@@ -4,6 +4,7 @@ import {
   battlePredictionLabel,
   duelFocusRowVisible,
   focusedCardForDisplay,
+  focusedStatsForDisplay,
 } from "./CheatViewSwitch.tsx";
 
 function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
@@ -12,8 +13,9 @@ function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
     inDuel: true,
     gameData: {
       cards: [
-        { id: 65, name: "Silver Fang" },
-        { id: 493, name: "Maha Vailo" },
+        { id: 65, name: "Silver Fang", atk: 1200, def: 800, type: "Beast" },
+        { id: 401, name: "Ushi Oni", atk: 2150, def: 1950, type: "Fiend" },
+        { id: 493, name: "Maha Vailo", atk: 1550, def: 1400, type: "Spellcaster" },
       ],
     } as BridgeState["gameData"],
     ...overrides,
@@ -51,6 +53,39 @@ describe("focusedCardForDisplay", () => {
 
   it("returns null when no card is focused", () => {
     expect(focusedCardForDisplay(bridgeWithTarget({ cursorTarget: null }), true)).toBeNull();
+  });
+});
+
+describe("focusedStatsForDisplay", () => {
+  it("returns base stats for a focused hand card", () => {
+    const bridge = bridgeWithTarget({
+      cursorTarget: { zone: "playerHand", index: 2, cardId: 65, hidden: false },
+    });
+    const focused = focusedCardForDisplay(bridge, true);
+
+    expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 1200, def: 800 });
+  });
+
+  it("returns terrain-adjusted live stats for a focused player field card", () => {
+    const bridge = bridgeWithTarget({
+      stats: { fusions: 0, terrain: 6, duelistId: 1, rankCounters: null },
+      field: [{ cardId: 401, atk: 2150, def: 1950, status: 0x84, slotIndex: 0 }],
+      cursorTarget: { zone: "playerField", index: 0, cardId: 401, hidden: false },
+    });
+    const focused = focusedCardForDisplay(bridge, true);
+
+    expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 2650, def: 2450 });
+  });
+
+  it("returns terrain-adjusted live stats for a focused opponent field card", () => {
+    const bridge = bridgeWithTarget({
+      stats: { fusions: 0, terrain: 6, duelistId: 1, rankCounters: null },
+      opponentField: [{ cardId: 493, atk: 1550, def: 1400, status: 0xbc, slotIndex: 0 }],
+      cursorTarget: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
+    });
+    const focused = focusedCardForDisplay(bridge, true);
+
+    expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 2050, def: 1900 });
   });
 });
 

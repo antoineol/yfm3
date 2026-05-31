@@ -8,7 +8,7 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 
 - Done: card type labels now travel separately from canonical type identifiers, so French UI labels can come from WA_MRG without breaking engine enum workflows.
 - Done: PAL French vanilla deck-limit extraction now detects Exodia cards `17..21` as one-copy cards from the executable's inline deck-edit range check, even though PAL vanilla has no RP/Alpha dispatcher table.
-- Verify PAL cursor target display beyond the current player-field cases, then map opponent field-slot focus, terrain, selected guardian star, and free-duel unlock bytes with live PAL probes.
+- Verify PAL cursor target display beyond the current player-field cases, then map opponent field-slot focus, selected guardian star, and free-duel unlock bytes with live PAL probes.
 - Keep PAL card names/descriptions localized while exporting structural card metadata as canonical app enums. Type, guardian-star, and attribute labels must match NTSC/RP enum values even though WA_MRG stores localized type/star display strings.
 - Keep incomplete PAL data out of "full" UI modes. PAL rank counters expose mapped counters from the decompiled rank routine; active-duel cards-left uses the live deal counter because the PAL result cards-used byte is only reliable once the result screen writes it.
 - Keep post-duel result UI tied to the results lifecycle: confirmed active hands dismiss visible post-duel content without aborting any background optimization already in flight.
@@ -16,7 +16,7 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 ## Confirmed In Scope
 
 - Focused card under the in-game duel cursor.
-- Live terrain during PAL duels.
+- Live terrain during PAL duels is mapped at `0x09C6F9`, the byte read by the PAL field-bonus routine before indexing the 20 monster types x 6 terrain bonus table. This fixed PAL field display, best-play terrain ranking, and battle prediction.
 - Target-selection battle prediction.
 - Rank tracker counters, especially equip counter.
 - Results-screen / post-duel lifecycle reliability.
@@ -47,4 +47,4 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 - `0x09C6E8` is not the PAL field cursor slot. It matched one empty-slot snapshot but belongs to a previously rejected per-duelist area and made valid PAL card focus resolve as empty.
 - PAL WA_MRG name blocks include localized type and guardian-star labels, but those labels are not safe for `CardStats.type`, `gs1`, or `gs2`. Keep those structural fields canonical so shared engine/UI code sees `Magic`, `Sun`, etc.
 - PAL French vanilla Exodia one-copy limits come from inline deck-edit code around `SLES:0x24514` / RAM `0x80033D14`, not from the RP-family dispatcher table. The same semantic scan also matches the display-side limit check around `SLES:0x227D0`.
-- Terrain needs a duel with a non-Normal field. Prior neutral-field duels could not identify it.
+- PAL terrain was verified statically from the `SLES_039.48` field-bonus routine: it reads `0x8009C6F9`, returns zero for Normal, and otherwise indexes the bonus table as `cardType * 6 + terrain - 1`.

@@ -9,7 +9,22 @@ import {
 } from "./bridge-message-processor.ts";
 
 const BRIDGE_URL = "ws://localhost:3333";
-const RECONNECT_MS = 3_000;
+const RECONNECT_MS = 500;
+const RECONNECT_GRACE_MS = 15_000;
+
+export function bridgeStateAfterSocketClose(prev: BridgeState): BridgeState {
+  if (prev.updating) return { ...INITIAL_BRIDGE_STATE, updating: true };
+  if (canKeepBridgeStateDuringReconnect(prev)) return { ...prev, status: "connecting" };
+  return INITIAL_BRIDGE_STATE;
+}
+
+export function shouldStartReconnectGrace(prev: BridgeState, next: BridgeState): boolean {
+  return prev.status !== "connecting" && next.status === "connecting" && next.detail === "ready";
+}
+
+function canKeepBridgeStateDuringReconnect(state: BridgeState): boolean {
+  return state.detail === "ready" && state.gameData !== null;
+}
 
 /**
  * Connects to the emulator bridge WebSocket and returns live game state.
@@ -19,6 +34,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   const [state, setState] = useState<BridgeState>(INITIAL_BRIDGE_STATE);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const reconnectGraceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const bridgeTrackerRef = useRef<BridgeTracker>(INITIAL_BRIDGE_TRACKER);
@@ -38,6 +54,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      clearTimeout(reconnectGraceTimer.current);
       setState((s) => ({ ...s, status: "connected" }));
     };
 
@@ -58,10 +75,22 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     ws.onclose = () => {
       wsRef.current = null;
       bridgeTrackerRef.current = INITIAL_BRIDGE_TRACKER;
-      // Preserve `updating` flag so the UI shows "Updating…" during reconnect
-      setState((prev) =>
-        prev.updating ? { ...INITIAL_BRIDGE_STATE, updating: true } : INITIAL_BRIDGE_STATE,
-      );
+      // Keep the last usable snapshot through bridge live-reload, but fall
+      // back to setup if the bridge really stays down.
+      setState((prev) => {
+        const next = bridgeStateAfterSocketClose(prev);
+        if (shouldStartReconnectGrace(prev, next)) {
+          clearTimeout(reconnectGraceTimer.current);
+          reconnectGraceTimer.current = setTimeout(() => {
+            setState((current) =>
+              current.status === "connecting" && current.detail === "ready"
+                ? INITIAL_BRIDGE_STATE
+                : current,
+            );
+          }, RECONNECT_GRACE_MS);
+        }
+        return next;
+      });
       if (enabledRef.current) {
         reconnectTimer.current = setTimeout(connect, RECONNECT_MS);
       }
@@ -75,6 +104,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
   useEffect(() => {
     if (!enabled) {
       clearTimeout(reconnectTimer.current);
+      clearTimeout(reconnectGraceTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
       bridgeTrackerRef.current = INITIAL_BRIDGE_TRACKER;
@@ -84,6 +114,7 @@ export function useEmulatorBridge(enabled = true): EmulatorBridge {
     connect();
     return () => {
       clearTimeout(reconnectTimer.current);
+      clearTimeout(reconnectGraceTimer.current);
       wsRef.current?.close();
       wsRef.current = null;
     };
