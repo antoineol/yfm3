@@ -29,6 +29,8 @@ const GHOST_TOOL_STARCHIP_TRAMPOLINE_MAX_LENGTH = 0x40;
 const GHOST_TOOL_STARCHIP_TRAMPOLINE_RAM = 0x801aaf00;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
+const GHOST_TOOL_VISIBLE_REWARD_RESTORE_OFFSET = 0xf4;
+const GHOST_TOOL_LOAD_FIRST_PICKED_REWARD = 0x97a20022;
 const PAL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150] as const;
 const PAL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150] as const;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
@@ -342,10 +344,15 @@ function inspectGhostToolPatchState(
     );
     const hooksVanilla = ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla");
     const hooksPatched = ghostToolHooksMatch(image, slusEntry, format, layout, "patched");
-    const patchedDropCount =
+    const currentDropCount =
       hooksPatched && waEntry
         ? ghostToolPatchedDropCount(image, slusEntry, waEntry, format, layout)
         : null;
+    const legacyVisibleDropCount =
+      hooksPatched && waEntry
+        ? ghostToolLegacyVisibleDropCount(image, slusEntry, waEntry, format, layout)
+        : null;
+    const patchedDropCount = currentDropCount ?? legacyVisibleDropCount;
     const cardLayoutUpgradeable =
       hooksPatched &&
       ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
@@ -372,7 +379,10 @@ function inspectGhostToolPatchState(
       return {
         supported: true,
         enabled:
-          cardDropCount > 1 && starchipState.multiplier === cardDropCount && starchipState.current,
+          currentDropCount != null &&
+          cardDropCount > 1 &&
+          starchipState.multiplier === cardDropCount &&
+          starchipState.current,
         definitionId: GHOST_TOOL_DEFINITION_ID,
         definitionName: ghostToolDefinitionName(cardDropCount),
         cardDropCount,
@@ -508,6 +518,7 @@ function findGhostToolPatchLayout(
           ghostToolWaTargetsClean(image, waEntry, format, layout)) ||
         (ghostToolHooksMatch(image, slusEntry, format, layout, "patched") &&
           (ghostToolPatchedDropCount(image, slusEntry, waEntry, format, layout) != null ||
+            ghostToolLegacyVisibleDropCount(image, slusEntry, waEntry, format, layout) != null ||
             (ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
               ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base")))),
     ) ?? null
@@ -539,6 +550,24 @@ function ghostToolPatchedDropCount(
   return null;
 }
 
+function ghostToolLegacyVisibleDropCount(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+): number | null {
+  for (const dropCount of layout.recognizedDropCounts) {
+    if (
+      legacyGhostToolExpansionPatched(image, slusEntry.sector, format, layout, dropCount) &&
+      legacyGhostToolWaCopiesPatched(image, waEntry, format, layout, dropCount)
+    ) {
+      return dropCount;
+    }
+  }
+  return null;
+}
+
 function ghostToolExpansionPatched(
   image: Buffer,
   slusSector: number,
@@ -557,6 +586,22 @@ function ghostToolExpansionPatched(
   );
 }
 
+function legacyGhostToolExpansionPatched(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): boolean {
+  return bytesMatchAt(
+    image,
+    slusSector,
+    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+    legacyGhostToolExpansionForDropCount(layout, dropCount),
+    format,
+  );
+}
+
 function ghostToolWaCopiesPatched(
   image: Buffer,
   waEntry: IsoFile,
@@ -565,19 +610,57 @@ function ghostToolWaCopiesPatched(
   dropCount: number,
   variant: "target" | "base" = "target",
 ): boolean {
-  if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
   const expansion =
     variant === "target" ? ghostToolExpansionForDropCount(layout, dropCount) : layout.expansion;
+  const extraLimit = variant === "target" ? firstLoopLimit(dropCount) : GHOST_TOOL_FIRST_LIMIT;
+  return ghostToolWaCopiesMatchExpansion(image, waEntry, format, layout, expansion, extraLimit);
+}
+
+function legacyGhostToolWaCopiesPatched(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): boolean {
+  return ghostToolWaCopiesMatchExpansion(
+    image,
+    waEntry,
+    format,
+    layout,
+    legacyGhostToolExpansionForDropCount(layout, dropCount),
+    firstLoopLimit(dropCount),
+  );
+}
+
+function ghostToolWaCopiesMatchExpansion(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  expansion: Buffer,
+  extraLimit: number,
+): boolean {
+  if (!ghostToolWaCopiesInRange(waEntry, layout)) return false;
   for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
     if (!bytesMatchAt(image, waEntry.sector, copyOffset, expansion, format)) return false;
   }
-  const extraLimit = variant === "target" ? firstLoopLimit(dropCount) : GHOST_TOOL_FIRST_LIMIT;
   return layout.waExtraLimits.every(
     (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === extraLimit,
   );
 }
 
 function ghostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: number): Buffer {
+  const expansion = legacyGhostToolExpansionForDropCount(layout, dropCount);
+  writeU32LeToBuffer(
+    expansion,
+    GHOST_TOOL_VISIBLE_REWARD_RESTORE_OFFSET,
+    GHOST_TOOL_LOAD_FIRST_PICKED_REWARD,
+  );
+  return expansion;
+}
+
+function legacyGhostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: number): Buffer {
   const expansion = Buffer.from(layout.expansion);
   writeAddiuImmediate(expansion, 0x44, layout.scratchBase);
   writeAddiuImmediate(expansion, 0x78, firstLoopLimit(dropCount));

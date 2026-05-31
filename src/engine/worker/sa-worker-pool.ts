@@ -8,15 +8,11 @@ import type {
   WorkerResult,
 } from "./messages.ts";
 
-/** Minimum relative improvement to reset the convergence timer. */
-const CONVERGENCE_MIN_IMPROVEMENT = 0.001;
-
 export interface SaPoolConfig {
   collectionRecord: Record<number, number>;
   initialDecks: Array<number[] | undefined>;
   timeBudgetMs: number;
   exactScoringReserveMs: number;
-  convergenceTimeout: number;
   modId: ModId;
   gameData?: BridgeGameData;
   signal?: AbortSignal;
@@ -25,20 +21,13 @@ export interface SaPoolConfig {
 }
 
 /**
- * Spawn SA workers in parallel with convergence-based early termination.
+ * Spawn SA workers in parallel.
  * Each worker receives a different seed and optional initial deck.
- * Returns all worker results once every worker finishes or converges.
+ * Returns all worker results once every worker finishes or the run is aborted.
  */
 export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResult[]> {
-  const {
-    collectionRecord,
-    initialDecks,
-    timeBudgetMs,
-    exactScoringReserveMs,
-    convergenceTimeout,
-    modId,
-    gameData,
-  } = config;
+  const { collectionRecord, initialDecks, timeBudgetMs, exactScoringReserveMs, modId, gameData } =
+    config;
   const numWorkers = initialDecks.length;
 
   const workers: Worker[] = [];
@@ -47,12 +36,8 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
   const rejecters: Array<(err: Error) => void> = [];
   const resolved: boolean[] = [];
   const latestProgress: Array<WorkerProgress | null> = [];
-  // Per-worker convergence: each worker's timer resets only when it surpasses
-  // the global best (not its own previous best). This prevents random-start
-  // workers' catch-up improvements from delaying termination.
   let globalBest = -Infinity;
   let globalBestDeck: number[] = [];
-  const workerLastImprovedAt: number[] = [];
 
   function terminateAll() {
     for (let j = 0; j < numWorkers; j++) {
@@ -90,22 +75,11 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
     };
   }
 
-  function allConverged(): boolean {
-    const now = performance.now();
-    for (let j = 0; j < numWorkers; j++) {
-      if (resolved[j]) continue;
-      if (latestProgress[j] === null) return false;
-      if (now - (workerLastImprovedAt[j] ?? now) <= convergenceTimeout) return false;
-    }
-    return true;
-  }
-
   for (let i = 0; i < numWorkers; i++) {
     const worker = new Worker(new URL("./sa-worker.ts", import.meta.url), { type: "module" });
     workers.push(worker);
     resolved.push(false);
     latestProgress.push(null);
-    workerLastImprovedAt.push(performance.now());
 
     const promise = new Promise<WorkerResult>((resolve, reject) => {
       resolvers.push(resolve);
@@ -120,20 +94,11 @@ export async function runSaWorkerPool(config: SaPoolConfig): Promise<WorkerResul
           return;
         }
         latestProgress[i] = msg;
-        // Hybrid convergence: a worker's timer resets only when it
-        // surpasses the global best, not its own previous best.
         if (msg.bestScore > globalBest) {
-          const isSignificant =
-            globalBest <= 0 ||
-            (msg.bestScore - globalBest) / globalBest >= CONVERGENCE_MIN_IMPROVEMENT;
           globalBest = msg.bestScore;
           globalBestDeck = msg.bestDeck;
-          if (isSignificant) {
-            workerLastImprovedAt[i] = performance.now();
-          }
         }
         config.onProgress?.(globalBest, globalBestDeck);
-        if (allConverged()) terminateAll();
       };
       worker.onerror = (e) => reject(new Error(`Worker ${i} error: ${e.message}`));
     });

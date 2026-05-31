@@ -91,6 +91,11 @@ same Ghost recipe, then lets the user choose card rewards:
 - inject the same PAL-adjusted blob in `DATA/WA_MRG.MRG` at
   `0xe25400 + i * 0x78000`, for `i = 0..6`;
 - move the Ghost scratch area from `0x801aac00` to `0x801ab500`;
+- restore the vanilla result-state card from Ghost scratch slot 1
+  (`lhu v0,0x22(sp)` at blob offset `0xf4`) before returning to the original
+  result setup. This makes the single visible result-screen card one of the
+  cards actually credited by the transfer loop while still leaving the shared
+  PAL text renderer unhooked;
 - set the PAL WA loop limits from the selected count: `count + 1`,
   `count + 1`, `count`, plus the preceding external WA limit at `0xe24fe4`.
 - patch the PAL root executable starchip save update to the same selected

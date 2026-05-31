@@ -266,6 +266,7 @@ describe("drop x15 patch inspection", () => {
       expect(patched.subarray(slusBase + 0x19b478, slusBase + 0x19b47c)).toEqual(
         Buffer.from("97001724", "hex"),
       );
+      expect(patched.readUInt32LE(slusBase + 0x19b4f4)).toBe(0x97a20022);
       expect(patched.subarray(slusBase + 0x19b550, slusBase + 0x19b554)).toEqual(
         Buffer.from("00B58424", "hex"),
       );
@@ -292,10 +293,50 @@ describe("drop x15 patch inspection", () => {
         expect(patched[waOffset(base + 0x78)]).toBe(151);
         expect(patched[waOffset(base + 0x174)]).toBe(151);
         expect(patched[waOffset(base + 0x1ec)]).toBe(150);
+        expect(patched.readUInt32LE(waOffset(base + 0xf4))).toBe(0x97a20022);
       }
       expect(patched[waOffset(0xe24fe4)]).toBe(151);
       expect(patched[waOffset(0x116d400)]).toBe(0);
       expectPalStarchipMultiplier(patched, slusBase, 150);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("refreshes PAL x150 when the visible result card still restores the vanilla pick", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      patchDropX15DiscInPlace(discPath, 150);
+      const oldVisibleReward = readFileSync(discPath);
+      oldVisibleReward.writeUInt32LE(0x8fa20000, 21 * SECTOR_DATA_SIZE + 0x19b4f4);
+      for (let copy = 0; copy < 7; copy++) {
+        oldVisibleReward.writeUInt32LE(0x8fa20000, waOffset(0xe25400 + copy * 0x78000 + 0xf4));
+      }
+      writeFileSync(discPath, oldVisibleReward);
+
+      expect(inspectDropX15Image(oldVisibleReward)).toMatchObject({
+        supported: true,
+        enabled: false,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+
+      const result = patchDropX15DiscInPlace(discPath, 150);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        enabled: true,
+        cardDropCount: 150,
+        starchipMultiplier: 150,
+      });
+      expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x19b4f4)).toBe(0x97a20022);
+      for (let copy = 0; copy < 7; copy++) {
+        expect(patched.readUInt32LE(waOffset(0xe25400 + copy * 0x78000 + 0xf4))).toBe(0x97a20022);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

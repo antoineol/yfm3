@@ -13,6 +13,8 @@ Make PAL French (`SLES_039.48`) bridge-backed duel features match the NTSC/RP ex
 - Keep incomplete PAL data out of "full" UI modes. PAL rank counters expose mapped counters from the decompiled rank routine; active-duel cards-left uses the live deal counter because the PAL result cards-used byte is only reliable once the result screen writes it.
 - Keep post-duel result UI tied to the results lifecycle: confirmed active hands dismiss visible post-duel content without aborting any background optimization already in flight.
 - Done: post-duel optimization now ignores transient empty/all-zero result-screen deck definitions by using the last valid active/saved deck snapshot or waiting for a complete deck before consuming the reward collection change.
+- Done: bridge state processing now preserves the last complete deck definition before computing collection totals, so transient empty deck polls cannot remove deck cards from manual auto-sync optimization.
+- Done: manual and post-duel optimization workers no longer convergence-stop before the time budget; progress should continue until natural worker completion or explicit abort.
 
 ## Confirmed In Scope
 

@@ -36,10 +36,6 @@ const DIFF_CLEANUP_BUDGET = 750;
 const DEFAULT_TIME_LIMIT = 15_000;
 /** Safety cap for worker count (prevents runaway on exotic hardware). */
 const MAX_WORKERS = 32;
-/** Minimum convergence timeout (ms). */
-const MIN_CONVERGENCE_TIMEOUT = 3_000;
-/** Convergence timeout as a fraction of the SA time budget. */
-const CONVERGENCE_TIMEOUT_RATIO = 0.3;
 /** PRNG seed used by the orchestrator for generating initial decks. */
 const SEED_STRATEGY_SEED = 42;
 
@@ -199,10 +195,6 @@ export async function optimizeDeckParallel(
   const numWorkers = Math.max(1, Math.min(cores - 1, MAX_WORKERS));
   const timeBudgetMs = timeLimit;
   const searchBudgetMs = Math.max(1, timeLimit - EXACT_SCORING_RESERVE);
-  const convergenceTimeout = Math.max(
-    MIN_CONVERGENCE_TIMEOUT,
-    searchBudgetMs * CONVERGENCE_TIMEOUT_RATIO,
-  );
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
 
   const rand = mulberry32(SEED_STRATEGY_SEED);
@@ -218,13 +210,12 @@ export async function optimizeDeckParallel(
     currentDeckSeed,
   );
 
-  // 2. Run SA workers in parallel with convergence detection
+  // 2. Run SA workers in parallel
   const results = await runSaWorkerPool({
     collectionRecord,
     initialDecks,
     timeBudgetMs,
     exactScoringReserveMs: EXACT_SCORING_RESERVE,
-    convergenceTimeout,
     modId,
     gameData,
     signal: options?.signal,
@@ -238,8 +229,8 @@ export async function optimizeDeckParallel(
       : undefined,
   });
 
-  // 3. Pick best exact-scored worker result. If workers were terminated from
-  // progress-only convergence, fall back to exact-scoring the sampled winner.
+  // 3. Pick best exact-scored worker result. If the run was aborted after
+  // progress, fall back to exact-scoring the sampled winner.
   const best = pickBestWorkerResult(results);
   if (!best?.bestDeck.length) {
     throw new Error("Optimization ended before any worker produced a deck.");

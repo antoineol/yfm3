@@ -126,7 +126,14 @@ export function useHydrateBridgeSnapshot(modId: string) {
 
     const savedCollection = readLocal<Record<number, number>>(collectionKey(modId));
     const savedDeck = readLocal<number[]>(deckKey(modId));
-    if (savedCollection) setCollection(savedCollection);
-    if (savedDeck) setDeck(savedDeck);
+    const completeDeck = completeDeckDefinition(savedDeck);
+    if (savedCollection && completeDeck) setCollection(savedCollection);
+    if (completeDeck) setDeck(completeDeck);
   }, [modId, setCollection, setDeck]);
+}
+
+function completeDeckDefinition(deck: number[] | null): number[] | null {
+  if (!deck) return null;
+  const cards = deck.filter((id) => id > 0);
+  return cards.length >= DECK_SIZE ? cards : null;
 }

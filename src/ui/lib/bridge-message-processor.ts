@@ -529,12 +529,15 @@ export function processBridgeMessage(
     const stats = keepRef(currentState.stats, interpreted.stats, eqStats);
     const cursorTarget = keepRef(currentState.cursorTarget, resolvedCursorTarget, eqCursorTarget);
     const battleTarget = keepRef(currentState.battleTarget, resolvedBattleTarget, eqBattleTarget);
+    const rawDeckDefinition = completeDeckDefinition(raw.deckDefinition);
+    const effectiveDeckDefinition =
+      rawDeckDefinition ?? completeDeckDefinition(currentState.deckDefinition);
     const collection = keepRef(
       currentState.collection,
-      computeOwnedCards(raw.trunk, raw.deckDefinition),
+      computeOwnedCards(raw.trunk, effectiveDeckDefinition ?? []),
       eqNumRecord,
     );
-    const deckDefinition = keepRef(currentState.deckDefinition, raw.deckDefinition, eqNumArr);
+    const deckDefinition = keepRef(currentState.deckDefinition, effectiveDeckDefinition, eqNumArr);
     const shuffledDeck = keepRef(currentState.shuffledDeck, raw.shuffledDeck ?? null, eqNumArr);
     const unlockedDuelists = keepRef(
       currentState.unlockedDuelists,
@@ -612,6 +615,12 @@ export function processBridgeMessage(
   }
 
   return null;
+}
+
+function completeDeckDefinition(deck: number[] | null): number[] | null {
+  if (!deck) return null;
+  const cards = deck.filter((id) => id > 0);
+  return cards.length >= 40 ? cards : null;
 }
 
 /**

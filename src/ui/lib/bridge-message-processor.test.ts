@@ -900,6 +900,56 @@ describe("processBridgeMessage", () => {
       });
     }
 
+    it("preserves the last complete deck when a poll reports an empty deck definition", () => {
+      const deck = Array.from({ length: 40 }, (_, i) => i + 1);
+      deck[0] = 426;
+      deck[1] = 571;
+      const r1 = processBridgeMessage(
+        makeRaw({ status: "ready", connected: true, deckDefinition: deck }),
+        INITIAL_BRIDGE_STATE,
+        INITIAL_BRIDGE_TRACKER,
+        1_000,
+      );
+      if (!r1) throw new Error("processBridgeMessage returned null");
+
+      const trunk = new Array(722).fill(0) as number[];
+      trunk[570] = 1;
+      const r2 = processBridgeMessage(
+        makeRaw({
+          status: "ready",
+          connected: true,
+          trunk,
+          deckDefinition: new Array(40).fill(0),
+        }),
+        r1.state,
+        r1.tracker,
+        1_050,
+      );
+
+      expect(r2?.state.deckDefinition).toBe(r1.state.deckDefinition);
+      expect(r2?.state.collection?.[426]).toBe(1);
+      expect(r2?.state.collection?.[571]).toBe(2);
+    });
+
+    it("does not publish an empty deck definition without a previous complete deck", () => {
+      const trunk = new Array(722).fill(0) as number[];
+      trunk[570] = 1;
+      const result = processBridgeMessage(
+        makeRaw({
+          status: "ready",
+          connected: true,
+          trunk,
+          deckDefinition: new Array(40).fill(0),
+        }),
+        INITIAL_BRIDGE_STATE,
+        INITIAL_BRIDGE_TRACKER,
+        1_000,
+      );
+
+      expect(result?.state.deckDefinition).toBeNull();
+      expect(result?.state.collection).toEqual({ 571: 1 });
+    });
+
     it("produces a new hand ref when hand content actually changes", () => {
       const r1 = firstPoll();
       const r2 = processBridgeMessage(
