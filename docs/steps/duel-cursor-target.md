@@ -8,11 +8,13 @@ Show the card currently targeted by the in-game cursor in the duel HUD without a
 
 - Verify PAL-focused-card display across hand focus, opponent focus, and duplicated field card IDs.
 - Verify target-selection battle prediction in live duels, especially duplicated card IDs, terrain-affected field stats, and non-primary guardian-star choices.
+- Verify the live savestate/restart path for cheat-view reset: opponent-turn view should return to Player when a new player phase starts.
 
 ## Next Steps
 
 - Map the selected guardian-star byte in RAM so battle prediction can stop falling back to each card's primary star.
 - Remove the diagnostic probe once the live focused-card strip has enough coverage.
+- If the bridge can expose a stable duel instance id later, use it to simplify duel-start UI resets.
 
 ## Notes
 
@@ -25,6 +27,7 @@ Show the card currently targeted by the in-game cursor in the duel HUD without a
 - The focused-card row is visible only during duels with cheat mode enabled. Hidden opponent targets are revealed only in that mode.
 - The focused-card row is hidden once the duel phase is `ended`; results screens should not retain active-duel helpers.
 - Opponent-cheat banner state mirrors bridge-visible swaps instead of only appending new detections, so the banner closes on result screens and does not remount stale swaps at the start of the next duel.
+- The Player/Opponent cheat view resets stale auto-opponent state whenever a player phase is entered from a non-player phase, covering savestate reloads where `inDuel` never cleanly flips false before the next duel starts. Manual Opponent selection is preserved while the player phase itself is unchanged.
 - NTSC-U field active-slot signal: `duelPhase + 0x114` is non-zero when a field card is focused and `0` when the cursor is on an empty field slot/no active field slot. It is not a reliable card index in every field layout; the UI uses the target-card id to choose the focused card and uses this signal only to distinguish card focus from empty field focus.
 - While an opponent field card is focused, the HUD predicts Win / Both destroyed / Lose from live RAM ATK/DEF, field status position, and guardian-star advantage. Live field-slot ATK/DEF is treated as the source of truth for equipment and other visible stat changes; terrain is not added a second time. The attacker is recovered from the current player field-slot signal first, so refreshes and cursor re-entry can recover without relying on previous cursor history. The selected guardian star is not mapped yet, so prediction currently uses each monster's primary guardian star as the deterministic fallback.
 - Cursor diagnostic logs are opt-in with `YFM_DIAG_CURSOR=1 bun bridge` because they can reveal opponent hidden card ids.

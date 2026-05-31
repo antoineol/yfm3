@@ -248,6 +248,38 @@ describe("DuelPage", () => {
       expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "player" });
     });
 
+    it("resets stale opponent view when player phase starts after a transient duel phase", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      vi.mocked(useCheatView).mockReturnValue("opponent");
+      mockBridge.mockReturnValue(inDuelBridge("opponent"));
+
+      const { rerender } = render(duelPage());
+      mockUpdatePreferences.mockClear();
+
+      mockBridge.mockReturnValue(inDuelBridge("other"));
+      rerender(duelPage());
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+      rerender(duelPage());
+
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ cheatView: "player" });
+    });
+
+    it("keeps manual opponent view during an unchanged player phase", () => {
+      vi.mocked(useCheatMode).mockReturnValue(true);
+      vi.mocked(useCheatView).mockReturnValue("player");
+      mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+      const { rerender } = render(duelPage());
+      mockUpdatePreferences.mockClear();
+
+      vi.mocked(useCheatView).mockReturnValue("opponent");
+      rerender(duelPage());
+
+      expect(mockUpdatePreferences).not.toHaveBeenCalled();
+    });
+
     it("does not switch when cheat mode is off", () => {
       vi.mocked(useCheatMode).mockReturnValue(false);
       mockBridge.mockReturnValue(inDuelBridge("hand"));
