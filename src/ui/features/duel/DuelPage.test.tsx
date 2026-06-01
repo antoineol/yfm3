@@ -28,7 +28,6 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useHandSourceMode: vi.fn(() => "deck"),
   useCheatMode: vi.fn(() => false),
   useCheatView: vi.fn(() => "player"),
-  useCpuSwaps: vi.fn(() => []),
 }));
 
 import type { EmulatorBridge } from "../../lib/bridge-message-processor.ts";
@@ -59,6 +58,11 @@ function defaultBridge(overrides: Partial<EmulatorBridge> = {}): EmulatorBridge 
     updateStaged: false,
     stageFailed: false,
     opponentHand: [],
+    opponentHandCards: [null, null, null, null, null],
+    opponentHandPool: [null, null, null, null, null],
+    opponentAvailablePool: [],
+    opponentReserve: [],
+    opponentReservePool: [],
     opponentField: [],
     cursorTarget: null,
     battleTarget: null,
@@ -109,14 +113,6 @@ vi.mock("../hand/use-auto-sync-hand.ts", () => ({
   useAutoSyncHand: vi.fn(),
 }));
 
-vi.mock("../hand/use-sync-cpu-swaps.ts", () => ({
-  useSyncCpuSwaps: vi.fn(),
-}));
-
-vi.mock("../hand/CpuCheatBanner.tsx", () => ({
-  CpuCheatBanner: () => <div data-testid="cpu-cheat-banner" />,
-}));
-
 vi.mock("../hand/CheatViewSwitch.tsx", () => ({
   CheatViewSwitch: () => <div data-testid="cheat-view-switch" />,
 }));
@@ -127,6 +123,10 @@ vi.mock("../hand/RankTracker.tsx", () => ({
 
 vi.mock("./OpponentHandGrid.tsx", () => ({
   OpponentHandGrid: () => <div data-testid="opponent-hand-grid" />,
+}));
+
+vi.mock("./OpponentAvailablePool.tsx", () => ({
+  OpponentAvailablePool: () => <div data-testid="opponent-available-pool" />,
 }));
 
 vi.mock("../hand/PostDuelSuggestion.tsx", () => ({
@@ -208,7 +208,6 @@ describe("DuelPage", () => {
     expect(screen.getByTestId("emulator-bridge-bar")).toBeTruthy();
     expect(screen.queryByTestId("hand-card-selector")).toBeNull();
     expect(screen.getByTestId("field-display")).toBeTruthy();
-    expect(screen.getByTestId("cpu-cheat-banner")).toBeTruthy();
     expect(screen.getByTestId("cheat-view-switch")).toBeTruthy();
   });
 
@@ -217,6 +216,37 @@ describe("DuelPage", () => {
 
     expect(screen.queryByTestId("emulator-bridge-bar")).toBeNull();
     expect(screen.getByTestId("hand-card-selector")).toBeTruthy();
+  });
+
+  it("keeps the opponent pool mounted while switching cheat views", () => {
+    vi.mocked(useCheatMode).mockReturnValue(true);
+    vi.mocked(useCheatView).mockReturnValue("player");
+    mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+    const { rerender } = render(duelPage());
+    const pool = screen.getByTestId("opponent-available-pool");
+
+    vi.mocked(useCheatView).mockReturnValue("opponent");
+    rerender(duelPage());
+
+    expect(screen.getByTestId("opponent-available-pool")).toBe(pool);
+    expect(screen.getAllByTestId("opponent-available-pool")).toHaveLength(1);
+  });
+
+  it("keeps the opponent pool mounted while toggling cheat mode", () => {
+    vi.mocked(useCheatMode).mockReturnValue(false);
+    mockBridge.mockReturnValue(inDuelBridge("hand"));
+
+    const { rerender } = render(duelPage());
+    const pool = screen.getByTestId("opponent-available-pool");
+    const wrapper = pool.parentElement?.parentElement;
+    expect(wrapper?.className).not.toContain("fm-opponent-pool-wrap--open");
+
+    vi.mocked(useCheatMode).mockReturnValue(true);
+    rerender(duelPage());
+
+    expect(screen.getByTestId("opponent-available-pool")).toBe(pool);
+    expect(wrapper?.className).toContain("fm-opponent-pool-wrap--open");
   });
 
   describe("auto-switch cheat view on turn change", () => {
@@ -367,7 +397,6 @@ describe("DuelPage", () => {
 
     expect(screen.getByText("Duel complete")).toBeTruthy();
     expect(screen.queryByTestId("hand-display")).toBeNull();
-    expect(screen.queryByTestId("cpu-cheat-banner")).toBeNull();
     expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });
 
@@ -385,7 +414,6 @@ describe("DuelPage", () => {
     expect(screen.getByTestId("post-duel-suggestion")).toBeTruthy();
     expect(screen.queryByTestId("hand-display")).toBeNull();
     expect(screen.queryByText("Duel complete")).toBeNull();
-    expect(screen.queryByTestId("cpu-cheat-banner")).toBeNull();
     expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });
 

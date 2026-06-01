@@ -1,12 +1,11 @@
 import { useCheatMode, useCheatView } from "../../db/use-user-preferences.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { CheatViewSwitch } from "../hand/CheatViewSwitch.tsx";
-import { CpuCheatBanner } from "../hand/CpuCheatBanner.tsx";
 import { EmulatorBridgeBar } from "../hand/EmulatorBridgeBar.tsx";
 import { RankTracker } from "../hand/RankTracker.tsx";
 import { useCheatViewAutoSwitch } from "../hand/use-cheat-view-auto-switch.ts";
-import { useSyncCpuSwaps } from "../hand/use-sync-cpu-swaps.ts";
 import { DuelEnded } from "./DuelEnded.tsx";
+import { OpponentAvailablePool } from "./OpponentAvailablePool.tsx";
 import { OpponentDuelView } from "./OpponentDuelView.tsx";
 import { PlayerDuelView } from "./PlayerDuelView.tsx";
 import { WaitingForDuel } from "./WaitingForDuel.tsx";
@@ -17,7 +16,6 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
   const cheatMode = useCheatMode();
   const cheatView = useCheatView();
 
-  useSyncCpuSwaps();
   useCheatViewAutoSwitch();
 
   const isEnded = bridge.phase === "ended";
@@ -26,6 +24,7 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
   const showOpponent = inActiveDuel && cheatMode && cheatView === "opponent";
   const showPlayer = inActiveDuel && !showOpponent;
   const showIdle = !bridge.inDuel && !showEnded && !hasPostDuelContent;
+  const terrain = bridge.stats?.terrain ?? 0;
 
   return (
     <>
@@ -33,7 +32,20 @@ export function SyncedShell({ hasPostDuelContent }: { hasPostDuelContent: boolea
       <RankTracker />
       {showEnded && <DuelEnded lp={bridge.lp} stats={bridge.stats} />}
       {showIdle && <WaitingForDuel />}
-      {inActiveDuel && <CpuCheatBanner />}
+      {inActiveDuel && (
+        <div
+          aria-hidden={!cheatMode}
+          className={`fm-opponent-pool-wrap ${cheatMode ? "fm-opponent-pool-wrap--open" : ""}`}
+        >
+          <div>
+            <OpponentAvailablePool
+              handCards={bridge.opponentHandPool}
+              reserveCards={bridge.opponentReservePool}
+              terrain={terrain}
+            />
+          </div>
+        </div>
+      )}
       {inActiveDuel && <CheatViewSwitch />}
       {showOpponent && <OpponentDuelView />}
       {showPlayer && <PlayerDuelView />}

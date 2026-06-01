@@ -59,7 +59,9 @@ export interface AgentGameState {
   shuffledDeck: number[];
   trunk: number[];
   deckDefinition: number[];
+  opponentCardsDealt?: number | null;
   cpuShuffledDeck: number[];
+  cpuDuelDeck?: number[];
   duelCursorTargetCardId: number | null;
   duelCursorFieldSlotIndex?: number | null;
   duelistUnlock: number[];

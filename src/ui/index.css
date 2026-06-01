@@ -735,6 +735,164 @@ input[type="number"] {
   justify-content: center;
 }
 
+.fm-opponent-pool {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1px 1px 4px;
+  scrollbar-width: thin;
+}
+
+.fm-opponent-pool-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: -0.5rem;
+  pointer-events: none;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-top 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  visibility: hidden;
+}
+
+.fm-opponent-pool-wrap--open {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.fm-opponent-pool-wrap > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fm-opponent-pool-thumb {
+  display: block;
+  flex: 0 0 auto;
+  padding: 2px;
+  width: 34px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.fm-opponent-pool-thumb--hand {
+  background: rgba(47, 118, 190, 0.15);
+  border-color: rgba(72, 149, 220, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(137, 196, 255, 0.1);
+}
+
+.fm-opponent-pool-thumb--reserve {
+  background: rgba(174, 117, 34, 0.13);
+  border-color: rgba(206, 151, 59, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 211, 128, 0.08);
+  opacity: 0.76;
+}
+
+.fm-opponent-pool-thumb--next-draw {
+  background: rgba(70, 154, 130, 0.18);
+  border-color: rgba(92, 210, 178, 0.74);
+  box-shadow:
+    inset 0 0 0 1px rgba(163, 246, 216, 0.12),
+    0 0 0 1px rgba(92, 210, 178, 0.18);
+  opacity: 0.94;
+}
+
+.fm-opponent-pool-thumb--hand + .fm-opponent-pool-thumb--reserve {
+  margin-left: 6px;
+}
+
+.fm-opponent-pool-thumb--empty {
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+.fm-opponent-pool-empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 104 / 142;
+  border: 1px dashed rgba(133, 184, 236, 0.32);
+  border-radius: 3px;
+  background:
+    linear-gradient(135deg, rgba(70, 126, 184, 0.18), rgba(16, 24, 38, 0.3)), rgba(12, 18, 28, 0.46);
+}
+
+.fm-opponent-pool-thumb .fm-mini {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+}
+
+.fm-opponent-pool-thumb .fm-mini-edge {
+  padding: 0.75px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-frame {
+  gap: 1px;
+  padding: 1.5px 1.5px 1px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-name-band {
+  padding: 0 1.5px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-name-text {
+  font-size: 4.5px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-orb {
+  width: 4px;
+  height: 4px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-art-well {
+  border-width: 1px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-stats {
+  gap: 1px;
+  padding: 0;
+}
+
+.fm-opponent-pool-thumb .fm-mini-stat-value {
+  font-size: 5px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-stat-sep {
+  font-size: 4px;
+}
+
+.fm-opponent-pool-thumb .fm-mini-stat-type {
+  font-size: 5px;
+}
+
+@media (min-width: 640px) {
+  .fm-opponent-pool {
+    gap: 5px;
+  }
+
+  .fm-opponent-pool-thumb {
+    width: 42px;
+  }
+
+  .fm-opponent-pool-thumb .fm-mini-name-text {
+    font-size: 5px;
+  }
+
+  .fm-opponent-pool-thumb .fm-mini-stat-value {
+    font-size: 6px;
+  }
+
+  .fm-opponent-pool-thumb .fm-mini-stat-type {
+    font-size: 6px;
+  }
+}
+
 /* ── Zone arena (3D perspective container) ───────────────────── *
  * Both hand and field are always visible. The focused zone is
  * flat + full-size; the other tilts away in 3D perspective,
@@ -1799,125 +1957,4 @@ input[type="number"] {
   --color-gold: #9b7bc0;
   --color-gold-dim: #6c3483;
   --color-gold-bright: #bb8fce;
-}
-
-/* ── CPU Cheat Banner ─────────────────────────────────────── */
-
-.fm-cheat-banner-wrap {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-top: -0.5rem;
-  transition:
-    grid-template-rows 300ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin-top 300ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.fm-cheat-banner-wrap--open {
-  grid-template-rows: 1fr;
-  margin-top: 0;
-}
-
-.fm-cheat-banner-wrap > div {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.fm-cheat-banner {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(140, 20, 20, 0.18) 0%, rgba(180, 40, 40, 0.06) 100%);
-  border: 1px solid rgba(220, 60, 60, 0.3);
-  overflow: hidden;
-}
-
-.fm-cheat-banner-portrait {
-  width: 160px;
-  flex-shrink: 0;
-  object-fit: cover;
-  object-position: center 20%;
-  border-right: 1px solid rgba(220, 60, 60, 0.2);
-  mask-image: linear-gradient(to right, black 70%, transparent);
-  -webkit-mask-image: linear-gradient(to right, black 70%, transparent);
-}
-
-.fm-cheat-banner-body {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 14px;
-}
-
-.fm-cheat-banner-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.fm-cheat-banner-tag {
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #dc4444;
-  text-shadow: 0 0 12px rgba(220, 50, 50, 0.4);
-}
-
-.fm-cheat-banner-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fm-cheat-banner-swap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fm-cheat-banner-cards {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.fm-cheat-banner-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 3px;
-  object-fit: cover;
-  border: 1px solid rgba(220, 60, 60, 0.25);
-  flex-shrink: 0;
-}
-
-.fm-cheat-banner-arrow {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  background: currentColor;
-  color: #dc4444;
-  clip-path: polygon(0 35%, 60% 35%, 60% 0, 100% 50%, 60% 100%, 60% 65%, 0 65%);
-}
-
-.fm-cheat-banner-text {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.fm-cheat-banner-name {
-  color: var(--color-text-primary);
-  font-weight: 500;
-  font-size: inherit;
 }

@@ -4,6 +4,7 @@ import type {
   DuelPhase,
   DuelStats,
   FieldCard,
+  OpponentPoolCard,
   RawBridgeState,
   RawCardSlot,
 } from "./bridge-state-interpreter.ts";
@@ -12,7 +13,13 @@ import {
   decodeDuelistUnlock,
   interpretRawState,
 } from "./bridge-state-interpreter.ts";
-import { accumulateCpuSwaps, type CpuSwap } from "./detect-cpu-swaps.ts";
+
+export type CpuSwap = {
+  slotIndex: number;
+  fromCardId: number;
+  toCardId: number;
+  timestamp: number;
+};
 
 // ── Raw bridge message types (internal) ──────────────────────────────
 
@@ -85,6 +92,16 @@ export type BridgeState = {
   stageFailed: boolean;
   /** Opponent's hand card IDs (from RAM, filtered same as player). */
   opponentHand: number[];
+  /** Opponent's five physical hand slots: card ID or null for a spent/empty slot. */
+  opponentHandCards: Array<number | null>;
+  /** Opponent's five physical hand slots with live-table copy identity. */
+  opponentHandPool: Array<OpponentPoolCard | null>;
+  /** Opponent's AI-visible hand pool: visible hand plus reserve/draw-window cards. */
+  opponentAvailablePool: number[];
+  /** Opponent's AI reserve draw window, excluding visible hand cards. */
+  opponentReserve: number[];
+  /** Opponent's AI reserve draw window with live-table copy identity. */
+  opponentReservePool: OpponentPoolCard[];
   /** Opponent's field cards with live ATK/DEF. */
   opponentField: FieldCard[];
   /** Card currently targeted by the in-game cursor, if known. */
@@ -123,6 +140,11 @@ export const INITIAL_BRIDGE_STATE: BridgeState = {
   updateStaged: false,
   stageFailed: false,
   opponentHand: [],
+  opponentHandCards: [null, null, null, null, null],
+  opponentHandPool: [null, null, null, null, null],
+  opponentAvailablePool: [],
+  opponentReserve: [],
+  opponentReservePool: [],
   opponentField: [],
   cursorTarget: null,
   battleTarget: null,
@@ -207,6 +229,36 @@ function eqFieldArr(a: FieldCard[], b: FieldCard[]): boolean {
     }
   }
   return true;
+}
+
+function eqOpponentPoolHand(
+  a: Array<OpponentPoolCard | null>,
+  b: Array<OpponentPoolCard | null>,
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!eqOpponentPoolCard(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+function eqOpponentPoolArr(a: OpponentPoolCard[], b: OpponentPoolCard[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!eqOpponentPoolCard(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+function eqOpponentPoolCard(
+  a: OpponentPoolCard | null | undefined,
+  b: OpponentPoolCard | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.cardId === b.cardId && a.slotId === b.slotId;
 }
 
 function eqLp(a: [number, number] | null, b: [number, number] | null): boolean {
@@ -496,21 +548,7 @@ export function processBridgeMessage(
       pendingPlayerAttackTarget,
     };
 
-    const cpuSwaps = accumulateCpuSwaps(
-      currentState.cpuSwaps,
-      {
-        opponentHand: currentState.opponentHand,
-        opponentFieldCount: currentState.opponentField.length,
-        inDuel: currentState.inDuel && currentState.phase !== "ended",
-      },
-      {
-        opponentHand: interpreted.opponentHand,
-        opponentFieldCount: interpreted.opponentField.length,
-        inDuel: isActiveDuel,
-      },
-      effectivePhase,
-      now,
-    );
+    const cpuSwaps = currentState.cpuSwaps.length === 0 ? currentState.cpuSwaps : [];
 
     // ── Reference-stability pass ─────────────────────────────────
     // JSON deserialization + interpretation produce fresh array refs every
@@ -520,6 +558,31 @@ export function processBridgeMessage(
     const hand = keepRef(currentState.hand, interpreted.hand, eqNumArr);
     const field = keepRef(currentState.field, interpreted.field, eqFieldArr);
     const opponentHand = keepRef(currentState.opponentHand, interpreted.opponentHand, eqNumArr);
+    const opponentHandCards = keepRef(
+      currentState.opponentHandCards,
+      interpreted.opponentHandCards,
+      eqNumArr,
+    );
+    const opponentHandPool = keepRef(
+      currentState.opponentHandPool,
+      interpreted.opponentHandPool,
+      eqOpponentPoolHand,
+    );
+    const opponentAvailablePool = keepRef(
+      currentState.opponentAvailablePool,
+      interpreted.opponentAvailablePool,
+      eqNumArr,
+    );
+    const opponentReserve = keepRef(
+      currentState.opponentReserve,
+      interpreted.opponentReserve,
+      eqNumArr,
+    );
+    const opponentReservePool = keepRef(
+      currentState.opponentReservePool,
+      interpreted.opponentReservePool,
+      eqOpponentPoolArr,
+    );
     const opponentField = keepRef(
       currentState.opponentField,
       interpreted.opponentField,
@@ -569,6 +632,11 @@ export function processBridgeMessage(
       // Preserve update flag — it arrives via a separate message
       updateStaged: currentState.updateStaged,
       opponentHand,
+      opponentHandCards,
+      opponentHandPool,
+      opponentAvailablePool,
+      opponentReserve,
+      opponentReservePool,
       opponentField,
       cursorTarget,
       battleTarget,

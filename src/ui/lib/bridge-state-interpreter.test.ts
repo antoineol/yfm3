@@ -1049,6 +1049,152 @@ describe("interpretRawState", () => {
       });
     });
   });
+
+  describe("opponent available pool", () => {
+    it("combines visible hand and reserve draw-window cards up to the duelist hand size", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelistId: 8, // Alpha table handSize 20 when raw-indexed.
+          opponentCardsDealt: 5,
+          opponentHandSlots: [40, 41, 42, 43, 44],
+          opponentHand: [
+            { cardId: 11, atk: 100, def: 100, status: 0x80 },
+            { cardId: 12, atk: 100, def: 100, status: 0x80 },
+            { cardId: 13, atk: 100, def: 100, status: 0x80 },
+            { cardId: 14, atk: 100, def: 100, status: 0x80 },
+            { cardId: 15, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+          cpuShuffledDeck: Array.from({ length: 40 }, (_, i) => i + 501),
+        }),
+      );
+
+      expect(result.opponentAvailablePool).toEqual([
+        11, 12, 13, 14, 15, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119,
+        120,
+      ]);
+      expect(result.opponentHandCards).toEqual([11, 12, 13, 14, 15]);
+      expect(result.opponentHandPool).toEqual([
+        { cardId: 11, slotId: 40 },
+        { cardId: 12, slotId: 41 },
+        { cardId: 13, slotId: 42 },
+        { cardId: 14, slotId: 43 },
+        { cardId: 15, slotId: 44 },
+      ]);
+      expect(result.opponentReserve).toEqual([
+        106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120,
+      ]);
+      expect(result.opponentReservePool[0]).toEqual({ cardId: 106, slotId: 45 });
+      expect(result.opponentReservePool.at(-1)).toEqual({ cardId: 120, slotId: 59 });
+    });
+
+    it("uses the live duel deck instead of the original shuffled deck after a reserve swap", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelistId: 7, // Alpha table handSize 10 when raw-indexed.
+          opponentCardsDealt: 5,
+          opponentHandSlots: [49, 41, 42, 43, 44],
+          opponentHand: [
+            { cardId: 199, atk: 100, def: 100, status: 0x80 },
+            { cardId: 12, atk: 100, def: 100, status: 0x80 },
+            { cardId: 13, atk: 100, def: 100, status: 0x80 },
+            { cardId: 14, atk: 100, def: 100, status: 0x80 },
+            { cardId: 15, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: [101, 102, 103, 104, 105, 201, 202, 203, 204, 205],
+          cpuShuffledDeck: [101, 102, 103, 104, 105, 301, 302, 303, 304, 305],
+        }),
+      );
+
+      expect(result.opponentAvailablePool).toEqual([199, 12, 13, 14, 15, 201, 202, 203, 204, 205]);
+      expect(result.opponentHandCards).toEqual([199, 12, 13, 14, 15]);
+      expect(result.opponentHandPool[0]).toEqual({ cardId: 199, slotId: 49 });
+      expect(result.opponentReserve).toEqual([201, 202, 203, 204, 205]);
+      expect(result.opponentReservePool).toEqual([
+        { cardId: 201, slotId: 45 },
+        { cardId: 202, slotId: 46 },
+        { cardId: 203, slotId: 47 },
+        { cardId: 204, slotId: 48 },
+        { cardId: 205, slotId: 49 },
+      ]);
+    });
+
+    it("preserves empty visible hand slots without consuming reserve capacity", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelistId: 7, // Alpha table handSize 10 when raw-indexed.
+          opponentCardsDealt: 7,
+          opponentHandSlots: [40, 0xff, 42, 0xff, 44],
+          opponentHand: [
+            { cardId: 11, atk: 100, def: 100, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 13, atk: 100, def: 100, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 15, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+        }),
+      );
+
+      expect(result.opponentHand).toEqual([11, 13, 15]);
+      expect(result.opponentHandCards).toEqual([11, null, 13, null, 15]);
+      expect(result.opponentHandPool).toEqual([
+        { cardId: 11, slotId: 40 },
+        null,
+        { cardId: 13, slotId: 42 },
+        null,
+        { cardId: 15, slotId: 44 },
+      ]);
+      expect(result.opponentReserve).toEqual([108, 109, 110, 111, 112, 113, 114]);
+      expect(result.opponentReservePool[0]).toEqual({ cardId: 108, slotId: 47 });
+      expect(result.opponentAvailablePool).toEqual([11, 13, 15, 108, 109, 110, 111, 112, 113, 114]);
+    });
+
+    it("advances the reserve draw window when the opponent draws into an empty hand slot", () => {
+      const cpuDuelDeck = Array.from({ length: 40 }, (_, i) => i + 101);
+      const beforeDraw = interpretRawState(
+        makeRaw({
+          duelistId: 7, // Alpha table handSize 10 when raw-indexed.
+          opponentCardsDealt: 5,
+          opponentHandSlots: [40, 41, 42, 43, 0xff],
+          opponentHand: [
+            { cardId: 101, atk: 100, def: 100, status: 0x80 },
+            { cardId: 102, atk: 100, def: 100, status: 0x80 },
+            { cardId: 103, atk: 100, def: 100, status: 0x80 },
+            { cardId: 104, atk: 100, def: 100, status: 0x80 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          cpuDuelDeck,
+        }),
+      );
+      const afterDraw = interpretRawState(
+        makeRaw({
+          duelistId: 7,
+          opponentCardsDealt: 6,
+          opponentHandSlots: [40, 41, 42, 43, 45],
+          opponentHand: [
+            { cardId: 101, atk: 100, def: 100, status: 0x80 },
+            { cardId: 102, atk: 100, def: 100, status: 0x80 },
+            { cardId: 103, atk: 100, def: 100, status: 0x80 },
+            { cardId: 104, atk: 100, def: 100, status: 0x80 },
+            { cardId: 106, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck,
+        }),
+      );
+
+      expect(beforeDraw.opponentHandCards).toEqual([101, 102, 103, 104, null]);
+      expect(beforeDraw.opponentReserve).toEqual([106, 107, 108, 109, 110, 111]);
+      expect(beforeDraw.opponentReservePool[0]).toEqual({ cardId: 106, slotId: 45 });
+      expect(afterDraw.opponentHandCards).toEqual([101, 102, 103, 104, 106]);
+      expect(afterDraw.opponentHandPool[4]).toEqual({ cardId: 106, slotId: 45 });
+      expect(afterDraw.opponentReserve).toEqual([107, 108, 109, 110, 111]);
+      expect(afterDraw.opponentReservePool[0]).toEqual({ cardId: 107, slotId: 46 });
+      expect(afterDraw.opponentAvailablePool).toEqual([
+        101, 102, 103, 104, 106, 107, 108, 109, 110, 111,
+      ]);
+    });
+  });
 });
 
 describe("computeOwnedCards", () => {

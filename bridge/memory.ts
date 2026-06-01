@@ -65,8 +65,12 @@ export interface GameState {
   opponentField: CardSlot[];
   /** Opponent hand slot indices (u8[5]): same as player handSlots but at lpP2+offset. */
   opponentHandSlots: number[] | null;
+  /** Opponent's dealt-card counter, relative to the CPU half of the duel deck. */
+  opponentCardsDealt: number | null;
   /** CPU's shuffled deck during a duel (40 card IDs, 0 = empty slot). */
   cpuShuffledDeck: number[];
+  /** CPU's live duel-card table entries (40 card IDs, includes reserve swaps). */
+  cpuDuelDeck: number[];
   /** Free-duel duelist unlock bitfield (raw bytes at 0x1D06F4). */
   duelistUnlock: number[];
   /**
@@ -107,6 +111,8 @@ const DUELIST_UNLOCK_OFFSET = 0x1d06f4; // Free-duel duelist unlock bitfield (Da
 const DUELIST_UNLOCK_BYTES = 8; // 4 documented + 4 extra for safety (39 duelists need 5 bytes)
 const PLAYER_SHUFFLED_DECK_OFFSET = 0x177fe8; // Shuffled deck during duel
 const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
+const DUEL_CARD_TABLE_OFFSET = 0x1a7e20; // 80 entries x 6 bytes: player 0..39, CPU 40..79
+const DUEL_CARD_TABLE_STRIDE = 6;
 const DUEL_CURSOR_TARGET_CARD_REL = 0xfe; // NTSC-U: duelPhase + 0xfe = 0x9b338
 const DUEL_CURSOR_FIELD_SLOT_REL = 0x114; // NTSC-U: 1-based player field slot, 0 when none/empty.
 
@@ -556,6 +562,9 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
   const opponentHandSlots = profile?.handSlots
     ? readU8Array(view, profile.lpP2 + (profile.handSlots - profile.lpP1), HAND_SLOTS)
     : null;
+  const opponentCardsDealt = profile?.cardsDealt
+    ? readU8(view, profile.lpP2 + (profile.cardsDealt - profile.lpP1))
+    : null;
 
   // Helper: read from profile offset, returning null if offset is 0 (unmapped)
   const u8 = (off: number | undefined): number | null =>
@@ -590,7 +599,9 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     opponentHand,
     opponentField,
     opponentHandSlots,
+    opponentCardsDealt,
     cpuShuffledDeck: readCpuShuffledDeck(view),
+    cpuDuelDeck: readCpuDuelDeck(view),
     rankCounters: profile?.rankStatsBase ? readLiveRankCounters(view, profile, duelPhase) : null,
     duelistUnlock: readDuelistUnlock(view),
     ...cursorFields,
@@ -631,6 +642,21 @@ export function readShuffledDeck(view: DataView): number[] {
  */
 export function readCpuShuffledDeck(view: DataView): number[] {
   return readU16Array(view, CPU_SHUFFLED_DECK_OFFSET, DECK_DEF_CARDS);
+}
+
+/**
+ * Read the CPU half of the live duel-card table.
+ *
+ * Unlike cpuShuffledDeck, this table is mutated when the AI pulls a reserve
+ * card into a visible hand slot, so it reflects the current reserve pool.
+ */
+export function readCpuDuelDeck(view: DataView): number[] {
+  const cards: number[] = [];
+  const cpuBase = DUEL_CARD_TABLE_OFFSET + DECK_DEF_CARDS * DUEL_CARD_TABLE_STRIDE;
+  for (let i = 0; i < DECK_DEF_CARDS; i++) {
+    cards.push(readU16(view, cpuBase + i * DUEL_CARD_TABLE_STRIDE));
+  }
+  return cards;
 }
 
 /**

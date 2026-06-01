@@ -230,6 +230,8 @@ Rules:
 - Battle prediction should use live field ATK/DEF as source of truth for visible stat changes.
 - Terrain must not be added twice when live field stats already include it.
 - Until selected guardian star is mapped, prediction falls back to each card's primary guardian star.
+- In cheat mode, the opponent available-pool PoC renders five fixed visible-hand slots first, preserving empty spent slots, then renders reserve cards separately. The reserve is the AI draw window: it is the live duel-deck suffix starting at the opponent dealt-card counter, capped with visible hand cards by the duelist's configured pool size. A normal draw materializes the first reserve card into an empty visible hand slot and advances the window; an AI reserve swap mutates the live duel deck by exchanging a selected reserve entry with a visible hand entry. Hand, next-draw, and reserve entries must be visually distinct. UI transition identity must use live duel-table slot IDs, not card IDs, so duplicate cards and reserve-to-hand movement animate as the same card copy.
+- The former CPU swap "cheat detected" banner/detector is disabled; cheat-mode insight should come from the opponent available pool.
 
 Best-play path selection:
 

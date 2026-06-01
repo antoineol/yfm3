@@ -102,4 +102,17 @@ describe("readGameState", () => {
 
     expect(state.terrain).toBe(6);
   });
+
+  it("reads the opponent dealt counter and live CPU duel deck", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    const cpuDuelDeckBase = 0x1a7e20 + 40 * 6;
+    view.setUint8(PAL_PROFILE.lpP2 + (PAL_PROFILE.cardsDealt - PAL_PROFILE.lpP1), 9);
+    view.setUint16(cpuDuelDeckBase, 123, true);
+    view.setUint16(cpuDuelDeckBase + 6, 456, true);
+
+    const state = readGameState(view, PAL_PROFILE);
+
+    expect(state.opponentCardsDealt).toBe(9);
+    expect(state.cpuDuelDeck.slice(0, 3)).toEqual([123, 456, 0]);
+  });
 });

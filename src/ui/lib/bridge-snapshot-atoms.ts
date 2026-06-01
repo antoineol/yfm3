@@ -86,17 +86,6 @@ export function persistLocalSettings(settings: LocalSettings): void {
   writeLocal("yfm_settings:targetRank", settings.targetRank);
 }
 
-// ── CPU swap detections ─────────────────────────────────────────────
-
-export interface CpuSwap {
-  slotIndex: number;
-  fromCardId: number;
-  toCardId: number;
-  timestamp: number;
-}
-
-export const localCpuSwapsAtom = atom<CpuSwap[]>([]);
-
 // ── Post-duel suggestion ────────────────────────────────────────────
 
 export interface LocalPostDuelSuggestion {

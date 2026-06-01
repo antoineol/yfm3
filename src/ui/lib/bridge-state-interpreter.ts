@@ -37,6 +37,12 @@ export type DuelCursorTarget = {
   hidden: boolean;
 };
 
+export type OpponentPoolCard = {
+  cardId: number;
+  /** Absolute live duel-card table index. CPU cards occupy 40..79. */
+  slotId: number;
+};
+
 // ── Raw bridge message types ─────────────────────────────────────────
 
 export type RawCardSlot = { cardId: number; atk: number; def: number; status: number };
@@ -72,7 +78,11 @@ export type RawBridgeState = {
   opponentHand: RawCardSlot[];
   opponentField: RawCardSlot[];
   opponentHandSlots: number[] | null;
+  /** Opponent's dealt-card counter, relative to cpuDuelDeck/cpuShuffledDeck. */
+  opponentCardsDealt?: number | null;
   cpuShuffledDeck: number[];
+  /** CPU's live duel-card table entries. Falls back to cpuShuffledDeck when absent. */
+  cpuDuelDeck?: number[];
   /** Suspected selected card id under the in-game cursor. */
   duelCursorTargetCardId?: number | null;
   /** Field focus signal in index shape; null for empty field slots. Some profiles do not expose a trusted physical index. */
@@ -112,9 +122,19 @@ type InterpretedState = {
   lp: [number, number] | null;
   stats: DuelStats | null;
   opponentHand: number[];
+  opponentHandCards: Array<number | null>;
+  opponentHandPool: Array<OpponentPoolCard | null>;
+  opponentAvailablePool: number[];
+  opponentReserve: number[];
+  opponentReservePool: OpponentPoolCard[];
   opponentField: FieldCard[];
   cursorTarget: DuelCursorTarget | null;
 };
+
+const CPU_HAND_SIZES_BY_DUELIST = [
+  5, 5, 5, 5, 5, 5, 5, 10, 20, 8, 8, 10, 12, 12, 14, 16, 16, 16, 12, 10, 10, 14, 16, 14, 16, 14, 16,
+  14, 16, 14, 16, 16, 18, 20, 20, 20, 20, 20, 20,
+] as const;
 
 /**
  * Interpret raw bridge state into game-meaningful values.
@@ -147,6 +167,11 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       ? filterHandBySlots(raw.opponentHand, raw.opponentHandSlots)
       : filterCardSlots(raw.opponentHand)
     : [];
+  const opponentHandPool = computeOpponentHandPool(raw, opponentHand);
+  const opponentHandCards = opponentHandPool.map((card) => card?.cardId ?? null);
+  const opponentReservePool = computeOpponentReservePool(raw, opponentHand.length);
+  const opponentReserve = opponentReservePool.map((card) => card.cardId);
+  const opponentAvailablePool = [...opponentHand, ...opponentReserve];
   const opponentField = raw.opponentField ? filterFieldSlots(raw.opponentField) : [];
   const cursorTarget = resolveCursorTarget(raw.duelCursorTargetCardId ?? null, raw);
 
@@ -186,6 +211,11 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       lp: raw.lp,
       stats,
       opponentHand,
+      opponentHandCards,
+      opponentHandPool,
+      opponentAvailablePool,
+      opponentReserve,
+      opponentReservePool,
       opponentField,
       cursorTarget,
     };
@@ -207,6 +237,11 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       lp: raw.lp,
       stats,
       opponentHand,
+      opponentHandCards,
+      opponentHandPool,
+      opponentAvailablePool,
+      opponentReserve,
+      opponentReservePool,
       opponentField,
       cursorTarget,
     };
@@ -222,9 +257,69 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
     lp: raw.lp,
     stats,
     opponentHand,
+    opponentHandCards,
+    opponentHandPool,
+    opponentAvailablePool,
+    opponentReserve,
+    opponentReservePool,
     opponentField,
     cursorTarget: null,
   };
+}
+
+function computeOpponentHandPool(
+  raw: RawBridgeState,
+  opponentHand: number[],
+): Array<OpponentPoolCard | null> {
+  const handSlots = raw.opponentHandSlots;
+  if (!handSlots) {
+    return Array.from({ length: 5 }, (_, i) => {
+      const cardId = opponentHand[i];
+      return cardId == null ? null : { cardId, slotId: i };
+    });
+  }
+
+  return Array.from({ length: 5 }, (_, i) => {
+    const slot = raw.opponentHand[i];
+    if (!slot || !isAvailableHandSlot(slot, handSlots, i)) return null;
+    return { cardId: slot.cardId, slotId: handSlots[i] ?? i };
+  });
+}
+
+function computeOpponentReservePool(
+  raw: RawBridgeState,
+  opponentHandCount: number,
+): OpponentPoolCard[] {
+  const handSize = cpuHandSize(raw.duelistId);
+  const deck = raw.cpuDuelDeck?.length ? raw.cpuDuelDeck : (raw.cpuShuffledDeck ?? []);
+  const dealt = normalizeDealtCounter(raw.opponentCardsDealt, opponentHandCount);
+  const limit = Math.max(0, handSize - opponentHandCount);
+  const drawWindow: OpponentPoolCard[] = [];
+
+  for (let deckIndex = dealt; deckIndex < deck.length && drawWindow.length < limit; deckIndex++) {
+    const cardId = deck[deckIndex];
+    if (cardId != null && isValidCardId(cardId)) {
+      drawWindow.push({ cardId, slotId: 40 + deckIndex });
+    }
+  }
+
+  return drawWindow;
+}
+
+function cpuHandSize(duelistId: number | null): number {
+  if (duelistId == null) return 5;
+  const rawIndexed = CPU_HAND_SIZES_BY_DUELIST[duelistId];
+  if (rawIndexed !== undefined) return rawIndexed;
+  return CPU_HAND_SIZES_BY_DUELIST[duelistId - 1] ?? 5;
+}
+
+function normalizeDealtCounter(dealt: number | null | undefined, fallback: number): number {
+  if (dealt == null || dealt < 0 || dealt > 40) return fallback;
+  return dealt;
+}
+
+function isValidCardId(cardId: number): boolean {
+  return cardId > 0 && cardId < 723;
 }
 
 function resolveCursorTarget(cardId: number | null, raw: RawBridgeState): DuelCursorTarget | null {

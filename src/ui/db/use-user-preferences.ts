@@ -7,12 +7,7 @@ import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "../../engine/types/constants.ts
 import { countUtilityCards } from "../components/card-entries.ts";
 import { useAuthQuery } from "../core/convex-hooks.ts";
 import { getAutoSyncMode } from "../lib/auto-sync-mode.ts";
-import {
-  bridgeDeckAtom,
-  type CpuSwap,
-  localCpuSwapsAtom,
-  localSettingsAtom,
-} from "../lib/bridge-snapshot-atoms.ts";
+import { bridgeDeckAtom, localSettingsAtom } from "../lib/bridge-snapshot-atoms.ts";
 import { useOptionalCardDb } from "../lib/card-db-context.tsx";
 
 type UserSettings = Doc<"userSettings">;
@@ -141,10 +136,4 @@ export function useTargetRank(): TargetRank {
   const settings = useUserSettings();
   if (autoSync) return (localSettings.targetRank as TargetRank) ?? "S-POW";
   return (settings?.targetRank as TargetRank) ?? "S-POW";
-}
-
-// ── CPU swap detections ─────────────────────────────────────────────
-
-export function useCpuSwaps(): CpuSwap[] {
-  return useAtomValue(localCpuSwapsAtom);
 }

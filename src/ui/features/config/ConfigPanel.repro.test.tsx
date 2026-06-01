@@ -24,7 +24,6 @@ vi.mock("../../db/use-user-preferences.ts", () => ({
   useCheatMode: vi.fn(() => false),
   useCheatView: vi.fn(() => "player"),
   useTargetRank: vi.fn(() => "S-POW"),
-  useCpuSwaps: vi.fn(() => []),
 }));
 vi.mock("../../db/use-owned-card-totals.ts", () => ({
   useOwnedCardTotals: vi.fn(() => null),

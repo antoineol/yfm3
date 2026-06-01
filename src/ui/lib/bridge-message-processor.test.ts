@@ -719,7 +719,7 @@ describe("processBridgeMessage", () => {
     });
   });
 
-  describe("CPU swap detection", () => {
+  describe("CPU swap detection disabled", () => {
     function oppSlot(cardId: number, atk = 1000, def = 800) {
       return { cardId, atk, def, status: 0x80 };
     }
@@ -732,7 +732,7 @@ describe("processBridgeMessage", () => {
         ...makeRaw({
           opponentHand,
           opponentHandSlots: [40, 41, 42, 43, 44],
-          turnIndicator: 1, // opponent's turn — swaps only detected here
+          turnIndicator: 1,
           ...extra,
         }),
         status: "ready" as const,
@@ -753,91 +753,28 @@ describe("processBridgeMessage", () => {
 
     const notInDuel = { state: { ...INITIAL_BRIDGE_STATE, inDuel: false }, tracker };
 
-    /** Creates a "duel already running" seed by processing a duel-start message. */
-    function startDuel(hand: Array<{ cardId: number; atk: number; def: number; status: number }>) {
-      return chain(readyWithOpp(hand), notInDuel, T - 100);
-    }
-
-    it("detects a card swap between consecutive ready messages", () => {
-      const baseHand = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-      const swapped = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-
-      const r1 = startDuel(baseHand);
-      const r2 = chain(readyWithOpp(swapped), r1, T);
-
-      expect(r2.state.cpuSwaps).toHaveLength(1);
-      expect(r2.state.cpuSwaps[0]).toMatchObject({ slotIndex: 0, fromCardId: 22, toCardId: 71 });
-    });
-
-    it("accumulates multiple swaps across messages", () => {
+    it("keeps cpuSwaps empty even when opponent hand cards change", () => {
       const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
       const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-      const hand3 = [oppSlot(71), oppSlot(15), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
 
-      const r1 = startDuel(hand1);
+      const r1 = chain(readyWithOpp(hand1), notInDuel, T - 100);
       const r2 = chain(readyWithOpp(hand2), r1, T);
-      const r3 = chain(readyWithOpp(hand3), r2, T + 50);
+      const r3 = chain(readyWithOpp([oppSlot(71), oppSlot(15), oppSlot(67)]), r2, T + 50);
 
-      expect(r3.state.cpuSwaps).toHaveLength(2);
-      expect(r3.state.cpuSwaps[0]).toMatchObject({ fromCardId: 22, toCardId: 71 });
-      expect(r3.state.cpuSwaps[1]).toMatchObject({ fromCardId: 14, toCardId: 15 });
-    });
-
-    it("clears swaps when duel ends", () => {
-      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-      const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-
-      const r1 = startDuel(hand1);
-      const r2 = chain(readyWithOpp(hand2), r1, T);
-      expect(r2.state.cpuSwaps).toHaveLength(1);
-
-      // Duel ends (phase goes to results = 0x0D)
-      const r3 = chain(readyWithOpp(hand2, { duelPhase: 0x0d }), r2, T + 50);
-      expect(r3.state.cpuSwaps).toEqual([]);
-    });
-
-    it("deduplicates when hand flickers back and re-settles", () => {
-      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-      const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-
-      const r1 = startDuel(hand1);
-      const r2 = chain(readyWithOpp(hand2), r1, T); // swap detected
-      expect(r2.state.cpuSwaps).toHaveLength(1);
-
-      // Hand flickers back to old value then re-settles to new value
-      const r3 = chain(readyWithOpp(hand1), r2, T + 50); // revert
-      const r4 = chain(readyWithOpp(hand2), r3, T + 100); // re-settle
-
-      // Should still be 1 swap, not 2
-      expect(r4.state.cpuSwaps).toHaveLength(1);
-    });
-
-    it("does not flag initial deal as swaps on duel start", () => {
-      // Previous duel had different cards. New duel starts with a fresh hand.
-      const oldHand = [oppSlot(100), oppSlot(200), oppSlot(300), oppSlot(400), oppSlot(500)];
-      const newHand = [oppSlot(10), oppSlot(20), oppSlot(30), oppSlot(40), oppSlot(50)];
-
-      const r1 = startDuel(oldHand);
-      // Duel ends
-      const r2 = chain(readyWithOpp(oldHand, { duelPhase: 0x0d }), r1, T);
-      // New duel starts with completely different hand — wasInDuel=false → skipped
-      const r3 = chain(readyWithOpp(newHand), r2, T + 50);
-      // Second message in new duel (hand unchanged)
-      const r4 = chain(readyWithOpp(newHand), r3, T + 100);
-
-      expect(r3.state.cpuSwaps).toEqual([]);
-      expect(r4.state.cpuSwaps).toEqual([]);
-    });
-
-    it("ignores hand changes during player's turn", () => {
-      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-      const hand2 = [oppSlot(71), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
-
-      const r1 = startDuel(hand1);
-      // Hand changes during player's turn (turnIndicator: 0)
-      const r2 = chain(readyWithOpp(hand2, { turnIndicator: 0 }), r1, T);
-
+      expect(r1.state.cpuSwaps).toEqual([]);
       expect(r2.state.cpuSwaps).toEqual([]);
+      expect(r3.state.cpuSwaps).toEqual([]);
+    });
+
+    it("clears legacy cpuSwaps from an existing state", () => {
+      const hand1 = [oppSlot(22), oppSlot(14), oppSlot(67), oppSlot(0, 0, 0), oppSlot(0, 0, 0)];
+      const stateWithLegacySwap: BridgeState = {
+        ...INITIAL_BRIDGE_STATE,
+        cpuSwaps: [{ slotIndex: 0, fromCardId: 22, toCardId: 71, timestamp: T - 50 }],
+      };
+      const r1 = chain(readyWithOpp(hand1), { state: stateWithLegacySwap, tracker }, T);
+
+      expect(r1.state.cpuSwaps).toEqual([]);
     });
   });
 
@@ -876,6 +813,11 @@ describe("processBridgeMessage", () => {
       "hand",
       "field",
       "opponentHand",
+      "opponentHandCards",
+      "opponentHandPool",
+      "opponentAvailablePool",
+      "opponentReserve",
+      "opponentReservePool",
       "opponentField",
       "collection",
       "deckDefinition",
