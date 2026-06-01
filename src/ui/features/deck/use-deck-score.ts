@@ -4,7 +4,7 @@ import { MODS } from "../../../engine/mods.ts";
 import { DECK_SIZE } from "../../../engine/types/constants.ts";
 import type { ScorerResponse } from "../../../engine/worker/messages.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize, useFusionDepth, useUseEquipment } from "../../db/use-user-preferences.ts";
+import { useFusionDepth, useScoringSlots, useUseEquipment } from "../../db/use-user-preferences.ts";
 import { currentDeckScoreAtom } from "../../lib/atoms.ts";
 import { useBridge } from "../../lib/bridge-context.tsx";
 import { useSelectedMod } from "../../lib/use-selected-mod.ts";
@@ -24,7 +24,7 @@ let lastCompletedKey = "";
 export function useDeckScore(deckCardIds: number[]): number | null {
   const [score, setScore] = useAtom(currentDeckScoreAtom);
   const ownedCardTotals = useOwnedCardTotals();
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const modId = useSelectedMod();
@@ -41,9 +41,9 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     if (key === lastCompletedKey) return;
 
     // Only score full-size decks with a loaded collection.
-    // Accept both deckSize (scoring slots) and DECK_SIZE (full deck with utility
+    // Accept both scoring slots and DECK_SIZE (full deck with utility
     // cards) so scoring works when preserveUtilityCards is enabled.
-    const validLength = deckCardIds.length === deckSize || deckCardIds.length === DECK_SIZE;
+    const validLength = deckCardIds.length === scoringSlots || deckCardIds.length === DECK_SIZE;
     if (!validLength || !ownedCardTotals) {
       setScore(null);
       lastCompletedKey = "";
@@ -77,7 +77,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
       collection: ownedCardTotals,
       deck: deckCardIds,
       config: {
-        deckSize,
+        scoringSlots,
         fusionDepth,
         useEquipment,
         megamorphId: bridge.gameData?.equipBonuses?.megamorphId ?? MODS[modId].megamorphId,
@@ -96,7 +96,7 @@ export function useDeckScore(deckCardIds: number[]): number | null {
     };
   }, [
     deckCardIds,
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
     ownedCardTotals,

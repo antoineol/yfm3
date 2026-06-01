@@ -10,9 +10,9 @@ import { Select } from "../../components/Select.tsx";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
 import {
   useBridgeAutoSync,
-  useDeckSize,
   useFusionDepth,
   usePreserveUtilityCards,
+  useScoringSlots,
   useTerrain,
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
@@ -35,7 +35,7 @@ export function ConfigPanel({ onClose }: ConfigPanelProps) {
     resolver: zodResolver(configSchema),
     mode: "onChange",
     defaultValues: {
-      deckSize: useDeckSize(),
+      deckSize: useScoringSlots(),
       fusionDepth: useFusionDepth(),
       useEquipment: useUseEquipment(),
       terrain: useTerrain(),

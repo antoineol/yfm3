@@ -23,7 +23,7 @@ vi.mock("../../db/use-update-preferences.ts", () => ({
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useHandSourceMode: vi.fn(() => "deck"),
   useCheatMode: vi.fn(() => false),

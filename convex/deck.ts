@@ -17,7 +17,10 @@ export const getDeck = query({
       .withIndex('by_user_mod', q => q.eq('userId', userId).eq('mod', mod))
       .collect();
 
-    return deckCards.sort((a, b) => a.cardId - b.cardId);
+    return deckCards.sort((a, b) => {
+      const order = (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY);
+      return order || a.cardId - b.cardId;
+    });
   },
 });
 

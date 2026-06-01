@@ -6,8 +6,8 @@ import type { ExplainerResponse } from "../../../engine/worker/messages.ts";
 import { SectionLabel } from "../../components/panel-chrome.tsx";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import {
-  useDeckSize,
   useFusionDepth,
+  useScoringSlots,
   useTerrain,
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
@@ -21,7 +21,7 @@ type ExplainState =
 
 export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
   const ownedCardTotals = useOwnedCardTotals();
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const terrain = useTerrain();
@@ -50,7 +50,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
 
       const eb = bridge.gameData?.equipBonuses;
       const config: EngineConfig = {
-        deckSize,
+        scoringSlots,
         fusionDepth,
         useEquipment,
         terrain,
@@ -93,7 +93,7 @@ export function ScoreExplanation({ deckCardIds }: { deckCardIds: number[] }) {
     state.status,
     ownedCardTotals,
     deckCardIds,
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
     terrain,

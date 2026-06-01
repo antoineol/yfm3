@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
   useTerrain: vi.fn(() => 0),

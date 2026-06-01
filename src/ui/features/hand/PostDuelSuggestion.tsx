@@ -3,7 +3,7 @@ import type { CardSpec } from "../../../engine/data/card-model.ts";
 import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.ts";
 import { CardName } from "../../components/CardName.tsx";
 import { countById, padWithUtilityCards } from "../../components/card-entries.ts";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useScoringSlots } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { formatCardId } from "../../lib/format.ts";
 import type { PostDuelSuggestion as PostDuelSuggestionData } from "./use-post-duel-suggestion.ts";
@@ -64,11 +64,11 @@ function ResultState({
   onDismiss: () => void;
 }) {
   const { cardsById } = useCardDb();
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
 
   const paddedDeck = useMemo(
-    () => padWithUtilityCards(result.deck, currentDeck, cardsById, deckSize),
-    [result.deck, currentDeck, cardsById, deckSize],
+    () => padWithUtilityCards(result.deck, currentDeck, cardsById, scoringSlots),
+    [result.deck, currentDeck, cardsById, scoringSlots],
   );
   const diffRows = useMemo(
     () => buildPostDuelDiff(currentDeck, paddedDeck, cardsById),

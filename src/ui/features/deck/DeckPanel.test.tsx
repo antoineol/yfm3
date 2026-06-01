@@ -25,7 +25,7 @@ vi.mock("./use-deck-entries.ts", () => ({
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useBridgeAutoSync: vi.fn(() => false),
 }));
 
@@ -41,14 +41,14 @@ vi.mock("./use-deck-score.ts", () => ({
   useDeckScore: vi.fn(() => null),
 }));
 
-import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useScoringSlots } from "../../db/use-user-preferences.ts";
 
 import { DeckPanel } from "./DeckPanel.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
 import { useDeckScore } from "./use-deck-score.ts";
 
 const mockHook = useDeckEntries as ReturnType<typeof vi.fn>;
-const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockScoringSlots = useScoringSlots as ReturnType<typeof vi.fn>;
 const mockBridgeAutoSync = useBridgeAutoSync as ReturnType<typeof vi.fn>;
 const mockDeckScore = useDeckScore as ReturnType<typeof vi.fn>;
 
@@ -71,7 +71,7 @@ describe("DeckPanel", () => {
   });
 
   it("renders deck size indicator", () => {
-    mockDeckSize.mockReturnValue(40);
+    mockScoringSlots.mockReturnValue(40);
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
       deckLength: 38,
@@ -82,7 +82,7 @@ describe("DeckPanel", () => {
   });
 
   it("shows warning color when deck size mismatches target", () => {
-    mockDeckSize.mockReturnValue(40);
+    mockScoringSlots.mockReturnValue(40);
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
       deckLength: 38,
@@ -94,7 +94,7 @@ describe("DeckPanel", () => {
   });
 
   it("does not show warning color when deck size matches target", () => {
-    mockDeckSize.mockReturnValue(40);
+    mockScoringSlots.mockReturnValue(40);
     mockHook.mockReturnValue({
       entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 40 }],
       deckLength: 40,
@@ -186,7 +186,7 @@ describe("DeckPanel", () => {
     });
 
     it("still renders deck size badge", () => {
-      mockDeckSize.mockReturnValue(40);
+      mockScoringSlots.mockReturnValue(40);
       mockHook.mockReturnValue({
         entries: [{ id: 1, name: "Blue-Eyes", atk: 3000, def: 2500, qty: 2 }],
         deckLength: 38,

@@ -3,7 +3,8 @@ import { DECK_SIZE, DEFAULT_FUSION_DEPTH } from "./types/constants.ts";
 
 /** Engine-wide configuration. Mutable at module level — safe for single-user apps. */
 export interface EngineConfig {
-  deckSize: number;
+  /** Number of deck slots optimized/scored. The physical deck model remains 40 cards. */
+  scoringSlots: number;
   fusionDepth: number;
   useEquipment: boolean;
   megamorphId: number;
@@ -22,8 +23,13 @@ export interface EngineConfig {
   fieldBonusTable: number[] | null;
 }
 
+type EngineConfigPatch = Partial<EngineConfig> & {
+  /** Compatibility for older callers. Use `scoringSlots` in new code. */
+  deckSize?: number;
+};
+
 const defaults: Readonly<EngineConfig> = {
-  deckSize: DECK_SIZE,
+  scoringSlots: DECK_SIZE,
   fusionDepth: DEFAULT_FUSION_DEPTH,
   useEquipment: true,
   megamorphId: MODS.rp.megamorphId,
@@ -41,8 +47,10 @@ export function getConfig(): Readonly<EngineConfig> {
 }
 
 /** Partially update the engine configuration. */
-export function setConfig(patch: Partial<EngineConfig>): void {
-  Object.assign(config, patch);
+export function setConfig(patch: EngineConfigPatch): void {
+  const { deckSize, ...next } = patch;
+  Object.assign(config, next);
+  if (deckSize !== undefined) config.scoringSlots = deckSize;
 }
 
 /** Restore all configuration to defaults. Useful for test isolation. */

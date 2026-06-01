@@ -43,7 +43,7 @@ vi.mock("../../db/use-deck.ts", () => ({ useDeck: vi.fn() }));
 vi.mock("../../db/use-owned-card-totals.ts", () => ({ useOwnedCardTotals: vi.fn() }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useBridgeAutoSync: vi.fn(() => false),
-  useDeckSize: vi.fn(() => 5),
+  useScoringSlots: vi.fn(() => 5),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
 }));

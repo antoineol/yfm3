@@ -4,7 +4,7 @@ import type { OptimizeDeckParallelResult } from "../../../engine/index-browser.t
 import type { CardEntry, DiffStatus } from "../../components/card-entries.ts";
 import { cardKindLabel, countById, padWithUtilityCards } from "../../components/card-entries.ts";
 import { useDeck } from "../../db/use-deck.ts";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useScoringSlots } from "../../db/use-user-preferences.ts";
 import { resultAtom } from "../../lib/atoms.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 
@@ -22,12 +22,17 @@ export function useResultEntries(): ResultData | null {
   const cardDb = useCardDb();
   const deck = useDeck();
 
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
 
   if (!result) return null;
 
   const currentDeckIds = deck ? deck.map((d) => d.cardId) : [];
-  const paddedDeck = padWithUtilityCards(result.deck, currentDeckIds, cardDb.cardsById, deckSize);
+  const paddedDeck = padWithUtilityCards(
+    result.deck,
+    currentDeckIds,
+    cardDb.cardsById,
+    scoringSlots,
+  );
   const suggestedCounts = countById(paddedDeck);
   const currentCounts = deck ? countById(currentDeckIds) : new Map<number, number>();
 

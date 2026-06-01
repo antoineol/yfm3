@@ -32,21 +32,24 @@ export interface OptimizeDeckResult {
  *
  * @param collection  cardId → number of copies the player owns
  * @param options.timeLimit  total wall-clock budget in ms (default 60s)
- * @param options.deckSize  number of cards in the deck (default 40)
+ * @param options.scoringSlots  number of deck slots the optimizer controls (default 40)
+ * @param options.deckSize  compatibility alias for scoringSlots
  * @param options.fusionDepth  max fusion chain depth (default 3)
- * @throws if the collection has fewer than deckSize total cards
+ * @throws if the collection has fewer than scoringSlots total cards
  */
 export function optimizeDeck(
   collection: Collection,
-  options?: { timeLimit?: number; deckSize?: number; fusionDepth?: number },
+  options?: { timeLimit?: number; scoringSlots?: number; deckSize?: number; fusionDepth?: number },
 ): OptimizeDeckResult {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
-  const deckSize = options?.deckSize ?? DECK_SIZE;
+  const scoringSlots = options?.scoringSlots ?? options?.deckSize ?? DECK_SIZE;
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const start = performance.now();
 
-  if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
-    throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  if (scoringSlots < HAND_SIZE || scoringSlots > DECK_SIZE) {
+    throw new Error(
+      `Scoring slots must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${scoringSlots}.`,
+    );
   }
   if (fusionDepth < 1 || fusionDepth > MAX_FUSION_DEPTH) {
     throw new Error(`Fusion depth must be between 1 and ${MAX_FUSION_DEPTH}, got ${fusionDepth}.`);
@@ -57,13 +60,13 @@ export function optimizeDeck(
   for (const count of collection.values()) {
     totalCards += count;
   }
-  if (totalCards < deckSize) {
+  if (totalCards < scoringSlots) {
     throw new Error(
-      `Collection has only ${totalCards} total cards, but a deck requires ${deckSize}.`,
+      `Collection has only ${totalCards} total cards, but optimization requires ${scoringSlots}.`,
     );
   }
 
-  setConfig({ deckSize, fusionDepth });
+  setConfig({ scoringSlots, fusionDepth });
 
   // 1. Initialize buffers
   const rand = mulberry32(42);

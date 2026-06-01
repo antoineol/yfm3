@@ -6,8 +6,8 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import type { ModId } from "../../../engine/mods.ts";
 import type { BridgeGameData } from "../../../engine/worker/messages.ts";
 import {
-  useDeckSize,
   useFusionDepth,
+  useScoringSlots,
   useTerrain,
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
@@ -32,7 +32,7 @@ export function useOptimizationRunner(
   context: { modId: ModId; gameData: BridgeGameData | null; enabled: boolean },
   callbacks: OptimizationCallbacks,
 ): { abort: () => void } {
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const terrain = useTerrain();
@@ -65,7 +65,7 @@ export function useOptimizationRunner(
     for (const count of Object.values(snapshot.collection)) {
       totalCards += count;
     }
-    if (totalCards < deckSize) {
+    if (totalCards < scoringSlots) {
       callbacksRef.current.onError();
       return;
     }
@@ -89,8 +89,8 @@ export function useOptimizationRunner(
     optimizeDeckParallel(col, {
       timeLimit: POST_DUEL_TIME_LIMIT,
       signal: controller.signal,
-      currentDeck: deckForOpt.length >= deckSize ? deckForOpt : undefined,
-      deckSize,
+      currentDeck: deckForOpt.length >= scoringSlots ? deckForOpt : undefined,
+      scoringSlots,
       fusionDepth,
       useEquipment,
       terrain,
@@ -125,7 +125,7 @@ export function useOptimizationRunner(
     };
   }, [
     snapshot,
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
     terrain,

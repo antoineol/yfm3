@@ -5,8 +5,8 @@ import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
 import {
-  useDeckSize,
   useFusionDepth,
+  useScoringSlots,
   useTerrain,
   useUseEquipment,
 } from "../../db/use-user-preferences.ts";
@@ -33,7 +33,7 @@ export function useOptimize() {
   const currentDeckScore = useAtomValue(currentDeckScoreAtom);
   const ownedCardTotals = useOwnedCardTotals();
   const deck = useDeck();
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
   const fusionDepth = useFusionDepth();
   const useEquipment = useUseEquipment();
   const terrain = useTerrain();
@@ -45,7 +45,7 @@ export function useOptimize() {
   const totalCards = ownedCardTotals
     ? Object.values(ownedCardTotals).reduce((sum, qty) => sum + qty, 0)
     : 0;
-  const canOptimize = !isOptimizing && totalCards >= deckSize;
+  const canOptimize = !isOptimizing && totalCards >= scoringSlots;
 
   function optimize() {
     if (!ownedCardTotals) return;
@@ -66,7 +66,7 @@ export function useOptimize() {
     optimizeDeckParallel(col, {
       currentDeck,
       currentDeckScore,
-      deckSize,
+      scoringSlots,
       fusionDepth,
       useEquipment,
       terrain,

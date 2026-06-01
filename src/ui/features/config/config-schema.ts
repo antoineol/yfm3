@@ -4,6 +4,7 @@ import type { api } from "../../../../convex/_generated/api.js";
 import { DECK_SIZE, HAND_SIZE, MAX_FUSION_DEPTH } from "../../../engine/types/constants.ts";
 
 export const configSchema = z.object({
+  // Persisted as deckSize for compatibility; semantically this is scoring slots.
   deckSize: z.number().int().min(HAND_SIZE).max(DECK_SIZE),
   fusionDepth: z.number().int().min(1).max(MAX_FUSION_DEPTH),
   useEquipment: z.boolean(),

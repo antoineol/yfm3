@@ -17,7 +17,7 @@ interface UseDeckSwapSuggestionOptions {
   addedCardAvailableCopies: number | null;
   currentDeckScore: number | null;
   deck: Array<{ cardId: number }> | undefined;
-  deckSize: number;
+  scoringSlots: number;
   fusionDepth: number;
   useEquipment: boolean;
 }
@@ -28,7 +28,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     addedCardAvailableCopies,
     currentDeckScore,
     deck,
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
   } = options;
@@ -55,7 +55,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
       addedCardId === null ||
       addedCardAvailableCopies === null ||
       addedCardAvailableCopies <= 0 ||
-      stableDeckCardIds.length < deckSize
+      stableDeckCardIds.length < scoringSlots
     ) {
       return null;
     }
@@ -63,7 +63,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     return {
       addedCardId,
       config: {
-        deckSize,
+        scoringSlots,
         fusionDepth,
         useEquipment,
         terrain: 0,
@@ -79,7 +79,7 @@ export function useDeckSwapSuggestion(options: UseDeckSwapSuggestionOptions) {
     addedCardId,
     addedCardAvailableCopies,
     currentDeckScore,
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
     stableDeckCardIds,

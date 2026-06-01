@@ -6,17 +6,22 @@ afterEach(() => resetConfig());
 
 describe("EngineConfig", () => {
   it("returns default values", () => {
-    expect(getConfig().deckSize).toBe(DECK_SIZE);
+    expect(getConfig().scoringSlots).toBe(DECK_SIZE);
   });
 
   it("applies partial updates", () => {
-    setConfig({ deckSize: 20 });
-    expect(getConfig().deckSize).toBe(20);
+    setConfig({ scoringSlots: 20 });
+    expect(getConfig().scoringSlots).toBe(20);
+  });
+
+  it("accepts deckSize as a compatibility alias", () => {
+    setConfig({ scoringSlots: 20 });
+    expect(getConfig().scoringSlots).toBe(20);
   });
 
   it("resets to defaults", () => {
-    setConfig({ deckSize: 10 });
+    setConfig({ scoringSlots: 10 });
     resetConfig();
-    expect(getConfig().deckSize).toBe(DECK_SIZE);
+    expect(getConfig().scoringSlots).toBe(DECK_SIZE);
   });
 });

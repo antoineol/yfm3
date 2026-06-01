@@ -21,7 +21,7 @@ describe("OptBuffers", () => {
   });
 
   it("physical deck is always 40 but scoringSlots reflects config", () => {
-    setConfig({ deckSize: 20 });
+    setConfig({ scoringSlots: 20 });
     const b = createBuffers();
     const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
     expect(b.deck.length).toBe(DECK_SIZE);
@@ -37,7 +37,7 @@ describe("OptBuffers", () => {
   });
 
   it("numHands always uses C(40,5) regardless of scoringSlots", () => {
-    setConfig({ deckSize: 5 });
+    setConfig({ scoringSlots: 5 });
     const b = createBuffers();
     const expectedHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
     expect(b.handScores.length).toBe(expectedHands);

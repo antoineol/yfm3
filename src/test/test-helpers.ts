@@ -11,7 +11,7 @@ function allCardsCollection(): Collection {
   return m;
 }
 
-export function createAllCardsBuffers(deckSize?: number): OptBuffers {
-  if (deckSize != null) setConfig({ deckSize });
+export function createAllCardsBuffers(scoringSlots?: number): OptBuffers {
+  if (scoringSlots != null) setConfig({ scoringSlots });
   return initializeBuffers(allCardsCollection(), mulberry32(42));
 }

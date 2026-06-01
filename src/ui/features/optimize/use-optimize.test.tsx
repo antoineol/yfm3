@@ -12,7 +12,7 @@ vi.mock("../../db/use-deck.ts", () => ({
   useDeck: vi.fn(),
 }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
   useTerrain: vi.fn(() => 0),
@@ -30,12 +30,12 @@ vi.mock("../../lib/bridge-context.tsx", () => ({
 import { optimizeDeckParallel } from "../../../engine/index-browser.ts";
 import { useDeck } from "../../db/use-deck.ts";
 import { useOwnedCardTotals } from "../../db/use-owned-card-totals.ts";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useScoringSlots } from "../../db/use-user-preferences.ts";
 import { useOptimize } from "./use-optimize.ts";
 
 const mockOwnedCardTotals = useOwnedCardTotals as ReturnType<typeof vi.fn>;
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
-const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockScoringSlots = useScoringSlots as ReturnType<typeof vi.fn>;
 const mockOptimize = optimizeDeckParallel as ReturnType<typeof vi.fn>;
 
 afterEach(cleanup);
@@ -53,7 +53,7 @@ describe("useOptimize", () => {
     store = createStore();
     mockOwnedCardTotals.mockReturnValue(undefined);
     mockDeck.mockReturnValue(undefined);
-    mockDeckSize.mockReturnValue(40);
+    mockScoringSlots.mockReturnValue(40);
     mockOptimize.mockResolvedValue({
       deck: [1, 2, 3],
       expectedAtk: 2000,
@@ -72,27 +72,27 @@ describe("useOptimize", () => {
       expect(result.current.canOptimize).toBe(false);
     });
 
-    it("is false when total cards < deckSize", () => {
+    it("is false when total cards < scoringSlots", () => {
       mockOwnedCardTotals.mockReturnValue({ 1: 10, 2: 10 }); // 20 cards
-      mockDeckSize.mockReturnValue(40);
+      mockScoringSlots.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
       expect(result.current.canOptimize).toBe(false);
     });
 
-    it("is true when total cards >= deckSize and not optimizing", () => {
+    it("is true when total cards >= scoringSlots and not optimizing", () => {
       mockOwnedCardTotals.mockReturnValue({ 1: 20, 2: 20 }); // 40 cards
-      mockDeckSize.mockReturnValue(40);
+      mockScoringSlots.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
       expect(result.current.canOptimize).toBe(true);
     });
 
-    it("is true when total cards > deckSize", () => {
+    it("is true when total cards > scoringSlots", () => {
       mockOwnedCardTotals.mockReturnValue({ 1: 30, 2: 30 }); // 60 cards
-      mockDeckSize.mockReturnValue(40);
+      mockScoringSlots.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -122,7 +122,7 @@ describe("useOptimize", () => {
     it("calls optimizeDeckParallel with correct args", async () => {
       mockOwnedCardTotals.mockReturnValue({ 1: 20, 2: 20 });
       mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }]);
-      mockDeckSize.mockReturnValue(40);
+      mockScoringSlots.mockReturnValue(40);
       const { result } = renderHook(() => useOptimize(), {
         wrapper: makeWrapper(store),
       });
@@ -134,7 +134,7 @@ describe("useOptimize", () => {
           [1, 20],
           [2, 20],
         ]),
-        expect.objectContaining({ currentDeck: [1, 2], deckSize: 40, fusionDepth: 3 }),
+        expect.objectContaining({ currentDeck: [1, 2], scoringSlots: 40, fusionDepth: 3 }),
       );
     });
 
@@ -228,7 +228,7 @@ describe("useOptimize", () => {
         new Map([[1, 40]]),
         expect.objectContaining({
           currentDeck: undefined,
-          deckSize: 40,
+          scoringSlots: 40,
           fusionDepth: 3,
         }),
       );

@@ -18,7 +18,7 @@ vi.mock("convex/react", () => ({
 }));
 vi.mock("../../db/use-user-preferences.ts", () => ({
   useBridgeAutoSync: vi.fn(() => bridgeAutoSync),
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useFusionDepth: vi.fn(() => 3),
   useUseEquipment: vi.fn(() => true),
   useTerrain: vi.fn(() => 0),
@@ -1141,7 +1141,7 @@ describe("usePostDuelSuggestion", () => {
       expect.any(Map),
       expect.objectContaining({
         currentDeck: SAMPLE_DECK,
-        deckSize: 40,
+        scoringSlots: 40,
         fusionDepth: 3,
         timeLimit: 10_000,
       }),

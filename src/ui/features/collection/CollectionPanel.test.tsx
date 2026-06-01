@@ -57,7 +57,7 @@ vi.mock("./use-collection-view-model.ts", () => ({
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
   useBridgeAutoSync: vi.fn(() => false),
 }));
 
@@ -71,7 +71,7 @@ vi.mock("./LastAddedCardHint.tsx", () => ({
 }));
 
 import type { ReactNode } from "react";
-import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useScoringSlots } from "../../db/use-user-preferences.ts";
 
 import { CollectionPanel } from "./CollectionPanel.tsx";
 import {
@@ -80,7 +80,7 @@ import {
 } from "./use-collection-view-model.ts";
 
 const mockUseCollectionViewModel = useCollectionViewModel as ReturnType<typeof vi.fn>;
-const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockScoringSlots = useScoringSlots as ReturnType<typeof vi.fn>;
 const mockBridgeAutoSync = useBridgeAutoSync as ReturnType<typeof vi.fn>;
 const emptyCardDb = createCardDb();
 
@@ -159,7 +159,7 @@ function buildCollectionViewModel({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  mockDeckSize.mockReturnValue(40);
+  mockScoringSlots.mockReturnValue(40);
 });
 
 function getRowTexts() {
@@ -265,7 +265,7 @@ describe("CollectionPanel", () => {
   });
 
   it("disables add-to-deck when deck is full", () => {
-    mockDeckSize.mockReturnValue(40);
+    mockScoringSlots.mockReturnValue(40);
     mockUseCollectionViewModel.mockReturnValue(
       buildCollectionViewModel({
         entries: [buildCollectionEntry({ id: 999, totalOwned: 3, availableInCollection: 3 })],

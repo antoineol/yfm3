@@ -13,7 +13,7 @@ import {
 } from "../../components/panel-chrome.tsx";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
-import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useScoringSlots } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { LastAddedCardHint } from "./LastAddedCardHint.tsx";
 import {
@@ -25,7 +25,7 @@ export function CollectionPanel() {
   const cardDb = useCardDb();
   const { cards: allCards } = cardDb;
   const data = useCollectionViewModel();
-  const targetSize = useDeckSize();
+  const targetSize = useScoringSlots();
   const readOnly = useBridgeAutoSync();
   const addCard = useAuthMutation(api.ownedCards.addCard);
   const removeCard = useAuthMutation(api.ownedCards.removeCard);

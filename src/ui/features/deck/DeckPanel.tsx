@@ -10,7 +10,7 @@ import {
   PanelLoadingState,
 } from "../../components/panel-chrome.tsx";
 import { useAuthMutation } from "../../core/convex-hooks.ts";
-import { useBridgeAutoSync, useDeckSize } from "../../db/use-user-preferences.ts";
+import { useBridgeAutoSync, useScoringSlots } from "../../db/use-user-preferences.ts";
 import { DeckFusionList } from "./DeckFusionList.tsx";
 import { ScoreExplanation } from "./ScoreExplanation.tsx";
 import { useDeckEntries } from "./use-deck-entries.ts";
@@ -18,7 +18,7 @@ import { useDeckScore } from "./use-deck-score.ts";
 
 export function DeckPanel() {
   const data = useDeckEntries();
-  const deckSize = useDeckSize();
+  const scoringSlots = useScoringSlots();
   const readOnly = useBridgeAutoSync();
   const removeOne = useAuthMutation(api.deck.removeOneByCardId);
   const score = useDeckScore(data?.deckCardIds ?? []);
@@ -39,7 +39,7 @@ export function DeckPanel() {
     );
   }
 
-  const targetSize = readOnly ? DECK_SIZE : deckSize;
+  const targetSize = readOnly ? DECK_SIZE : scoringSlots;
   const sizeOk = deckLength === targetSize;
 
   function renderLeftActions(entry: CardEntry) {

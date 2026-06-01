@@ -111,15 +111,15 @@ function computeSeedWeight(id: number, pool: PoolEntry[], gameData: SeedGameData
 }
 
 function buildWeightedDeck(pool: PoolEntry[]): number[] {
-  const { deckSize } = getConfig();
+  const { scoringSlots } = getConfig();
   const sorted = [...pool].sort((a, b) => b.weight - a.weight || b.maxCopies - a.maxCopies);
   const deck: number[] = [];
   const counts = new Map<number, number>();
 
   for (const entry of sorted) {
-    if (deck.length >= deckSize) break;
+    if (deck.length >= scoringSlots) break;
     const used = counts.get(entry.id) ?? 0;
-    const canAdd = Math.min(entry.maxCopies - used, deckSize - deck.length);
+    const canAdd = Math.min(entry.maxCopies - used, scoringSlots - deck.length);
     for (let c = 0; c < canAdd; c++) {
       deck.push(entry.id);
     }
@@ -139,11 +139,11 @@ function buildUniqueRandomDeck(pool: PoolEntry[], rand: () => number, seen: Set<
 }
 
 function buildBiasedRandomDeck(pool: PoolEntry[], rand: () => number): number[] {
-  const { deckSize } = getConfig();
+  const { scoringSlots } = getConfig();
   const deck: number[] = [];
   const counts = new Map<number, number>();
 
-  while (deck.length < deckSize) {
+  while (deck.length < scoringSlots) {
     const entry = selectAvailableEntry(pool, counts, rand);
     if (!entry) break;
     deck.push(entry.id);

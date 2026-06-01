@@ -72,12 +72,12 @@ beforeAll(() => {
     cardAtk[card.id] = card.attack;
   }
 
-  setConfig({ deckSize: 5, fusionDepth: 3 });
+  setConfig({ scoringSlots: 5, fusionDepth: 3 });
 });
 
 afterEach(() => {
   resetConfig();
-  setConfig({ deckSize: 5, fusionDepth: 3 });
+  setConfig({ scoringSlots: 5, fusionDepth: 3 });
 });
 
 describe("explainScore", () => {
@@ -97,7 +97,7 @@ describe("explainScore", () => {
 
   it("distribution probabilities sum to 1", () => {
     // 6-card deck → C(6,5) = 6 hands
-    setConfig({ deckSize: 6, fusionDepth: 3 });
+    setConfig({ scoringSlots: 6, fusionDepth: 3 });
     const buf = makeBuffers([1, 2, 3, 4, 5, 4]); // two copies of Delta(800)
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);
@@ -107,7 +107,7 @@ describe("explainScore", () => {
   });
 
   it("distribution counts sum to total hands", () => {
-    setConfig({ deckSize: 6, fusionDepth: 3 });
+    setConfig({ scoringSlots: 6, fusionDepth: 3 });
     const buf = makeBuffers([1, 2, 3, 4, 5, 4]);
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);
@@ -115,11 +115,11 @@ describe("explainScore", () => {
     const totalCount = result.distribution.reduce((sum, b) => sum + b.count, 0);
     expect(totalCount).toBe(CHOOSE_5[6]);
 
-    setConfig({ deckSize: 5, fusionDepth: 3 });
+    setConfig({ scoringSlots: 5, fusionDepth: 3 });
   });
 
   it("distribution is sorted by ATK descending", () => {
-    setConfig({ deckSize: 6, fusionDepth: 3 });
+    setConfig({ scoringSlots: 6, fusionDepth: 3 });
     const buf = makeBuffers([1, 2, 3, 4, 5, 4]);
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);
@@ -132,11 +132,11 @@ describe("explainScore", () => {
       }
     }
 
-    setConfig({ deckSize: 5, fusionDepth: 3 });
+    setConfig({ scoringSlots: 5, fusionDepth: 3 });
   });
 
   it("returns empty distribution for empty deck", () => {
-    setConfig({ deckSize: 0, fusionDepth: 3 });
+    setConfig({ scoringSlots: 0, fusionDepth: 3 });
     const buf = makeBuffers([]);
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);
@@ -144,12 +144,12 @@ describe("explainScore", () => {
     expect(result.expectedAtk).toBe(0);
     expect(result.distribution).toEqual([]);
 
-    setConfig({ deckSize: 5, fusionDepth: 3 });
+    setConfig({ scoringSlots: 5, fusionDepth: 3 });
   });
 
   it("handles deck with no fusions (only base ATK values)", () => {
     // Cards 4 and 5 don't fuse with each other
-    setConfig({ deckSize: 5, fusionDepth: 3 });
+    setConfig({ scoringSlots: 5, fusionDepth: 3 });
     const buf = makeBuffers([4, 4, 4, 5, 5]);
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);
@@ -162,7 +162,7 @@ describe("explainScore", () => {
 
   it("respects fusionDepth config", () => {
     // With fusionDepth=1, the full chain 1+2→10+3→11+4→12 is truncated
-    setConfig({ deckSize: 5, fusionDepth: 1 });
+    setConfig({ scoringSlots: 5, fusionDepth: 1 });
     const buf = makeBuffers([1, 2, 3, 4, 5]);
     const scorer = new FusionScorer();
     const result = explainScore(buf, scorer);

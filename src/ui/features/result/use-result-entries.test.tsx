@@ -16,17 +16,17 @@ vi.mock("../../db/use-deck.ts", () => ({
 }));
 
 vi.mock("../../db/use-user-preferences.ts", () => ({
-  useDeckSize: vi.fn(() => 40),
+  useScoringSlots: vi.fn(() => 40),
 }));
 
 import { useDeck } from "../../db/use-deck.ts";
-import { useDeckSize } from "../../db/use-user-preferences.ts";
+import { useScoringSlots } from "../../db/use-user-preferences.ts";
 import { useCardDb } from "../../lib/card-db-context.tsx";
 import { useResultEntries } from "./use-result-entries.ts";
 
 const mockCardDb = useCardDb as ReturnType<typeof vi.fn>;
 const mockDeck = useDeck as ReturnType<typeof vi.fn>;
-const mockDeckSize = useDeckSize as ReturnType<typeof vi.fn>;
+const mockScoringSlots = useScoringSlots as ReturnType<typeof vi.fn>;
 
 const fakeCardDb: CardDb = {
   cards: [],
@@ -226,10 +226,10 @@ describe("useResultEntries", () => {
     expect(statuses).toEqual(["removed", "added", "kept"]);
   });
 
-  it("pads result with utility cards from current deck when deckSize < 40", () => {
+  it("pads result with utility cards from current deck when scoringSlots < 40", () => {
     // Current deck: 3 monsters + 1 Raigeki (Magic). Scoring slots = 3.
     // Optimizer returns 3 scoring cards. Raigeki should be kept, not removed.
-    mockDeckSize.mockReturnValue(3);
+    mockScoringSlots.mockReturnValue(3);
     mockDeck.mockReturnValue([{ cardId: 1 }, { cardId: 2 }, { cardId: 3 }, { cardId: 99 }]);
     store.set(resultAtom, {
       deck: [1, 2, 3],

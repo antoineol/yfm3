@@ -5,7 +5,7 @@ import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setAutoSyncMode } from "../lib/auto-sync-mode.ts";
 import { bridgeDeckAtom } from "../lib/bridge-snapshot-atoms.ts";
-import { useDeckSize } from "./use-user-preferences.ts";
+import { useScoringSlots } from "./use-user-preferences.ts";
 
 vi.mock("../core/convex-hooks.ts", () => ({
   useAuthQuery: vi.fn(() => undefined),
@@ -22,7 +22,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("useDeckSize", () => {
+describe("useScoringSlots", () => {
   it("does not require card data while auto-sync reference data is still loading", () => {
     setAutoSyncMode(true);
     const store = createStore();
@@ -31,7 +31,7 @@ describe("useDeckSize", () => {
       Array.from({ length: 40 }, (_, i) => i + 1),
     );
 
-    const { result } = renderHook(() => useDeckSize(), { wrapper: makeWrapper(store) });
+    const { result } = renderHook(() => useScoringSlots(), { wrapper: makeWrapper(store) });
 
     expect(result.current).toBe(40);
   });

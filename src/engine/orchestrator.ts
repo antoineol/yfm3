@@ -124,7 +124,8 @@ function cleanAndScoreInWorker(
  * @param options.signal  AbortSignal to cancel workers early
  * @param options.currentDeck  card IDs of the current deck to score for comparison
  * @param options.currentDeckScore  pre-computed exact expected ATK of the current deck (skips redundant scoring)
- * @param options.deckSize  number of cards in the optimized deck (default 40)
+ * @param options.scoringSlots  number of deck slots the optimizer controls (default 40)
+ * @param options.deckSize  compatibility alias for scoringSlots
  * @param options.fusionDepth  max fusion chain depth (default 3)
  * @param options.terrain  terrain ID for field power bonuses (0 = none, 1–6)
  */
@@ -135,6 +136,7 @@ export async function optimizeDeckParallel(
     signal?: AbortSignal;
     currentDeck?: number[];
     currentDeckScore?: number | null;
+    scoringSlots?: number;
     deckSize?: number;
     fusionDepth?: number;
     useEquipment?: boolean;
@@ -145,7 +147,7 @@ export async function optimizeDeckParallel(
   },
 ): Promise<OptimizeDeckParallelResult> {
   const timeLimit = options?.timeLimit ?? DEFAULT_TIME_LIMIT;
-  const deckSize = options?.deckSize ?? DECK_SIZE;
+  const scoringSlots = options?.scoringSlots ?? options?.deckSize ?? DECK_SIZE;
   const fusionDepth = options?.fusionDepth ?? DEFAULT_FUSION_DEPTH;
   const useEquipment = options?.useEquipment ?? true;
   const terrain = options?.terrain ?? 0;
@@ -153,8 +155,10 @@ export async function optimizeDeckParallel(
   const gameData = options?.gameData;
   const start = performance.now();
 
-  if (deckSize < HAND_SIZE || deckSize > DECK_SIZE) {
-    throw new Error(`Deck size must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${deckSize}.`);
+  if (scoringSlots < HAND_SIZE || scoringSlots > DECK_SIZE) {
+    throw new Error(
+      `Scoring slots must be between ${HAND_SIZE} and ${DECK_SIZE}, got ${scoringSlots}.`,
+    );
   }
   if (fusionDepth < 1 || fusionDepth > MAX_FUSION_DEPTH) {
     throw new Error(`Fusion depth must be between 1 and ${MAX_FUSION_DEPTH}, got ${fusionDepth}.`);
@@ -162,15 +166,15 @@ export async function optimizeDeckParallel(
 
   let totalCards = 0;
   for (const count of collection.values()) totalCards += count;
-  if (totalCards < deckSize) {
+  if (totalCards < scoringSlots) {
     throw new Error(
-      `Collection has only ${totalCards} total cards, but a deck requires ${deckSize}.`,
+      `Collection has only ${totalCards} total cards, but optimization requires ${scoringSlots}.`,
     );
   }
 
   const eb = gameData?.equipBonuses;
   setConfig({
-    deckSize,
+    scoringSlots,
     fusionDepth,
     useEquipment,
     megamorphId: eb?.megamorphId ?? MODS[modId].megamorphId,
@@ -187,7 +191,7 @@ export async function optimizeDeckParallel(
   let currentDeckPromise: Promise<number | null> = Promise.resolve(null);
   if (options?.currentDeckScore != null) {
     currentDeckPromise = Promise.resolve(options.currentDeckScore);
-  } else if (options?.currentDeck && options.currentDeck.length >= deckSize) {
+  } else if (options?.currentDeck && options.currentDeck.length >= scoringSlots) {
     currentDeckPromise = scoreInWorker(collectionRecord, options.currentDeck, modId, gameData);
   }
 
@@ -200,7 +204,7 @@ export async function optimizeDeckParallel(
   const rand = mulberry32(SEED_STRATEGY_SEED);
   const deckLimits = gameData?.deckLimits?.byCard ?? getCachedDeckLimits(modId);
   const seedGameData = tryGetSeedGameData(modId, gameData);
-  const currentDeckSeed = getCurrentDeckSeed(options?.currentDeck, deckSize);
+  const currentDeckSeed = getCurrentDeckSeed(options?.currentDeck, scoringSlots);
   const initialDecks = generateInitialDecks(
     collectionRecord,
     numWorkers,
@@ -249,7 +253,7 @@ export async function optimizeDeckParallel(
 
   if (
     options?.currentDeck &&
-    options.currentDeck.length >= deckSize &&
+    options.currentDeck.length >= scoringSlots &&
     (currentDeckScore == null || expectedAtk > currentDeckScore)
   ) {
     try {
@@ -289,10 +293,10 @@ function tryGetSeedGameData(modId: ModId, gameData: BridgeGameData | undefined) 
 
 function getCurrentDeckSeed(
   currentDeck: number[] | undefined,
-  deckSize: number,
+  scoringSlots: number,
 ): number[] | undefined {
-  if (!currentDeck || currentDeck.length !== deckSize) return undefined;
-  return currentDeck.slice(0, deckSize);
+  if (!currentDeck || currentDeck.length !== scoringSlots) return undefined;
+  return currentDeck.slice(0, scoringSlots);
 }
 
 function pickBestWorkerResult(results: readonly WorkerResult[]) {

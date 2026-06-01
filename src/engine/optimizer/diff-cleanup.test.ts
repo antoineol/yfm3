@@ -43,7 +43,7 @@ describe("cleanupDeckAgainstCurrent", () => {
 });
 
 function makeBuffer(deck: number[]): OptBuffers {
-  setConfig({ deckSize: deck.length });
+  setConfig({ scoringSlots: deck.length });
   const buf = createBuffers();
   buf.availableCounts.fill(1);
   for (let i = 0; i < deck.length; i++) {

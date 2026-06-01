@@ -17,7 +17,7 @@ export interface OptBuffers {
   readonly equipCompat: Uint8Array;
   /** Per-card equip ATK bonus. equipBonus[cardId] = bonus for that equip (0 for non-equips). */
   readonly equipBonus: Uint16Array;
-  /** The current deck, stored as card IDs. Length = deckSize. Mutated during optimization. */
+  /** The physical 40-card deck buffer. Only slots before scoringSlots are optimized. */
   readonly deck: Int16Array;
   /** cardCounts[cardId] = how many copies of that card are currently in the deck. */
   readonly cardCounts: Uint8Array;
@@ -53,7 +53,7 @@ export interface OptBuffers {
 
 /** Allocate all optimizer buffers (zero-initialized by typed-array constructors). */
 export function createBuffers(): OptBuffers {
-  const { deckSize } = getConfig();
+  const { scoringSlots } = getConfig();
   const numHands = Math.min(NUM_HANDS, CHOOSE_5[DECK_SIZE] ?? 0);
   const maxCopies = new Uint8Array(MAX_CARD_ID);
   maxCopies.fill(MAX_COPIES);
@@ -71,6 +71,6 @@ export function createBuffers(): OptBuffers {
     affectedHandIds: new Uint16Array(numHands * HAND_SIZE),
     affectedHandOffsets: new Uint32Array(DECK_SIZE),
     affectedHandCounts: new Uint16Array(DECK_SIZE),
-    scoringSlots: deckSize,
+    scoringSlots,
   };
 }

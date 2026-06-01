@@ -48,7 +48,7 @@ export function useUserModSettings() {
   return useAuthQuery(api.userModSettings.getUserModSettings, autoSync ? "skip" : undefined);
 }
 
-export function useDeckSize() {
+export function useScoringSlots() {
   const autoSync = useBridgeAutoSync();
   const localSettings = useAtomValue(localSettingsAtom);
   const prefs = useUserModSettings();
@@ -65,6 +65,9 @@ export function useDeckSize() {
   }
   return prefs?.deckSize ?? DECK_SIZE;
 }
+
+/** Compatibility wrapper. Prefer `useScoringSlots` in new code. */
+export const useDeckSize = useScoringSlots;
 
 export function usePreserveUtilityCards(): boolean {
   const localSettings = useAtomValue(localSettingsAtom);

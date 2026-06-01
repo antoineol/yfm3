@@ -11,7 +11,7 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
 
   return {
     initializeSuggestionBuffersBrowser: () => {
-      const { deckSize } = getConfig();
+      const { scoringSlots } = getConfig();
       return {
         fusionTable: new Int16Array(0),
         cardAtk: new Int16Array(16),
@@ -25,7 +25,7 @@ vi.mock("./initialize-buffers-browser.ts", async () => {
         affectedHandIds: new Uint16Array(0),
         affectedHandOffsets: new Uint32Array(DECK_SIZE),
         affectedHandCounts: new Uint16Array(DECK_SIZE),
-        scoringSlots: deckSize,
+        scoringSlots,
       };
     },
   };
@@ -84,7 +84,7 @@ describe("findBestDeckSwapSuggestion", () => {
           megamorphId: 657,
           equipBonus: 500,
           megamorphBonus: 1000,
-          deckSize: 5,
+          scoringSlots: 5,
           fusionDepth: 3,
           terrain: 0,
           fieldBonusTable: null,
@@ -103,7 +103,7 @@ describe("findBestDeckSwapSuggestion", () => {
           megamorphId: 657,
           equipBonus: 500,
           megamorphBonus: 1000,
-          deckSize: 3,
+          scoringSlots: 3,
           fusionDepth: 3,
           terrain: 0,
           fieldBonusTable: null,
@@ -132,7 +132,7 @@ describe("findBestDeckSwapSuggestion", () => {
           megamorphId: 657,
           equipBonus: 500,
           megamorphBonus: 1000,
-          deckSize: 6,
+          scoringSlots: 6,
           fusionDepth: 3,
           terrain: 0,
           fieldBonusTable: null,
@@ -153,7 +153,7 @@ describe("findBestDeckSwapSuggestion", () => {
           megamorphId: 657,
           equipBonus: 500,
           megamorphBonus: 1000,
-          deckSize: 2,
+          scoringSlots: 2,
           fusionDepth: 3,
           terrain: 0,
           fieldBonusTable: null,
@@ -171,7 +171,7 @@ describe("findBestDeckSwapSuggestion", () => {
         megamorphId: 657,
         equipBonus: 500,
         megamorphBonus: 1000,
-        deckSize: 5,
+        scoringSlots: 5,
         fusionDepth: 3,
         terrain: 0,
         fieldBonusTable: null,
