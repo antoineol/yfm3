@@ -58,7 +58,7 @@ Already documented at `0x178038` (40 × uint16 LE). Now read by the bridge as `c
 
 First attempt placed opponent hand at `0x1A7BFC` (immediately after player field) and opponent field at `0x1A7C88`. This was wrong — the 5-slot unknown zone sits between player field and opponent hand, shifting everything by 5 slots (0x8C bytes).
 
-## CPU AI Card Swapping (Cheating)
+## CPU AI Extended Hand
 
 During investigation, observed the CPU AI **replacing cards in-hand** without drawing:
 
@@ -68,34 +68,85 @@ slot 2 handSlot: stayed at 45 (NOT re-dealt)
 slot 2 cardId:   67 → 68(0/0 ATK/DEF) → 14(1900/1700)
 ```
 
-This is a **well-documented game cheat**: the CPU changes cards in its hand into different cards to get better plays. The intermediate card 68 with 0/0 stats is the game's internal write during the swap (card ID written before stats are populated).
+The decompiled Alpha `SLUS` code confirms this is an extended-hand mechanic,
+not arbitrary card generation.
 
-Community sources confirm this behavior:
-- VGFacts: "CPU opponents are programmed with an unfair advantage allowing them to change the cards drawn from their deck into entirely different cards"
-- TV Tropes ("The Computer Is a Cheating Bastard"): the AI "turns the cards in its hand into other cards"
-- Originally discovered via GameShark hand-reveal codes
+### Duel card table
 
-### Extended hand (unverified — needs investigation)
+At duel setup, `FUN_800243f4` builds two shuffled 40-card decks:
 
-Community reports (GameFAQs) suggest the CPU AI actually has a **larger hand size** than the visible 5 slots:
+| RAM | Contents |
+| --- | --- |
+| `0x80177fe8` | Player shuffled deck, 40 x u16 |
+| `0x80178038` | CPU shuffled deck, 40 x u16 |
+| `0x80177f94` | Player shuffled deck-entry indices |
+| `0x80177fbc` | CPU shuffled deck-entry indices |
 
-> "Almost every AI opponent has a larger hand size than the player, and when they play a card from beyond the first 5 cards in their extended hand it looks like the card is morphing. For the final 6 the hand size is 20, which is why Seto 3 can so consistently summon BEUD first turn despite being limited to 3 copies."
+`FUN_80024824` then builds an 80-entry duel-card table at `0x801a7e20`.
+Each entry is 6 bytes:
 
-TV Tropes (datamined): "The computer may look like they have 5 cards in their hand, same as you, but when the game was datamined, it turned out that they have 20 at a time."
+| Entry range | Source |
+| --- | --- |
+| `0..39` | Player shuffled deck |
+| `40..79` | CPU shuffled deck |
 
-This could explain the "swap" behavior: the game may not be randomly replacing a card but rather picking from a hidden extended hand beyond the 5 visible slots. The "morphing" animation reported by the community matches what we observe in RAM (card ID changes in-place in an existing hand slot).
+The visible card-zone structs at `0x801a7ae4` point back into this table.
+`FUN_800249e0(slot, deckEntry)` reloads a visible slot from a duel-card-table
+entry. For opponent slots (`slot > 14`), deck entries under `40` are remapped
+to the CPU half of the table.
 
-**Clues from our RAM data:**
-- P2 hand slot deal indices start at 42 (0x2A), not 0 like P1. With a 40-card deck (indices 0-39), hand indices starting at 40+ could point to an extended hand buffer.
-- `CPU deck pool` at `0x1781D8` (1444 bytes = 722 × 2) is on the Data Crystal RAM map — this is likely a per-card-ID probability/availability table, not the extended hand itself.
-- The hand slot tracking at lpP2 only has 5 entries. The extended hand may be managed entirely outside the hand slot tracking system.
+### AI-visible hand
 
-**Investigation plan:**
-1. Probe memory around the known hand slots for more card-sized structures (extend the 20-slot scan further)
-2. Look for a per-duelist "hand size" byte near the duelist ID or opponent config
-3. Monitor the P2 hand slot indices across multiple draws — do they ever exceed expected ranges?
-4. Compare behavior across different duelists (early game vs Seto 3) to see if the swap frequency changes
-5. Dump the CPU deck pool (0x1781D8) during a duel to understand its structure
+`FUN_80027df8` builds the AI snapshot used by the script engine:
+
+| Action IDs | Meaning |
+| --- | --- |
+| `0x01..0x05` | Field cards |
+| `0x06..0x0a` | Unknown/equip zone |
+| `0x0b..0x0f` | Five visible hand slots |
+| `0x10+` | Reserve cards from the undealt part of the shuffled deck |
+
+The script range for "hand" actions ends at `0x0a + handSize`, where:
+
+```
+handSize = *(int8_t *)(0x800917f0 + duelistId * 9)
+```
+
+This first per-duelist AI byte ranges from 5 to 20 in Alpha. `handSize` is the
+total AI-visible hand size, so `20` means 5 visible cards plus 15 reserve cards.
+
+Known Alpha values:
+
+| handSize | Duelists |
+| --- | --- |
+| 5 | Simon, Teana, Jono, villagers, first Seto |
+| 8 | Insector, Mai |
+| 10 | Heishin, Bandit Keith, second Teana, Ocean Mage |
+| 12 | Shadi, Yami Bakura |
+| 14 | Pegasus, several high mages |
+| 16 | Isis, Kaiba, Mage Soldier, several high mages, Seto 2 |
+| 18 | Sebek |
+| 20 | Neku, Heishin 2, Seto 3, DarkNite, Nightmare, Nitemare |
+
+### Why the visible hand morphs
+
+When the AI chooses a hand action above `0x0f`, `FUN_8001baf0` materializes that
+reserve card into one of the five visible hand slots before executing the play:
+
+1. It reads the current visible hand slot record IDs from the active player's
+   hand-slot array (`0x800ea00a` for player, `0x800ea02a` for CPU in NTSC).
+2. It selects a visible hand slot not already reserved by the planned action
+   sequence.
+3. It swaps the 6-byte `0x801a7e20` table entry for that visible slot with the
+   selected reserve entry.
+4. It calls `FUN_800249e0` to reload the visible card-zone struct.
+5. It writes the new record ID back into the active hand-slot array.
+
+The bridge sees this as a card ID changing in-place while the hand slot remains
+non-`0xff`. That is expected game behavior for reserve-card plays.
+
+The intermediate 0/0 card observed live is the slot being refreshed while the
+card ID and derived stats are being written.
 
 ## Files changed
 
