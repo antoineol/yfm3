@@ -1,216 +1,350 @@
-# YFM2 — Functional Specification
+# YFM3 Specification
 
-## 1. Purpose
+## Documentation Policy
 
-YFM2 is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remastered Perfected" mod. Given a player's card collection, it generates an optimal 40-card monster deck that maximizes the **expected value of the highest attack** achievable from a random 5-card opening hand, considering both direct card plays and fusion chains.
+This directory has two durable documents:
 
----
+- `SPEC.md`: keep. It is the product and architecture source of truth.
+- `TODO.md`: keep. It is the short active backlog, not a scratchpad.
 
-## 2. Domain Glossary
+Recommendations:
 
+- Delete completed plans, handoffs, temporary investigations, and rejected options once their durable facts are in this spec or in tests.
+- Keep implementation evidence in tests and code comments, not separate narrative files.
+- If a new investigation is unavoidable, create a short temporary note, then fold the result into this spec or delete it before merging.
 
-| Term             | Definition                                                                                                                                                                                                              |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Card**         | A monster with an ID, name, attack, defense, one or more kinds (Dragon, Warrior, etc.), and an optional color.                                                                                                          |
-| **Kind**         | One of 22 monster types: Dragon, Fairy, Beast, Fiend, Warrior, Zombie, WingedBeast, Machine, Rock, Plant, Dinosaur, Spellcaster, Pyro, Reptile, Aqua, Insect, Thunder, Fish, Female, MothInsect, SharkFish, SeaSerpent. |
-| **Color**        | One of the extracted frame colors such as blue, yellow, orange, red, purple, green, or pink. A card has at most one frame color. Some mods also expose a separate card-name label color. Colors can qualify fusion ingredients (see section 3.2). |
-| **Collection**   | The set of cards a player owns, each with a quantity (e.g., 3 copies of Blue-Eyes).                                                                                                                                     |
-| **Deck**         | A list of exactly 40 card IDs drawn from the collection, respecting ownership quantities.                                                                                                                               |
-| **Hand**         | 5 cards drawn uniformly at random (without replacement) from the deck.                                                                                                                                                  |
-| **Fusion**       | Combining two cards in hand to produce a new card with higher attack. Fusions are matched by card names, kinds, or color-qualified kinds.                                                                               |
-| **Fusion chain** | A sequence of fusions: A+B->X, then X+C->Y, etc. Chains consume up to 4 cards from the hand (at most 3 fusions).                                                                                                        |
-| **Score**        | The expected value of the maximum attack achievable from a random 5-card hand.                                                                                                                                          |
+## Purpose
 
+YFM3 is a companion app for Yu-Gi-Oh! Forbidden Memories, focused on the Remastered Perfected mod while supporting vanilla NTSC-U and PAL French where practical.
 
----
+The product has four jobs:
 
-## 3. Game Data
+1. Build the best legal 40-card monster deck from a player's collection.
+2. Explain best plays from a 5-card hand, including fusion chains.
+3. Read live game state from DuckStation through the local bridge.
+4. Use extracted game data so mods work without hardcoded CSVs.
 
-### 3.1 Card Database
+The optimizer's business metric is the expected value of the highest ATK achievable from a random 5-card opening hand, considering direct plays and legal fusion chains.
 
-Each card has:
+## Product Surfaces
 
-- **ID** (unique integer)
-- **Name** (unique string)
-- **Kinds** (one or more kind values)
-- **Color** (optional)
-- **Attack** (non-negative integer)
-- **Defense** (non-negative integer)
+- Web app: React/Vite UI, Clerk auth, Convex-backed persistence.
+- Engine: deterministic card, fusion, scoring, farming, ranking, and worker logic.
+- Bridge: local Windows/Bun process that reads DuckStation shared memory and active disc data.
+- Extraction: disc image readers for cards, fusions, equips, duelists, rank scoring, deck limits, and artwork.
+- Patching: local bridge-only ISO edits for supported reward/drop/deck workflows.
+- Agent control: optional bridge WebSocket commands for controlled gameplay automation.
 
-### 3.2 Fusion Database
+## Core Terms
 
-Each fusion recipe maps a **pair of ingredients** to a **result card** (with name, attack, defense). The same result card
-can be produced by multiple different ingredient pairs.
+- Card: one monster or game card with ID, name, ATK, DEF, type/kind metadata, guardian stars, attribute, colors, and labels.
+- Collection: card counts owned by the player.
+- Deck: exactly 40 card IDs, respecting collection counts and per-card copy limits.
+- Hand: 5 cards drawn uniformly without replacement from the deck.
+- Fusion: a two-material combination that resolves to one result card.
+- Fusion chain: repeated fusions where a result may fuse again with remaining hand cards.
+- Best play: the highest-value direct play or fusion chain available from a hand.
+- Rank scoring: post-duel rank estimate from live counters and active-disc threshold tables.
+- Game data hash: bridge cache key derived from live RAM card stats plus disc identity.
 
-An ingredient in a fusion recipe is one of:
+## Game Data
 
-- A **specific card** (matched by name), e.g. `Red-Eyes Black Dragon`
-- A **kind** (matches any card of that kind), e.g. `Dragon`
-- A **color-qualified kind** (matches cards of that kind AND that color), e.g. `[Blue] Fairy`
+The app prefers active-disc extraction over static data.
 
-A color-qualified ingredient like `[Blue] Fairy` only matches cards that are both Fairy-kind **and** blue-color. An
-unqualified kind ingredient like `Fairy` matches any Fairy regardless of color.
+Data sources:
 
-Ingredient order does not matter — (A, B) and (B, A) are the same recipe.
+- RAM: live card stats, collection, deck definition, duel state, rank counters, cursor focus, terrain, and unlock bytes.
+- Disc image: names, descriptions, fusions, equips, duelists, artwork, deck limits, rank tables, and localized labels.
+- Fallback fixtures/static references: only when bridge data is unavailable or extraction fails.
 
----
+Card metadata rules:
 
-## 4. Fusion Resolution Rules
+- Structural identifiers stay canonical across languages: type, guardian stars, and attributes must remain app enum values.
+- Display labels may be localized from PAL WA_MRG text blocks.
+- Frame color and card-name label color are different facts and must not be merged.
+- Fusion results are regular cards and must retain all extracted attributes for later fusions.
 
-Given two cards in hand, the system checks whether they can fuse. Multiple recipes may match; the **first match in
-priority order wins**:
+Extraction rules:
 
-1. **Both by name** — Does a recipe exist for these two exact card names?
-2. **One by name, one by kind** — Does a recipe exist matching one card's name and any of the other card's kinds
-  (with or without color qualifier)?
-3. **Both by kind** — Does a recipe exist matching any kind (with or without color qualifier) of one card with any kind
-  of the other?
+- Detect disc layout structurally where possible. Do not hardcode offsets when signatures or table shapes can be scanned.
+- Cache extracted data per active disc path and data hash so sibling ISOs cannot bleed into each other.
+- Refuse write operations when active-disc resolution is ambiguous.
+- Invalidate cached game data when extractor semantics change.
 
-When a recipe ingredient is color-qualified (e.g. `[Blue] Fairy`), a card only matches if it has **both** the required
-kind and the required color. An unqualified kind ingredient matches regardless of color.
+## Fusion Rules
 
-**Rule: Strict improvement.** A fusion only happens if the result's attack is strictly greater than both materials'
-attack.
+Fusion lookup is an ordered table lookup, not a recovered hidden rule engine.
 
-**Rule: Commutativity.** `fuse(A, B)` always equals `fuse(B, A)`.
+Recipe ingredients can be:
 
-**Rule: Fusion results are regular cards.** A fusion result retains all its attributes (name, kinds, color) and can
-participate in further fusions exactly like any base card. For example, Thunder Dragon (a Dragon-type fusion result) can
-fuse again with another card via a Dragon kind-based recipe to produce Twin-Headed Thunder Dragon.
+- Specific card name.
+- Card kind/type.
+- Color-qualified kind/type.
 
----
+Resolution rules:
 
-## 5. Deck Scoring
+1. Ingredient order is commutative.
+2. Exact name/name matches beat name/kind matches.
+3. Name/kind matches beat kind/kind matches.
+4. Color-qualified ingredients match only cards with both the required kind and color.
+5. Unqualified kind ingredients ignore color.
+6. A fusion applies only when the result ATK is strictly greater than both materials' ATK.
+7. A fusion result can participate in later fusions exactly like a base card.
 
-### 5.1 Goal
+Current chain limit:
 
-Compute the expected value of the maximum attack achievable from a 5-card hand drawn uniformly at random from a 40-card
-deck.
+- The production scorer considers chains up to the configured depth.
+- Business-facing best-play flows should stay readable and should not expose impossible or redundant equivalent paths.
 
-### 5.2 Ideal Formula
+Known duplicate-fusion behavior:
 
-This is the target formula. Any implementation should approximate it as closely as possible, especially for multi-material
-fusions where naive approaches diverge significantly.
+- Multiple recipes can produce the same result.
+- Deduplicate output by achieved result and material multiset where needed for UI readability.
+- Preserve the actual engine resolution order for scoring and play prediction.
 
-```
-Score = SUM over all achievable attack values A:
-    A * P(A is the maximum achievable attack in the hand)
+## Deck Scoring
 
-Where:
-    P(A is max) = P(can achieve A) * PRODUCT over all A' > A: (1 - P(can achieve A'))
-```
+Goal:
 
-All probabilities follow from the **hypergeometric distribution** (drawing 5 cards without replacement from 40).
+- Compute expected highest achievable ATK from a random 5-card hand drawn from a 40-card deck.
 
-### 5.3 Attack Paths
+Required properties:
 
-An **attack path** is a way to achieve a specific attack value from a hand. There are four types:
+- Empty decks score 0.
+- A full deck of one repeated non-fusing card scores that card's ATK.
+- Scoring is deterministic for the same deck and game data.
+- Scores stay within the achievable ATK range.
+- Fusion-capable decks should benefit when fusions improve reachable ATK.
+- Replacing a non-interacting card with a strictly stronger non-interacting card must not reduce score.
 
+Attack paths:
 
-| Type                  | Cards consumed from hand                    | Description                                  |
-| --------------------- | ------------------------------------------- | -------------------------------------------- |
-| **Direct**            | 1 card                                      | Play a single card for its attack value      |
-| **2-material fusion** | 2 distinct cards (or 2 copies of same card) | Fuse A + B -> result                         |
-| **3-material chain**  | 3 cards                                     | Fuse A + B -> X, then X + C -> result        |
-| **4-material chain**  | 4 cards                                     | Fuse A + B -> X, X + C -> Y, Y + D -> result |
+- Direct card play.
+- Two-material fusion.
+- Multi-material fusion chain up to the configured limit.
 
+Reference fixture workflow:
 
-All attack paths are discovered by enumerating combinations of cards **present in the deck**, following the fusion
-resolution rules (section 4).
+1. Define hands/decks in `src/test/reference-fixture-defs.ts`.
+2. Run `bun run gen:ref`.
+3. Test production scoring against `src/test/reference-fixtures.gen.ts`.
 
----
+Use the reference scorer as ground truth when changing production scoring or fusion behavior.
 
-## 6. Deck Optimization
+## Deck Optimization
 
-### 6.1 Goal
+Input:
 
-Given a player's collection and (optionally) their current deck, produce a 40-card deck that maximizes the score defined
-in section 5.
+- Optional current deck.
+- Collection.
+- Active game database.
+- Deck copy limits when detected.
 
-### 6.2 Input
+Output:
 
-- **Initial deck** (optional): The player's current deck. May be empty or wrong size.
-- **Collection**: Cards owned with quantities.
-- **Game database**: All cards and fusion recipes.
+- Valid 40-card deck.
+- Initial score.
+- Final score.
+- Improvement.
 
-### 6.3 Output
+Hard constraints:
 
-- **Optimized deck**: A valid 40-card deck.
-- **Final score**: Score of the optimized deck.
-- **Initial score**: Score of the input deck (baseline for comparison).
-- **Improvement**: Final score minus initial score.
+1. Exactly 40 cards.
+2. No card count exceeds owned copies.
+3. No card count exceeds active deck-copy limit.
+4. All card IDs exist in active game data.
+5. Final score must not be lower than initial score.
 
-### 6.4 Hard Constraints (invariants on output)
+Search expectations:
 
-These must **always** hold, regardless of algorithm:
+- Global optimum is not required.
+- Cancellation returns the best valid deck found so far.
+- Workers should run until budget completion or explicit abort, not stop early from weak convergence signals.
+- UI progress should remain meaningful while optimization is in flight.
 
-1. **Size**: Exactly 40 cards.
-2. **Collection bounds**: For every card, copies in deck ≤ copies owned.
-3. **Valid cards**: Every card ID in the deck exists in the game database.
-4. **Non-regression**: The output score must be ≥ the input deck's score.
+Edge cases:
 
-### 6.5 Soft Goals
+- Empty or wrong-sized starting deck.
+- Collection with exactly 40 legal cards.
+- Collection with one card type.
+- Transient all-zero bridge deck snapshots during result screens.
 
-- The optimizer should find a **near-optimal** deck, not necessarily the global optimum (the search space is too large for
-exhaustive search).
-- It should support **cancellation**: if interrupted, return the best valid deck found so far.
-- It should handle **edge cases** gracefully: empty initial deck, wrong-sized initial deck, collection with only one card
-type, collection with exactly 40 cards total.
+## Bridge Runtime
 
----
+The bridge is a local process for DuckStation integration.
 
-## 7. End-to-End Behavioral Expectations
+Responsibilities:
 
-Testable properties that any correct implementation must satisfy, regardless of algorithm choice. Expected score values
-must be adapted to match the implementation's scoring strategy, but the qualitative properties always hold.
+- Enable DuckStation shared memory export during onboarding.
+- Read raw PS1 RAM values.
+- Resolve active disc images from DuckStation settings and gamelist data.
+- Extract and cache active game data.
+- Broadcast live state and game data to the web app over WebSocket.
+- Execute supported local patch/write operations only when the target disc is unambiguous.
 
-### 7.1 Scoring Properties
+Boundaries:
 
+- Bridge may expose raw or lightly normalized state.
+- Game interpretation and UI policy belong in the app unless the bridge is the only place with required local access.
+- The UI must tolerate bridge reconnects and keep last-ready state during short live-reload gaps.
+- The bridge must avoid whole-BIN reads on cache hits.
 
-| ID  | Property                    | Description                                                                                                                                               |
-| --- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1  | Zero deck                   | An empty deck scores 0.                                                                                                                                   |
-| S2  | Single card type            | A deck of 40 copies of a card with attack A scores exactly A (you always draw it).                                                                        |
-| S3  | Score bounds                | Score is in `[0, max_attack_in_deck]`. More precisely, `score ≥ min_attack_in_deck` for a full 40-card deck (you always draw something).                  |
-| S4  | Monotonicity                | Replacing a card with a strictly higher-attack card (no fusion interactions) should not decrease the score.                                               |
-| S5  | Fusion bonus                | A deck with fusion-capable cards should score higher than the same deck with those cards replaced by non-fusing cards of equal attack.                    |
-| S6  | Determinism                 | Same deck + same game database = same score. No randomness in scoring.                                                                                    |
-| S7  | Probability sanity          | All probabilities are in [0, 1]. For any non-empty deck of size ≥ 5, the sum of `P(A is max)` over all attack values A equals 1.0.                        |
-| S8  | More copies = higher chance | Adding more copies of a card to the deck increases the probability of drawing it.                                                                         |
-| S9  | High-card replacement       | If the deck's highest achievable attack is A, replacing any card with a card of attack ≥ A that has no fusion interactions should not decrease the score. |
+Shared memory constants:
 
+- Card stats table starts at `0x1D4244`, 722 cards x 4 bytes.
+- Collection starts at `0x1D0250`, 722 bytes.
+- Deck definition starts at `0x1D0200`, 40 little-endian u16 card IDs.
+- Player hand starts at `0x1A7AE4`, 5 slots, stride `0x1C`.
+- Player field starts at `0x1A7B70`, 5 slots, stride `0x1C`.
+- Opponent hand starts at `0x1A7C88`; opponent field follows after 5 slots.
+- Free-duel unlock bitfield starts at `0x1D06F4`.
 
-### 7.2 Optimization Properties
+Offset profiles:
 
+- NTSC-U/RP profile is the default.
+- PAL French uses explicit offsets; do not derive new PAL features from NTSC relative offsets without evidence.
+- Unknown binaries may be scanned from structural patterns, but validation must reject impossible LP/phase values.
 
-| ID  | Property            | Description                                                                                                            |
-| --- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| O1  | Valid output        | Output deck has exactly 40 cards, all within collection bounds, all valid IDs.                                         |
-| O2  | Non-regression      | `finalScore ≥ initialScore`. The optimizer must never make things worse.                                               |
-| O3  | Improves weak decks | Given a trivially bad deck and a collection with stronger cards, the optimizer must improve the score.                 |
-| O4  | Respects collection | Never uses cards the player doesn't own or exceeds owned quantities.                                                   |
-| O5  | Cancellation        | If interrupted, returns the best valid deck found so far.                                                              |
-| O6  | Edge cases          | Works when: collection = exactly 40 cards, only one card type available, empty initial deck, wrong-sized initial deck. |
+PAL caveats:
 
+- PAL result/rank block starts at `0x0EB279`.
+- PAL terrain is `0x09C6F9`.
+- PAL cursor target card ID is `0x09C6B8`.
+- PAL field-card focus signal is `0x09C6D1`; it is focus-present, not a trusted slot index.
+- PAL active-duel cards-left uses the live deal counter at `0x0EB290`.
+- PAL result-screen cards-used uses `0x0EB296`; it can be stale or `0xFF` during active duels.
+- PAL initiated-fusion counter is `0x0EB280`.
+- PAL equip counter is `0x0EB281`.
+- PAL rank LP is `0x0EB28A`.
 
-### 7.3 Fusion Resolution Properties
+## Duel UI And Prediction
 
+Live duel helpers should be useful without revealing hidden information unless cheat mode is enabled.
 
-| ID  | Property                  | Description                                                                                      |
-| --- | ------------------------- | ------------------------------------------------------------------------------------------------ |
-| F1  | Name match priority       | A name-name recipe takes precedence over a kind-kind recipe.                                     |
-| F2  | Strict improvement        | A fusion only occurs if result attack > both materials' attack.                                  |
-| F3  | Commutativity             | fuse(A, B) == fuse(B, A).                                                                        |
-| F4  | Chain depth limit         | Fusion chains go at most 3 deep (consume at most 4 cards from hand).                             |
-| F5  | Fusion results are regular | Fusion results retain all attributes (name, kinds, color) and can re-fuse like any base card.    |
+Rules:
 
+- Focused-card UI may show player focus normally.
+- Opponent hidden cards are revealed only in cheat mode.
+- Result screens must clear active-duel helpers.
+- New active hands should dismiss post-duel content without aborting background optimization.
+- Battle prediction should use live field ATK/DEF as source of truth for visible stat changes.
+- Terrain must not be added twice when live field stats already include it.
+- Until selected guardian star is mapped, prediction falls back to each card's primary guardian star.
 
----
+Best-play path selection:
 
-## 8. Out of Scope
+- Prefer higher result DEF when ATK ties.
+- Prefer fewer materials when result stats tie.
+- Prefer paths that leave the strongest remaining hand play.
+- Prefer lower-value consumed materials when equivalent paths remain.
 
-- Spell, Equip, and Trap cards (excluded kinds: Magic, Equip, Trap)
-- Defense-based scoring
-- Multiplayer or opponent modeling
-- Card draw order beyond the initial 5-card hand
-- Deck ordering effects (only composition matters for scoring)
+## Rank Scoring
+
+The rank estimator must match the active disc when possible.
+
+Extraction:
+
+- Scan the active BIN for rank threshold tables.
+- Table shape is 10 rows, each with 5 signed-short `[exclusiveLimit, points]` pairs.
+- Each row ends at open limit `0x7FFF`.
+- Repeated loaded executable copies are collapsed by majority vote.
+- Built-in vanilla/RP profiles are fallback only.
+
+App factor order:
+
+1. Turns.
+2. Effective attacks.
+3. Defensive wins.
+4. Face-down plays.
+5. Fusions initiated.
+6. Equip magic used.
+7. Pure magic used.
+8. Traps triggered.
+9. Cards left.
+10. Remaining LP.
+
+If a mod changes factor count, row width, victory bonuses, or final rank thresholds, table extraction is insufficient and the rank algorithm needs separate extraction.
+
+## Deck Limits
+
+Default card copy limit is 3.
+
+Detected exceptions:
+
+- RP-family mods may include a dispatcher function followed by a u16 lookup table.
+- Vanilla SLUS/SLES has no dispatcher; Exodia's one-copy rule is inline deck-edit code.
+
+Extraction strategy:
+
+1. Signature-match the RP dispatcher prologue.
+2. Parse the dispatcher's constants dynamically.
+3. Decode the u16 table into per-card limits.
+4. Scan vanilla inline range checks for one-copy contiguous card ranges.
+
+Deck validation and editing must apply detected limits before optimization or patching.
+
+## Reward And Farming Features
+
+Farm recommendations should answer practical player questions:
+
+- Which duelists can drop useful cards?
+- Which drops improve the current deck or unlock stronger fusion paths?
+- Which rank profile matters for the desired reward pool?
+- Which duelists are currently unlocked from RAM?
+
+Reward patching:
+
+- Keep patch support explicit per disc family.
+- Ghost/FMR loop-limit style patches are compatible with NTSC/RP-style images.
+- PAL French multiplier support uses verified scratch relocation and root save-update helper logic.
+- Patch code must be tested at the arithmetic/byte level; live emulator verification is still required for final confidence.
+
+## Agent Game Control
+
+Agent control exists for automated testing, data collection, and gameplay analysis.
+
+Architecture:
+
+- WebSocket command to bridge.
+- Bridge input module.
+- ViGEm virtual Xbox controller for focus-free game input.
+- DuckStation receives XInput.
+- Bridge reads RAM feedback and broadcasts state.
+
+Allowed commands:
+
+- Tap, press, release, and release-all for known PS1 buttons.
+- Load save states 1 through 8 through patched hotkeys.
+
+Safety:
+
+- No save-state creation.
+- No in-game save command.
+- Reject unknown message types.
+- Block known save hotkeys such as F2.
+- Keep save-state loading separate from normal controller input.
+
+## Testing And Maintenance
+
+Required checks before completing changes:
+
+- `bun typecheck`
+- `bun lint`
+- `bun run test`
+
+Behavior changes need specs/tests near the changed behavior.
+
+Code style:
+
+- Minimal code that implements the business need.
+- Prefer restructuring that reduces total complexity over adding glue.
+- Write functions in reading order: callers before helpers.
+- Keep source-of-truth behavior in tests and code, not in long-lived plan files.
+
+## Out Of Scope
+
+- Spell/trap/equip deck optimization unless explicitly added later.
+- Full opponent AI modeling for optimizer scoring.
+- Multiplayer.
+- Deck ordering effects beyond the opening hand.
+- General-purpose mod authoring tools.

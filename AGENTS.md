@@ -9,8 +9,8 @@ This project is a deck optimizer for "Yu-Gi-Oh! Forbidden Memories" game, "Remas
 ## Other files
 
 - README.md: scripts and usage instructions.
-- docs/PLAN.md: the high-level plan to implement this app.
-- docs/steps/*: the plan's implementation steps.
+- docs/SPEC.md: product and architecture source of truth.
+- docs/TODO.md: active backlog only; delete completed items instead of preserving history.
 - src/engine/data/*: imported from another project, provides a bunch of utils that will be useful.
 
 ## Rules
@@ -20,7 +20,7 @@ You must always do below for all changes:
 - `bun typecheck`, `bun lint` and `bun run test` before completing tasks.
 - Write functions in reading order. If A calls B, write A then B.
 - Cover all behavior changes by specs.
-- Adapt the plan, and current and next steps.
+- Adapt docs/SPEC.md and docs/TODO.md when a change affects durable behavior or active work.
 - Business-oriented, simple, concise answers.
 - Simple, concise, minimalist code. Avoid indirection and unnecessary abstraction layers.
 - Do not assume the architecture in place is correct. Challenge it as any architect would do.

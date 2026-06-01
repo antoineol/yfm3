@@ -1464,8 +1464,8 @@ function logCollectionDeckState(view: DataView, state: GameState): void {
 }
 
 // ── Diagnostic probes (optional) ────────────────────────────────────
-const DIAG_PAL = false; // investigation complete — see docs/memory/pal-remaining-addresses.md
-const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL — see docs/memory/steps/bridge-extended-state.md
+const DIAG_PAL = false; // investigation complete — durable PAL facts live in docs/SPEC.md
+const DIAG_HAND_SLOTS = false; // verified on both NTSC-U and PAL
 const DIAG_OPPONENT = false; // investigation complete
 const DIAG_CURSOR = process.env.YFM_DIAG_CURSOR === "1";
 let palProbe: PalProbe | null = DIAG_PAL ? createPalProbe() : null;

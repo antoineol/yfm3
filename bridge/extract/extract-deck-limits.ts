@@ -18,7 +18,7 @@
 //      `addiu rt, rs, -N; sltiu rt, rt, M` range check — the Exodia-style
 //      hard cap on a contiguous card-id range.
 //
-// See docs/deck-limit-findings.md for the full decoded algorithm.
+// See docs/SPEC.md for the durable deck-limit extraction rules.
 
 import { parsePsxExeHeader } from "./detect-exe.ts";
 import { NUM_CARDS, type PsxExeHeader } from "./types.ts";

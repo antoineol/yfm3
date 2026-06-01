@@ -6,8 +6,8 @@ Deck optimizer for "Yu-Gi-Oh! Forbidden Memories" (Remastered Perfected mod). Gi
 
 ## Key files
 
-- `docs/PLAN.md`: implementation plan and current status.
-- `docs/steps/*`: detailed implementation steps.
+- `docs/SPEC.md`: product and architecture source of truth.
+- `docs/TODO.md`: active backlog only.
 - `src/engine/data/*`: game data utilities (card DB, fusion tables, CSV loaders).
 
 ## How to work
@@ -22,20 +22,15 @@ Deck optimizer for "Yu-Gi-Oh! Forbidden Memories" (Remastered Perfected mod). Gi
 
 ## Coding Principles
 
-All code — new and modified — must follow `docs/refact/principles.md`. Key rules:
+All code — new and modified — must follow the repository principles in `AGENTS.md`. Key rules:
 
 - **Single responsibility:** A function either COMPUTES or ORCHESTRATES, never both. A component either RENDERS or MANAGES STATE, never both. If describing what a unit does requires "and", split it.
 - **Size limits:** Functions: ~40 lines. Files: ~150 lines of logic. Args: 3. Props: 5. Nesting: 2 levels. These are targets that signal "check if this unit does too much" — not mechanical cut points.
 - **Refactor on touch:** When modifying a file for feature work, bring **touched functions** to principle compliance. Not the whole file — just what you touch. Refactor in a separate commit before the behavior change.
 
-Full principles: `docs/refact/principles.md` (self-sufficient — no other file needed for coding work).
-
-## Maintaining the principles
-
-To update or iterate on the principles, consult `docs/refact/principles-rationale.md` — it is the source document with detailed rationale, enforcement heuristics, examples, and edge cases. `principles.md` is derived from it.
-
 ## Rules
 
 - `bun typecheck`, `bun lint` and `bun run test` before completing tasks.
 - Cover all behavior changes by specs.
+- Update `docs/SPEC.md` or `docs/TODO.md` when a change affects durable behavior or active work.
 - Never run `npx convex import --replace-all` — it wipes the entire deployment.

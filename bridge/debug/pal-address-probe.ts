@@ -5,7 +5,7 @@
  * fusion counter) by taking memory snapshots at key game-state transitions
  * and diffing them.
  *
- * See docs/memory/pal-remaining-addresses.md for methodology.
+ * Durable confirmed PAL offsets live in docs/SPEC.md.
  *
  * Usage from serve.ts:
  *
