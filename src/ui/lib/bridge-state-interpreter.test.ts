@@ -289,6 +289,30 @@ describe("interpretRawState", () => {
       });
     });
 
+    it("uses the trusted player field cursor slot when duplicate cards have different live stats", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 613,
+          duelCursorFieldSlotIndex: 2,
+          field: [
+            { cardId: 401, atk: 2150, def: 1950, status: 0x84 },
+            { cardId: 613, atk: 3300, def: 2600, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 2,
+        cardId: 613,
+        hidden: false,
+      });
+    });
+
     it("uses the target card id when the field slot signal points to a different live player card", () => {
       const result = interpretRawState(
         makeRaw({

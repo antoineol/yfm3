@@ -5,6 +5,7 @@ import {
   duelFocusRowVisible,
   focusedCardForDisplay,
   focusedStatsForDisplay,
+  opponentPoolMaxStats,
 } from "./CheatViewSwitch.tsx";
 
 function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
@@ -16,6 +17,8 @@ function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
         { id: 65, name: "Silver Fang", atk: 1200, def: 800, type: "Beast" },
         { id: 401, name: "Ushi Oni", atk: 2150, def: 1950, type: "Fiend" },
         { id: 493, name: "Maha Vailo", atk: 1550, def: 1400, type: "Spellcaster" },
+        { id: 613, name: "Twin-Headed Thunder Dragon", atk: 2800, def: 2100, type: "Thunder" },
+        { id: 622, name: "Ill Witch", atk: 1600, def: 2300, type: "Spellcaster" },
       ],
     } as BridgeState["gameData"],
     ...overrides,
@@ -77,6 +80,19 @@ describe("focusedStatsForDisplay", () => {
     expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 2650, def: 2450 });
   });
 
+  it("uses the targeted field slot stats when duplicate player cards differ by equip boost", () => {
+    const bridge = bridgeWithTarget({
+      field: [
+        { cardId: 613, atk: 3300, def: 2600, status: 0x84, slotIndex: 1 },
+        { cardId: 613, atk: 2800, def: 2100, status: 0x84, slotIndex: 2 },
+      ],
+      cursorTarget: { zone: "playerField", index: 2, cardId: 613, hidden: false },
+    });
+    const focused = focusedCardForDisplay(bridge, true);
+
+    expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 2800, def: 2100 });
+  });
+
   it("returns terrain-adjusted live stats for a focused opponent field card", () => {
     const bridge = bridgeWithTarget({
       stats: { fusions: 0, terrain: 6, duelistId: 1, rankCounters: null },
@@ -86,6 +102,39 @@ describe("focusedStatsForDisplay", () => {
     const focused = focusedCardForDisplay(bridge, true);
 
     expect(focused && focusedStatsForDisplay(bridge, focused)).toEqual({ atk: 2050, def: 1900 });
+  });
+});
+
+describe("opponentPoolMaxStats", () => {
+  it("returns independent max ATK and DEF across visible hand and reserve cards", () => {
+    const bridge = bridgeWithTarget({
+      opponentHandPool: [{ cardId: 613, slotId: 40 }, null, null, null, null],
+      opponentReservePool: [{ cardId: 622, slotId: 45 }],
+    });
+
+    expect(opponentPoolMaxStats(bridge)).toEqual({ atk: 2800, def: 2300 });
+  });
+
+  it("applies terrain bonus to pool stats", () => {
+    const bridge = bridgeWithTarget({
+      stats: { fusions: 0, terrain: 6, duelistId: 1, rankCounters: null },
+      opponentHandPool: [{ cardId: 493, slotId: 40 }, null, null, null, null],
+      opponentReservePool: [{ cardId: 401, slotId: 45 }],
+    });
+
+    expect(opponentPoolMaxStats(bridge)).toEqual({ atk: 2650, def: 2450 });
+  });
+
+  it("returns null when there are no opponent pool cards", () => {
+    expect(opponentPoolMaxStats(bridgeWithTarget({}))).toBeNull();
+  });
+
+  it("returns null when pool card data is missing", () => {
+    const bridge = bridgeWithTarget({
+      opponentHandPool: [{ cardId: 999, slotId: 40 }, null, null, null, null],
+    });
+
+    expect(opponentPoolMaxStats(bridge)).toBeNull();
   });
 });
 

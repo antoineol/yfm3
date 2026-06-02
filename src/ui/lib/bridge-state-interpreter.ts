@@ -346,6 +346,9 @@ function resolveFieldPreviewTarget(
   if (!("duelCursorFieldSlotIndex" in raw)) return null;
   if (raw.duelCursorFieldSlotIndex == null) return null;
 
+  const trustedTarget = resolveTrustedPlayerFieldSlotTarget(cardId, raw);
+  if (trustedTarget) return trustedTarget;
+
   const playerIndex = findActiveSlotIndex(raw.field, cardId);
   if (playerIndex != null) {
     return { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
@@ -380,6 +383,9 @@ function resolveFieldSlotTarget(
   if (index == null) return raw.duelPhase === PHASE_FIELD ? null : undefined;
   if (!isFieldCursorViewActive(raw)) return undefined;
 
+  const trustedTarget = resolveTrustedPlayerFieldSlotTarget(cardId, raw);
+  if (trustedTarget) return trustedTarget;
+
   const playerIndex = findActiveSlotIndex(raw.field, cardId);
   if (playerIndex != null) {
     return { zone: "playerField", index: playerIndex, cardId: cardId as number, hidden: false };
@@ -394,6 +400,26 @@ function resolveFieldSlotTarget(
   if (!slot) return undefined;
   if (!isActiveSlot(slot)) return null;
   return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function resolveTrustedPlayerFieldSlotTarget(
+  cardId: number | null,
+  raw: RawBridgeState,
+): DuelCursorTarget | null {
+  if (isPalGame(raw) || cardId == null || cardId <= 0) return null;
+  if (!("duelCursorFieldSlotIndex" in raw)) return null;
+
+  const index = raw.duelCursorFieldSlotIndex;
+  if (index == null) return null;
+
+  const slot = raw.field[index];
+  if (!slot || slot.cardId !== cardId || !isActiveSlot(slot)) return null;
+
+  return { zone: "playerField", index, cardId, hidden: false };
+}
+
+function isPalGame(raw: RawBridgeState): boolean {
+  return raw.gameSerial?.startsWith("SLES_039.") === true;
 }
 
 function isFieldCursorViewActive(raw: RawBridgeState): boolean {

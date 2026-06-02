@@ -737,12 +737,12 @@ input[type="number"] {
 
 .fm-opponent-pool {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   list-style: none;
   margin: 0;
   max-width: 100%;
   overflow-x: auto;
-  padding: 1px 1px 4px;
+  padding: 1px 0 4px;
   scrollbar-width: thin;
 }
 
@@ -772,56 +772,19 @@ input[type="number"] {
 .fm-opponent-pool-thumb {
   display: block;
   flex: 0 0 auto;
-  padding: 2px;
+  padding: 0;
   width: 34px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    opacity 160ms ease;
-}
-
-.fm-opponent-pool-thumb--hand {
-  background: rgba(47, 118, 190, 0.15);
-  border-color: rgba(72, 149, 220, 0.58);
-  box-shadow: inset 0 0 0 1px rgba(137, 196, 255, 0.1);
+  border: 0;
+  border-radius: 3px;
+  transition: opacity 160ms ease;
 }
 
 .fm-opponent-pool-thumb--reserve {
-  background: rgba(174, 117, 34, 0.13);
-  border-color: rgba(206, 151, 59, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(255, 211, 128, 0.08);
-  opacity: 0.76;
-}
-
-.fm-opponent-pool-thumb--next-draw {
-  background: rgba(70, 154, 130, 0.18);
-  border-color: rgba(92, 210, 178, 0.74);
-  box-shadow:
-    inset 0 0 0 1px rgba(163, 246, 216, 0.12),
-    0 0 0 1px rgba(92, 210, 178, 0.18);
-  opacity: 0.94;
-}
-
-.fm-opponent-pool-thumb--hand + .fm-opponent-pool-thumb--reserve {
-  margin-left: 6px;
-}
-
-.fm-opponent-pool-thumb--empty {
-  border-style: dashed;
   opacity: 0.72;
 }
 
-.fm-opponent-pool-empty {
-  display: block;
-  width: 100%;
-  aspect-ratio: 104 / 142;
-  border: 1px dashed rgba(133, 184, 236, 0.32);
-  border-radius: 3px;
-  background:
-    linear-gradient(135deg, rgba(70, 126, 184, 0.18), rgba(16, 24, 38, 0.3)), rgba(12, 18, 28, 0.46);
+.fm-opponent-pool-thumb--next-draw {
+  opacity: 1;
 }
 
 .fm-opponent-pool-thumb .fm-mini {
@@ -1786,7 +1749,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   height: 44px;
 }
@@ -1905,11 +1868,43 @@ input[type="number"] {
   text-transform: uppercase;
 }
 
+.fm-opponent-pool-max {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(9, 14, 24, 0.44);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.fm-opponent-pool-max-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.fm-opponent-pool-max-label {
+  color: var(--color-text-muted);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.fm-opponent-pool-max-value {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .fm-cheat-switch {
   display: flex;
   flex: 0 0 auto;
   width: fit-content;
-  margin-left: auto;
   border-radius: 8px;
   border: 1px solid var(--color-border-subtle);
   overflow: hidden;

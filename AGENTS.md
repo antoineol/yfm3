@@ -38,4 +38,4 @@ When choosing a solution, apply these principles:
 
 ## Confusion points
 
-None currently.
+- The Ghost Drop More Cards reward expansion contains its own MIPS loop counters. Counts above 255 require halfword/word counter opcodes in the injected expansion; changing TypeScript selectable/recognized count tables alone can create an ISO that patches successfully but hangs/crashes at the duel result screen.

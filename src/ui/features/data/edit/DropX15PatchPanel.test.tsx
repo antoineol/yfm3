@@ -78,7 +78,7 @@ describe("DropX15PatchPanel", () => {
       definitionName: "Ghost Drop More Cards x1",
       cardDropCount: 1,
       starchipMultiplier: 1,
-      availableDropCounts: [1, 5, 15],
+      availableDropCounts: [1, 5, 15, 1000],
       gameSerial: "SLES_039.48",
       discFilename: "PAL.bin",
     });
@@ -98,7 +98,7 @@ describe("DropX15PatchPanel", () => {
         definitionName: "Ghost Drop More Cards x15",
         cardDropCount: 15,
         starchipMultiplier: 15,
-        availableDropCounts: [1, 5, 15],
+        availableDropCounts: [1, 5, 15, 1000],
         gameSerial: "SLES_039.48",
       },
     });
@@ -108,7 +108,9 @@ describe("DropX15PatchPanel", () => {
     expect(await screen.findByText("PAL.bin: 1 card per duel.")).toBeDefined();
     expect(button("Apply").disabled).toBe(true);
 
-    fireEvent.click(button("x15"));
+    fireEvent.change(screen.getByRole("combobox", { name: "Card drops per duel" }), {
+      target: { value: "15" },
+    });
     expect(button("Apply").disabled).toBe(false);
     fireEvent.click(button("Apply"));
 
@@ -126,7 +128,7 @@ describe("DropX15PatchPanel", () => {
       definitionName: "Ghost Drop More Cards x30",
       cardDropCount: 30,
       starchipMultiplier: 30,
-      availableDropCounts: [1, 5, 15, 50, 150],
+      availableDropCounts: [1, 5, 15, 50, 150, 1000],
       gameSerial: "SLES_039.48",
       discFilename: "PAL.bin",
     });
@@ -137,7 +139,8 @@ describe("DropX15PatchPanel", () => {
     expect(
       screen.getByText("PAL.bin: 30 cards per duel. Choose a supported target to change it."),
     ).toBeDefined();
-    expect(button("x50")).toBeDefined();
+    expect(screen.getByRole("option", { name: "x50" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "x1000" })).toBeDefined();
     expect(button("Apply").disabled).toBe(true);
   });
 
@@ -150,7 +153,7 @@ describe("DropX15PatchPanel", () => {
       definitionName: "Ghost Drop More Cards x150",
       cardDropCount: 150,
       starchipMultiplier: 15,
-      availableDropCounts: [1, 5, 15, 50, 150],
+      availableDropCounts: [1, 5, 15, 50, 150, 1000],
       gameSerial: "SLES_039.48",
       discFilename: "PAL.bin",
     });
@@ -166,7 +169,7 @@ describe("DropX15PatchPanel", () => {
         definitionName: "Ghost Drop More Cards x150",
         cardDropCount: 150,
         starchipMultiplier: 150,
-        availableDropCounts: [1, 5, 15, 50, 150],
+        availableDropCounts: [1, 5, 15, 50, 150, 1000],
         gameSerial: "SLES_039.48",
       },
     });

@@ -1,7 +1,8 @@
 import { useSetAtom } from "jotai";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../../components/Button.tsx";
+import { Select } from "../../../components/Select.tsx";
 import { loadBackupsAtom } from "./atoms.ts";
 import { type DropX15Status, fetchDropX15Status, putDropX15Patch } from "./bridge-client.ts";
 
@@ -83,27 +84,6 @@ export function DropX15PatchPanel() {
     !isSelectedRewardActive(status, selectedCount) &&
     !loading &&
     !pending;
-  const optionButtons = useMemo(
-    () =>
-      availableCounts.map((count) => (
-        <button
-          aria-pressed={selectedCount === count}
-          className={[
-            "h-8 min-w-12 rounded-md border px-2.5 font-display text-xs uppercase tracking-widest transition-colors",
-            selectedCount === count
-              ? "border-gold bg-gold/15 text-gold"
-              : "border-border-subtle bg-bg-panel text-text-muted hover:border-gold-dim hover:text-text-secondary",
-          ].join(" ")}
-          disabled={pending}
-          key={count}
-          onClick={() => setSelectedCount(count)}
-          type="button"
-        >
-          x{count}
-        </button>
-      )),
-    [availableCounts, pending, selectedCount],
-  );
 
   return (
     <section className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-border-subtle bg-bg-surface/45">
@@ -121,9 +101,22 @@ export function DropX15PatchPanel() {
         <p className="mt-1 truncate text-xs text-text-muted">{detail}</p>
       </div>
       {availableCounts.length > 0 && (
-        <fieldset aria-label="Card drops per duel" className="flex flex-wrap items-center gap-1.5">
-          {optionButtons}
-        </fieldset>
+        <Select
+          aria-label="Card drops per duel"
+          className="h-8 !w-20 rounded-md px-2.5 py-1 font-display text-xs uppercase tracking-widest"
+          disabled={pending}
+          onChange={(event) =>
+            setSelectedCount(event.currentTarget.value ? Number(event.currentTarget.value) : null)
+          }
+          value={selectedCount ?? ""}
+        >
+          {selectedCount == null && <option value="">Choose</option>}
+          {availableCounts.map((count) => (
+            <option key={count} value={count}>
+              x{count}
+            </option>
+          ))}
+        </Select>
       )}
       <Button
         className="min-w-20"

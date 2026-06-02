@@ -31,10 +31,21 @@ const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_VISIBLE_REWARD_RESTORE_OFFSET = 0xf4;
 const GHOST_TOOL_LOAD_FIRST_PICKED_REWARD = 0x97a20022;
-const PAL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150] as const;
-const PAL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150] as const;
+const PAL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150, 1000] as const;
+const PAL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150, 1000] as const;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+const PAL_REWARD_COUNTER_HALFWORD_OPS = [
+  { offset: 0x6c, word: 0x97b60020 },
+  { offset: 0x80, word: 0xa7a00020 },
+  { offset: 0x84, word: 0xa7b60020 },
+  { offset: 0x168, word: 0x96560020 },
+  { offset: 0x17c, word: 0xa6400020 },
+  { offset: 0x180, word: 0xa6560020 },
+  { offset: 0x1e0, word: 0x94560020 },
+  { offset: 0x1f4, word: 0xa4400020 },
+  { offset: 0x1f8, word: 0xa4560020 },
+] as const;
 const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
 const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
 const STARCHIP_X15_VANILLA = Buffer.from("3a004390e005828c0000000021104300e00582ac", "hex");
@@ -101,6 +112,7 @@ function makePalGhostToolExpansion(): Buffer {
   writeU32LeToBuffer(expansion, blobOffset(0x801aad9c), jal(0x80021950));
   writeU32LeToBuffer(expansion, blobOffset(0x801aadc4), j(0x80021fd8));
   writeU32LeToBuffer(expansion, blobOffset(0x801aae6c), j(0x800218f8));
+  writePalRewardCounterHalfwordOps(expansion);
 
   const rngCalls = replaceU32LeInBuffer(
     expansion,
@@ -112,6 +124,12 @@ function makePalGhostToolExpansion(): Buffer {
   }
 
   return expansion;
+}
+
+function writePalRewardCounterHalfwordOps(expansion: Buffer): void {
+  for (const op of PAL_REWARD_COUNTER_HALFWORD_OPS) {
+    writeU32LeToBuffer(expansion, op.offset, op.word);
+  }
 }
 
 interface GhostToolHook {
@@ -645,8 +663,8 @@ function ghostToolWaCopiesMatchExpansion(
   for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
     if (!bytesMatchAt(image, waEntry.sector, copyOffset, expansion, format)) return false;
   }
-  return layout.waExtraLimits.every(
-    (limit) => image[discOffset(waEntry.sector, limit.offset, format)] === extraLimit,
+  return layout.waExtraLimits.every((limit) =>
+    ghostToolWaLimitMatches(image, waEntry, format, limit.offset, extraLimit),
   );
 }
 
@@ -727,7 +745,24 @@ function writeGhostToolWaLimit(
   offset: number,
   value: number,
 ): void {
-  image[discOffset(waEntry.sector, offset, format)] = value;
+  const targetOffset = discOffset(waEntry.sector, offset, format);
+  if (value <= 0xff) {
+    image[targetOffset] = value;
+    return;
+  }
+  image.writeUInt16LE(value, targetOffset);
+}
+
+function ghostToolWaLimitMatches(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  offset: number,
+  value: number,
+): boolean {
+  const targetOffset = discOffset(waEntry.sector, offset, format);
+  if (value <= 0xff) return image[targetOffset] === value;
+  return image.readUInt16LE(targetOffset) === value;
 }
 
 function findWaMrgEntry(image: Buffer, format: DiscFormat): IsoFile | null {
@@ -1057,6 +1092,9 @@ function starchipMultiplierWords(multiplier: number): number[] {
       addu(3, 2, 5),
     ];
   }
+  if (multiplier === 1000) {
+    return [sll(2, 3, 10), sll(5, 3, 4), subu(2, 2, 5), sll(5, 3, 3), subu(3, 2, 5)];
+  }
   throw new Error(`Unsupported starchip multiplier x${multiplier}.`);
 }
 
@@ -1093,6 +1131,9 @@ function legacyStarchipMultiplierWords(multiplier: number): number[] {
       sll(5, 3, 1),
       addu(3, 8, 5),
     ];
+  }
+  if (multiplier === 1000) {
+    return [sll(8, 3, 10), sll(5, 3, 4), subu(8, 8, 5), sll(5, 3, 3), subu(3, 8, 5)];
   }
   throw new Error(`Unsupported legacy starchip multiplier x${multiplier}.`);
 }

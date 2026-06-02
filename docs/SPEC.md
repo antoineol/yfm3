@@ -32,7 +32,7 @@ The optimizer's business metric is the expected value of the highest ATK achieva
 - Engine: deterministic card, fusion, scoring, farming, ranking, and worker logic.
 - Bridge: local Windows/Bun process that reads DuckStation shared memory and active disc data.
 - Extraction: disc image readers for cards, fusions, equips, duelists, rank scoring, deck limits, and artwork.
-- Patching: local bridge-only ISO edits for supported reward/drop/deck workflows.
+- Patching: local bridge-only ISO edits for supported reward/drop/deck workflows. PAL Ghost Drop More Cards reward patch targets are x1, x5, x15, x50, x150, and x1000.
 - Agent control: optional bridge WebSocket commands for controlled gameplay automation.
 
 ## Core Terms
@@ -228,9 +228,11 @@ Rules:
 - Result screens must clear active-duel helpers.
 - New active hands should dismiss post-duel content without aborting background optimization.
 - Battle prediction should use live field ATK/DEF as source of truth for visible stat changes.
+- NTSC-U/RP player field cursor focus should use the trusted physical field slot when it matches the target card ID, so duplicate cards with different live boosts show the hovered copy's stats.
 - Terrain must not be added twice when live field stats already include it.
 - Until selected guardian star is mapped, prediction falls back to each card's primary guardian star.
-- In cheat mode, the opponent available-pool PoC renders five fixed visible-hand slots first, preserving empty spent slots, then renders reserve cards separately. The reserve is the AI draw window: it is the live duel-deck suffix starting at the opponent dealt-card counter, capped with visible hand cards by the duelist's configured pool size. A normal draw materializes the first reserve card into an empty visible hand slot and advances the window; an AI reserve swap mutates the live duel deck by exchanging a selected reserve entry with a visible hand entry. Hand, next-draw, and reserve entries must be visually distinct. UI transition identity must use live duel-table slot IDs, not card IDs, so duplicate cards and reserve-to-hand movement animate as the same card copy.
+- In cheat mode, the opponent available-pool PoC renders occupied visible-hand cards first, skipping empty spent slots, then renders reserve cards separately. The reserve is the AI draw window: it is the live duel-deck suffix starting at the opponent dealt-card counter, capped with visible hand cards by the duelist's configured pool size. A normal draw materializes the first reserve card into an empty visible hand slot and advances the window; an AI reserve swap mutates the live duel deck by exchanging a selected reserve entry with a visible hand entry. The pool is a compact ordered card list, not five fixed slots; reserve cards may be visually de-emphasized, but category color borders should not compete with card frame colors. UI transition identity must use live duel-table slot IDs, not card IDs, so duplicate cards and reserve-to-hand movement animate as the same card copy.
+- The cheat-mode focus row shows the current cursor target and the opponent pool's highest available ATK and highest available DEF as separate values; the two maxima may come from different cards.
 - The former CPU swap "cheat detected" banner/detector is disabled; cheat-mode insight should come from the opponent available pool.
 
 Best-play path selection:

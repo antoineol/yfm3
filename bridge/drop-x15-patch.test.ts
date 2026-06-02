@@ -142,7 +142,7 @@ describe("drop x15 patch inspection", () => {
       definitionName: "Ghost Drop More Cards x1",
       cardDropCount: 1,
       starchipMultiplier: 1,
-      availableDropCounts: [1, 5, 15, 50, 150],
+      availableDropCounts: [1, 5, 15, 50, 150, 1000],
       gameSerial: "SLES_039.48",
     });
   });
@@ -303,6 +303,55 @@ describe("drop x15 patch inspection", () => {
     }
   });
 
+  test("patches the PAL France Ghost Drop More Cards layout to x1000", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    writeFileSync(discPath, makePalGhostToolDiscImage("SLES_039.48"));
+
+    try {
+      const result = patchDropX15DiscInPlace(discPath, 1000);
+      const patched = readFileSync(discPath);
+      const slusBase = 21 * SECTOR_DATA_SIZE;
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 1000,
+        starchipMultiplier: 1000,
+      });
+      expect(inspectDropX15Image(patched)).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 1000,
+        starchipMultiplier: 1000,
+      });
+      expect(patched.subarray(slusBase + 0x19b478, slusBase + 0x19b47c)).toEqual(
+        Buffer.from("E9031724", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b574, slusBase + 0x19b578)).toEqual(
+        Buffer.from("E9031724", "hex"),
+      );
+      expect(patched.subarray(slusBase + 0x19b5ec, slusBase + 0x19b5f0)).toEqual(
+        Buffer.from("E8031724", "hex"),
+      );
+      expectRewardCounterOps(patched, slusBase + 0x19b400);
+      for (let copy = 0; copy < 7; copy++) {
+        const base = 0xe25400 + copy * 0x78000;
+        expectRewardCounterOps(patched, waOffset(base));
+        expect(patched.readUInt16LE(waOffset(base + 0x78))).toBe(1001);
+        expect(patched.readUInt16LE(waOffset(base + 0x174))).toBe(1001);
+        expect(patched.readUInt16LE(waOffset(base + 0x1ec))).toBe(1000);
+      }
+      expect(patched.readUInt16LE(waOffset(0xe24fe4))).toBe(1001);
+      expect(executePalStarchipSaveUpdate(patched, 2727, 5)).toBe(7727);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("refreshes PAL x150 when the visible result card still restores the vanilla pick", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
@@ -346,6 +395,7 @@ describe("drop x15 patch inspection", () => {
     { multiplier: 150, rankStarchips: 5, before: 2727, after: 3477 },
     { multiplier: 150, rankStarchips: 22, before: 2727, after: 6027 },
     { multiplier: 50, rankStarchips: 5, before: 2727, after: 2977 },
+    { multiplier: 1000, rankStarchips: 5, before: 2727, after: 7727 },
   ])("executes the PAL x$multiplier starchip helper as save += rankStarchips * multiplier", ({
     multiplier,
     rankStarchips,
@@ -1001,6 +1051,18 @@ const PAL_STARCHIP_X150_STALE_LOAD_DELAY_HELPER = Buffer.from(
   "hex",
 );
 
+const PAL_REWARD_COUNTER_OPS = [
+  { offset: 0x6c, word: 0x97b60020 },
+  { offset: 0x80, word: 0xa7a00020 },
+  { offset: 0x84, word: 0xa7b60020 },
+  { offset: 0x168, word: 0x96560020 },
+  { offset: 0x17c, word: 0xa6400020 },
+  { offset: 0x180, word: 0xa6560020 },
+  { offset: 0x1e0, word: 0x94560020 },
+  { offset: 0x1f4, word: 0xa4400020 },
+  { offset: 0x1f8, word: 0xa4560020 },
+] as const;
+
 function expectPalStarchipMultiplier(image: Buffer, slusBase: number, multiplier: 150): void {
   expect(multiplier).toBe(150);
   expect(image.subarray(slusBase + 0x12798, slusBase + 0x127a4)).toEqual(
@@ -1015,5 +1077,11 @@ function expectPalStarchipMultiplier(image: Buffer, slusBase: number, multiplier
     expect(image.subarray(helperOffset, helperOffset + PAL_STARCHIP_X150_HELPER.length)).toEqual(
       PAL_STARCHIP_X150_HELPER,
     );
+  }
+}
+
+function expectRewardCounterOps(image: Buffer, expansionOffset: number): void {
+  for (const op of PAL_REWARD_COUNTER_OPS) {
+    expect(image.readUInt32LE(expansionOffset + op.offset)).toBe(op.word);
   }
 }

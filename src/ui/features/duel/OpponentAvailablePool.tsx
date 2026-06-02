@@ -16,18 +16,15 @@ export function OpponentAvailablePool({
   const [animateRef] = useAutoAnimate();
   if (handCards.every((card) => card == null) && reserveCards.length === 0) return null;
 
+  const visibleHandCards = handCards.filter((card): card is OpponentPoolCard => card != null);
   const usedCardKeys = new Set<number>();
 
   return (
     <ol aria-label="Opponent available pool" className="fm-opponent-pool" ref={animateRef}>
-      {handCards.map((card, i) => (
+      {visibleHandCards.map((card, i) => (
         <OpponentPoolItem
           card={card}
-          key={
-            card
-              ? poolCardKey(card, usedCardKeys, `hand-${String(i)}`)
-              : `opp-pool-empty-hand-${String(i)}`
-          }
+          key={poolCardKey(card, usedCardKeys, `hand-${String(i)}`)}
           kind="hand"
           slotNumber={i + 1}
           terrain={terrain}
@@ -64,30 +61,26 @@ function OpponentPoolItem({
   slotNumber,
   terrain,
 }: {
-  card: OpponentPoolCard | null;
+  card: OpponentPoolCard;
   kind: "hand" | "next-draw" | "reserve";
   reserveNumber?: number;
   slotNumber?: number;
   terrain: number;
 }) {
   const { cardsById } = useCardDb();
-  const cardData = card == null ? undefined : cardsById.get(card.cardId);
+  const cardData = cardsById.get(card.cardId);
   const fb = cardData ? cardFieldBonus(cardData, terrain) : undefined;
   const label =
     kind === "hand"
-      ? `Opponent hand slot ${String(slotNumber)}${cardData ? "" : " empty"}`
+      ? `Opponent hand card ${String(slotNumber)}`
       : `Opponent reserve card ${String(reserveNumber)}${kind === "next-draw" ? " next draw" : ""}`;
 
   return (
     <li
       aria-label={label}
-      className={`fm-opponent-pool-thumb fm-opponent-pool-thumb--${kind === "hand" ? "hand" : "reserve"}${kind === "next-draw" ? " fm-opponent-pool-thumb--next-draw" : ""}${cardData ? "" : " fm-opponent-pool-thumb--empty"}`}
+      className={`fm-opponent-pool-thumb fm-opponent-pool-thumb--${kind === "hand" ? "hand" : "reserve"}${kind === "next-draw" ? " fm-opponent-pool-thumb--next-draw" : ""}`}
     >
-      {cardData ? (
-        <MiniGameCard atkOverride={fb?.atk} card={cardData} defOverride={fb?.def} />
-      ) : (
-        <span aria-hidden="true" className="fm-opponent-pool-empty" />
-      )}
+      {cardData && <MiniGameCard atkOverride={fb?.atk} card={cardData} defOverride={fb?.def} />}
     </li>
   );
 }
