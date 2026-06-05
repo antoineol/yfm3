@@ -392,12 +392,16 @@ function resolveBattleTarget(
 
 function findExplicitPlayerAttacker(raw: RawBridgeState): DuelCursorTarget | null {
   const index = raw.field.findIndex(
-    (slot) => slot.cardId > 0 && slot.cardId < 723 && slot.status === 0x04,
+    (slot) => slot.cardId > 0 && slot.cardId < 723 && isExplicitPlayerAttackerStatus(slot.status),
   );
   if (index < 0) return null;
   const slot = raw.field[index];
   if (!slot) return null;
   return { zone: "playerField", index, cardId: slot.cardId, hidden: false };
+}
+
+function isExplicitPlayerAttackerStatus(status: number): boolean {
+  return status === 0x04 || ((status & 0x40) !== 0 && (status & 0x04) !== 0);
 }
 
 function playerAttackTargetFromFieldSlotSignal(raw: RawBridgeState): DuelCursorTarget | null {

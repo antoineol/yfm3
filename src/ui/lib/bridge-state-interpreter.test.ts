@@ -1075,6 +1075,60 @@ describe("interpretRawState", () => {
   });
 
   describe("opponent available pool", () => {
+    it("clears stale opponent pool data during duel init", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x01,
+          duelistId: 7,
+          opponentCardsDealt: 5,
+          opponentHandSlots: [40, 41, 42, 43, 44],
+          opponentHand: [
+            { cardId: 11, atk: 100, def: 100, status: 0x80 },
+            { cardId: 12, atk: 100, def: 100, status: 0x80 },
+            { cardId: 13, atk: 100, def: 100, status: 0x80 },
+            { cardId: 14, atk: 100, def: 100, status: 0x80 },
+            { cardId: 15, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+        }),
+      );
+
+      expect(result.inDuel).toBe(true);
+      expect(result.opponentHand).toEqual([]);
+      expect(result.opponentHandCards).toEqual([null, null, null, null, null]);
+      expect(result.opponentHandPool).toEqual([null, null, null, null, null]);
+      expect(result.opponentReserve).toEqual([]);
+      expect(result.opponentReservePool).toEqual([]);
+      expect(result.opponentAvailablePool).toEqual([]);
+    });
+
+    it("clears stale opponent pool data before the opponent deal counter is initialized", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x03,
+          duelistId: 7,
+          opponentCardsDealt: 0,
+          opponentHandSlots: [40, 41, 42, 43, 44],
+          opponentHand: [
+            { cardId: 11, atk: 100, def: 100, status: 0x80 },
+            { cardId: 12, atk: 100, def: 100, status: 0x80 },
+            { cardId: 13, atk: 100, def: 100, status: 0x80 },
+            { cardId: 14, atk: 100, def: 100, status: 0x80 },
+            { cardId: 15, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+        }),
+      );
+
+      expect(result.inDuel).toBe(true);
+      expect(result.opponentHand).toEqual([]);
+      expect(result.opponentHandCards).toEqual([null, null, null, null, null]);
+      expect(result.opponentHandPool).toEqual([null, null, null, null, null]);
+      expect(result.opponentReserve).toEqual([]);
+      expect(result.opponentReservePool).toEqual([]);
+      expect(result.opponentAvailablePool).toEqual([]);
+    });
+
     it("combines visible hand and reserve draw-window cards up to the duelist hand size", () => {
       const result = interpretRawState(
         makeRaw({

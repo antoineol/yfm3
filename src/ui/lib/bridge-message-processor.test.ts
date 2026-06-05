@@ -496,6 +496,48 @@ describe("processBridgeMessage", () => {
         defender: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
       });
     });
+
+    it.each([
+      { attackerCardId: 713, attackerIndex: 0 },
+      { attackerCardId: 371, attackerIndex: 1 },
+    ])("uses selected player attacker $attackerCardId when an opponent target is focused", ({
+      attackerCardId,
+      attackerIndex,
+    }) => {
+      const field = [
+        { cardId: 713, atk: 4000, def: 2500, status: attackerCardId === 713 ? 0xc4 : 0x84 },
+        { cardId: 371, atk: 3600, def: 3200, status: attackerCardId === 371 ? 0xc4 : 0x84 },
+        { cardId: 334, atk: 1900, def: 2000, status: 0x84 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+
+      const { state } = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field,
+          opponentField: [
+            { cardId: 706, atk: 2850, def: 2900, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 0,
+        }),
+      );
+
+      expect(state.battleTarget).toEqual({
+        attacker: {
+          zone: "playerField",
+          index: attackerIndex,
+          cardId: attackerCardId,
+          hidden: false,
+        },
+        defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
+      });
+    });
   });
 
   describe("waiting_for_game message", () => {

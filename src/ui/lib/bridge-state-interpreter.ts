@@ -162,14 +162,20 @@ export function interpretRawState(raw: RawBridgeState): InterpretedState {
       : null;
 
   // Opponent data — same filtering logic as player (gracefully handle missing data from older bridges)
-  const opponentHand = raw.opponentHand
+  const rawOpponentHand = raw.opponentHand
     ? raw.opponentHandSlots
       ? filterHandBySlots(raw.opponentHand, raw.opponentHandSlots)
       : filterCardSlots(raw.opponentHand)
     : [];
-  const opponentHandPool = computeOpponentHandPool(raw, opponentHand);
+  const opponentPoolReady = isOpponentPoolReady(raw);
+  const opponentHand = opponentPoolReady ? rawOpponentHand : [];
+  const opponentHandPool = opponentPoolReady
+    ? computeOpponentHandPool(raw, opponentHand)
+    : [null, null, null, null, null];
   const opponentHandCards = opponentHandPool.map((card) => card?.cardId ?? null);
-  const opponentReservePool = computeOpponentReservePool(raw, opponentHand.length);
+  const opponentReservePool = opponentPoolReady
+    ? computeOpponentReservePool(raw, opponentHand.length)
+    : [];
   const opponentReserve = opponentReservePool.map((card) => card.cardId);
   const opponentAvailablePool = [...opponentHand, ...opponentReserve];
   const opponentField = raw.opponentField ? filterFieldSlots(raw.opponentField) : [];
@@ -304,6 +310,27 @@ function computeOpponentReservePool(
   }
 
   return drawWindow;
+}
+
+function isOpponentPoolReady(raw: RawBridgeState): boolean {
+  if (raw.duelPhase == null) return true;
+  if (!isActiveDuelPhase(raw.duelPhase) || raw.duelPhase === PHASE_INIT) return false;
+  return raw.opponentCardsDealt == null || raw.opponentCardsDealt > 0;
+}
+
+function isActiveDuelPhase(duelPhase: number): boolean {
+  return (
+    duelPhase === PHASE_INIT ||
+    duelPhase === PHASE_CLEANUP ||
+    duelPhase === PHASE_DRAW ||
+    duelPhase === PHASE_HAND_SELECT ||
+    duelPhase === PHASE_FIELD ||
+    duelPhase === PHASE_FIELD_PLAY ||
+    duelPhase === PHASE_FUSION ||
+    duelPhase === PHASE_FUSION_RESOLVE ||
+    duelPhase === PHASE_BATTLE ||
+    duelPhase === PHASE_POST_BATTLE
+  );
 }
 
 function cpuHandSize(duelistId: number | null): number {

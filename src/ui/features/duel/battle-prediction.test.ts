@@ -149,4 +149,77 @@ describe("predictFocusedBattle", () => {
     expect(result?.outcome).toBe("win");
     expect(result?.attackerAtk).toBe(2000);
   });
+
+  it.each([
+    { attackerCardId: 713, attackerAtk: 4000, attackerDef: 2500 },
+    { attackerCardId: 371, attackerAtk: 3600, attackerDef: 3200 },
+  ])("predicts win for attacker $attackerCardId against Dragonuit Serpent in defense", ({
+    attackerCardId,
+    attackerAtk,
+    attackerDef,
+  }) => {
+    const bridge: BridgeState = {
+      ...INITIAL_BRIDGE_STATE,
+      inDuel: true,
+      stats: { fusions: 0, terrain: 3, duelistId: 1, rankCounters: null },
+      field: [
+        field({
+          cardId: attackerCardId,
+          atk: attackerAtk,
+          def: attackerDef,
+          status: 0xc4,
+          slotIndex: 0,
+        }),
+      ],
+      opponentField: [field({ cardId: 706, atk: 2850, def: 2900, status: 0xbc, slotIndex: 0 })],
+      battleTarget: {
+        attacker: { zone: "playerField", index: 0, cardId: attackerCardId, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
+      },
+      gameData: {
+        cards: [
+          card({
+            id: 713,
+            name: "D. Meteore Noir",
+            atk: 3500,
+            def: 2000,
+            gs1: "Mars",
+            gs2: "Sun",
+            type: "Dragon",
+          }),
+          card({
+            id: 371,
+            name: "Sanga de la Foudre",
+            atk: 2600,
+            def: 2200,
+            gs1: "Pluto",
+            gs2: "Mars",
+            type: "Thunder",
+          }),
+          card({
+            id: 706,
+            name: "Dragonuit Serpent",
+            atk: 2350,
+            def: 2400,
+            gs1: "Mercury",
+            gs2: "Pluto",
+            type: "Dragon",
+          }),
+        ],
+        duelists: [],
+        fusionTable: [],
+        equipTable: [],
+        equipBonuses: null,
+        perEquipBonuses: null,
+        deckLimits: null,
+        rankScoring: null,
+        fieldBonusTable: null,
+        artworkKey: "",
+      },
+    };
+
+    const result = predictFocusedBattle(bridge);
+    expect(result?.outcome).toBe("win");
+    expect(result?.attackerAtk).toBeGreaterThan(result?.defenderValue ?? 0);
+  });
 });
