@@ -1102,7 +1102,7 @@ describe("interpretRawState", () => {
       expect(result.opponentAvailablePool).toEqual([]);
     });
 
-    it("clears stale opponent pool data before the opponent deal counter is initialized", () => {
+    it("clears stale opponent pool data when hand slots do not match the current CPU duel deck", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x03,
@@ -1127,6 +1127,64 @@ describe("interpretRawState", () => {
       expect(result.opponentReserve).toEqual([]);
       expect(result.opponentReservePool).toEqual([]);
       expect(result.opponentAvailablePool).toEqual([]);
+    });
+
+    it("shows the current opponent pool before the opponent deal counter advances", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelistId: 7, // Alpha table handSize 10 when raw-indexed.
+          opponentCardsDealt: 0,
+          opponentHandSlots: [40, 41, 42, 43, 44],
+          opponentHand: [
+            { cardId: 101, atk: 100, def: 100, status: 0x80 },
+            { cardId: 102, atk: 100, def: 100, status: 0x80 },
+            { cardId: 103, atk: 100, def: 100, status: 0x80 },
+            { cardId: 104, atk: 100, def: 100, status: 0x80 },
+            { cardId: 105, atk: 100, def: 100, status: 0x80 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+        }),
+      );
+
+      expect(result.opponentHandCards).toEqual([101, 102, 103, 104, 105]);
+      expect(result.opponentHandPool).toEqual([
+        { cardId: 101, slotId: 40 },
+        { cardId: 102, slotId: 41 },
+        { cardId: 103, slotId: 42 },
+        { cardId: 104, slotId: 43 },
+        { cardId: 105, slotId: 44 },
+      ]);
+      expect(result.opponentReserve).toEqual([106, 107, 108, 109, 110]);
+      expect(result.opponentAvailablePool).toEqual([
+        101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
+      ]);
+    });
+
+    it("shows the reserve-only opponent pool before any opponent hand slot materializes", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelistId: 7, // Alpha table handSize 10 when raw-indexed.
+          opponentCardsDealt: 0,
+          opponentHandSlots: [0xff, 0xff, 0xff, 0xff, 0xff],
+          opponentHand: [
+            { cardId: 519, atk: 100, def: 100, status: 0 },
+            { cardId: 334, atk: 100, def: 100, status: 0 },
+            { cardId: 458, atk: 100, def: 100, status: 0 },
+            { cardId: 131, atk: 100, def: 100, status: 0 },
+            { cardId: 507, atk: 100, def: 100, status: 0 },
+          ],
+          cpuDuelDeck: Array.from({ length: 40 }, (_, i) => i + 101),
+        }),
+      );
+
+      expect(result.opponentHandCards).toEqual([null, null, null, null, null]);
+      expect(result.opponentReserve).toEqual([101, 102, 103, 104, 105, 106, 107, 108, 109, 110]);
+      expect(result.opponentReservePool[0]).toEqual({ cardId: 101, slotId: 40 });
+      expect(result.opponentAvailablePool).toEqual([
+        101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
+      ]);
     });
 
     it("combines visible hand and reserve draw-window cards up to the duelist hand size", () => {

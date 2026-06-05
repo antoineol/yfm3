@@ -710,6 +710,108 @@ describe("processBridgeMessage", () => {
       expect(state.battleTarget).toBeNull();
     });
 
+    it("shows a PAL opponent hover after reconnecting without cancelled-target history", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+            { cardId: 467, atk: 2300, def: 1800, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x83,
+        }),
+      );
+
+      expect(state.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 706,
+        hidden: true,
+      });
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("shows a PAL opponent card hovered during plain field navigation", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 613, atk: 2800, def: 2100, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x86 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 442, atk: 1600, def: 1400, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 442,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x83,
+        }),
+      );
+
+      expect(state.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 442,
+        hidden: true,
+      });
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("reveals a PAL opponent target without inventing an attacker after a missed attacker poll", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+            { cardId: 467, atk: 2300, def: 1800, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x06,
+        }),
+      );
+
+      expect(state.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 706,
+        hidden: true,
+      });
+      expect(state.battleTarget).toBeNull();
+    });
+
     it("preserves a PAL attacker even when the stale field slot signal matches it", () => {
       const pollutedPoll = process(
         readyMsg({

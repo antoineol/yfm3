@@ -1,5 +1,9 @@
 # YFM3 Specification
 
+## Scope
+
+SPEC.md only documents high-level features and major workflows. Non-critical edge cases, subfeatures and implementation details are out of scope. This file is not a log.
+
 ## Documentation Policy
 
 This directory has two durable documents:

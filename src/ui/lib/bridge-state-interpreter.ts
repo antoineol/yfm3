@@ -300,7 +300,7 @@ function computeOpponentReservePool(
 ): OpponentPoolCard[] {
   const handSize = cpuHandSize(raw.duelistId);
   const deck = raw.cpuDuelDeck?.length ? raw.cpuDuelDeck : (raw.cpuShuffledDeck ?? []);
-  const dealt = normalizeDealtCounter(raw.opponentCardsDealt, opponentHandCount);
+  const dealt = effectiveOpponentCardsDealt(raw, opponentHandCount);
   const limit = Math.max(0, handSize - opponentHandCount);
   const drawWindow: OpponentPoolCard[] = [];
 
@@ -317,7 +317,48 @@ function computeOpponentReservePool(
 function isOpponentPoolReady(raw: RawBridgeState): boolean {
   if (raw.duelPhase == null) return true;
   if (!isActiveDuelPhase(raw.duelPhase) || raw.duelPhase === PHASE_INIT) return false;
-  return raw.opponentCardsDealt == null || raw.opponentCardsDealt > 0;
+  if (raw.opponentCardsDealt == null || raw.opponentCardsDealt > 0) return true;
+  return currentOpponentHandDealtFloor(raw) != null;
+}
+
+function effectiveOpponentCardsDealt(raw: RawBridgeState, fallback: number): number {
+  const dealt = raw.opponentCardsDealt;
+  if (dealt != null && dealt > 0 && dealt <= 40) return dealt;
+  return currentOpponentHandDealtFloor(raw) ?? normalizeDealtCounter(dealt, fallback);
+}
+
+function currentOpponentHandDealtFloor(raw: RawBridgeState): number | null {
+  const handSlots = raw.opponentHandSlots;
+  const deck = raw.cpuDuelDeck?.length ? raw.cpuDuelDeck : (raw.cpuShuffledDeck ?? []);
+  if (!handSlots || deck.length === 0) return null;
+
+  let maxDeckIndex = -1;
+  let checked = 0;
+  for (let i = 0; i < 5; i++) {
+    const slotId = handSlots[i];
+    if (slotId == null || slotId === 0xff) continue;
+    const deckIndex = slotId - 40;
+    const slot = raw.opponentHand[i];
+    if (
+      deckIndex < 0 ||
+      deckIndex >= deck.length ||
+      !slot ||
+      !isAvailableHandSlot(slot, handSlots, i) ||
+      deck[deckIndex] !== slot.cardId
+    ) {
+      return null;
+    }
+    checked++;
+    maxDeckIndex = Math.max(maxDeckIndex, deckIndex);
+  }
+
+  if (checked > 0) return maxDeckIndex + 1;
+  return hasValidCpuDuelDeck(raw) ? 0 : null;
+}
+
+function hasValidCpuDuelDeck(raw: RawBridgeState): boolean {
+  const deck = raw.cpuDuelDeck?.length ? raw.cpuDuelDeck : (raw.cpuShuffledDeck ?? []);
+  return deck.some(isValidCardId);
 }
 
 function isActiveDuelPhase(duelPhase: number): boolean {

@@ -184,12 +184,14 @@ export const INITIAL_ENDED_TRACKER: EndedTracker = {
 export type BridgeTracker = EndedTracker & {
   confirmedPlayerHandTarget: DuelCursorTarget | null;
   pendingPlayerAttackTarget: DuelCursorTarget | null;
+  cancelledPlayerFieldTarget: DuelCursorTarget | null;
 };
 
 export const INITIAL_BRIDGE_TRACKER: BridgeTracker = {
   ...INITIAL_ENDED_TRACKER,
   confirmedPlayerHandTarget: null,
   pendingPlayerAttackTarget: null,
+  cancelledPlayerFieldTarget: null,
 };
 
 // ── Reference-stability helpers ──────────────────────────────────────
@@ -324,25 +326,22 @@ function resolveCursorTargetAcrossPreview(
   return confirmedPlayerHandTarget;
 }
 
-function resolveCursorTargetAfterBattleCancel(
+function palDismissedPlayerFocus(
   cursorTarget: DuelCursorTarget | null,
   raw: RawBridgeState,
   previousBattleTarget: BattleTarget | null,
-  previousPendingPlayerAttackTarget: DuelCursorTarget | null,
+  previousCancelledPlayerFieldTarget: DuelCursorTarget | null,
 ): DuelCursorTarget | null {
-  if (!isPalGame(raw) || raw.duelPhase !== 0x05) return cursorTarget;
-  if (cursorTarget?.zone !== "opponentField") return cursorTarget;
+  if (!isPalGame(raw) || raw.duelPhase !== 0x05) return null;
+  if (cursorTarget?.zone !== "opponentField") return null;
+  if (!isPalBattleTargetModeDismissed(raw)) return null;
   if (previousBattleTarget && eqCursorTarget(cursorTarget, previousBattleTarget.defender)) {
-    if (isPalBattleTargetModeDismissed(raw)) {
-      const target = availablePlayerFieldTarget(raw, previousBattleTarget.attacker);
-      if (target) return target;
-    }
-  }
-  if (isPalBattleTargetModeDismissed(raw) && previousPendingPlayerAttackTarget) {
-    const target = availablePlayerFieldTarget(raw, previousPendingPlayerAttackTarget);
+    const target = availablePlayerFieldTarget(raw, previousBattleTarget.attacker);
     if (target) return target;
   }
-  return cursorTarget;
+  return previousCancelledPlayerFieldTarget
+    ? availablePlayerFieldTarget(raw, previousCancelledPlayerFieldTarget)
+    : null;
 }
 
 function isPalBattleTargetModeDismissed(raw: RawBridgeState): boolean {
@@ -421,8 +420,10 @@ function nextPendingPlayerAttackTarget(
 function resolveBattleTarget(
   cursorTarget: DuelCursorTarget | null,
   pendingPlayerAttackTarget: DuelCursorTarget | null,
+  raw: RawBridgeState,
 ): BattleTarget | null {
   if (cursorTarget?.zone !== "opponentField" || !pendingPlayerAttackTarget) return null;
+  if (isPalGame(raw) && isPalBattleTargetModeDismissed(raw)) return null;
   return { attacker: pendingPlayerAttackTarget, defender: cursorTarget };
 }
 
@@ -568,22 +569,27 @@ export function processBridgeMessage(
     );
     const inDuel = interpreted.inDuel || effectivePhase === "ended";
     const isActiveDuel = inDuel && effectivePhase !== "ended";
-    const resolvedCursorTarget = resolveCursorTargetAfterBattleCancel(
-      resolveCursorTargetAcrossPreview(
-        interpreted.cursorTarget,
-        raw,
-        tracker.confirmedPlayerHandTarget,
-      ),
+    const previewResolvedCursorTarget = resolveCursorTargetAcrossPreview(
+      interpreted.cursorTarget,
       raw,
-      currentState.battleTarget,
-      tracker.pendingPlayerAttackTarget,
+      tracker.confirmedPlayerHandTarget,
     );
+    const cancelledPlayerFieldTarget = isActiveDuel
+      ? palDismissedPlayerFocus(
+          previewResolvedCursorTarget,
+          raw,
+          currentState.battleTarget,
+          tracker.cancelledPlayerFieldTarget,
+        )
+      : null;
+    const resolvedCursorTarget = cancelledPlayerFieldTarget ?? previewResolvedCursorTarget;
     const pendingPlayerAttackTarget = isActiveDuel
       ? nextPendingPlayerAttackTarget(raw, resolvedCursorTarget, tracker.pendingPlayerAttackTarget)
       : null;
     const resolvedBattleTarget = resolveBattleTarget(
       resolvedCursorTarget,
       pendingPlayerAttackTarget,
+      raw,
     );
     const nextBridgeTracker: BridgeTracker = {
       ...nextTracker,
@@ -595,6 +601,7 @@ export function processBridgeMessage(
           )
         : null,
       pendingPlayerAttackTarget,
+      cancelledPlayerFieldTarget,
     };
 
     const cpuSwaps = currentState.cpuSwaps.length === 0 ? currentState.cpuSwaps : [];
