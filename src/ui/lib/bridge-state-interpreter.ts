@@ -87,6 +87,8 @@ export type RawBridgeState = {
   duelCursorTargetCardId?: number | null;
   /** Field focus signal in index shape; null for empty field slots. Some profiles do not expose a trusted physical index. */
   duelCursorFieldSlotIndex?: number | null;
+  /** Raw battle target-selection mode byte. PAL uses this to detect target-selection cancel. */
+  duelBattleTargetMode?: number | null;
   /** Free-duel duelist unlock bitfield (raw bytes from 0x1D06F4). */
   duelistUnlock?: number[];
 };

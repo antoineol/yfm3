@@ -84,6 +84,8 @@ export interface GameState {
   duelCursorTargetCardId: number | null;
   /** Field focus signal converted to an index shape. Null for empty slots; PAL does not expose a trusted physical index. */
   duelCursorFieldSlotIndex?: number | null;
+  /** Raw battle target-selection mode byte. Null when the active profile has not mapped it. */
+  duelBattleTargetMode?: number | null;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -209,6 +211,9 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       equipCounter: DEFAULT_PROFILE.equipCounter + d,
       duelCursorTargetCard: DEFAULT_PROFILE.duelCursorTargetCard + d,
       duelCursorFieldSlot: DEFAULT_PROFILE.duelCursorFieldSlot + d,
+      duelBattleTargetMode: DEFAULT_PROFILE.duelBattleTargetMode
+        ? DEFAULT_PROFILE.duelBattleTargetMode + d
+        : 0,
     };
 
     // Quick validation: duel phase should be a recognized value (1–13) during a duel
@@ -276,6 +281,7 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
           : 0,
         duelCursorTargetCard: 0,
         duelCursorFieldSlot: 0,
+        duelBattleTargetMode: 0,
       };
     }
   } else {
@@ -395,6 +401,7 @@ export function buildProfileFromDiscovery(
     equipCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.equipCounter) : 0,
     duelCursorTargetCard: phaseAddr + DUEL_CURSOR_TARGET_CARD_REL,
     duelCursorFieldSlot: phaseAddr + DUEL_CURSOR_FIELD_SLOT_REL,
+    duelBattleTargetMode: DEFAULT_PROFILE.duelBattleTargetMode,
   };
 }
 
@@ -484,6 +491,10 @@ function readDuelCursorFieldSlotIndex(view: DataView, profile: OffsetProfile): n
   if (!profile.duelCursorFieldSlot) return null;
   const oneBasedSlot = readU8(view, profile.duelCursorFieldSlot);
   return oneBasedSlot >= 1 && oneBasedSlot <= FIELD_SLOTS ? oneBasedSlot - 1 : null;
+}
+
+function readDuelBattleTargetMode(view: DataView, profile: OffsetProfile): number | null {
+  return profile.duelBattleTargetMode ? readU8(view, profile.duelBattleTargetMode) : null;
 }
 
 // ── Exported functions ─────────────────────────────────────────────
@@ -577,9 +588,11 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
     ? {
         duelCursorTargetCardId: readDuelCursorTargetCardId(view, profile),
         duelCursorFieldSlotIndex: readDuelCursorFieldSlotIndex(view, profile),
+        duelBattleTargetMode: readDuelBattleTargetMode(view, profile),
       }
     : {
         duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
+        duelBattleTargetMode: profile ? readDuelBattleTargetMode(view, profile) : null,
       };
 
   return {

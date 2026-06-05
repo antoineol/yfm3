@@ -26,6 +26,7 @@ describe("offset profiles", () => {
     );
     expect(PAL_PROFILE.duelCursorFieldSlot).toBe(0x09c6d1);
     expect(PAL_PROFILE.duelCursorFieldSlot).not.toBe(0x09c6e8);
+    expect(PAL_PROFILE.duelBattleTargetMode).toBe(0x09c585);
   });
 
   it("maps PAL terrain from the field-bonus routine terrain byte", () => {

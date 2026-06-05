@@ -94,6 +94,15 @@ describe("readGameState", () => {
     expect(state.duelCursorFieldSlotIndex).toBeNull();
   });
 
+  it("reads the PAL battle target-selection mode byte", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint8(PAL_PROFILE.duelBattleTargetMode, 0x83);
+
+    const state = readGameState(view, PAL_PROFILE);
+
+    expect(state.duelBattleTargetMode).toBe(0x83);
+  });
+
   it("reads the PAL terrain byte from the live field-bonus routine address", () => {
     const view = new DataView(new ArrayBuffer(0x200000));
     view.setUint8(PAL_PROFILE.terrain, 6);

@@ -28,6 +28,8 @@ export interface OffsetProfile {
   duelCursorTargetCard: number;
   /** Active player field cursor focus signal (u8), 0 when unmapped or no active field card. */
   duelCursorFieldSlot: number;
+  /** Battle target-selection mode byte, 0 when unmapped. */
+  duelBattleTargetMode: number;
 }
 
 /** Default profile: NTSC-U (SLUS-01411) -- also used by RP mod. */
@@ -49,6 +51,7 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   equipCounter: 0x0e9ff9, // rankStatsBase+0x08: scored by FUN_80021598 row 9
   duelCursorTargetCard: 0x09b338,
   duelCursorFieldSlot: 0x09b34e,
+  duelBattleTargetMode: 0,
 };
 
 /**
@@ -75,4 +78,5 @@ export const PAL_PROFILE: OffsetProfile = {
   equipCounter: 0x0eb281,
   duelCursorTargetCard: 0x09c6b8,
   duelCursorFieldSlot: 0x09c6d1,
+  duelBattleTargetMode: 0x09c585,
 };

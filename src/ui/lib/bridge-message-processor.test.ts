@@ -538,6 +538,233 @@ describe("processBridgeMessage", () => {
         defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
       });
     });
+
+    it("preserves the PAL player attacker when the field slot signal points elsewhere", () => {
+      const field = [
+        { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+        { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+        { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+        { cardId: 613, atk: 2800, def: 2100, status: 0 },
+        { cardId: 613, atk: 2800, def: 2100, status: 0 },
+      ];
+      const opponentField = [
+        { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+        { cardId: 467, atk: 2300, def: 1800, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+
+      const attackerPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 713,
+          duelCursorFieldSlotIndex: 0,
+        }),
+      );
+
+      const targetPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+        }),
+        attackerPoll.state,
+        attackerPoll.tracker,
+      );
+
+      expect(targetPoll.state.battleTarget).toEqual({
+        attacker: { zone: "playerField", index: 0, cardId: 713, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
+      });
+    });
+
+    it("restores PAL player focus when target selection is cancelled with stale target bytes", () => {
+      const field = [
+        { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+        { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+        { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+        { cardId: 613, atk: 2800, def: 2100, status: 0 },
+        { cardId: 613, atk: 2800, def: 2100, status: 0 },
+      ];
+      const opponentField = [
+        { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+        { cardId: 467, atk: 2300, def: 1800, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+
+      const attackerPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 713,
+          duelCursorFieldSlotIndex: 1,
+          duelBattleTargetMode: 0x83,
+        }),
+      );
+      const targetPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x06,
+        }),
+        attackerPoll.state,
+        attackerPoll.tracker,
+      );
+      const cancelPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x83,
+        }),
+        targetPoll.state,
+        targetPoll.tracker,
+      );
+      const staleMoveToEmptyPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0xc3,
+        }),
+        cancelPoll.state,
+        cancelPoll.tracker,
+      );
+      const emptyPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 0,
+          duelCursorFieldSlotIndex: null,
+          duelBattleTargetMode: 0x83,
+        }),
+        staleMoveToEmptyPoll.state,
+        staleMoveToEmptyPoll.tracker,
+      );
+
+      expect(cancelPoll.state.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 713,
+        hidden: false,
+      });
+      expect(cancelPoll.state.battleTarget).toBeNull();
+      expect(staleMoveToEmptyPoll.state.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 713,
+        hidden: false,
+      });
+      expect(staleMoveToEmptyPoll.state.battleTarget).toBeNull();
+      expect(emptyPoll.state.cursorTarget).toBeNull();
+      expect(emptyPoll.state.battleTarget).toBeNull();
+    });
+
+    it("does not guess a PAL player attacker from the stale field slot signal", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+            { cardId: 467, atk: 2300, def: 1800, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+        }),
+      );
+
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("preserves a PAL attacker even when the stale field slot signal matches it", () => {
+      const pollutedPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+            { cardId: 467, atk: 2300, def: 1800, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 460,
+          duelCursorFieldSlotIndex: 2,
+        }),
+      );
+
+      const targetPoll = process(
+        readyMsg({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
+            { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
+            { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+            { cardId: 613, atk: 2800, def: 2100, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 706, atk: 2350, def: 2400, status: 0xbc },
+            { cardId: 467, atk: 2300, def: 1800, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 706,
+          duelCursorFieldSlotIndex: 2,
+          duelBattleTargetMode: 0x06,
+        }),
+        pollutedPoll.state,
+        pollutedPoll.tracker,
+      );
+
+      expect(targetPoll.state.battleTarget).toEqual({
+        attacker: { zone: "playerField", index: 2, cardId: 460, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
+      });
+    });
   });
 
   describe("waiting_for_game message", () => {

@@ -54,6 +54,7 @@ const profile: OffsetProfile = {
   equipCounter: 0x2f9,
   duelCursorTargetCard: 0x2fe,
   duelCursorFieldSlot: 0x314,
+  duelBattleTargetMode: 0,
 };
 
 describe("cursor probe", () => {

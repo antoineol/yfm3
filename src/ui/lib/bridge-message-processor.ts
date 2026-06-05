@@ -324,6 +324,41 @@ function resolveCursorTargetAcrossPreview(
   return confirmedPlayerHandTarget;
 }
 
+function resolveCursorTargetAfterBattleCancel(
+  cursorTarget: DuelCursorTarget | null,
+  raw: RawBridgeState,
+  previousBattleTarget: BattleTarget | null,
+  previousPendingPlayerAttackTarget: DuelCursorTarget | null,
+): DuelCursorTarget | null {
+  if (!isPalGame(raw) || raw.duelPhase !== 0x05) return cursorTarget;
+  if (cursorTarget?.zone !== "opponentField") return cursorTarget;
+  if (previousBattleTarget && eqCursorTarget(cursorTarget, previousBattleTarget.defender)) {
+    if (isPalBattleTargetModeDismissed(raw)) {
+      const target = availablePlayerFieldTarget(raw, previousBattleTarget.attacker);
+      if (target) return target;
+    }
+  }
+  if (isPalBattleTargetModeDismissed(raw) && previousPendingPlayerAttackTarget) {
+    const target = availablePlayerFieldTarget(raw, previousPendingPlayerAttackTarget);
+    if (target) return target;
+  }
+  return cursorTarget;
+}
+
+function isPalBattleTargetModeDismissed(raw: RawBridgeState): boolean {
+  return raw.duelBattleTargetMode === 0x83 || raw.duelBattleTargetMode === 0xc3;
+}
+
+function availablePlayerFieldTarget(
+  raw: RawBridgeState,
+  target: DuelCursorTarget,
+): DuelCursorTarget | null {
+  if (target.zone !== "playerField") return null;
+  const slot = raw.field[target.index];
+  if (!slot || slot.cardId !== target.cardId || slot.status === 0) return null;
+  return target;
+}
+
 function nextConfirmedPlayerHandTarget(
   raw: RawBridgeState,
   cursorTarget: DuelCursorTarget | null,
@@ -372,13 +407,14 @@ function nextPendingPlayerAttackTarget(
   const explicit = findExplicitPlayerAttacker(raw);
   if (explicit) return explicit;
   if (cursorTarget?.zone === "opponentField") {
+    if (isPalGame(raw)) {
+      return isAvailableRawFieldTarget(raw.field, previous) ? previous : null;
+    }
+    if (isAvailableRawFieldTarget(raw.field, previous)) return previous;
     const slotTarget = playerAttackTargetFromFieldSlotSignal(raw);
     if (slotTarget) return slotTarget;
   }
   if (cursorTarget?.zone === "playerField") return cursorTarget;
-  if (cursorTarget?.zone === "opponentField" && isAvailableRawFieldTarget(raw.field, previous)) {
-    return previous;
-  }
   return null;
 }
 
@@ -402,6 +438,10 @@ function findExplicitPlayerAttacker(raw: RawBridgeState): DuelCursorTarget | nul
 
 function isExplicitPlayerAttackerStatus(status: number): boolean {
   return status === 0x04 || ((status & 0x40) !== 0 && (status & 0x04) !== 0);
+}
+
+function isPalGame(raw: RawBridgeState): boolean {
+  return raw.gameSerial?.startsWith("SLES_039.") === true;
 }
 
 function playerAttackTargetFromFieldSlotSignal(raw: RawBridgeState): DuelCursorTarget | null {
@@ -528,10 +568,15 @@ export function processBridgeMessage(
     );
     const inDuel = interpreted.inDuel || effectivePhase === "ended";
     const isActiveDuel = inDuel && effectivePhase !== "ended";
-    const resolvedCursorTarget = resolveCursorTargetAcrossPreview(
-      interpreted.cursorTarget,
+    const resolvedCursorTarget = resolveCursorTargetAfterBattleCancel(
+      resolveCursorTargetAcrossPreview(
+        interpreted.cursorTarget,
+        raw,
+        tracker.confirmedPlayerHandTarget,
+      ),
       raw,
-      tracker.confirmedPlayerHandTarget,
+      currentState.battleTarget,
+      tracker.pendingPlayerAttackTarget,
     );
     const pendingPlayerAttackTarget = isActiveDuel
       ? nextPendingPlayerAttackTarget(raw, resolvedCursorTarget, tracker.pendingPlayerAttackTarget)
