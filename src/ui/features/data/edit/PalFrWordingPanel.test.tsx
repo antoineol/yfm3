@@ -20,7 +20,7 @@ vi.mock("./bridge-client.ts", () => ({
 const { fetchIsoBackups, fetchPalFrWordingStatus, putPalFrWordingEntries } = await import(
   "./bridge-client.ts"
 );
-const { PalFrWordingDialogButton } = await import("./PalFrWordingPanel.tsx");
+const { PalFrWordingPage } = await import("./PalFrWordingPanel.tsx");
 
 const fetchIsoBackupsMock = fetchIsoBackups as unknown as ReturnType<typeof vi.fn>;
 const fetchPalFrWordingStatusMock = fetchPalFrWordingStatus as unknown as ReturnType<typeof vi.fn>;
@@ -34,7 +34,18 @@ afterEach(() => {
   putPalFrWordingEntriesMock.mockReset();
 });
 
-describe("PalFrWordingDialogButton", () => {
+describe("PalFrWordingPage", () => {
+  test("shows a structured loading state while checking the active disc", () => {
+    fetchPalFrWordingStatusMock.mockReturnValue(new Promise(() => {}));
+
+    render(<PalFrWordingPage onBack={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "PAL FR wording" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Back" })).toBeDefined();
+    expect(screen.getByText("Active ISO text tables")).toBeDefined();
+    expect(screen.queryByText("Checking the active disc.")).toBeNull();
+  });
+
   test("shows unsupported state for non-French discs", async () => {
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: false,
@@ -43,8 +54,7 @@ describe("PalFrWordingDialogButton", () => {
       reason: "PAL French wording edits are currently supported only for SLES_039.48.",
     });
 
-    render(<PalFrWordingDialogButton />);
-    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
+    render(<PalFrWordingPage onBack={vi.fn()} />);
 
     expect(await screen.findByText(/SLES_039\.48/)).toBeDefined();
   });
@@ -90,8 +100,7 @@ describe("PalFrWordingDialogButton", () => {
       ],
     });
 
-    render(<PalFrWordingDialogButton />);
-    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
+    render(<PalFrWordingPage onBack={vi.fn()} />);
 
     expect(await screen.findByText(/PAL-FR\.bin/)).toBeDefined();
     fireEvent.change(
@@ -114,6 +123,36 @@ describe("PalFrWordingDialogButton", () => {
     expect(screen.getByDisplayValue("Si vous persistez")).toBeDefined();
   });
 
+  test("confirms before leaving with unsaved edits", async () => {
+    const onBack = vi.fn();
+    const confirm = vi
+      .spyOn(window, "confirm")
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+    fetchPalFrWordingStatusMock.mockResolvedValue({
+      supported: true,
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL-FR.bin",
+      glyphRenderingPatch: glyphPatch(true, false),
+      entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 12)],
+    });
+
+    render(<PalFrWordingPage onBack={onBack} />);
+
+    const editor = await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:script:d0bc1c",
+    });
+    fireEvent.change(editor, { target: { value: "Courte faute" } });
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(confirm).toHaveBeenCalledWith("Discard unsaved PAL FR wording changes?");
+    expect(onBack).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
   test("disables global save when any changed row exceeds its entry budget", async () => {
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: true,
@@ -123,8 +162,7 @@ describe("PalFrWordingDialogButton", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 5)],
     });
 
-    render(<PalFrWordingDialogButton />);
-    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
+    render(<PalFrWordingPage onBack={vi.fn()} />);
 
     const editor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",

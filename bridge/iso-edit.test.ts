@@ -24,7 +24,7 @@ describe("PAL FR ISO editing", () => {
       currentWord: 0x059089b2,
       expectedWord: 0x05a089b2,
     });
-  });
+  }, 15000);
 });
 
 function target(

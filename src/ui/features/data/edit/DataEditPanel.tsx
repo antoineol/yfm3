@@ -3,12 +3,19 @@ import { useBridgeAutoSync } from "../../../db/use-user-preferences.ts";
 import { useBridge } from "../../../lib/bridge-context.tsx";
 import { DropPoolEditor } from "./DropPoolEditor.tsx";
 import { DropX15PatchPanel } from "./DropX15PatchPanel.tsx";
+import { PalFrWordingPage } from "./PalFrWordingPanel.tsx";
 
 export function DataEditPanel({
+  editSection,
+  onBackToEdit,
   onDuelistChange,
+  onOpenWording,
   selectedDuelistId,
 }: {
+  editSection: "pools" | "wording";
+  onBackToEdit: () => void;
   onDuelistChange: (id: number) => void;
+  onOpenWording: (id: number | undefined) => void;
   selectedDuelistId: number | undefined;
 }) {
   const autoSyncOn = useBridgeAutoSync();
@@ -51,12 +58,19 @@ export function DataEditPanel({
 
   return (
     <PanelCard className="w-full max-w-5xl mx-auto">
-      <DropX15PatchPanel />
-      <DropPoolEditor
-        gameData={bridge.gameData}
-        onDuelistChange={onDuelistChange}
-        selectedDuelistId={selectedDuelistId}
-      />
+      {editSection === "wording" ? (
+        <PalFrWordingPage onBack={onBackToEdit} />
+      ) : (
+        <>
+          <DropX15PatchPanel />
+          <DropPoolEditor
+            gameData={bridge.gameData}
+            onDuelistChange={onDuelistChange}
+            onOpenWording={onOpenWording}
+            selectedDuelistId={selectedDuelistId}
+          />
+        </>
+      )}
     </PanelCard>
   );
 }

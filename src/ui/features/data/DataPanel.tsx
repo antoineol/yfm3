@@ -11,6 +11,7 @@ import { FusionsTable } from "./FusionsTable.tsx";
 import { StarchipPanel } from "./StarchipPanel.tsx";
 
 type View = "cards" | "fusions" | "duelists" | "starchip" | "edit";
+type EditSection = "pools" | "wording";
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "cards", label: "Cards" },
@@ -24,6 +25,7 @@ const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
 
 function parseDataHash(hash: string): {
   view: View;
+  editSection: EditSection;
   duelistId: number | undefined;
   cardId: number | undefined;
 } {
@@ -31,19 +33,21 @@ function parseDataHash(hash: string): {
   // segments[0] = "data", segments[1] = sub-view, segments[2] = id
   const rawView = segments[1] ?? "";
   const view: View = VALID_VIEWS.has(rawView) ? (rawView as View) : "cards";
+  const editSection: EditSection =
+    view === "edit" && segments[2] === "wording" ? "wording" : "pools";
   const duelistId =
-    (view === "duelists" || view === "edit") && segments[2]
-      ? Number(segments[2]) || undefined
+    view === "duelists" || view === "edit"
+      ? Number(editSection === "wording" ? segments[3] : segments[2]) || undefined
       : undefined;
   const cardId = view === "cards" && segments[2] ? Number(segments[2]) || undefined : undefined;
-  return { view, duelistId, cardId };
+  return { view, editSection, duelistId, cardId };
 }
 
 export function DataPanel() {
   const data = useFusionTable();
   const ownedTotals = useOwnedCardTotals();
   const [hash, setHash] = useHash();
-  const { view, duelistId, cardId } = parseDataHash(hash);
+  const { view, editSection, duelistId, cardId } = parseDataHash(hash);
 
   const setView = useCallback(
     (v: View) => {
@@ -65,6 +69,17 @@ export function DataPanel() {
     },
     [setHash],
   );
+
+  const handleOpenWording = useCallback(
+    (id: number | undefined) => {
+      setHash(id ? `data/edit/wording/${id}` : "data/edit/wording");
+    },
+    [setHash],
+  );
+
+  const handleBackToEdit = useCallback(() => {
+    setHash(duelistId ? `data/edit/${duelistId}` : "data/edit");
+  }, [duelistId, setHash]);
 
   return (
     <div className="flex flex-col gap-3 h-full max-w-5xl mx-auto w-full">
@@ -94,7 +109,13 @@ export function DataPanel() {
         ) : view === "starchip" ? (
           <StarchipPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
         ) : view === "edit" ? (
-          <DataEditPanel onDuelistChange={handleEditDuelistChange} selectedDuelistId={duelistId} />
+          <DataEditPanel
+            editSection={editSection}
+            onBackToEdit={handleBackToEdit}
+            onDuelistChange={handleEditDuelistChange}
+            onOpenWording={handleOpenWording}
+            selectedDuelistId={duelistId}
+          />
         ) : (
           <DuelistsPanel
             cardDb={data.cardDb}

@@ -1,8 +1,8 @@
 import { useSetAtom } from "jotai";
+import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../../components/Button.tsx";
-import { Dialog } from "../../../components/Dialog.tsx";
 import { Input } from "../../../components/Input.tsx";
 import { loadBackupsAtom } from "./atoms.ts";
 import {
@@ -15,41 +15,28 @@ import {
 const CONFIRM_MESSAGE =
   "Saving will close the running game in DuckStation if needed so the PAL FR wording and live glyph renderer patch can be written to the ISO.\n\n" +
   "Any unsaved in-duel progress will be lost. Continue?";
+const DISCARD_MESSAGE = "Discard unsaved PAL FR wording changes?";
+const LOADING_ROW_IDS = [
+  "script-a",
+  "script-b",
+  "script-c",
+  "name-a",
+  "name-b",
+  "description-a",
+  "description-b",
+  "description-c",
+  "description-d",
+] as const;
 
-export function PalFrWordingDialogButton() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2 py-1 font-display text-[11px] uppercase tracking-widest text-text-primary transition-colors hover:bg-bg-hover cursor-pointer"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        PAL FR wording
-      </button>
-      <Dialog
-        onClose={() => setOpen(false)}
-        open={open}
-        popupClassName="fixed inset-3 z-50 bg-bg-panel border border-border-accent rounded-xl p-5 shadow-overlay focus:outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(96vw,72rem)] sm:-translate-x-1/2 sm:-translate-y-1/2"
-        title="PAL FR wording"
-      >
-        <PalFrWordingEditor active={open} />
-      </Dialog>
-    </>
-  );
-}
-
-function PalFrWordingEditor({ active }: { active: boolean }) {
+export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
   const [status, setStatus] = useState<PalFrWordingStatus | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const loadBackups = useSetAtom(loadBackupsAtom);
 
   useEffect(() => {
-    if (!active) return;
     let alive = true;
     setLoading(true);
     fetchPalFrWordingStatus()
@@ -70,7 +57,7 @@ function PalFrWordingEditor({ active }: { active: boolean }) {
     return () => {
       alive = false;
     };
-  }, [active]);
+  }, []);
 
   const entries = status?.supported ? status.entries : [];
   const filtered = useMemo(() => filterEntries(entries, query), [entries, query]);
@@ -85,11 +72,27 @@ function PalFrWordingEditor({ active }: { active: boolean }) {
     (entry) => estimateEncodedLength(drafts[entry.id] ?? entry.text) > entry.maxByteLength,
   );
   const glyphPatchPending = Boolean(status?.supported && !status.glyphRenderingPatch.applied);
+  const hasUnsavedChanges = changes.length > 0;
   const canSave =
     status?.supported === true &&
     !pending &&
     invalidEntries.length === 0 &&
     (changes.length > 0 || glyphPatchPending);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  function onBackClick() {
+    if (hasUnsavedChanges && !window.confirm(DISCARD_MESSAGE)) return;
+    onBack();
+  }
 
   async function onSave() {
     if (!status?.supported || !canSave) return;
@@ -125,17 +128,89 @@ function PalFrWordingEditor({ active }: { active: boolean }) {
     }
   }
 
-  if (loading) return <p className="py-8 text-sm text-text-muted">Checking the active disc.</p>;
-  if (!status?.supported) {
-    return (
-      <p className="py-8 text-sm text-text-muted">
-        {status?.reason ?? "Patch state could not be read."}
-      </p>
-    );
-  }
-
   return (
-    <div className="flex max-h-[calc(100dvh-8rem)] min-h-0 flex-col gap-3">
+    <section className="flex min-h-[38rem] flex-1 flex-col">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-3 py-3">
+        <Button onClick={onBackClick} size="sm" variant="ghost">
+          Back
+        </Button>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-sm font-bold uppercase tracking-widest text-gold">
+            PAL FR wording
+          </h2>
+          <p className="mt-0.5 truncate text-xs text-text-muted">
+            {status?.supported
+              ? `${status.discFilename} · ${entries.length} entries${
+                  glyphPatchPending ? " · glyph renderer patch pending" : ""
+                }`
+              : "Active ISO text tables"}
+          </p>
+        </div>
+        {status?.supported && (
+          <>
+            <Button
+              disabled={pending || changes.length === 0}
+              onClick={() => resetDrafts(entries, setDrafts)}
+              size="sm"
+              variant="ghost"
+            >
+              Reset
+            </Button>
+            <Button disabled={!canSave} onClick={onSave} size="sm" variant="outline">
+              {pending ? "Saving..." : `Save${changes.length > 0 ? ` · ${changes.length}` : ""}`}
+            </Button>
+          </>
+        )}
+      </header>
+
+      {loading ? (
+        <WordingLoadingState />
+      ) : !status?.supported ? (
+        <div className="flex flex-1 items-center justify-center px-6 py-16">
+          <div className="max-w-lg text-center">
+            <div className="mx-auto mb-4 h-1 w-24 rounded-full bg-gold-dim" />
+            <h3 className="font-display text-sm font-bold uppercase tracking-widest text-text-primary">
+              PAL FR wording unavailable
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-text-muted">
+              {status?.reason ?? "Patch state could not be read."}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <WordingEditorBody
+          drafts={drafts}
+          entries={entries}
+          filtered={filtered}
+          invalidEntryCount={invalidEntries.length}
+          query={query}
+          setDrafts={setDrafts}
+          setQuery={setQuery}
+        />
+      )}
+    </section>
+  );
+}
+
+function WordingEditorBody({
+  drafts,
+  entries,
+  filtered,
+  invalidEntryCount,
+  query,
+  setDrafts,
+  setQuery,
+}: {
+  drafts: Record<string, string>;
+  entries: readonly PalFrWordingEntry[];
+  filtered: readonly PalFrWordingEntry[];
+  invalidEntryCount: number;
+  query: string;
+  setDrafts: Dispatch<SetStateAction<Record<string, string>>>;
+  setQuery: (query: string) => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <div className="flex flex-wrap items-center gap-3">
         <Input
           aria-label="Search PAL FR wording"
@@ -145,25 +220,12 @@ function PalFrWordingEditor({ active }: { active: boolean }) {
           value={query}
         />
         <div className="min-w-0 flex-1 text-xs text-text-muted">
-          {status.discFilename} · {entries.length} entries
-          {glyphPatchPending ? " · glyph renderer patch pending" : ""}
+          {filtered.length}/{entries.length} shown
         </div>
-        <Button
-          disabled={pending || changes.length === 0}
-          onClick={() => resetDrafts(entries, setDrafts)}
-          size="sm"
-          variant="ghost"
-        >
-          Reset
-        </Button>
-        <Button disabled={!canSave} onClick={onSave} size="sm" variant="outline">
-          {pending ? "Saving..." : `Save${changes.length > 0 ? ` · ${changes.length}` : ""}`}
-        </Button>
       </div>
-      {invalidEntries.length > 0 && (
+      {invalidEntryCount > 0 && (
         <p className="rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-          {invalidEntries.length} entr{invalidEntries.length === 1 ? "y is" : "ies are"} over
-          budget.
+          {invalidEntryCount} entr{invalidEntryCount === 1 ? "y is" : "ies are"} over budget.
         </p>
       )}
       <div className="min-h-0 overflow-auto rounded-md border border-border-subtle">
@@ -190,6 +252,36 @@ function PalFrWordingEditor({ active }: { active: boolean }) {
         {filtered.length === 0 && (
           <p className="px-3 py-8 text-sm text-text-muted">No matching entries.</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function WordingLoadingState() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="h-8 w-full max-w-md animate-pulse rounded-md border border-border-subtle bg-bg-elevated" />
+        <div className="h-3 w-44 animate-pulse rounded-full bg-border-subtle/70" />
+      </div>
+      <div className="overflow-hidden rounded-md border border-border-subtle">
+        <div className="grid grid-cols-[9rem_7rem_minmax(0,1fr)_7rem] border-b border-border-subtle bg-bg-panel px-2 py-2">
+          <div className="h-3 w-12 animate-pulse rounded-full bg-border-subtle/70" />
+          <div className="h-3 w-16 animate-pulse rounded-full bg-border-subtle/70" />
+          <div className="h-3 w-20 animate-pulse rounded-full bg-border-subtle/70" />
+          <div className="ml-auto h-3 w-12 animate-pulse rounded-full bg-border-subtle/70" />
+        </div>
+        {LOADING_ROW_IDS.map((rowId) => (
+          <div
+            className="grid grid-cols-[9rem_7rem_minmax(0,1fr)_7rem] items-center gap-2 border-b border-border-subtle/50 px-2 py-2 last:border-b-0"
+            key={rowId}
+          >
+            <div className="h-3 w-24 animate-pulse rounded-full bg-bg-elevated" />
+            <div className="h-3 w-16 animate-pulse rounded-full bg-bg-elevated" />
+            <div className="h-9 animate-pulse rounded-md border border-border-subtle bg-bg-elevated" />
+            <div className="ml-auto h-3 w-12 animate-pulse rounded-full bg-bg-elevated" />
+          </div>
+        ))}
       </div>
     </div>
   );
