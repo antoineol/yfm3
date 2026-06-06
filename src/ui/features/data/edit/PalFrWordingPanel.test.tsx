@@ -57,7 +57,6 @@ describe("PalFrWordingPage", () => {
 
     expect(screen.getByRole("heading", { name: "PAL FR wording" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Back" })).toBeDefined();
-    expect(screen.getByText("Active ISO text tables")).toBeDefined();
     expect(screen.queryByText("Checking the active disc.")).toBeNull();
   });
 
@@ -117,7 +116,7 @@ describe("PalFrWordingPage", () => {
 
     render(<PalFrWordingPage backHref="#data/edit/1" cacheKey="pal-fr:disc-a" />);
 
-    expect(await screen.findByText(/PAL-FR\.bin/)).toBeDefined();
+    await screen.findByRole("textbox", { name: "PAL FR wording text pal-fr:script:d0bc1c" });
     fireEvent.change(
       screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:script:d0bc1c" }),
       { target: { value: "Si vous persistez" } },

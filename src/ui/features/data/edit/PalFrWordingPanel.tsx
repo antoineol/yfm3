@@ -160,13 +160,6 @@ export function PalFrWordingPage({
           <h2 className="font-display text-sm font-bold uppercase tracking-widest text-gold">
             PAL FR wording
           </h2>
-          <p className="mt-0.5 truncate text-xs text-text-muted">
-            {status?.supported
-              ? `${status.discFilename} · ${entries.length} entries${
-                  glyphPatchPending ? " · glyph renderer patch pending" : ""
-                }`
-              : "Active ISO text tables"}
-          </p>
         </div>
         {status?.supported && (
           <>
