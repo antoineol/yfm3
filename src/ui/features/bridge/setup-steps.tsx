@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useState } from "react";
 import type { BridgeDetail } from "../../lib/bridge-message-processor.ts";
 
@@ -48,6 +49,7 @@ export function Step({
   title: string;
   children?: React.ReactNode;
 }) {
+  const [animateRef] = useAutoAnimate();
   const isDone = state === STEP_DONE;
   const isActive = state === STEP_ACTIVE;
 
@@ -64,7 +66,7 @@ export function Step({
       >
         {isDone ? <CheckIcon /> : number}
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0" ref={animateRef}>
         <p
           className={`text-sm ${isDone ? "text-text-muted line-through" : isActive ? "text-text-primary" : "text-text-secondary"}`}
         >
@@ -169,8 +171,9 @@ const STATUS_CONFIG: Record<
 
 export function DuckStationInstructions() {
   const [open, setOpen] = useState(false);
+  const [animateRef] = useAutoAnimate();
   return (
-    <div className="mt-1">
+    <div className="mt-1" ref={animateRef}>
       <button
         className="text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
         onClick={() => setOpen(!open)}
@@ -196,8 +199,9 @@ export function DuckStationInstructions() {
 
 export function Troubleshooting() {
   const [open, setOpen] = useState(false);
+  const [animateRef] = useAutoAnimate();
   return (
-    <div className="rounded-xl bg-bg-panel border border-border-subtle px-4 py-3">
+    <div className="rounded-xl bg-bg-panel border border-border-subtle px-4 py-3" ref={animateRef}>
       <button
         className="w-full flex items-center justify-between text-xs text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
         onClick={() => setOpen(!open)}

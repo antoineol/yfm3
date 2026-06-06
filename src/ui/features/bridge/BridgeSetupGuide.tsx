@@ -1,3 +1,4 @@
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useCallback, useEffect, useState } from "react";
 import { EXTRA_GAME_VARIANTS, MODS } from "../../../engine/mods.ts";
 import { useUpdatePreferences } from "../../db/use-update-preferences.ts";
@@ -24,13 +25,14 @@ import {
 export function BridgeSetupGuide() {
   const bridge = useBridge();
   const updatePreferences = useUpdatePreferences();
+  const [animateRef] = useAutoAnimate();
 
   const handleSwitchMode = useCallback(() => {
     updatePreferences({ bridgeAutoSync: null });
   }, [updatePreferences]);
 
   return (
-    <div className="max-w-lg mx-auto space-y-4">
+    <div className="max-w-lg mx-auto space-y-4" ref={animateRef}>
       {bridge.detail !== "waiting_for_game" && (
         <StatusBanner
           detail={bridge.detail}
@@ -48,6 +50,7 @@ export function BridgeSetupGuide() {
 function SetupSteps() {
   const bridge = useBridge();
   const [downloaded, setDownloaded] = useState(false);
+  const [animateRef] = useAutoAnimate();
   const states = stepStatesForDetail(bridge.detail);
 
   const step4 = downloaded && states[3] === STEP_ACTIVE ? STEP_DONE : states[3];
@@ -57,9 +60,16 @@ function SetupSteps() {
     : bridge.detail === "ready"
       ? STEP_ACTIVE
       : STEP_PENDING;
+  const readingGameData = step9 === STEP_ACTIVE && !bridge.gameDataError;
+  const step9Title = readingGameData
+    ? "Reading game data from the active disc..."
+    : "Read game data from the active disc";
 
   return (
-    <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
+    <div
+      className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1"
+      ref={animateRef}
+    >
       <p className="text-xs text-text-muted uppercase tracking-wide mb-3">Setup</p>
 
       <p className="text-xs text-text-muted mb-3">
@@ -120,14 +130,25 @@ function SetupSteps() {
 
       <Step number={8} state={states[7]} title="Load the game in DuckStation" />
 
-      <Step number={9} state={step9} title="Read game data from the active disc">
-        {step9 === STEP_ACTIVE && (
-          <p className="mt-1 text-xs text-text-muted whitespace-pre-line">
-            {bridge.gameDataError ??
-              "Waiting for the bridge to read game data from the active disc."}
-          </p>
-        )}
+      <Step number={9} state={step9} title={step9Title}>
+        {step9 === STEP_ACTIVE && <GameDataStepDetail error={bridge.gameDataError} />}
       </Step>
+    </div>
+  );
+}
+
+function GameDataStepDetail({ error }: { error: string | null }) {
+  if (error) {
+    return <p className="mt-1 text-xs text-text-muted whitespace-pre-line">{error}</p>;
+  }
+
+  return (
+    <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
+      <span
+        aria-hidden="true"
+        className="size-3 rounded-full border border-gold-dim border-t-gold animate-spin-gold"
+      />
+      <span>This runs automatically. Keep DuckStation open.</span>
     </div>
   );
 }
@@ -135,6 +156,7 @@ function SetupSteps() {
 function RestartDuckStationButton() {
   const bridge = useBridge();
   const [sent, setSent] = useState(false);
+  const [animateRef] = useAutoAnimate();
 
   // Reset when the bridge reports that restart failed
   useEffect(() => {
@@ -148,11 +170,15 @@ function RestartDuckStationButton() {
   }, [bridge]);
 
   if (sent) {
-    return <p className="mt-1 text-xs text-text-muted">Restarting DuckStation...</p>;
+    return (
+      <div ref={animateRef}>
+        <p className="mt-1 text-xs text-text-muted">Restarting DuckStation...</p>
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div ref={animateRef}>
       <button
         className="mt-1 px-3 py-1.5 rounded-md bg-gold/15 text-gold text-xs font-medium hover:bg-gold/25 transition-colors cursor-pointer"
         onClick={handleRestart}

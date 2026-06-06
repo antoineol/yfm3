@@ -121,8 +121,8 @@ describe("BridgeSetupGuide", () => {
     render(<BridgeSetupGuide />);
 
     expect(screen.getByText("Connected")).toBeDefined();
-    expect(screen.getByText("Read game data from the active disc")).toBeDefined();
-    expect(screen.getByText(/Waiting for the bridge to read game data/)).toBeDefined();
+    expect(screen.getByText("Reading game data from the active disc...")).toBeDefined();
+    expect(screen.getByText("This runs automatically. Keep DuckStation open.")).toBeDefined();
     expect(screen.queryByText("Game loaded — reading game data")).toBeNull();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
