@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+
+import { cleanup, render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, describe, expect, it } from "vitest";
 import { type BridgeState, INITIAL_BRIDGE_STATE } from "../../lib/bridge-message-processor.ts";
 import {
   battlePredictionLabel,
   duelFocusRowVisible,
   focusedCardForDisplay,
   focusedStatsForDisplay,
+  OpponentPoolMaxStats,
   opponentPoolMaxStats,
 } from "./CheatViewSwitch.tsx";
 
@@ -24,6 +29,8 @@ function bridgeWithTarget(overrides: Partial<BridgeState>): BridgeState {
     ...overrides,
   };
 }
+
+afterEach(cleanup);
 
 describe("focusedCardForDisplay", () => {
   it("returns the targeted player card in cheat mode", () => {
@@ -135,6 +142,25 @@ describe("opponentPoolMaxStats", () => {
     });
 
     expect(opponentPoolMaxStats(bridge)).toBeNull();
+  });
+});
+
+describe("OpponentPoolMaxStats", () => {
+  it("labels the displayed maxima as opponent pool maximums", () => {
+    const bridge = bridgeWithTarget({
+      opponentHandPool: [{ cardId: 613, slotId: 40 }, null, null, null, null],
+      opponentReservePool: [{ cardId: 622, slotId: 45 }],
+    });
+
+    render(createElement(OpponentPoolMaxStats, { bridge }));
+
+    const group = screen.getByTitle("Max ATK / DEF the opponent can play from its pool.");
+
+    expect(group.getAttribute("title")).toBe("Max ATK / DEF the opponent can play from its pool.");
+    expect(screen.getByText("MAX")).not.toBeNull();
+    expect(screen.getByText("opponent pool maximum")).not.toBeNull();
+    expect(screen.getByText("2800")).not.toBeNull();
+    expect(screen.getByText("2300")).not.toBeNull();
   });
 });
 

@@ -172,21 +172,35 @@ function BattlePredictionPill({ prediction }: { prediction: BattlePrediction | n
   );
 }
 
-function OpponentPoolMaxStats({ bridge }: { bridge: BridgeState }) {
+export function OpponentPoolMaxStats({ bridge }: { bridge: BridgeState }) {
   const stats = opponentPoolMaxStats(bridge);
   if (!stats) return null;
 
   return (
-    <div className="fm-opponent-pool-max">
-      <span className="fm-opponent-pool-max-item">
-        <span className="fm-opponent-pool-max-label">ATK</span>
-        <span className="fm-opponent-pool-max-value fm-duel-focused-atk">{String(stats.atk)}</span>
-      </span>
-      <span className="fm-opponent-pool-max-item">
-        <span className="fm-opponent-pool-max-label">DEF</span>
-        <span className="fm-opponent-pool-max-value fm-duel-focused-def">{String(stats.def)}</span>
-      </span>
-    </div>
+    <figure
+      className="fm-opponent-pool-max"
+      title="Max ATK / DEF the opponent can play from its pool."
+    >
+      <figcaption className="fm-opponent-pool-max-header">
+        <span aria-hidden="true" className="fm-opponent-pool-max-icon" />
+        <span className="fm-opponent-pool-max-caption">MAX</span>
+        <span className="sr-only">opponent pool maximum</span>
+      </figcaption>
+      <div className="fm-opponent-pool-max-values">
+        <span className="fm-opponent-pool-max-item">
+          <span className="fm-opponent-pool-max-label">ATK</span>
+          <span className="fm-opponent-pool-max-value fm-duel-focused-atk">
+            {String(stats.atk)}
+          </span>
+        </span>
+        <span className="fm-opponent-pool-max-item">
+          <span className="fm-opponent-pool-max-label">DEF</span>
+          <span className="fm-opponent-pool-max-value fm-duel-focused-def">
+            {String(stats.def)}
+          </span>
+        </span>
+      </div>
+    </figure>
   );
 }
 
