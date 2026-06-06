@@ -13,6 +13,7 @@ import {
   DuckStationInstructions,
   STEP_ACTIVE,
   STEP_DONE,
+  STEP_PENDING,
   StatusBanner,
   Step,
   SwitchModeLink,
@@ -37,7 +38,6 @@ export function BridgeSetupGuide() {
           settingsPatched={bridge.settingsPatched}
         />
       )}
-      <GameDataStatus />
       <SetupSteps />
       <Troubleshooting />
       <SwitchModeLink onClick={handleSwitchMode} />
@@ -52,6 +52,11 @@ function SetupSteps() {
 
   const step4 = downloaded && states[3] === STEP_ACTIVE ? STEP_DONE : states[3];
   const step7 = bridge.settingsPatched ? STEP_DONE : states[6];
+  const step9 = bridge.gameData
+    ? STEP_DONE
+    : bridge.detail === "ready"
+      ? STEP_ACTIVE
+      : STEP_PENDING;
 
   return (
     <div className="rounded-xl bg-bg-panel border border-border-subtle p-4 space-y-1">
@@ -114,26 +119,15 @@ function SetupSteps() {
       </Step>
 
       <Step number={8} state={states[7]} title="Load the game in DuckStation" />
-    </div>
-  );
-}
 
-function GameDataStatus() {
-  const bridge = useBridge();
-  if (bridge.detail !== "ready" || bridge.gameData) return null;
-
-  const hasError = Boolean(bridge.gameDataError);
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-950/20">
-      <span className="mt-0.5 inline-block size-2.5 rounded-full shrink-0 bg-yellow-400 animate-pulse" />
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-yellow-400/90">
-          {hasError ? "Game loaded — game data unavailable" : "Game loaded — reading game data"}
-        </p>
-        <p className="mt-1 text-xs text-text-muted">
-          {bridge.gameDataError ?? "Waiting for bridge gameData from the active disc."}
-        </p>
-      </div>
+      <Step number={9} state={step9} title="Read game data from the active disc">
+        {step9 === STEP_ACTIVE && (
+          <p className="mt-1 text-xs text-text-muted whitespace-pre-line">
+            {bridge.gameDataError ??
+              "Waiting for the bridge to read game data from the active disc."}
+          </p>
+        )}
+      </Step>
     </div>
   );
 }

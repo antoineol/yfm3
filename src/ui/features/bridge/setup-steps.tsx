@@ -9,7 +9,7 @@ export const STEP_PENDING = "pending";
 export type StepState = typeof STEP_DONE | typeof STEP_ACTIVE | typeof STEP_PENDING;
 
 /**
- * Maps bridge detail to 8 step states:
+ * Maps bridge detail to prerequisite step states:
  * [0] emulator, [1] BIOS, [2] game, [3] bridge download, [4] extract & run,
  * [5] open DuckStation, [6] shared memory, [7] load game
  */

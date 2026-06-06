@@ -74,7 +74,7 @@ import { BridgeSetupGuide } from "./BridgeSetupGuide.tsx";
 afterEach(cleanup);
 
 describe("BridgeSetupGuide", () => {
-  it("renders 8 setup steps", () => {
+  it("renders 9 setup steps", () => {
     render(<BridgeSetupGuide />);
     expect(screen.getByText("Download the emulator")).toBeDefined();
     expect(screen.getByText("Download a PS1 BIOS for the emulator")).toBeDefined();
@@ -84,6 +84,7 @@ describe("BridgeSetupGuide", () => {
     expect(screen.getByText("Open DuckStation")).toBeDefined();
     expect(screen.getByText("Enable shared memory export in DuckStation")).toBeDefined();
     expect(screen.getByText("Load the game in DuckStation")).toBeDefined();
+    expect(screen.getByText("Read game data from the active disc")).toBeDefined();
   });
 
   it("shows download links for each prerequisite step", () => {
@@ -115,17 +116,18 @@ describe("BridgeSetupGuide", () => {
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 
-  it("keeps ready as game loaded while bridge gameData is still missing", () => {
+  it("keeps game data acquisition as an active setup step while bridge gameData is missing", () => {
     mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "ready" }));
     render(<BridgeSetupGuide />);
 
     expect(screen.getByText("Connected")).toBeDefined();
-    expect(screen.getByText("Game loaded — reading game data")).toBeDefined();
-    expect(screen.getByText(/Waiting for bridge gameData from the active disc/)).toBeDefined();
+    expect(screen.getByText("Read game data from the active disc")).toBeDefined();
+    expect(screen.getByText(/Waiting for the bridge to read game data/)).toBeDefined();
+    expect(screen.queryByText("Game loaded — reading game data")).toBeNull();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 
-  it("shows gameData errors without claiming the game is missing", () => {
+  it("shows gameData errors on the game data setup step", () => {
     mockBridge.mockReturnValue(
       defaultBridge({
         status: "connected",
@@ -135,8 +137,9 @@ describe("BridgeSetupGuide", () => {
     );
     render(<BridgeSetupGuide />);
 
-    expect(screen.getByText("Game loaded — game data unavailable")).toBeDefined();
+    expect(screen.getByText("Read game data from the active disc")).toBeDefined();
     expect(screen.getByText("Could not find or read game disc image")).toBeDefined();
+    expect(screen.queryByText("Game loaded — game data unavailable")).toBeNull();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });
 

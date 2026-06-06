@@ -190,6 +190,7 @@ Boundaries:
 
 - Bridge may expose raw or lightly normalized state.
 - Game interpretation and UI policy belong in the app unless the bridge is the only place with required local access.
+- Auto-sync onboarding is complete only after the app receives bridge game data for the active disc.
 - The UI must tolerate bridge reconnects and keep last-ready state during short live-reload gaps.
 - The bridge must avoid whole-BIN reads on cache hits.
 
