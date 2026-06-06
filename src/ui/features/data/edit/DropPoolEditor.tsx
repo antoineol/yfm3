@@ -135,7 +135,7 @@ function PickerBar({
         <GlobalSaveRevert duelists={duelists} />
         <a
           className="font-display text-[11px] uppercase tracking-widest text-gold transition-colors hover:text-gold-bright hover:underline underline-offset-4"
-          href={`#data/edit/wording/${target.duelistId}`}
+          href="#data/edit/wording/names"
         >
           PAL FR wording
         </a>

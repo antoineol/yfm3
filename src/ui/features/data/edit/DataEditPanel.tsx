@@ -10,11 +10,13 @@ export function DataEditPanel({
   editSection,
   onDuelistChange,
   selectedDuelistId,
+  wordingTab,
 }: {
   editBackHref: string;
   editSection: "pools" | "wording";
   onDuelistChange: (id: number) => void;
   selectedDuelistId: number | undefined;
+  wordingTab: "names" | "descriptions" | "dialogs";
 }) {
   const autoSyncOn = useBridgeAutoSync();
   const bridge = useBridge();
@@ -61,6 +63,8 @@ export function DataEditPanel({
           backHref={editBackHref}
           cacheKey={wordingCacheKey(bridge)}
           cards={bridge.gameData.cards}
+          selectedTab={wordingTab}
+          tabHrefFor={(tab) => `#data/edit/wording/${tab}`}
         />
       ) : (
         <>

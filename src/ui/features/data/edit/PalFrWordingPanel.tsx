@@ -31,19 +31,29 @@ const LOADING_ROW_IDS = [
   "description-d",
 ] as const;
 const WORDING_TABS = [
-  { kind: "cardDescription", label: "Card descriptions" },
-  { kind: "cardName", label: "Card names" },
-  { kind: "script", label: "Dialogs" },
-] as const satisfies readonly { kind: PalFrWordingEntry["kind"]; label: string }[];
+  { kind: "cardName", label: "Card names", tab: "names" },
+  { kind: "cardDescription", label: "Card descriptions", tab: "descriptions" },
+  { kind: "script", label: "Dialogs", tab: "dialogs" },
+] as const satisfies readonly {
+  kind: PalFrWordingEntry["kind"];
+  label: string;
+  tab: WordingTab;
+}[];
+
+type WordingTab = "names" | "descriptions" | "dialogs";
 
 export function PalFrWordingPage({
   backHref,
   cacheKey = "active",
   cards = [],
+  selectedTab = "names",
+  tabHrefFor = (tab) => `#data/edit/wording/${tab}`,
 }: {
   backHref: string;
   cacheKey?: string;
   cards?: readonly BridgeCard[];
+  selectedTab?: WordingTab;
+  tabHrefFor?: (tab: WordingTab) => string;
 }) {
   const [status, setStatus] = useState<PalFrWordingStatus | null>(() =>
     getCachedPalFrWordingStatus(cacheKey),
@@ -51,7 +61,6 @@ export function PalFrWordingPage({
   const [loading, setLoading] = useState(() => getCachedPalFrWordingStatus(cacheKey) == null);
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedKind, setSelectedKind] = useState<PalFrWordingEntry["kind"]>("cardDescription");
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
     draftsFromStatus(getCachedPalFrWordingStatus(cacheKey)),
   );
@@ -89,13 +98,7 @@ export function PalFrWordingPage({
 
   const entries = status?.supported ? status.entries : [];
   const contexts = useMemo(() => buildEntryContexts(entries, cards), [entries, cards]);
-  useEffect(() => {
-    if (entries.length === 0 || entries.some((entry) => entry.kind === selectedKind)) return;
-    const firstTabWithEntries = WORDING_TABS.find((tab) =>
-      entries.some((entry) => entry.kind === tab.kind),
-    );
-    if (firstTabWithEntries) setSelectedKind(firstTabWithEntries.kind);
-  }, [entries, selectedKind]);
+  const selectedKind = kindForTab(selectedTab);
   const visibleEntries = useMemo(
     () => entries.filter((entry) => entry.kind === selectedKind),
     [entries, selectedKind],
@@ -224,10 +227,10 @@ export function PalFrWordingPage({
           filtered={filtered}
           invalidEntryCount={invalidEntries.length}
           query={query}
-          selectedKind={selectedKind}
+          selectedTab={selectedTab}
           setDrafts={setDrafts}
           setQuery={setQuery}
-          setSelectedKind={setSelectedKind}
+          tabHrefFor={tabHrefFor}
         />
       )}
     </section>
@@ -241,10 +244,10 @@ function WordingEditorBody({
   filtered,
   invalidEntryCount,
   query,
-  selectedKind,
+  selectedTab,
   setDrafts,
-  setSelectedKind,
   setQuery,
+  tabHrefFor,
 }: {
   contexts: ReadonlyMap<string, string>;
   drafts: Record<string, string>;
@@ -252,10 +255,10 @@ function WordingEditorBody({
   filtered: readonly PalFrWordingEntry[];
   invalidEntryCount: number;
   query: string;
-  selectedKind: PalFrWordingEntry["kind"];
+  selectedTab: WordingTab;
   setDrafts: Dispatch<SetStateAction<Record<string, string>>>;
-  setSelectedKind: (kind: PalFrWordingEntry["kind"]) => void;
   setQuery: (query: string) => void;
+  tabHrefFor: (tab: WordingTab) => string;
 }) {
   const editedCounts = useMemo(() => countEditedByKind(entries, drafts), [drafts, entries]);
 
@@ -269,20 +272,19 @@ function WordingEditorBody({
           {WORDING_TABS.map((tab) => {
             const edited = editedCounts[tab.kind] ?? 0;
             return (
-              <button
+              <a
                 className={`px-3 py-1.5 font-display text-[11px] uppercase tracking-widest transition-colors ${
-                  selectedKind === tab.kind
+                  selectedTab === tab.tab
                     ? "bg-bg-hover text-gold-bright"
                     : "text-text-secondary hover:text-text-primary"
                 }`}
+                href={tabHrefFor(tab.tab)}
                 key={tab.kind}
-                onClick={() => setSelectedKind(tab.kind)}
                 role="tab"
-                type="button"
               >
                 {tab.label}
                 {edited > 0 ? ` (${edited})` : ""}
-              </button>
+              </a>
             );
           })}
         </div>
@@ -457,7 +459,7 @@ function contextForEntry(
   if (entry.kind === "cardDescription") {
     const cardId = entry.entryIndex - 1;
     const card = cardsById.get(cardId);
-    if (card) return compactParts(`#${cardId}`, card.name.trim(), shortCardType(card)).join(" · ");
+    if (card) return compactParts(`#${cardId}`, card.name.trim()).join(" · ");
     return `#${cardId}`;
   }
   if (entry.kind === "cardName") {
@@ -471,6 +473,12 @@ function contextForEntry(
 
 function fallbackContext(entry: PalFrWordingEntry): string {
   return entry.kind === "script" ? `Dialog ${entry.entryIndex + 1}` : `#${entry.entryIndex}`;
+}
+
+function kindForTab(tab: WordingTab): PalFrWordingEntry["kind"] {
+  if (tab === "names") return "cardName";
+  if (tab === "descriptions") return "cardDescription";
+  return "script";
 }
 
 function compactParts(...parts: (string | undefined)[]): string[] {

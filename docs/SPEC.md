@@ -313,10 +313,10 @@ Reward patching:
 PAL FR wording patching:
 
 - Wording edits are bridge-only active-ISO writes and currently support only `SLES_039.48`.
-- The PAL FR wording editor is a dedicated Edit subpage opened by a normal `#data/edit/wording/:duelistId` hash link from the Edit toolbar next to ISO backups. The route is refreshable and includes a Back link to the parent Edit page.
+- The PAL FR wording editor is a dedicated Edit subpage opened by a normal `#data/edit/wording/:tab` hash link from the Edit toolbar next to ISO backups. Supported tabs are `names`, `descriptions`, and `dialogs`; the route is refreshable and includes a Back link to the parent Edit page.
 - PAL FR wording status is cached in memory per active game/disc key after the first load. Successful wording saves refresh the cache; ISO backup restores invalidate it.
 - The editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries with one global save. One save creates one ISO backup and writes every changed entry.
-- The wording UI is organized by tabs for card descriptions, card names, and dialogs. Technical offsets are not shown; rows use concise context such as card id/name/type, and text editors grow to show their full content instead of using inner scrollbars.
+- The wording UI is organized by tabs for card names, card descriptions, and dialogs. Technical offsets are not shown; rows use concise context such as card id/name or type/stats, and text editors grow to show their full content instead of using inner scrollbars.
 - Replacement text is encoded with the PAL FR table and must fit the selected entry's original byte budget; shorter text is padded before the original terminator so downstream entry boundaries do not move.
 - Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the script/data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.
 - PAL FR saves also apply the verified live text renderer glyph-table fix for `œ/Œ`: the source card/script bytes are already correct, but the renderer resolves the ligature bytes through `DAT_801d9000` to swapped glyph ids in the executable metadata table.

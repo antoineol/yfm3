@@ -53,7 +53,7 @@ describe("PalFrWordingPage", () => {
   test("shows a structured loading state while checking the active disc", () => {
     fetchPalFrWordingStatusMock.mockReturnValue(new Promise(() => {}));
 
-    render(<PalFrWordingPage backHref="#data/edit/1" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
 
     expect(screen.getByRole("heading", { name: "PAL FR wording" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Back" })).toBeDefined();
@@ -68,7 +68,7 @@ describe("PalFrWordingPage", () => {
       reason: "PAL French wording edits are currently supported only for SLES_039.48.",
     });
 
-    render(<PalFrWordingPage backHref="#data/edit/1" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
 
     expect(await screen.findByText(/SLES_039\.48/)).toBeDefined();
   });
@@ -114,24 +114,38 @@ describe("PalFrWordingPage", () => {
       ],
     });
 
-    render(
+    const { rerender } = render(
       <PalFrWordingPage
-        backHref="#data/edit/1"
+        backHref="#data/edit"
         cacheKey="pal-fr:disc-a"
         cards={[card(5, "Oil de Feu", "Monster", 800, 600), card(6, "Dragon", "Dragon", 1200, 800)]}
+        selectedTab="descriptions"
       />,
     );
 
     expect(screen.queryByText("Offset")).toBeNull();
     expect(screen.queryByText("Type")).toBeNull();
-    expect(await screen.findByText("#5 · Oil de Feu · Monster")).toBeDefined();
+    expect(await screen.findByText("#5 · Oil de Feu")).toBeDefined();
     fireEvent.change(
       screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:cardDescription:cfef00" }),
       { target: { value: "Ressemble à une statue" } },
     );
     expect(screen.getByRole("tab", { name: "Card descriptions (1)" })).toBeDefined();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Dialogs" }));
+    expect(screen.getByRole("tab", { name: "Card names" }).getAttribute("href")).toBe(
+      "#data/edit/wording/names",
+    );
+    expect(screen.getByRole("tab", { name: "Dialogs" }).getAttribute("href")).toBe(
+      "#data/edit/wording/dialogs",
+    );
+    rerender(
+      <PalFrWordingPage
+        backHref="#data/edit"
+        cacheKey="pal-fr:disc-a"
+        cards={[card(5, "Oil de Feu", "Monster", 800, 600), card(6, "Dragon", "Dragon", 1200, 800)]}
+        selectedTab="dialogs"
+      />,
+    );
     const scriptEditor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",
     });
@@ -170,7 +184,7 @@ describe("PalFrWordingPage", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 12)],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit/1" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
 
     const editor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",
@@ -181,7 +195,7 @@ describe("PalFrWordingPage", () => {
 
     expect(confirm).toHaveBeenCalledWith("Discard unsaved PAL FR wording changes?");
     expect(blocked).toBe(false);
-    expect(backLink.getAttribute("href")).toBe("#data/edit/1");
+    expect(backLink.getAttribute("href")).toBe("#data/edit");
 
     const allowed = fireEvent.click(backLink);
 
@@ -197,7 +211,9 @@ describe("PalFrWordingPage", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Texte cache", 20)],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit/1" cacheKey="pal-fr:disc-a" />);
+    render(
+      <PalFrWordingPage backHref="#data/edit" cacheKey="pal-fr:disc-a" selectedTab="dialogs" />,
+    );
 
     expect(screen.getByDisplayValue("Texte cache")).toBeDefined();
     expect(screen.queryByText("Active ISO text tables")).toBeNull();
@@ -213,7 +229,7 @@ describe("PalFrWordingPage", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 5)],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit/1" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
 
     const editor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",
