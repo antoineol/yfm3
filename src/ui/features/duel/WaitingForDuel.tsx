@@ -17,7 +17,7 @@ export function WaitingForDuel() {
         ))}
       </div>
       <div className="space-y-1.5">
-        <p className="text-text-secondary text-sm font-medium">Start a duel to see your hand</p>
+        <p className="text-text-secondary text-sm font-medium">Ready for the next duel</p>
         <p className="text-text-muted/60 text-xs">
           Your best fusion plays will appear here automatically
         </p>

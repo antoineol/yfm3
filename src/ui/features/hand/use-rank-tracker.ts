@@ -73,7 +73,7 @@ export function useRankTracker(): RankTrackerState {
 
   const isDuelActive = bridge.inDuel;
   const isDuelEnded = bridge.phase === "ended";
-  const isVisible = bridge.status === "connected" && (isDuelActive || isDuelEnded);
+  const isVisible = bridge.status === "connected" && bridge.inDuel;
   const scoring = bridge.gameData?.rankScoring ?? getRankProfile(bridge.modFingerprint);
 
   const factors = useMemo((): RankFactors => {

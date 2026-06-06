@@ -118,7 +118,7 @@ vi.mock("../hand/CheatViewSwitch.tsx", () => ({
 }));
 
 vi.mock("../hand/RankTracker.tsx", () => ({
-  RankTracker: () => null,
+  RankTracker: () => <div data-testid="rank-tracker" />,
 }));
 
 vi.mock("./OpponentHandGrid.tsx", () => ({
@@ -396,6 +396,34 @@ describe("DuelPage", () => {
     render(duelPage());
 
     expect(screen.getByText("Duel complete")).toBeTruthy();
+    expect(screen.getByTestId("rank-tracker")).toBeTruthy();
+    expect(screen.queryByTestId("hand-display")).toBeNull();
+    expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
+  });
+
+  it("shows only outside-duel content after leaving the result screen", () => {
+    mockBridge.mockReturnValue(
+      defaultBridge({
+        status: "connected",
+        inDuel: false,
+        phase: "ended",
+        lp: [8000, 0],
+        stats: {
+          fusions: 1,
+          terrain: 0,
+          duelistId: 1,
+          rankCounters: null,
+        },
+      }),
+    );
+
+    render(duelPage());
+
+    expect(screen.getByText("Ready for the next duel")).toBeTruthy();
+    expect(screen.queryByText("Duel complete")).toBeNull();
+    expect(screen.queryByText("LP 8000 vs 0")).toBeNull();
+    expect(screen.queryByText("1 fusion performed")).toBeNull();
+    expect(screen.queryByTestId("rank-tracker")).toBeNull();
     expect(screen.queryByTestId("hand-display")).toBeNull();
     expect(screen.queryByTestId("cheat-view-switch")).toBeNull();
   });

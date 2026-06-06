@@ -231,6 +231,7 @@ Rules:
 - Focused-card UI may show player focus normally.
 - Opponent hidden cards are revealed only in cheat mode.
 - Result screens must clear active-duel helpers.
+- Outside-duel screens must hide in-duel rank/status helpers while keeping post-duel deck optimization content visible.
 - New active hands should dismiss post-duel content without aborting background optimization.
 - Battle prediction should use live field ATK/DEF as source of truth for visible stat changes.
 - NTSC-U/RP player field cursor focus should use the trusted physical field slot when it matches the target card ID, so duplicate cards with different live boosts show the hovered copy's stats.
