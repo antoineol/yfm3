@@ -60,6 +60,24 @@ describe("predictBattleOutcome", () => {
     expect(result?.defenderValue).toBe(2000);
   });
 
+  it("treats live opponent status 0xb4 as attack position", () => {
+    const result = predictBattleOutcome(
+      {
+        card: card({ id: 712, name: "D. Météore", atk: 1800, def: 2000, type: "Dragon" }),
+        field: field({ cardId: 712, atk: 2800, def: 3000, status: 0x84 }),
+      },
+      {
+        card: card({ id: 392, name: "Metalzoa", atk: 3000, def: 2300, type: "Machine" }),
+        field: field({ cardId: 392, atk: 3000, def: 2300, status: 0xb4 }),
+      },
+      6,
+    );
+
+    expect(result?.outcome).toBe("lose");
+    expect(result?.defenderPosition).toBe("attack");
+    expect(result?.defenderValue).toBe(3000);
+  });
+
   it("applies guardian-star battle bonuses on top of live field stats", () => {
     const result = predictBattleOutcome(
       {
