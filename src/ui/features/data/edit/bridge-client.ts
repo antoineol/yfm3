@@ -83,6 +83,18 @@ export type PalFrWordingStatus =
       reason: string;
     };
 
+type PalFrWordingCacheKey = string;
+
+let palFrWordingStatusCache: { cacheKey: PalFrWordingCacheKey; status: PalFrWordingStatus } | null =
+  null;
+let palFrWordingStatusRequest: {
+  cacheKey: PalFrWordingCacheKey;
+  promise: Promise<PalFrWordingStatus>;
+  requestId: number;
+} | null = null;
+let palFrWordingStatusRequestId = 0;
+let palFrWordingStatusCacheVersion = 0;
+
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
   return (await res.json()) as T;
@@ -159,8 +171,61 @@ export async function putDropX15Patch(cardDropCount: number): Promise<PutDropX15
   return parseJson<PutDropX15Result>(res);
 }
 
-export async function fetchPalFrWordingStatus(): Promise<PalFrWordingStatus> {
-  return parseJson(await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/pal-fr-wording`));
+export function getCachedPalFrWordingStatus(
+  cacheKey: PalFrWordingCacheKey,
+): PalFrWordingStatus | null {
+  return palFrWordingStatusCache?.cacheKey === cacheKey ? palFrWordingStatusCache.status : null;
+}
+
+export function primePalFrWordingStatusCache(
+  cacheKey: PalFrWordingCacheKey,
+  status: PalFrWordingStatus,
+): void {
+  palFrWordingStatusCache = { cacheKey, status };
+}
+
+export function invalidatePalFrWordingStatusCache(cacheKey?: PalFrWordingCacheKey): void {
+  palFrWordingStatusCacheVersion++;
+  if (cacheKey == null || palFrWordingStatusCache?.cacheKey === cacheKey) {
+    palFrWordingStatusCache = null;
+  }
+  if (cacheKey == null || palFrWordingStatusRequest?.cacheKey === cacheKey) {
+    palFrWordingStatusRequest = null;
+  }
+}
+
+export async function fetchPalFrWordingStatus({
+  cacheKey = "active",
+  force = false,
+}: {
+  cacheKey?: PalFrWordingCacheKey;
+  force?: boolean;
+} = {}): Promise<PalFrWordingStatus> {
+  if (!force) {
+    const cached = getCachedPalFrWordingStatus(cacheKey);
+    if (cached) return cached;
+    if (palFrWordingStatusRequest?.cacheKey === cacheKey) return palFrWordingStatusRequest.promise;
+  }
+
+  const requestId = ++palFrWordingStatusRequestId;
+  const cacheVersion = palFrWordingStatusCacheVersion;
+  const promise = fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/pal-fr-wording`)
+    .then((res) => parseJson<PalFrWordingStatus>(res))
+    .then((status) => {
+      if (
+        cacheVersion === palFrWordingStatusCacheVersion &&
+        palFrWordingStatusRequest?.requestId === requestId
+      ) {
+        primePalFrWordingStatusCache(cacheKey, status);
+      }
+      return status;
+    });
+  palFrWordingStatusRequest = { cacheKey, promise, requestId };
+  try {
+    return await promise;
+  } finally {
+    if (palFrWordingStatusRequest?.requestId === requestId) palFrWordingStatusRequest = null;
+  }
 }
 
 export type PutPalFrWordingResult =

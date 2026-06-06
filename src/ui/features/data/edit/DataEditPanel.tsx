@@ -6,16 +6,14 @@ import { DropX15PatchPanel } from "./DropX15PatchPanel.tsx";
 import { PalFrWordingPage } from "./PalFrWordingPanel.tsx";
 
 export function DataEditPanel({
+  editBackHref,
   editSection,
-  onBackToEdit,
   onDuelistChange,
-  onOpenWording,
   selectedDuelistId,
 }: {
+  editBackHref: string;
   editSection: "pools" | "wording";
-  onBackToEdit: () => void;
   onDuelistChange: (id: number) => void;
-  onOpenWording: (id: number | undefined) => void;
   selectedDuelistId: number | undefined;
 }) {
   const autoSyncOn = useBridgeAutoSync();
@@ -59,18 +57,22 @@ export function DataEditPanel({
   return (
     <PanelCard className="w-full max-w-5xl mx-auto">
       {editSection === "wording" ? (
-        <PalFrWordingPage onBack={onBackToEdit} />
+        <PalFrWordingPage backHref={editBackHref} cacheKey={wordingCacheKey(bridge)} />
       ) : (
         <>
           <DropX15PatchPanel />
           <DropPoolEditor
             gameData={bridge.gameData}
             onDuelistChange={onDuelistChange}
-            onOpenWording={onOpenWording}
             selectedDuelistId={selectedDuelistId}
           />
         </>
       )}
     </PanelCard>
   );
+}
+
+function wordingCacheKey(bridge: ReturnType<typeof useBridge>): string {
+  const serial = bridge.gameSerial ?? "unknown";
+  return `${serial}:${bridge.gameData?.artworkKey ?? "no-artwork-key"}`;
 }

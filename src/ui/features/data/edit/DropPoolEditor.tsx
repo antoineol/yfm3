@@ -40,12 +40,10 @@ const CONFIRM_MESSAGE =
 export function DropPoolEditor({
   gameData,
   onDuelistChange,
-  onOpenWording,
   selectedDuelistId,
 }: {
   gameData: BridgeGameData;
   onDuelistChange: (id: number) => void;
-  onOpenWording: (id: number | undefined) => void;
   selectedDuelistId: number | undefined;
 }) {
   const duelists = gameData.duelists;
@@ -67,12 +65,7 @@ export function DropPoolEditor({
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <PickerBar
-        duelists={duelists}
-        onDuelistChange={onDuelistChange}
-        onOpenWording={onOpenWording}
-        target={target}
-      />
+      <PickerBar duelists={duelists} onDuelistChange={onDuelistChange} target={target} />
       <DropPoolSummary view={target.view} />
       <div className="flex-1 min-h-0 flex flex-col">
         <DropPoolTable view={target.view} />
@@ -89,12 +82,10 @@ export function DropPoolEditor({
 function PickerBar({
   duelists,
   onDuelistChange,
-  onOpenWording,
   target,
 }: {
   duelists: readonly BridgeDuelist[];
   onDuelistChange: (id: number) => void;
-  onOpenWording: (id: number | undefined) => void;
   target: { duelistId: number; view: EditView };
 }) {
   const loadTarget = useSetAtom(loadTargetAtom);
@@ -142,13 +133,12 @@ function PickerBar({
       </div>
       <div className="ml-auto flex items-center gap-2">
         <GlobalSaveRevert duelists={duelists} />
-        <button
-          className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2 py-1 font-display text-[11px] uppercase tracking-widest text-text-primary transition-colors hover:bg-bg-hover cursor-pointer"
-          onClick={() => onOpenWording(target.duelistId)}
-          type="button"
+        <a
+          className="font-display text-[11px] uppercase tracking-widest text-gold transition-colors hover:text-gold-bright hover:underline underline-offset-4"
+          href={`#data/edit/wording/${target.duelistId}`}
         >
           PAL FR wording
-        </button>
+        </a>
         <IsoBackupsDrawerButton />
       </div>
     </div>

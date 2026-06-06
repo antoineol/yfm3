@@ -12,18 +12,30 @@ vi.mock("sonner", () => ({
 vi.mock("./bridge-client.ts", () => ({
   fetchIsoBackups: vi.fn(async () => []),
   fetchPalFrWordingStatus: vi.fn(),
+  getCachedPalFrWordingStatus: vi.fn(() => null),
+  primePalFrWordingStatusCache: vi.fn(),
   postRestoreIsoBackup: vi.fn(),
   putDuelistPool: vi.fn(),
   putPalFrWordingEntries: vi.fn(),
 }));
 
-const { fetchIsoBackups, fetchPalFrWordingStatus, putPalFrWordingEntries } = await import(
-  "./bridge-client.ts"
-);
+const {
+  fetchIsoBackups,
+  fetchPalFrWordingStatus,
+  getCachedPalFrWordingStatus,
+  primePalFrWordingStatusCache,
+  putPalFrWordingEntries,
+} = await import("./bridge-client.ts");
 const { PalFrWordingPage } = await import("./PalFrWordingPanel.tsx");
 
 const fetchIsoBackupsMock = fetchIsoBackups as unknown as ReturnType<typeof vi.fn>;
 const fetchPalFrWordingStatusMock = fetchPalFrWordingStatus as unknown as ReturnType<typeof vi.fn>;
+const getCachedPalFrWordingStatusMock = getCachedPalFrWordingStatus as unknown as ReturnType<
+  typeof vi.fn
+>;
+const primePalFrWordingStatusCacheMock = primePalFrWordingStatusCache as unknown as ReturnType<
+  typeof vi.fn
+>;
 const putPalFrWordingEntriesMock = putPalFrWordingEntries as unknown as ReturnType<typeof vi.fn>;
 
 afterEach(() => {
@@ -31,6 +43,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   fetchIsoBackupsMock.mockClear();
   fetchPalFrWordingStatusMock.mockReset();
+  getCachedPalFrWordingStatusMock.mockReset();
+  getCachedPalFrWordingStatusMock.mockReturnValue(null);
+  primePalFrWordingStatusCacheMock.mockReset();
   putPalFrWordingEntriesMock.mockReset();
 });
 
@@ -38,10 +53,10 @@ describe("PalFrWordingPage", () => {
   test("shows a structured loading state while checking the active disc", () => {
     fetchPalFrWordingStatusMock.mockReturnValue(new Promise(() => {}));
 
-    render(<PalFrWordingPage onBack={vi.fn()} />);
+    render(<PalFrWordingPage backHref="#data/edit/1" />);
 
     expect(screen.getByRole("heading", { name: "PAL FR wording" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Back" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Back" })).toBeDefined();
     expect(screen.getByText("Active ISO text tables")).toBeDefined();
     expect(screen.queryByText("Checking the active disc.")).toBeNull();
   });
@@ -54,7 +69,7 @@ describe("PalFrWordingPage", () => {
       reason: "PAL French wording edits are currently supported only for SLES_039.48.",
     });
 
-    render(<PalFrWordingPage onBack={vi.fn()} />);
+    render(<PalFrWordingPage backHref="#data/edit/1" />);
 
     expect(await screen.findByText(/SLES_039\.48/)).toBeDefined();
   });
@@ -100,7 +115,7 @@ describe("PalFrWordingPage", () => {
       ],
     });
 
-    render(<PalFrWordingPage onBack={vi.fn()} />);
+    render(<PalFrWordingPage backHref="#data/edit/1" cacheKey="pal-fr:disc-a" />);
 
     expect(await screen.findByText(/PAL-FR\.bin/)).toBeDefined();
     fireEvent.change(
@@ -120,11 +135,17 @@ describe("PalFrWordingPage", () => {
       ]),
     );
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
+    expect(primePalFrWordingStatusCacheMock).toHaveBeenCalledWith(
+      "pal-fr:disc-a",
+      expect.objectContaining({
+        supported: true,
+        entries: expect.arrayContaining([expect.objectContaining({ text: "Si vous persistez" })]),
+      }),
+    );
     expect(screen.getByDisplayValue("Si vous persistez")).toBeDefined();
   });
 
   test("confirms before leaving with unsaved edits", async () => {
-    const onBack = vi.fn();
     const confirm = vi
       .spyOn(window, "confirm")
       .mockReturnValueOnce(false)
@@ -137,20 +158,38 @@ describe("PalFrWordingPage", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 12)],
     });
 
-    render(<PalFrWordingPage onBack={onBack} />);
+    render(<PalFrWordingPage backHref="#data/edit/1" />);
 
     const editor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",
     });
     fireEvent.change(editor, { target: { value: "Courte faute" } });
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    const backLink = screen.getByRole("link", { name: "Back" }) as HTMLAnchorElement;
+    const blocked = fireEvent.click(backLink);
 
     expect(confirm).toHaveBeenCalledWith("Discard unsaved PAL FR wording changes?");
-    expect(onBack).not.toHaveBeenCalled();
+    expect(blocked).toBe(false);
+    expect(backLink.getAttribute("href")).toBe("#data/edit/1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    const allowed = fireEvent.click(backLink);
 
-    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(allowed).toBe(true);
+  });
+
+  test("renders cached wording immediately without refetching", async () => {
+    getCachedPalFrWordingStatusMock.mockReturnValue({
+      supported: true,
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL-FR.bin",
+      glyphRenderingPatch: glyphPatch(true, false),
+      entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Texte cache", 20)],
+    });
+
+    render(<PalFrWordingPage backHref="#data/edit/1" cacheKey="pal-fr:disc-a" />);
+
+    expect(screen.getByDisplayValue("Texte cache")).toBeDefined();
+    expect(screen.queryByText("Active ISO text tables")).toBeNull();
+    expect(fetchPalFrWordingStatusMock).not.toHaveBeenCalled();
   });
 
   test("disables global save when any changed row exceeds its entry budget", async () => {
@@ -162,7 +201,7 @@ describe("PalFrWordingPage", () => {
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 5)],
     });
 
-    render(<PalFrWordingPage onBack={vi.fn()} />);
+    render(<PalFrWordingPage backHref="#data/edit/1" />);
 
     const editor = await screen.findByRole("textbox", {
       name: "PAL FR wording text pal-fr:script:d0bc1c",

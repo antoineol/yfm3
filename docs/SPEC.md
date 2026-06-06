@@ -313,7 +313,8 @@ Reward patching:
 PAL FR wording patching:
 
 - Wording edits are bridge-only active-ISO writes and currently support only `SLES_039.48`.
-- The PAL FR wording editor is a dedicated Edit subpage opened from the Edit toolbar next to ISO backups. Its `data/edit/wording/:duelistId` hash route is refreshable and includes a Back control to return to the parent Edit page.
+- The PAL FR wording editor is a dedicated Edit subpage opened by a normal `#data/edit/wording/:duelistId` hash link from the Edit toolbar next to ISO backups. The route is refreshable and includes a Back link to the parent Edit page.
+- PAL FR wording status is cached in memory per active game/disc key after the first load. Successful wording saves refresh the cache; ISO backup restores invalidate it.
 - The editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries with one global save. One save creates one ISO backup and writes every changed entry.
 - Replacement text is encoded with the PAL FR table and must fit the selected entry's original byte budget; shorter text is padded before the original terminator so downstream entry boundaries do not move.
 - Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the script/data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.

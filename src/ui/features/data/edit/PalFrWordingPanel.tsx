@@ -7,8 +7,10 @@ import { Input } from "../../../components/Input.tsx";
 import { loadBackupsAtom } from "./atoms.ts";
 import {
   fetchPalFrWordingStatus,
+  getCachedPalFrWordingStatus,
   type PalFrWordingEntry,
   type PalFrWordingStatus,
+  primePalFrWordingStatusCache,
   putPalFrWordingEntries,
 } from "./bridge-client.ts";
 
@@ -28,24 +30,41 @@ const LOADING_ROW_IDS = [
   "description-d",
 ] as const;
 
-export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
-  const [status, setStatus] = useState<PalFrWordingStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+export function PalFrWordingPage({
+  backHref,
+  cacheKey = "active",
+}: {
+  backHref: string;
+  cacheKey?: string;
+}) {
+  const [status, setStatus] = useState<PalFrWordingStatus | null>(() =>
+    getCachedPalFrWordingStatus(cacheKey),
+  );
+  const [loading, setLoading] = useState(() => getCachedPalFrWordingStatus(cacheKey) == null);
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
+    draftsFromStatus(getCachedPalFrWordingStatus(cacheKey)),
+  );
   const loadBackups = useSetAtom(loadBackupsAtom);
 
   useEffect(() => {
+    const cached = getCachedPalFrWordingStatus(cacheKey);
+    if (cached) {
+      setStatus(cached);
+      setDrafts(draftsFromStatus(cached));
+      setLoading(false);
+      return;
+    }
     let alive = true;
     setLoading(true);
-    fetchPalFrWordingStatus()
+    setStatus(null);
+    setDrafts({});
+    fetchPalFrWordingStatus({ cacheKey })
       .then((next) => {
         if (!alive) return;
         setStatus(next);
-        setDrafts(
-          next.supported ? Object.fromEntries(next.entries.map((e) => [e.id, e.text])) : {},
-        );
+        setDrafts(draftsFromStatus(next));
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
@@ -57,7 +76,7 @@ export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [cacheKey]);
 
   const entries = status?.supported ? status.entries : [];
   const filtered = useMemo(() => filterEntries(entries, query), [entries, query]);
@@ -89,11 +108,6 @@ export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  function onBackClick() {
-    if (hasUnsavedChanges && !window.confirm(DISCARD_MESSAGE)) return;
-    onBack();
-  }
-
   async function onSave() {
     if (!status?.supported || !canSave) return;
     if (!window.confirm(CONFIRM_MESSAGE)) return;
@@ -107,11 +121,13 @@ export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
         toast.error(`Wording patch failed: ${result.error}${detail}`);
         return;
       }
-      setStatus({
+      const nextStatus: PalFrWordingStatus = {
         ...status,
         entries: result.entries,
         glyphRenderingPatch: result.glyphRenderingPatch,
-      });
+      };
+      setStatus(nextStatus);
+      primePalFrWordingStatusCache(cacheKey, nextStatus);
       setDrafts(Object.fromEntries(result.entries.map((entry) => [entry.id, entry.text])));
       await loadBackups();
       const backupPart = result.backup ? ` · backup ${result.backup.filename}` : "";
@@ -131,9 +147,15 @@ export function PalFrWordingPage({ onBack }: { onBack: () => void }) {
   return (
     <section className="flex min-h-[38rem] flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b border-border-subtle px-3 py-3">
-        <Button onClick={onBackClick} size="sm" variant="ghost">
+        <a
+          className="inline-flex h-8 items-center justify-center rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+          href={backHref}
+          onClick={(event) => {
+            if (hasUnsavedChanges && !window.confirm(DISCARD_MESSAGE)) event.preventDefault();
+          }}
+        >
           Back
-        </Button>
+        </a>
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-sm font-bold uppercase tracking-widest text-gold">
             PAL FR wording
@@ -322,6 +344,10 @@ function WordingRow({
       </td>
     </tr>
   );
+}
+
+function draftsFromStatus(status: PalFrWordingStatus | null): Record<string, string> {
+  return status?.supported ? Object.fromEntries(status.entries.map((e) => [e.id, e.text])) : {};
 }
 
 function resetDrafts(

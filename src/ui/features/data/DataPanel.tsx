@@ -70,16 +70,7 @@ export function DataPanel() {
     [setHash],
   );
 
-  const handleOpenWording = useCallback(
-    (id: number | undefined) => {
-      setHash(id ? `data/edit/wording/${id}` : "data/edit/wording");
-    },
-    [setHash],
-  );
-
-  const handleBackToEdit = useCallback(() => {
-    setHash(duelistId ? `data/edit/${duelistId}` : "data/edit");
-  }, [duelistId, setHash]);
+  const editBackHref = `#${duelistId ? `data/edit/${duelistId}` : "data/edit"}`;
 
   return (
     <div className="flex flex-col gap-3 h-full max-w-5xl mx-auto w-full">
@@ -110,10 +101,9 @@ export function DataPanel() {
           <StarchipPanel cards={data.cardDb.cards} ownedTotals={ownedTotals} />
         ) : view === "edit" ? (
           <DataEditPanel
+            editBackHref={editBackHref}
             editSection={editSection}
-            onBackToEdit={handleBackToEdit}
             onDuelistChange={handleEditDuelistChange}
-            onOpenWording={handleOpenWording}
             selectedDuelistId={duelistId}
           />
         ) : (

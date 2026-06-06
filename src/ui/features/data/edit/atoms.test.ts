@@ -5,12 +5,17 @@ import type { BridgeDuelist } from "../../../../engine/worker/messages.ts";
 vi.mock("./bridge-client.ts", () => ({
   putDuelistPool: vi.fn(),
   fetchIsoBackups: vi.fn(async () => []),
+  invalidatePalFrWordingStatusCache: vi.fn(),
   postRestoreIsoBackup: vi.fn(),
 }));
 
-const { putDuelistPool, fetchIsoBackups } = await import("./bridge-client.ts");
+const { fetchIsoBackups, invalidatePalFrWordingStatusCache, postRestoreIsoBackup, putDuelistPool } =
+  await import("./bridge-client.ts");
 const putDuelistPoolMock = putDuelistPool as unknown as ReturnType<typeof vi.fn>;
 const fetchIsoBackupsMock = fetchIsoBackups as unknown as ReturnType<typeof vi.fn>;
+const invalidatePalFrWordingStatusCacheMock =
+  invalidatePalFrWordingStatusCache as unknown as ReturnType<typeof vi.fn>;
+const postRestoreIsoBackupMock = postRestoreIsoBackup as unknown as ReturnType<typeof vi.fn>;
 
 const {
   draftWeightsAtom,
@@ -23,6 +28,7 @@ const {
   pinnedCardIdsAtom,
   revertAllAtom,
   revertCurrentDuelistAtom,
+  restoreBackupAtom,
   saveAtom,
   setPoolWeightForCardsAtom,
   setWeightAtom,
@@ -384,5 +390,22 @@ describe("saveAtom", () => {
     const outcome = await store.set(saveAtom);
     expect(outcome).toBeNull();
     expect(putDuelistPoolMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("restoreBackupAtom", () => {
+  test("invalidates cached PAL FR wording after restoring an ISO backup", async () => {
+    postRestoreIsoBackupMock.mockResolvedValue({
+      ok: true,
+      preRestore: null,
+      backups: [],
+    });
+    invalidatePalFrWordingStatusCacheMock.mockClear();
+    const store = createStore();
+
+    await store.set(restoreBackupAtom, "backup.iso");
+
+    expect(postRestoreIsoBackupMock).toHaveBeenCalledWith("backup.iso");
+    expect(invalidatePalFrWordingStatusCacheMock).toHaveBeenCalledTimes(1);
   });
 });

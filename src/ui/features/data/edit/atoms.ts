@@ -3,6 +3,7 @@ import type { BridgeDuelist } from "../../../../engine/worker/messages.ts";
 import {
   fetchIsoBackups,
   type IsoBackupEntry,
+  invalidatePalFrWordingStatusCache,
   type PoolType,
   postRestoreIsoBackup,
   putDuelistPool,
@@ -467,6 +468,7 @@ export const loadBackupsAtom = atom(null, async (_get, set) => {
 
 export const restoreBackupAtom = atom(null, async (_get, set, backupFilename: string) => {
   const result = await postRestoreIsoBackup(backupFilename);
+  invalidatePalFrWordingStatusCache();
   set(backupsAtom, result.backups);
   return result.preRestore;
 });
