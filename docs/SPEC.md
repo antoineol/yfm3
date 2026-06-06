@@ -36,7 +36,7 @@ The optimizer's business metric is the expected value of the highest ATK achieva
 - Engine: deterministic card, fusion, scoring, farming, ranking, and worker logic.
 - Bridge: local Windows/Bun process that reads DuckStation shared memory and active disc data.
 - Extraction: disc image readers for cards, fusions, equips, duelists, rank scoring, deck limits, and artwork.
-- Patching: local bridge-only ISO edits for supported reward/drop/deck workflows. PAL Ghost Drop More Cards reward patch targets are x1, x5, x15, x50, x150, and x1000.
+- Patching: local bridge-only ISO edits for supported reward/drop/deck/wording workflows. PAL Ghost Drop More Cards reward patch targets are x1, x5, x15, x50, x150, and x1000.
 - Agent control: optional bridge WebSocket commands for controlled gameplay automation.
 
 ## Core Terms
@@ -309,6 +309,13 @@ Reward patching:
 - Ghost/FMR loop-limit style patches are compatible with NTSC/RP-style images.
 - PAL French multiplier support uses verified scratch relocation and root save-update helper logic.
 - Patch code must be tested at the arithmetic/byte level; live emulator verification is still required for final confidence.
+
+PAL FR wording patching:
+
+- Wording edits are bridge-only active-ISO writes and currently support only `SLES_039.48`.
+- The v1 editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries.
+- Replacement text is encoded with the PAL FR table and must fit the selected entry's original byte budget; shorter text is padded before the original terminator so downstream entry boundaries do not move.
+- Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the script/data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.
 
 ## Agent Game Control
 

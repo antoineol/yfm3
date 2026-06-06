@@ -25,6 +25,7 @@ import {
   inspectDropX15Patch,
   patchDropX15DiscInPlace,
 } from "./drop-x15-patch.ts";
+import { PAL_CHAR_TABLE } from "./extract/char-tables.ts";
 import { detectActiveExeLayout, detectAttributeMapping } from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
@@ -48,7 +49,7 @@ import {
   NUM_CARDS,
   NUM_DUELISTS,
 } from "./extract/types.ts";
-import { writeU16LeArray } from "./extract/write-iso.ts";
+import { discOffset, writeU16LeArray } from "./extract/write-iso.ts";
 
 export const POOL_SUM = 2048;
 export const ISO_BACKUP_DIR_NAME = ".yfm3-iso-backups";
@@ -56,6 +57,36 @@ export const MAX_ISO_BACKUPS = 20;
 const BACKUP_NAME_RE = /^\d{8}_\d{6}(?:_\d{2})?\.iso$/;
 
 export type PoolType = "deck" | "saPow" | "bcd" | "saTec";
+export type PalFrWordingKind = "cardDescription" | "cardName" | "script";
+
+export type PalFrWordingStatus =
+  | {
+      supported: true;
+      gameSerial: string;
+      discFilename: string;
+      entries: PalFrWordingEntry[];
+    }
+  | {
+      supported: false;
+      gameSerial: string;
+      discFilename: string;
+      reason: string;
+    };
+
+export interface PalFrWordingEntry {
+  id: string;
+  kind: PalFrWordingKind;
+  entryIndex: number;
+  offset: number;
+  byteLength: number;
+  maxByteLength: number;
+  text: string;
+}
+
+export type PutPalFrWordingResult = {
+  backup: IsoBackupEntry | null;
+  entry: PalFrWordingEntry;
+};
 
 const POOL_OFFSETS: Record<PoolType, number> = {
   deck: DUELIST_DECK_OFFSET,
@@ -164,6 +195,304 @@ export function patchDropX15(
   const result = patchDropX15DiscInPlace(discPath, desiredDropCount);
   pruneOldBackups(discPath);
   return { backup, changed: result.changed, status: result.status };
+}
+
+export function getPalFrWordingStatus(discPath: string): PalFrWordingStatus {
+  const { waMrg, serial } = loadDiscData(discPath);
+  const discFilename = basename(discPath);
+  if (serial !== PAL_FR_SERIAL) {
+    return {
+      supported: false,
+      gameSerial: serial,
+      discFilename,
+      reason: "PAL French wording edits are currently supported only for SLES_039.48.",
+    };
+  }
+
+  const entries = extractPalFrWordingEntries(waMrg);
+  return { supported: true, gameSerial: serial, discFilename, entries };
+}
+
+export function patchPalFrWordingEntry(
+  discPath: string,
+  entryId: string,
+  text: string,
+): PutPalFrWordingResult {
+  const status = getPalFrWordingStatus(discPath);
+  if (!status.supported) throw new Error(status.reason);
+
+  const entry = status.entries.find((candidate) => candidate.id === entryId);
+  if (!entry) throw new Error(`PAL FR wording entry not found: ${entryId}`);
+  const encoded = encodePalFrWordingText(text);
+  if (encoded.length > entry.maxByteLength) {
+    throw new Error(
+      `Encoded text is ${encoded.length} bytes; this entry can hold ${entry.maxByteLength}.`,
+    );
+  }
+
+  const backup = backupIso(discPath);
+  const bin = readFileSync(discPath);
+  const fmt = detectDiscFormat(bin);
+  const waMrgEntry = findWaMrgEntry(bin, fmt);
+  const waMrg = readSectors(
+    bin,
+    waMrgEntry.sector,
+    Math.ceil(waMrgEntry.size / SECTOR_DATA_SIZE),
+    fmt,
+  ).subarray(0, waMrgEntry.size);
+  const current = extractPalFrWordingEntries(waMrg).find((candidate) => candidate.id === entryId);
+  if (
+    !current ||
+    current.offset !== entry.offset ||
+    current.maxByteLength !== entry.maxByteLength
+  ) {
+    throw new Error("PAL FR wording entry moved while patching; reload the active ISO and retry.");
+  }
+
+  for (let i = 0; i < entry.maxByteLength; i++) {
+    const value = encoded[i] ?? 0x00;
+    bin[discOffset(waMrgEntry.sector, entry.offset + i, fmt)] = value;
+  }
+  writeFileSync(discPath, bin);
+  pruneOldBackups(discPath);
+
+  return {
+    backup,
+    entry: {
+      ...entry,
+      byteLength: encoded.length,
+      text: decodePalFrWordingText(
+        Buffer.concat([encoded, Buffer.alloc(entry.maxByteLength - encoded.length, 0x00)]),
+        0,
+        entry.maxByteLength,
+      ),
+    },
+  };
+}
+
+const PAL_FR_SERIAL = "SLES_039.48";
+const PAL_FR_LANG_IDX = 1;
+const PAL_FR_DESC_CARD_START = 2;
+const PAL_FR_NAME_SKIP = 1;
+const PAL_FR_MAX_SCRIPT_ENTRY_BYTES = 500;
+
+const PAL_FR_WORDING_CHAR_TABLE: string[] = (() => {
+  const table = [...PAL_CHAR_TABLE];
+  table[0x15] = "!";
+  table[0x2f] = "?";
+  table[0x48] = ":";
+  table[0x55] = "ù";
+  table[0x61] = "ç";
+  table[0x6b] = "4";
+  table[0x6d] = "À";
+  return table;
+})();
+
+const PAL_FR_WORDING_BYTE_BY_CHAR: ReadonlyMap<string, number> = (() => {
+  const map = new Map<string, number>();
+  for (let i = 0; i < PAL_FR_WORDING_CHAR_TABLE.length; i++) {
+    const ch = PAL_FR_WORDING_CHAR_TABLE[i];
+    if (ch && !map.has(ch)) map.set(ch, i);
+  }
+  return map;
+})();
+
+function extractPalFrWordingEntries(waMrg: Buffer): PalFrWordingEntry[] {
+  const textBlock = findAllWaMrgTextBlocks(waMrg)[PAL_FR_LANG_IDX];
+  if (!textBlock) throw new Error("PAL FR text block not found in WA_MRG.MRG.");
+
+  const entries: PalFrWordingEntry[] = [];
+  entries.push(
+    ...extractSequentialPalFrEntries(
+      waMrg,
+      textBlock.descBlockStart,
+      PAL_FR_DESC_CARD_START + NUM_CARDS,
+      (entryIndex, offset) =>
+        entryIndex >= PAL_FR_DESC_CARD_START
+          ? makePalFrWordingEntry("cardDescription", entryIndex, offset, waMrg)
+          : null,
+    ),
+  );
+  entries.push(
+    ...extractPalFrScriptEntries(
+      waMrg,
+      skipWaMrgEntriesForWording(
+        waMrg,
+        textBlock.descBlockStart,
+        PAL_FR_DESC_CARD_START + NUM_CARDS,
+      ),
+      textBlock.nameBlockStart,
+    ),
+  );
+
+  const nameStart = skipWaMrgEntriesForWording(waMrg, textBlock.nameBlockStart, PAL_FR_NAME_SKIP);
+  entries.push(
+    ...extractSequentialPalFrEntries(waMrg, nameStart, NUM_CARDS, (entryIndex, offset) =>
+      makePalFrWordingEntry("cardName", entryIndex, offset, waMrg),
+    ),
+  );
+  return entries;
+}
+
+function extractSequentialPalFrEntries(
+  waMrg: Buffer,
+  start: number,
+  count: number,
+  makeEntry: (entryIndex: number, offset: number) => PalFrWordingEntry | null,
+): PalFrWordingEntry[] {
+  const entries: PalFrWordingEntry[] = [];
+  let pos = start;
+  for (let entryIndex = 0; entryIndex < count && pos < waMrg.length; entryIndex++) {
+    const end = waMrg.indexOf(0xff, pos);
+    if (end === -1 || end - pos > PAL_FR_MAX_SCRIPT_ENTRY_BYTES) break;
+    const entry = makeEntry(entryIndex, pos);
+    if (entry) entries.push(entry);
+    pos = end + 1;
+  }
+  return entries;
+}
+
+function extractPalFrScriptEntries(waMrg: Buffer, start: number, end: number): PalFrWordingEntry[] {
+  const entries: PalFrWordingEntry[] = [];
+  let pos = start;
+  let entryIndex = 0;
+  while (pos < end) {
+    const term = waMrg.indexOf(0xff, pos);
+    if (term === -1 || term >= end) break;
+    const byteLength = term - pos;
+    if (byteLength > 0 && byteLength <= PAL_FR_MAX_SCRIPT_ENTRY_BYTES) {
+      const entry = makePalFrWordingEntry("script", entryIndex, pos, waMrg);
+      if (entry && looksLikeEditablePalFrText(entry.text)) entries.push(entry);
+    }
+    pos = term + 1;
+    entryIndex++;
+  }
+  return entries;
+}
+
+function makePalFrWordingEntry(
+  kind: PalFrWordingKind,
+  entryIndex: number,
+  offset: number,
+  waMrg: Buffer,
+): PalFrWordingEntry | null {
+  const end = waMrg.indexOf(0xff, offset);
+  if (end === -1 || end < offset) return null;
+  const maxByteLength = end - offset;
+  return {
+    id: `pal-fr:${kind}:${offset.toString(16)}`,
+    kind,
+    entryIndex,
+    offset,
+    byteLength: trimRightSpaceBytes(waMrg, offset, end) - offset,
+    maxByteLength,
+    text: decodePalFrWordingText(waMrg, offset, maxByteLength),
+  };
+}
+
+function looksLikeEditablePalFrText(text: string): boolean {
+  const plain = text.replace(/\{[0-9a-f ]+\}/gi, "");
+  return /[A-Za-zÀ-ÿœŒ]/.test(plain) && plain.trim().length >= 3;
+}
+
+function decodePalFrWordingText(buf: Buffer, start: number, byteLength: number): string {
+  let result = "";
+  for (let i = start; i < start + byteLength && i < buf.length; i++) {
+    const b = buf[i] ?? 0;
+    if (b === 0xff) break;
+    if (b === 0xfe) {
+      result += "\n";
+      continue;
+    }
+    if (b === 0xf8 && i + 2 < start + byteLength) {
+      result += `{f8 ${hexByte(buf[i + 1] ?? 0)} ${hexByte(buf[i + 2] ?? 0)}}`;
+      i += 2;
+      continue;
+    }
+    if (b >= 0xf0 || PAL_FR_WORDING_CHAR_TABLE[b] === undefined) {
+      result += `{${hexByte(b)}}`;
+      continue;
+    }
+    result += PAL_FR_WORDING_CHAR_TABLE[b];
+  }
+  return result.trimEnd();
+}
+
+function encodePalFrWordingText(text: string): Buffer {
+  const bytes: number[] = [];
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/’/g, "'")
+    .replace(/…/g, "...");
+  for (let i = 0; i < normalized.length; i++) {
+    const ch = normalized[i] ?? "";
+    if (ch === "\n") {
+      bytes.push(0xfe);
+      continue;
+    }
+    if (ch === "{") {
+      const close = normalized.indexOf("}", i + 1);
+      if (close !== -1) {
+        const token = normalized.slice(i + 1, close).trim();
+        const tokenBytes = encodePalFrWordingToken(token);
+        if (tokenBytes) {
+          bytes.push(...tokenBytes);
+          i = close;
+          continue;
+        }
+      }
+    }
+    const byte = PAL_FR_WORDING_BYTE_BY_CHAR.get(ch);
+    if (byte === undefined) {
+      throw new Error(`Unsupported PAL FR character: ${ch}`);
+    }
+    bytes.push(byte);
+  }
+  return Buffer.from(bytes);
+}
+
+function encodePalFrWordingToken(token: string): number[] | null {
+  const parts = token.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    const byte = parseHexByte(parts[0] ?? "");
+    if (byte == null || byte === 0xff) return null;
+    return [byte];
+  }
+  if (parts.length === 3 && parts[0]?.toLowerCase() === "f8") {
+    const second = parseHexByte(parts[1] ?? "");
+    const third = parseHexByte(parts[2] ?? "");
+    if (second == null || third == null) return null;
+    return [0xf8, second, third];
+  }
+  return null;
+}
+
+function parseHexByte(value: string): number | null {
+  const normalized = value.toLowerCase().replace(/^0x/, "");
+  if (!/^[0-9a-f]{1,2}$/.test(normalized)) return null;
+  const byte = Number.parseInt(normalized, 16);
+  return byte >= 0 && byte <= 0xff ? byte : null;
+}
+
+function skipWaMrgEntriesForWording(buf: Buffer, offset: number, count: number): number {
+  let pos = offset;
+  for (let i = 0; i < count; i++) {
+    const end = buf.indexOf(0xff, pos);
+    if (end === -1) return pos;
+    pos = end + 1;
+  }
+  return pos;
+}
+
+function trimRightSpaceBytes(buf: Buffer, start: number, end: number): number {
+  let pos = end;
+  while (pos > start && buf[pos - 1] === 0x00) pos--;
+  return pos;
+}
+
+function hexByte(value: number): string {
+  return value.toString(16).padStart(2, "0");
 }
 
 function validateWeights(weights: readonly number[]): void {

@@ -35,11 +35,14 @@ import {
 } from "./input.ts";
 import {
   getDropX15PatchStatus,
+  getPalFrWordingStatus,
   isIsoLockedError,
   isPoolType,
   listIsoBackups,
+  type PalFrWordingEntry,
   patchDropX15,
   patchDuelistPool,
+  patchPalFrWordingEntry,
   reReadDuelists,
   restoreIsoBackup,
 } from "./iso-edit.ts";
@@ -866,6 +869,58 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     return methodNotAllowed();
   }
 
+  if (pathname === "/api/active-iso/pal-fr-wording") {
+    if (req.method === "GET") {
+      return jsonResponse(getPalFrWordingStatus(discPath));
+    }
+    if (req.method === "PUT") {
+      try {
+        const body = (await req.json()) as { entryId?: string; text?: string };
+        if (typeof body.entryId !== "string" || typeof body.text !== "string") {
+          return jsonResponse({ ok: false, error: "invalid_body" }, { status: 400 });
+        }
+        const entryId = body.entryId;
+        const text = body.text;
+
+        const applyPatch = () => patchPalFrWordingEntry(discPath, entryId, text);
+        let result: ReturnType<typeof patchPalFrWordingEntry>;
+        let closedGame = false;
+        try {
+          result = applyPatch();
+        } catch (err: unknown) {
+          if (!isIsoLockedError(err, discPath)) throw err;
+          console.log("[iso] PUT pal-fr-wording: ISO locked; closing game in DuckStation");
+          const closeResult = await closeDuckStationGameAndWaitForUnlock(discPath);
+          if (!closeResult.ok) {
+            console.warn(`[iso] close-game fallback failed: ${closeResult.reason}`);
+            return jsonResponse(
+              { ok: false, error: "iso_locked", reason: closeResult.reason },
+              { status: 409 },
+            );
+          }
+          result = applyPatch();
+          closedGame = true;
+        }
+
+        currentGameData = updateCurrentGameDataWording(currentGameData, result.entry);
+        persistGameDataCache(currentGameData);
+        broadcastGameData(currentGameData);
+        console.log(
+          `[iso] PUT pal-fr-wording entry=${result.entry.id}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
+        );
+        return jsonResponse({ ok: true, ...result, closedGame });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[iso] PUT pal-fr-wording failed: ${message}`);
+        return jsonResponse(
+          { ok: false, error: "pal_fr_wording_failed", reason: message },
+          { status: 500 },
+        );
+      }
+    }
+    return methodNotAllowed();
+  }
+
   if (pathname === "/api/active-iso/backups") {
     if (req.method !== "GET") return methodNotAllowed();
     return jsonResponse(listIsoBackups(discPath));
@@ -893,6 +948,19 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
   }
 
   return notFound();
+}
+
+function updateCurrentGameDataWording(data: GameData, entry: PalFrWordingEntry): GameData {
+  if (entry.kind !== "cardDescription" && entry.kind !== "cardName") return data;
+  const cardIndex = entry.kind === "cardDescription" ? entry.entryIndex - 2 : entry.entryIndex;
+  if (cardIndex < 0 || cardIndex >= data.cards.length) return data;
+
+  const cards = data.cards.map((card, index) => {
+    if (index !== cardIndex) return card;
+    if (entry.kind === "cardDescription") return { ...card, description: entry.text };
+    return { ...card, name: entry.text };
+  });
+  return { ...data, cards };
 }
 
 const server = Bun.serve({

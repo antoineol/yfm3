@@ -43,6 +43,32 @@ export type DropX15Status =
       reason: string;
     };
 
+export type PalFrWordingKind = "cardDescription" | "cardName" | "script";
+
+export type PalFrWordingEntry = {
+  id: string;
+  kind: PalFrWordingKind;
+  entryIndex: number;
+  offset: number;
+  byteLength: number;
+  maxByteLength: number;
+  text: string;
+};
+
+export type PalFrWordingStatus =
+  | {
+      supported: true;
+      gameSerial: string;
+      discFilename: string;
+      entries: PalFrWordingEntry[];
+    }
+  | {
+      supported: false;
+      gameSerial: string;
+      discFilename: string;
+      reason: string;
+    };
+
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
   return (await res.json()) as T;
@@ -117,6 +143,36 @@ export async function putDropX15Patch(cardDropCount: number): Promise<PutDropX15
   });
   if (res.status === 409) return (await res.json()) as PutDropX15Result;
   return parseJson<PutDropX15Result>(res);
+}
+
+export async function fetchPalFrWordingStatus(): Promise<PalFrWordingStatus> {
+  return parseJson(await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/pal-fr-wording`));
+}
+
+export type PutPalFrWordingResult =
+  | {
+      ok: true;
+      backup: IsoBackupEntry | null;
+      closedGame: boolean;
+      entry: PalFrWordingEntry;
+    }
+  | {
+      ok: false;
+      error: string;
+      reason?: string;
+    };
+
+export async function putPalFrWordingEntry(
+  entryId: string,
+  text: string,
+): Promise<PutPalFrWordingResult> {
+  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/pal-fr-wording`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entryId, text }),
+  });
+  if (res.status === 409) return (await res.json()) as PutPalFrWordingResult;
+  return parseJson<PutPalFrWordingResult>(res);
 }
 
 export async function fetchIsoBackups(): Promise<IsoBackupEntry[]> {
