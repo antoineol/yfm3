@@ -313,9 +313,11 @@ Reward patching:
 PAL FR wording patching:
 
 - Wording edits are bridge-only active-ISO writes and currently support only `SLES_039.48`.
-- The v1 editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries.
+- The PAL FR wording editor is a dedicated dialog from the Edit toolbar next to ISO backups.
+- The editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries with one global save. One save creates one ISO backup and writes every changed entry.
 - Replacement text is encoded with the PAL FR table and must fit the selected entry's original byte budget; shorter text is padded before the original terminator so downstream entry boundaries do not move.
 - Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the script/data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.
+- PAL FR saves also apply the verified live text renderer glyph-table fix for `œ/Œ`: the source card/script bytes are already correct, but the renderer resolves the ligature bytes through `DAT_801d9000` to swapped glyph ids in the executable metadata table.
 
 ## Agent Game Control
 

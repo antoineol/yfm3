@@ -55,11 +55,25 @@ export type PalFrWordingEntry = {
   text: string;
 };
 
+export type PalFrGlyphRenderingPatchStatus = {
+  applied: boolean;
+  changed: boolean;
+  targets: {
+    label: string;
+    rawByte: number;
+    tableRamAddress: number;
+    fileOffset: number;
+    currentWord: number;
+    expectedWord: number;
+  }[];
+};
+
 export type PalFrWordingStatus =
   | {
       supported: true;
       gameSerial: string;
       discFilename: string;
+      glyphRenderingPatch: PalFrGlyphRenderingPatchStatus;
       entries: PalFrWordingEntry[];
     }
   | {
@@ -154,7 +168,9 @@ export type PutPalFrWordingResult =
       ok: true;
       backup: IsoBackupEntry | null;
       closedGame: boolean;
-      entry: PalFrWordingEntry;
+      entry?: PalFrWordingEntry;
+      entries: PalFrWordingEntry[];
+      glyphRenderingPatch: PalFrGlyphRenderingPatchStatus;
     }
   | {
       ok: false;
@@ -170,6 +186,18 @@ export async function putPalFrWordingEntry(
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entryId, text }),
+  });
+  if (res.status === 409) return (await res.json()) as PutPalFrWordingResult;
+  return parseJson<PutPalFrWordingResult>(res);
+}
+
+export async function putPalFrWordingEntries(
+  changes: { entryId: string; text: string }[],
+): Promise<PutPalFrWordingResult> {
+  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/pal-fr-wording`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ changes }),
   });
   if (res.status === 409) return (await res.json()) as PutPalFrWordingResult;
   return parseJson<PutPalFrWordingResult>(res);

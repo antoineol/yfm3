@@ -42,7 +42,7 @@ import {
   type PalFrWordingEntry,
   patchDropX15,
   patchDuelistPool,
-  patchPalFrWordingEntry,
+  patchPalFrWordingEntries,
   reReadDuelists,
   restoreIsoBackup,
 } from "./iso-edit.ts";
@@ -875,15 +875,28 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     }
     if (req.method === "PUT") {
       try {
-        const body = (await req.json()) as { entryId?: string; text?: string };
-        if (typeof body.entryId !== "string" || typeof body.text !== "string") {
+        const body = (await req.json()) as {
+          changes?: { entryId?: string; text?: string }[];
+          entryId?: string;
+          text?: string;
+        };
+        const changes = Array.isArray(body.changes)
+          ? body.changes
+          : [{ entryId: body.entryId, text: body.text }];
+        if (
+          changes.some(
+            (change) => typeof change.entryId !== "string" || typeof change.text !== "string",
+          )
+        ) {
           return jsonResponse({ ok: false, error: "invalid_body" }, { status: 400 });
         }
-        const entryId = body.entryId;
-        const text = body.text;
 
-        const applyPatch = () => patchPalFrWordingEntry(discPath, entryId, text);
-        let result: ReturnType<typeof patchPalFrWordingEntry>;
+        const normalizedChanges = changes.map((change) => ({
+          entryId: change.entryId as string,
+          text: change.text as string,
+        }));
+        const applyPatch = () => patchPalFrWordingEntries(discPath, normalizedChanges);
+        let result: ReturnType<typeof patchPalFrWordingEntries>;
         let closedGame = false;
         try {
           result = applyPatch();
@@ -902,13 +915,18 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
           closedGame = true;
         }
 
-        currentGameData = updateCurrentGameDataWording(currentGameData, result.entry);
+        currentGameData = updateCurrentGameDataWording(currentGameData, result.entries);
         persistGameDataCache(currentGameData);
         broadcastGameData(currentGameData);
         console.log(
-          `[iso] PUT pal-fr-wording entry=${result.entry.id}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
+          `[iso] PUT pal-fr-wording entries=${normalizedChanges.length} glyphPatch=${result.glyphRenderingPatch.changed ? "applied" : "unchanged"}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
         );
-        return jsonResponse({ ok: true, ...result, closedGame });
+        const singleEntryId = body.entryId;
+        const singleEntry =
+          typeof singleEntryId === "string"
+            ? result.entries.find((entry) => entry.id === singleEntryId)
+            : undefined;
+        return jsonResponse({ ok: true, ...result, entry: singleEntry, closedGame });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[iso] PUT pal-fr-wording failed: ${message}`);
@@ -950,16 +968,26 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
   return notFound();
 }
 
-function updateCurrentGameDataWording(data: GameData, entry: PalFrWordingEntry): GameData {
-  if (entry.kind !== "cardDescription" && entry.kind !== "cardName") return data;
-  const cardIndex = entry.kind === "cardDescription" ? entry.entryIndex - 2 : entry.entryIndex;
-  if (cardIndex < 0 || cardIndex >= data.cards.length) return data;
+function updateCurrentGameDataWording(
+  data: GameData,
+  entries: readonly PalFrWordingEntry[],
+): GameData {
+  const byCard = new Map<
+    number,
+    Partial<Pick<GameData["cards"][number], "description" | "name">>
+  >();
+  for (const entry of entries) {
+    if (entry.kind !== "cardDescription" && entry.kind !== "cardName") continue;
+    const cardIndex = entry.kind === "cardDescription" ? entry.entryIndex - 2 : entry.entryIndex;
+    if (cardIndex < 0 || cardIndex >= data.cards.length) continue;
+    const current = byCard.get(cardIndex) ?? {};
+    if (entry.kind === "cardDescription") current.description = entry.text;
+    if (entry.kind === "cardName") current.name = entry.text;
+    byCard.set(cardIndex, current);
+  }
+  if (byCard.size === 0) return data;
 
-  const cards = data.cards.map((card, index) => {
-    if (index !== cardIndex) return card;
-    if (entry.kind === "cardDescription") return { ...card, description: entry.text };
-    return { ...card, name: entry.text };
-  });
+  const cards = data.cards.map((card, index) => ({ ...card, ...byCard.get(index) }));
   return { ...data, cards };
 }
 

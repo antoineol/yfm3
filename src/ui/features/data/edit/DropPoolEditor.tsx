@@ -19,6 +19,7 @@ import {
 import { DropPoolSummary } from "./DropPoolSummary.tsx";
 import { DropPoolTable } from "./DropPoolTable.tsx";
 import { IsoBackupsDrawerButton } from "./IsoBackupsDrawer.tsx";
+import { PalFrWordingDialogButton } from "./PalFrWordingPanel.tsx";
 
 const VIEW_ORDER: readonly EditView[] = ["drops", "deck"];
 
@@ -133,6 +134,7 @@ function PickerBar({
       </div>
       <div className="ml-auto flex items-center gap-2">
         <GlobalSaveRevert duelists={duelists} />
+        <PalFrWordingDialogButton />
         <IsoBackupsDrawerButton />
       </div>
     </div>

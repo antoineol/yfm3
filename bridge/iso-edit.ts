@@ -26,11 +26,15 @@ import {
   patchDropX15DiscInPlace,
 } from "./drop-x15-patch.ts";
 import { PAL_CHAR_TABLE } from "./extract/char-tables.ts";
-import { detectActiveExeLayout, detectAttributeMapping } from "./extract/detect-exe.ts";
+import {
+  detectActiveExeLayout,
+  detectAttributeMapping,
+  parsePsxExeHeader,
+} from "./extract/detect-exe.ts";
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
 import { extractDuelists } from "./extract/extract-duelists.ts";
-import { langIdxForSerial, loadDiscData } from "./extract/index.ts";
+import { langIdxForSerial, loadDiscData, parseBootExeName } from "./extract/index.ts";
 import {
   detectDiscFormat,
   PVD_SECTOR,
@@ -64,6 +68,7 @@ export type PalFrWordingStatus =
       supported: true;
       gameSerial: string;
       discFilename: string;
+      glyphRenderingPatch: PalFrGlyphRenderingPatchStatus;
       entries: PalFrWordingEntry[];
     }
   | {
@@ -86,7 +91,35 @@ export interface PalFrWordingEntry {
 export type PutPalFrWordingResult = {
   backup: IsoBackupEntry | null;
   entry: PalFrWordingEntry;
+  entries: PalFrWordingEntry[];
+  glyphRenderingPatch: PalFrGlyphRenderingPatchStatus;
 };
+
+export type PutPalFrWordingBatchResult = {
+  backup: IsoBackupEntry | null;
+  entries: PalFrWordingEntry[];
+  glyphRenderingPatch: PalFrGlyphRenderingPatchStatus;
+};
+
+export interface PalFrWordingChange {
+  entryId: string;
+  text: string;
+}
+
+export interface PalFrGlyphRenderingPatchStatus {
+  applied: boolean;
+  changed: boolean;
+  targets: PalFrGlyphRenderingPatchTarget[];
+}
+
+export interface PalFrGlyphRenderingPatchTarget {
+  label: string;
+  rawByte: number;
+  tableRamAddress: number;
+  fileOffset: number;
+  currentWord: number;
+  expectedWord: number;
+}
 
 const POOL_OFFSETS: Record<PoolType, number> = {
   deck: DUELIST_DECK_OFFSET,
@@ -198,7 +231,7 @@ export function patchDropX15(
 }
 
 export function getPalFrWordingStatus(discPath: string): PalFrWordingStatus {
-  const { waMrg, serial } = loadDiscData(discPath);
+  const { slus, waMrg, serial } = loadDiscData(discPath);
   const discFilename = basename(discPath);
   if (serial !== PAL_FR_SERIAL) {
     return {
@@ -210,7 +243,13 @@ export function getPalFrWordingStatus(discPath: string): PalFrWordingStatus {
   }
 
   const entries = extractPalFrWordingEntries(waMrg);
-  return { supported: true, gameSerial: serial, discFilename, entries };
+  return {
+    supported: true,
+    gameSerial: serial,
+    discFilename,
+    glyphRenderingPatch: inspectPalFrGlyphRenderingPatch(slus),
+    entries,
+  };
 }
 
 export function patchPalFrWordingEntry(
@@ -218,54 +257,91 @@ export function patchPalFrWordingEntry(
   entryId: string,
   text: string,
 ): PutPalFrWordingResult {
+  const result = patchPalFrWordingEntries(discPath, [{ entryId, text }]);
+  const entry = result.entries.find((candidate) => candidate.id === entryId);
+  if (!entry) throw new Error(`PAL FR wording entry not found after patch: ${entryId}`);
+  return { ...result, entry };
+}
+
+export function patchPalFrWordingEntries(
+  discPath: string,
+  changes: readonly PalFrWordingChange[],
+): PutPalFrWordingBatchResult {
   const status = getPalFrWordingStatus(discPath);
   if (!status.supported) throw new Error(status.reason);
 
-  const entry = status.entries.find((candidate) => candidate.id === entryId);
-  if (!entry) throw new Error(`PAL FR wording entry not found: ${entryId}`);
-  const encoded = encodePalFrWordingText(text);
-  if (encoded.length > entry.maxByteLength) {
-    throw new Error(
-      `Encoded text is ${encoded.length} bytes; this entry can hold ${entry.maxByteLength}.`,
-    );
+  const pending = validatePalFrWordingChanges(status.entries, changes);
+  const needsGlyphPatch = !status.glyphRenderingPatch.applied;
+  if (pending.length === 0 && !needsGlyphPatch) {
+    return {
+      backup: null,
+      entries: status.entries,
+      glyphRenderingPatch: status.glyphRenderingPatch,
+    };
   }
 
   const backup = backupIso(discPath);
   const bin = readFileSync(discPath);
   const fmt = detectDiscFormat(bin);
   const waMrgEntry = findWaMrgEntry(bin, fmt);
+  const exeEntry = findExecutableEntry(bin, fmt);
   const waMrg = readSectors(
     bin,
     waMrgEntry.sector,
     Math.ceil(waMrgEntry.size / SECTOR_DATA_SIZE),
     fmt,
   ).subarray(0, waMrgEntry.size);
-  const current = extractPalFrWordingEntries(waMrg).find((candidate) => candidate.id === entryId);
-  if (
-    !current ||
-    current.offset !== entry.offset ||
-    current.maxByteLength !== entry.maxByteLength
-  ) {
-    throw new Error("PAL FR wording entry moved while patching; reload the active ISO and retry.");
+  const currentEntries = extractPalFrWordingEntries(waMrg);
+  const updatedEntries = [...status.entries];
+
+  for (const change of pending) {
+    const current = currentEntries.find((candidate) => candidate.id === change.entry.id);
+    if (
+      !current ||
+      current.offset !== change.entry.offset ||
+      current.maxByteLength !== change.entry.maxByteLength
+    ) {
+      throw new Error(
+        "PAL FR wording entry moved while patching; reload the active ISO and retry.",
+      );
+    }
+
+    for (let i = 0; i < change.entry.maxByteLength; i++) {
+      const value = change.encoded[i] ?? 0x00;
+      bin[discOffset(waMrgEntry.sector, change.entry.offset + i, fmt)] = value;
+    }
+
+    const updated = {
+      ...change.entry,
+      byteLength: change.encoded.length,
+      text: decodePalFrWordingText(
+        Buffer.concat([
+          change.encoded,
+          Buffer.alloc(change.entry.maxByteLength - change.encoded.length, 0x00),
+        ]),
+        0,
+        change.entry.maxByteLength,
+      ),
+    };
+    const index = updatedEntries.findIndex((entry) => entry.id === updated.id);
+    if (index !== -1) updatedEntries[index] = updated;
   }
 
-  for (let i = 0; i < entry.maxByteLength; i++) {
-    const value = encoded[i] ?? 0x00;
-    bin[discOffset(waMrgEntry.sector, entry.offset + i, fmt)] = value;
-  }
+  patchPalFrGlyphRendering(bin, exeEntry, fmt, status.glyphRenderingPatch.targets);
   writeFileSync(discPath, bin);
   pruneOldBackups(discPath);
 
+  const patchedTargets = status.glyphRenderingPatch.targets.map((target) => ({
+    ...target,
+    currentWord: target.expectedWord,
+  }));
   return {
     backup,
-    entry: {
-      ...entry,
-      byteLength: encoded.length,
-      text: decodePalFrWordingText(
-        Buffer.concat([encoded, Buffer.alloc(entry.maxByteLength - encoded.length, 0x00)]),
-        0,
-        entry.maxByteLength,
-      ),
+    entries: updatedEntries,
+    glyphRenderingPatch: {
+      applied: true,
+      changed: needsGlyphPatch,
+      targets: patchedTargets,
     },
   };
 }
@@ -275,6 +351,30 @@ const PAL_FR_LANG_IDX = 1;
 const PAL_FR_DESC_CARD_START = 2;
 const PAL_FR_NAME_SKIP = 1;
 const PAL_FR_MAX_SCRIPT_ENTRY_BYTES = 500;
+const PAL_FR_GLYPH_TABLE_RAM = 0x801d9000;
+const PAL_FR_GLYPH_ID_MASK = 0x0ff00000;
+const PAL_FR_GLYPH_RENDERING_FIXES = [
+  {
+    label: "œ",
+    rawByte: 0x3f,
+    expectedGlyphId: 0x75,
+  },
+  {
+    label: "à",
+    rawByte: 0x3e,
+    expectedGlyphId: 0x74,
+  },
+  {
+    label: "Œ",
+    rawByte: 0x69,
+    expectedGlyphId: 0x5a,
+  },
+  {
+    label: "À",
+    rawByte: 0x6d,
+    expectedGlyphId: 0x59,
+  },
+] as const;
 
 const PAL_FR_WORDING_CHAR_TABLE: string[] = (() => {
   const table = [...PAL_CHAR_TABLE];
@@ -296,6 +396,76 @@ const PAL_FR_WORDING_BYTE_BY_CHAR: ReadonlyMap<string, number> = (() => {
   }
   return map;
 })();
+
+function validatePalFrWordingChanges(
+  entries: readonly PalFrWordingEntry[],
+  changes: readonly PalFrWordingChange[],
+): { entry: PalFrWordingEntry; encoded: Buffer }[] {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const seen = new Set<string>();
+  return changes.map((change) => {
+    if (seen.has(change.entryId)) {
+      throw new Error(`Duplicate PAL FR wording entry in save request: ${change.entryId}`);
+    }
+    seen.add(change.entryId);
+
+    const entry = byId.get(change.entryId);
+    if (!entry) throw new Error(`PAL FR wording entry not found: ${change.entryId}`);
+    const encoded = encodePalFrWordingText(change.text);
+    if (encoded.length > entry.maxByteLength) {
+      throw new Error(
+        `Encoded text is ${encoded.length} bytes; this entry can hold ${entry.maxByteLength}.`,
+      );
+    }
+    return { entry, encoded };
+  });
+}
+
+function inspectPalFrGlyphRenderingPatch(slus: Buffer): PalFrGlyphRenderingPatchStatus {
+  const header = parsePsxExeHeader(slus);
+  const targets = PAL_FR_GLYPH_RENDERING_FIXES.map((fix) => {
+    const fileOffset = psxRamToExeFileOffset(PAL_FR_GLYPH_TABLE_RAM + fix.rawByte * 4, header);
+    const currentWord = slus.readUInt32LE(fileOffset);
+    const expectedWord =
+      ((currentWord & ~PAL_FR_GLYPH_ID_MASK) | (fix.expectedGlyphId << 20)) >>> 0;
+    return {
+      label: fix.label,
+      rawByte: fix.rawByte,
+      tableRamAddress: PAL_FR_GLYPH_TABLE_RAM + fix.rawByte * 4,
+      fileOffset,
+      currentWord,
+      expectedWord,
+    };
+  });
+  return {
+    applied: targets.every((target) => target.currentWord === target.expectedWord),
+    changed: false,
+    targets,
+  };
+}
+
+function patchPalFrGlyphRendering(
+  bin: Buffer,
+  exeEntry: IsoFile,
+  fmt: ReturnType<typeof detectDiscFormat>,
+  targets: readonly PalFrGlyphRenderingPatchTarget[],
+): void {
+  for (const target of targets) {
+    if (target.currentWord === target.expectedWord) continue;
+    const offset = target.fileOffset;
+    writeU32LeToIso(bin, exeEntry.sector, offset, target.expectedWord, fmt);
+  }
+}
+
+function psxRamToExeFileOffset(ramAddress: number, header: ReturnType<typeof parsePsxExeHeader>) {
+  const fileOffset = 0x800 + (ramAddress - header.loadAddr);
+  if (fileOffset < 0x800 || fileOffset + 4 > 0x800 + header.textSize) {
+    throw new Error(
+      `PAL FR glyph table address 0x${ramAddress.toString(16)} is outside the executable payload.`,
+    );
+  }
+  return fileOffset;
+}
 
 function extractPalFrWordingEntries(waMrg: Buffer): PalFrWordingEntry[] {
   const textBlock = findAllWaMrgTextBlocks(waMrg)[PAL_FR_LANG_IDX];
@@ -544,6 +714,32 @@ function findWaMrgEntry(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): 
   throw new Error("WA_MRG.MRG not found in disc image");
 }
 
+function findExecutableEntry(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): IsoFile {
+  const rootFiles = readRootFiles(bin, fmt);
+  const standard = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
+  if (standard) return standard;
+
+  const cnfEntry = rootFiles.find((f) => f.name === "SYSTEM.CNF");
+  if (!cnfEntry) {
+    throw new Error(
+      `No PS1 executable found in disc image (files: ${rootFiles.map((f) => f.name).join(", ")})`,
+    );
+  }
+  const cnfData = readSectors(
+    bin,
+    cnfEntry.sector,
+    Math.ceil(cnfEntry.size / SECTOR_DATA_SIZE),
+    fmt,
+  )
+    .subarray(0, cnfEntry.size)
+    .toString("ascii");
+  const bootName = parseBootExeName(cnfData);
+  if (!bootName) throw new Error("Could not parse BOOT entry from SYSTEM.CNF");
+  const exeEntry = rootFiles.find((f) => f.name === bootName);
+  if (!exeEntry) throw new Error(`Boot executable '${bootName}' not found on disc`);
+  return exeEntry;
+}
+
 function readRootFiles(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): IsoFile[] {
   const pvd = readSector(bin, PVD_SECTOR, fmt);
   const root = pvd.subarray(156, 190);
@@ -554,6 +750,19 @@ function readRootFiles(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): I
     fmt,
   );
   return parseDirectory(rootData, root.readUInt32LE(10));
+}
+
+function writeU32LeToIso(
+  bin: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  value: number,
+  fmt: ReturnType<typeof detectDiscFormat>,
+): void {
+  bin[discOffset(fileStartSector, fileOffset, fmt)] = value & 0xff;
+  bin[discOffset(fileStartSector, fileOffset + 1, fmt)] = (value >>> 8) & 0xff;
+  bin[discOffset(fileStartSector, fileOffset + 2, fmt)] = (value >>> 16) & 0xff;
+  bin[discOffset(fileStartSector, fileOffset + 3, fmt)] = (value >>> 24) & 0xff;
 }
 
 function traverse(

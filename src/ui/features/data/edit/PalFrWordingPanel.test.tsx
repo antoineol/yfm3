@@ -14,27 +14,27 @@ vi.mock("./bridge-client.ts", () => ({
   fetchPalFrWordingStatus: vi.fn(),
   postRestoreIsoBackup: vi.fn(),
   putDuelistPool: vi.fn(),
-  putPalFrWordingEntry: vi.fn(),
+  putPalFrWordingEntries: vi.fn(),
 }));
 
-const { fetchIsoBackups, fetchPalFrWordingStatus, putPalFrWordingEntry } = await import(
+const { fetchIsoBackups, fetchPalFrWordingStatus, putPalFrWordingEntries } = await import(
   "./bridge-client.ts"
 );
-const { PalFrWordingPanel } = await import("./PalFrWordingPanel.tsx");
+const { PalFrWordingDialogButton } = await import("./PalFrWordingPanel.tsx");
 
 const fetchIsoBackupsMock = fetchIsoBackups as unknown as ReturnType<typeof vi.fn>;
 const fetchPalFrWordingStatusMock = fetchPalFrWordingStatus as unknown as ReturnType<typeof vi.fn>;
-const putPalFrWordingEntryMock = putPalFrWordingEntry as unknown as ReturnType<typeof vi.fn>;
+const putPalFrWordingEntriesMock = putPalFrWordingEntries as unknown as ReturnType<typeof vi.fn>;
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   fetchIsoBackupsMock.mockClear();
   fetchPalFrWordingStatusMock.mockReset();
-  putPalFrWordingEntryMock.mockReset();
+  putPalFrWordingEntriesMock.mockReset();
 });
 
-describe("PalFrWordingPanel", () => {
+describe("PalFrWordingDialogButton", () => {
   test("shows unsupported state for non-French discs", async () => {
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: false,
@@ -43,18 +43,19 @@ describe("PalFrWordingPanel", () => {
       reason: "PAL French wording edits are currently supported only for SLES_039.48.",
     });
 
-    render(<PalFrWordingPanel />);
+    render(<PalFrWordingDialogButton />);
+    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
 
-    expect(await screen.findByText("Unsupported")).toBeDefined();
-    expect(screen.getByText(/SLES_039\.48/)).toBeDefined();
+    expect(await screen.findByText(/SLES_039\.48/)).toBeDefined();
   });
 
-  test("edits one entry and refreshes ISO backups", async () => {
+  test("saves multiple entries and refreshes ISO backups", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: true,
       gameSerial: "SLES_039.48",
       discFilename: "PAL-FR.bin",
+      glyphRenderingPatch: glyphPatch(true, false),
       entries: [
         entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Si vous persitez", 24),
         entry(
@@ -67,7 +68,7 @@ describe("PalFrWordingPanel", () => {
         ),
       ],
     });
-    putPalFrWordingEntryMock.mockResolvedValue({
+    putPalFrWordingEntriesMock.mockResolvedValue({
       ok: true,
       backup: {
         filename: "20260606_120000.iso",
@@ -75,41 +76,63 @@ describe("PalFrWordingPanel", () => {
         sizeBytes: 1,
       },
       closedGame: false,
-      entry: entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Si vous persistez", 24),
+      glyphRenderingPatch: glyphPatch(true, false),
+      entries: [
+        entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Si vous persistez", 24),
+        entry(
+          "pal-fr:cardDescription:cfef00",
+          "cardDescription",
+          6,
+          0xcfef00,
+          "Ressemble à une statue",
+          24,
+        ),
+      ],
     });
 
-    render(<PalFrWordingPanel />);
+    render(<PalFrWordingDialogButton />);
+    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
 
     expect(await screen.findByText(/PAL-FR\.bin/)).toBeDefined();
-    const editor = screen.getByRole("textbox", { name: "PAL FR wording text" });
-    fireEvent.change(editor, { target: { value: "Si vous persistez" } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:script:d0bc1c" }),
+      { target: { value: "Si vous persistez" } },
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:cardDescription:cfef00" }),
+      { target: { value: "Ressemble à une statue" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save · 2" }));
 
     await waitFor(() =>
-      expect(putPalFrWordingEntryMock).toHaveBeenCalledWith(
-        "pal-fr:script:d0bc1c",
-        "Si vous persistez",
-      ),
+      expect(putPalFrWordingEntriesMock).toHaveBeenCalledWith([
+        { entryId: "pal-fr:script:d0bc1c", text: "Si vous persistez" },
+        { entryId: "pal-fr:cardDescription:cfef00", text: "Ressemble à une statue" },
+      ]),
     );
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
     expect(screen.getByDisplayValue("Si vous persistez")).toBeDefined();
   });
 
-  test("disables apply when the encoded text exceeds the entry budget", async () => {
+  test("disables global save when any changed row exceeds its entry budget", async () => {
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: true,
       gameSerial: "SLES_039.48",
       discFilename: "PAL-FR.bin",
+      glyphRenderingPatch: glyphPatch(true, false),
       entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 5)],
     });
 
-    render(<PalFrWordingPanel />);
+    render(<PalFrWordingDialogButton />);
+    fireEvent.click(screen.getByRole("button", { name: "PAL FR wording" }));
 
-    const editor = await screen.findByRole("textbox", { name: "PAL FR wording text" });
+    const editor = await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:script:d0bc1c",
+    });
     fireEvent.change(editor, { target: { value: "Beaucoup trop long" } });
 
-    expect(screen.getByText("18/5 bytes")).toBeDefined();
-    expect((screen.getByRole("button", { name: "Apply" }) as HTMLButtonElement).disabled).toBe(
+    expect(screen.getByText("18/5")).toBeDefined();
+    expect((screen.getByRole("button", { name: "Save · 1" }) as HTMLButtonElement).disabled).toBe(
       true,
     );
   });
@@ -131,5 +154,13 @@ function entry(
     byteLength: text.length,
     maxByteLength,
     text,
+  };
+}
+
+function glyphPatch(applied: boolean, changed: boolean) {
+  return {
+    applied,
+    changed,
+    targets: [],
   };
 }
