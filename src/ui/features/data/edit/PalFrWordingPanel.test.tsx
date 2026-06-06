@@ -114,17 +114,30 @@ describe("PalFrWordingPage", () => {
       ],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit/1" cacheKey="pal-fr:disc-a" />);
-
-    await screen.findByRole("textbox", { name: "PAL FR wording text pal-fr:script:d0bc1c" });
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:script:d0bc1c" }),
-      { target: { value: "Si vous persistez" } },
+    render(
+      <PalFrWordingPage
+        backHref="#data/edit/1"
+        cacheKey="pal-fr:disc-a"
+        cards={[card(5, "Oil de Feu", "Monster", 800, 600), card(6, "Dragon", "Dragon", 1200, 800)]}
+      />,
     );
+
+    expect(screen.queryByText("Offset")).toBeNull();
+    expect(screen.queryByText("Type")).toBeNull();
+    expect(await screen.findByText("#5 · Oil de Feu · Monster")).toBeDefined();
     fireEvent.change(
       screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:cardDescription:cfef00" }),
       { target: { value: "Ressemble à une statue" } },
     );
+    expect(screen.getByRole("tab", { name: "Card descriptions (1)" })).toBeDefined();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Dialogs" }));
+    const scriptEditor = await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:script:d0bc1c",
+    });
+    fireEvent.change(scriptEditor, { target: { value: "Si vous persistez" } });
+    expect(screen.getByRole("tab", { name: "Dialogs (1)" })).toBeDefined();
+
     fireEvent.click(screen.getByRole("button", { name: "Save · 2" }));
 
     await waitFor(() =>
@@ -238,5 +251,24 @@ function glyphPatch(applied: boolean, changed: boolean) {
     applied,
     changed,
     targets: [],
+  };
+}
+
+function card(id: number, name: string, type: string, atk: number, def: number) {
+  return {
+    id,
+    name,
+    atk,
+    def,
+    gs1: "",
+    gs2: "",
+    type,
+    color: "",
+    labelColor: "",
+    level: 1,
+    attribute: "",
+    description: "",
+    starchipCost: 0,
+    password: "",
   };
 }

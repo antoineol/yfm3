@@ -57,7 +57,11 @@ export function DataEditPanel({
   return (
     <PanelCard className="w-full max-w-5xl mx-auto">
       {editSection === "wording" ? (
-        <PalFrWordingPage backHref={editBackHref} cacheKey={wordingCacheKey(bridge)} />
+        <PalFrWordingPage
+          backHref={editBackHref}
+          cacheKey={wordingCacheKey(bridge)}
+          cards={bridge.gameData.cards}
+        />
       ) : (
         <>
           <DropX15PatchPanel />
