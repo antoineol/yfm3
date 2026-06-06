@@ -13,6 +13,7 @@ vi.mock("./bridge-client.ts", () => ({
   fetchDropX15Status: vi.fn(),
   putDropX15Patch: vi.fn(),
   fetchIsoBackups: vi.fn(async () => []),
+  invalidatePalFrWordingStatusCache: vi.fn(),
   postRestoreIsoBackup: vi.fn(),
   putDuelistPool: vi.fn(),
 }));
@@ -105,7 +106,7 @@ describe("DropX15PatchPanel", () => {
 
     render(<DropX15PatchPanel />);
 
-    expect(await screen.findByText("PAL.bin: 1 card per duel.")).toBeDefined();
+    expect(await screen.findByText("PAL.bin")).toBeDefined();
     expect(button("Apply").disabled).toBe(true);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Card drops per duel" }), {
@@ -136,9 +137,7 @@ describe("DropX15PatchPanel", () => {
     render(<DropX15PatchPanel />);
 
     expect(await screen.findByText("30 rewards")).toBeDefined();
-    expect(
-      screen.getByText("PAL.bin: 30 cards per duel. Choose a supported target to change it."),
-    ).toBeDefined();
+    expect(screen.getByText("PAL.bin: Choose a supported target to change it.")).toBeDefined();
     expect(screen.getByRole("option", { name: "x50" })).toBeDefined();
     expect(screen.getByRole("option", { name: "x1000" })).toBeDefined();
     expect(button("Apply").disabled).toBe(true);
@@ -177,9 +176,7 @@ describe("DropX15PatchPanel", () => {
     render(<DropX15PatchPanel />);
 
     expect(
-      await screen.findByText(
-        "PAL.bin: 150 cards per duel. Starchips are x15; apply x150 to match them.",
-      ),
+      await screen.findByText("PAL.bin: Starchips are x15; apply x150 to match them."),
     ).toBeDefined();
     expect(button("Apply").disabled).toBe(false);
 

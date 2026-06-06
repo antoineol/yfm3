@@ -151,15 +151,15 @@ function statusDetail(status: DropX15Status | null, loading: boolean): string {
   if (loading) return "Checking the active ISO patch state.";
   if (!status) return "Patch state could not be read.";
   if (!status.supported) return status.reason;
-  const prefix = `${status.discFilename}: ${rewardCount(status)} card${rewardCount(status) === 1 ? "" : "s"} per duel.`;
+  const prefix = status.discFilename;
   if (status.starchipMultiplier !== status.cardDropCount) {
-    return `${prefix} Starchips are x${status.starchipMultiplier}; apply x${status.cardDropCount} to match them.`;
+    return `${prefix}: Starchips are x${status.starchipMultiplier}; apply x${status.cardDropCount} to match them.`;
   }
   if (!status.availableDropCounts.includes(status.cardDropCount)) {
-    return `${prefix} Choose a supported target to change it.`;
+    return `${prefix}: Choose a supported target to change it.`;
   }
   if (!isSelectedRewardActive(status, status.cardDropCount)) {
-    return `${prefix} Apply x${status.cardDropCount} to refresh the reward patch.`;
+    return `${prefix}: Apply x${status.cardDropCount} to refresh the reward patch.`;
   }
   return prefix;
 }
