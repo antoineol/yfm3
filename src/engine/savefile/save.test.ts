@@ -41,10 +41,16 @@ describe("card quantities", () => {
     const save = loadSave(blankBytes());
     setCardQuantity(save, 0, 3);
     setCardQuantity(save, 719, 99);
+    setCardQuantity(save, 720, 7);
+    setCardQuantity(save, 721, 8);
     expect(getCardQuantity(save, 0)).toBe(3);
     expect(getCardQuantity(save, 719)).toBe(99);
+    expect(getCardQuantity(save, 720)).toBe(7);
+    expect(getCardQuantity(save, 721)).toBe(8);
     expect(save.bytes[CARD_QUANTITY_OFFSET]).toBe(3);
     expect(save.bytes[CARD_QUANTITY_OFFSET + 719]).toBe(99);
+    expect(save.bytes[CARD_QUANTITY_OFFSET + 720]).toBe(7);
+    expect(save.bytes[CARD_QUANTITY_OFFSET + 721]).toBe(8);
   });
 
   it("rejects out-of-range indices and quantities", () => {
@@ -55,12 +61,14 @@ describe("card quantities", () => {
     expect(() => setCardQuantity(save, 0, 256)).toThrow();
   });
 
-  it("getAllCardQuantities returns 720 bytes", () => {
+  it("getAllCardQuantities returns every card quantity byte", () => {
     const save = loadSave(blankBytes());
     setCardQuantity(save, 5, 12);
+    setCardQuantity(save, 721, 3);
     const qs = getAllCardQuantities(save);
     expect(qs.length).toBe(CARD_QUANTITY_COUNT);
     expect(qs[5]).toBe(12);
+    expect(qs[721]).toBe(3);
   });
 
   it("grantAllCards fills every slot", () => {

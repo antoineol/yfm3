@@ -16,7 +16,7 @@ export function DataEditPanel({
   editSection: "pools" | "wording";
   onDuelistChange: (id: number) => void;
   selectedDuelistId: number | undefined;
-  wordingTab: "names" | "descriptions" | "dialogs";
+  wordingTab: "names" | "descriptions";
 }) {
   const autoSyncOn = useBridgeAutoSync();
   const bridge = useBridge();

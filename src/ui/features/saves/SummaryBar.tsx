@@ -3,7 +3,7 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import { toast } from "sonner";
-import { STARCHIPS_MAX } from "../../../engine/savefile/save.ts";
+import { CARD_QUANTITY_COUNT, STARCHIPS_MAX } from "../../../engine/savefile/save.ts";
 import { Button } from "../../components/Button.tsx";
 import { IconButton } from "../../components/IconButton.tsx";
 import { Input } from "../../components/Input.tsx";
@@ -23,8 +23,6 @@ import {
   starchipsAtom,
 } from "./atoms.ts";
 import { BackupsDrawerButton } from "./BackupPanel.tsx";
-
-const UNIQUE_CARDS_CAP = 720;
 
 const CONFIRM_MESSAGE =
   "Saving will close the running game in DuckStation (no save state) so the new memcard contents can be written. " +
@@ -77,7 +75,10 @@ function SummaryBarInner({ loaded }: { loaded: LoadedSave }) {
   return (
     <div className="flex items-center gap-x-3 gap-y-1 px-3 py-1.5 border-b border-border-subtle flex-wrap">
       <Starchips onCommit={setStarchipsAction} value={starchips} />
-      <Stat label="Unique" value={`${uniqueCount.toLocaleString("en-US")} / ${UNIQUE_CARDS_CAP}`} />
+      <Stat
+        label="Unique"
+        value={`${uniqueCount.toLocaleString("en-US")} / ${CARD_QUANTITY_COUNT}`}
+      />
       <Stat label="Copies" value={totalCopies.toLocaleString("en-US")} />
       <div className="ml-auto flex items-center gap-2" ref={actionsRef}>
         <BackupsDrawerButton />

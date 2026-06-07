@@ -13,6 +13,7 @@ vi.mock("./bridge-client.ts", () => ({
   fetchIsoBackups: vi.fn(async () => []),
   fetchPalFrWordingStatus: vi.fn(),
   getCachedPalFrWordingStatus: vi.fn(() => null),
+  invalidatePalFrWordingStatusCache: vi.fn(),
   primePalFrWordingStatusCache: vi.fn(),
   postRestoreIsoBackup: vi.fn(),
   putDuelistPool: vi.fn(),
@@ -53,7 +54,7 @@ describe("PalFrWordingPage", () => {
   test("shows a structured loading state while checking the active disc", () => {
     fetchPalFrWordingStatusMock.mockReturnValue(new Promise(() => {}));
 
-    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="names" />);
 
     expect(screen.getByRole("heading", { name: "PAL FR wording" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Back" })).toBeDefined();
@@ -68,7 +69,7 @@ describe("PalFrWordingPage", () => {
       reason: "PAL French wording edits are currently supported only for SLES_039.48.",
     });
 
-    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="names" />);
 
     expect(await screen.findByText(/SLES_039\.48/)).toBeDefined();
   });
@@ -81,15 +82,8 @@ describe("PalFrWordingPage", () => {
       discFilename: "PAL-FR.bin",
       glyphRenderingPatch: glyphPatch(true, false),
       entries: [
-        entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Si vous persitez", 24),
-        entry(
-          "pal-fr:cardDescription:cfef00",
-          "cardDescription",
-          6,
-          0xcfef00,
-          "Ressemble à statue",
-          24,
-        ),
+        entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Dragon Blanc", 24),
+        entry("pal-fr:cardDescription:6", "cardDescription", 6, 0xcfef00, "Ressemble à statue", 24),
       ],
     });
     putPalFrWordingEntriesMock.mockResolvedValue({
@@ -102,9 +96,9 @@ describe("PalFrWordingPage", () => {
       closedGame: false,
       glyphRenderingPatch: glyphPatch(true, false),
       entries: [
-        entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Si vous persistez", 24),
+        entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "D. Blanc", 24),
         entry(
-          "pal-fr:cardDescription:cfef00",
+          "pal-fr:cardDescription:6",
           "cardDescription",
           6,
           0xcfef00,
@@ -126,38 +120,40 @@ describe("PalFrWordingPage", () => {
     expect(screen.queryByText("Offset")).toBeNull();
     expect(screen.queryByText("Type")).toBeNull();
     expect(await screen.findByText("#5 · Oil de Feu")).toBeDefined();
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "PAL FR wording text pal-fr:cardDescription:cfef00" }),
-      { target: { value: "Ressemble à une statue" } },
-    );
+    const descriptionEditor = screen.getByRole("textbox", {
+      name: "PAL FR wording text pal-fr:cardDescription:6",
+    }) as HTMLTextAreaElement;
+    expect(descriptionEditor.maxLength).toBe(124);
+    expect(descriptionEditor.style.width).toBe("31ch");
+    fireEvent.change(descriptionEditor, { target: { value: "Ressemble à une statue" } });
     expect(screen.getByRole("tab", { name: "Card descriptions (1)" })).toBeDefined();
 
     expect(screen.getByRole("tab", { name: "Card names" }).getAttribute("href")).toBe(
       "#data/edit/wording/names",
     );
-    expect(screen.getByRole("tab", { name: "Dialogs" }).getAttribute("href")).toBe(
-      "#data/edit/wording/dialogs",
-    );
+    expect(screen.queryByRole("tab", { name: "Dialogs" })).toBeNull();
     rerender(
       <PalFrWordingPage
         backHref="#data/edit"
         cacheKey="pal-fr:disc-a"
         cards={[card(5, "Oil de Feu", "Monster", 800, 600), card(6, "Dragon", "Dragon", 1200, 800)]}
-        selectedTab="dialogs"
+        selectedTab="names"
       />,
     );
-    const scriptEditor = await screen.findByRole("textbox", {
-      name: "PAL FR wording text pal-fr:script:d0bc1c",
-    });
-    fireEvent.change(scriptEditor, { target: { value: "Si vous persistez" } });
-    expect(screen.getByRole("tab", { name: "Dialogs (1)" })).toBeDefined();
+    const nameEditor = (await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:cardName:0",
+    })) as HTMLTextAreaElement;
+    expect(nameEditor.maxLength).toBe(33);
+    expect(nameEditor.style.width).toBe("35ch");
+    fireEvent.change(nameEditor, { target: { value: "D. Blanc" } });
+    expect(screen.getByRole("tab", { name: "Card names (1)" })).toBeDefined();
 
     fireEvent.click(screen.getByRole("button", { name: "Save · 2" }));
 
     await waitFor(() =>
       expect(putPalFrWordingEntriesMock).toHaveBeenCalledWith([
-        { entryId: "pal-fr:script:d0bc1c", text: "Si vous persistez" },
-        { entryId: "pal-fr:cardDescription:cfef00", text: "Ressemble à une statue" },
+        { entryId: "pal-fr:cardName:0", text: "D. Blanc" },
+        { entryId: "pal-fr:cardDescription:6", text: "Ressemble à une statue" },
       ]),
     );
     await waitFor(() => expect(fetchIsoBackupsMock).toHaveBeenCalledTimes(1));
@@ -165,10 +161,62 @@ describe("PalFrWordingPage", () => {
       "pal-fr:disc-a",
       expect.objectContaining({
         supported: true,
-        entries: expect.arrayContaining([expect.objectContaining({ text: "Si vous persistez" })]),
+        entries: expect.arrayContaining([expect.objectContaining({ text: "D. Blanc" })]),
       }),
     );
-    expect(screen.getByDisplayValue("Si vous persistez")).toBeDefined();
+    expect(screen.getByDisplayValue("D. Blanc")).toBeDefined();
+  });
+
+  test("enforces global display line constraints while editing", async () => {
+    fetchPalFrWordingStatusMock.mockResolvedValue({
+      supported: true,
+      gameSerial: "SLES_039.48",
+      discFilename: "PAL-FR.bin",
+      glyphRenderingPatch: glyphPatch(true, false),
+      entries: [
+        entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Dragon Blanc", 80),
+        entry(
+          "pal-fr:cardDescription:6",
+          "cardDescription",
+          6,
+          0xcfef00,
+          "Ressemble à statue",
+          160,
+        ),
+      ],
+    });
+
+    const { rerender } = render(
+      <PalFrWordingPage backHref="#data/edit" selectedTab="descriptions" />,
+    );
+
+    const descriptionEditor = (await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:cardDescription:6",
+    })) as HTMLTextAreaElement;
+    fireEvent.change(descriptionEditor, {
+      target: { value: `${"x".repeat(35)}\n${"y".repeat(35)}` },
+    });
+
+    expect(descriptionEditor.value).toBe(`${"x".repeat(29)}\n${"y".repeat(29)}`);
+    expect(screen.getByRole("tab", { name: "Card descriptions (1)" })).toBeDefined();
+
+    descriptionEditor.value = "";
+    descriptionEditor.setSelectionRange(0, 0);
+    fireEvent.paste(descriptionEditor, {
+      clipboardData: { getData: () => "z".repeat(35) },
+    });
+    expect(descriptionEditor.value).toBe("z".repeat(29));
+
+    rerender(<PalFrWordingPage backHref="#data/edit" selectedTab="names" />);
+
+    const nameEditor = (await screen.findByRole("textbox", {
+      name: "PAL FR wording text pal-fr:cardName:0",
+    })) as HTMLTextAreaElement;
+    fireEvent.change(nameEditor, { target: { value: "Dragon\nBlanc" } });
+    expect(nameEditor.value).toBe("Dragon");
+
+    fireEvent.change(nameEditor, { target: { value: "x".repeat(40) } });
+    expect(nameEditor.value).toBe("x".repeat(33));
   });
 
   test("confirms before leaving with unsaved edits", async () => {
@@ -181,13 +229,13 @@ describe("PalFrWordingPage", () => {
       gameSerial: "SLES_039.48",
       discFilename: "PAL-FR.bin",
       glyphRenderingPatch: glyphPatch(true, false),
-      entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 12)],
+      entries: [entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Court", 12)],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="names" />);
 
     const editor = await screen.findByRole("textbox", {
-      name: "PAL FR wording text pal-fr:script:d0bc1c",
+      name: "PAL FR wording text pal-fr:cardName:0",
     });
     fireEvent.change(editor, { target: { value: "Courte faute" } });
     const backLink = screen.getByRole("link", { name: "Back" }) as HTMLAnchorElement;
@@ -208,44 +256,56 @@ describe("PalFrWordingPage", () => {
       gameSerial: "SLES_039.48",
       discFilename: "PAL-FR.bin",
       glyphRenderingPatch: glyphPatch(true, false),
-      entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Texte cache", 20)],
+      entries: [entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Texte cache", 20)],
     });
 
-    render(
-      <PalFrWordingPage backHref="#data/edit" cacheKey="pal-fr:disc-a" selectedTab="dialogs" />,
-    );
+    render(<PalFrWordingPage backHref="#data/edit" cacheKey="pal-fr:disc-a" selectedTab="names" />);
 
     expect(screen.getByDisplayValue("Texte cache")).toBeDefined();
     expect(screen.queryByText("Active ISO text tables")).toBeNull();
     expect(fetchPalFrWordingStatusMock).not.toHaveBeenCalled();
   });
 
-  test("disables global save when any changed row exceeds its entry budget", async () => {
+  test("allows display-valid wording to exceed the original entry byte slot", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     fetchPalFrWordingStatusMock.mockResolvedValue({
       supported: true,
       gameSerial: "SLES_039.48",
       discFilename: "PAL-FR.bin",
       glyphRenderingPatch: glyphPatch(true, false),
-      entries: [entry("pal-fr:script:d0bc1c", "script", 762, 0xd0bc1c, "Court", 5)],
+      entries: [entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Court", 5)],
+    });
+    putPalFrWordingEntriesMock.mockResolvedValue({
+      ok: true,
+      backup: null,
+      closedGame: false,
+      glyphRenderingPatch: glyphPatch(true, false),
+      entries: [entry("pal-fr:cardName:0", "cardName", 0, 0xd1be93, "Beaucoup trop long", 18)],
     });
 
-    render(<PalFrWordingPage backHref="#data/edit" selectedTab="dialogs" />);
+    render(<PalFrWordingPage backHref="#data/edit" selectedTab="names" />);
 
     const editor = await screen.findByRole("textbox", {
-      name: "PAL FR wording text pal-fr:script:d0bc1c",
+      name: "PAL FR wording text pal-fr:cardName:0",
     });
     fireEvent.change(editor, { target: { value: "Beaucoup trop long" } });
 
-    expect(screen.getByText("18/5")).toBeDefined();
-    expect((screen.getByRole("button", { name: "Save · 1" }) as HTMLButtonElement).disabled).toBe(
-      true,
+    expect(screen.queryByText("18/5")).toBeNull();
+    const save = screen.getByRole("button", { name: "Save · 1" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+
+    await waitFor(() =>
+      expect(putPalFrWordingEntriesMock).toHaveBeenCalledWith([
+        { entryId: "pal-fr:cardName:0", text: "Beaucoup trop long" },
+      ]),
     );
   });
 });
 
 function entry(
   id: string,
-  kind: "cardDescription" | "cardName" | "script",
+  kind: "cardDescription" | "cardName",
   entryIndex: number,
   offset: number,
   text: string,

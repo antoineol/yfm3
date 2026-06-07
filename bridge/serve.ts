@@ -898,6 +898,17 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
         const applyPatch = () => patchPalFrWordingEntries(discPath, normalizedChanges);
         let result: ReturnType<typeof patchPalFrWordingEntries>;
         let closedGame = false;
+        if (normalizedChanges.length > 0) {
+          const closeResult = await closeDuckStationGameIfPresentAndWaitForUnlock(discPath);
+          if (!closeResult.ok) {
+            console.warn(`[iso] close-game before wording patch failed: ${closeResult.reason}`);
+            return jsonResponse(
+              { ok: false, error: "iso_locked", reason: closeResult.reason },
+              { status: 409 },
+            );
+          }
+          closedGame = closeResult.closedGame;
+        }
         try {
           result = applyPatch();
         } catch (err: unknown) {
@@ -919,7 +930,7 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
         persistGameDataCache(currentGameData);
         broadcastGameData(currentGameData);
         console.log(
-          `[iso] PUT pal-fr-wording entries=${normalizedChanges.length} glyphPatch=${result.glyphRenderingPatch.changed ? "applied" : "unchanged"}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
+          `[iso] PUT pal-fr-wording entries=${normalizedChanges.length}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
         );
         const singleEntryId = body.entryId;
         const singleEntry =
@@ -1218,6 +1229,23 @@ async function closeDuckStationGameAndWaitForUnlock(
   while (Date.now() < deadline) {
     const locked = await probeLockedIsos([discPath]);
     if (!locked.has(discPath)) return { ok: true };
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return { ok: false, reason: "iso_still_locked_after_5s" };
+}
+
+async function closeDuckStationGameIfPresentAndWaitForUnlock(
+  discPath: string,
+): Promise<{ ok: true; closedGame: boolean } | { ok: false; reason: string }> {
+  const hwnd = await ensureHwnd();
+  if (!hwnd) return { ok: true, closedGame: false };
+
+  await sendCloseGameWithoutSaving(hwnd);
+
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const locked = await probeLockedIsos([discPath]);
+    if (!locked.has(discPath)) return { ok: true, closedGame: true };
     await new Promise((r) => setTimeout(r, 100));
   }
   return { ok: false, reason: "iso_still_locked_after_5s" };

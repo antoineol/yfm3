@@ -1,8 +1,6 @@
 // Generated from Dictionary/Cards.cs in ThatPlayer2/Yu-Gi-Oh-Forbidden-Memories.
 // Vanilla Yu-Gi-Oh! Forbidden Memories card reference data.
-// NOTE: the save file stores quantities for indices 0..719 only (720 bytes at 0x2250).
-// Indices 720 and 721 (Dark Magic Ritual, Magician of Black Chaos) are listed for display
-// completeness and do not correspond to trunk slots.
+// NOTE: the save file stores quantities for indices 0..721 (722 bytes at 0x2250).
 
 export type VanillaCard = {
   readonly index: number;

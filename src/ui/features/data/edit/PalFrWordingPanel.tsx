@@ -1,6 +1,11 @@
 import { useSetAtom } from "jotai";
-import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type {
+  ChangeEvent,
+  CSSProperties,
+  FormEvent,
+  ClipboardEvent as ReactClipboardEvent,
+} from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { BridgeCard } from "../../../../engine/worker/messages.ts";
 import { Button } from "../../../components/Button.tsx";
@@ -16,13 +21,10 @@ import {
 } from "./bridge-client.ts";
 
 const CONFIRM_MESSAGE =
-  "Saving will close the running game in DuckStation if needed so the PAL FR wording and live glyph renderer patch can be written to the ISO.\n\n" +
+  "Saving will close the running game in DuckStation so PAL FR wording offsets can be rebuilt safely in the ISO.\n\n" +
   "Any unsaved in-duel progress will be lost. Continue?";
 const DISCARD_MESSAGE = "Discard unsaved PAL FR wording changes?";
 const LOADING_ROW_IDS = [
-  "script-a",
-  "script-b",
-  "script-c",
   "name-a",
   "name-b",
   "description-a",
@@ -33,14 +35,33 @@ const LOADING_ROW_IDS = [
 const WORDING_TABS = [
   { kind: "cardName", label: "Card names", tab: "names" },
   { kind: "cardDescription", label: "Card descriptions", tab: "descriptions" },
-  { kind: "script", label: "Dialogs", tab: "dialogs" },
 ] as const satisfies readonly {
   kind: PalFrWordingEntry["kind"];
   label: string;
   tab: WordingTab;
 }[];
 
-type WordingTab = "names" | "descriptions" | "dialogs";
+type WordingTab = "names" | "descriptions";
+const WORDING_TAB_CONSTRAINTS: Record<WordingTab, WordingTabConstraints> = {
+  names: { maxEntryLength: 33, maxLineLength: 33, maxLines: 1 },
+  descriptions: { maxEntryLength: 124, maxLineLength: 29 },
+};
+type DirtyDraft = {
+  kind: PalFrWordingEntry["kind"];
+  text: string;
+};
+type WordingTabConstraints = {
+  maxEntryLength: number;
+  maxLineLength: number;
+  maxLines?: number;
+};
+type WordingRowProps = {
+  constraints: WordingTabConstraints;
+  context: string;
+  entry: PalFrWordingEntry;
+  initialText: string;
+  onDraftChange: (entry: PalFrWordingEntry, text: string) => void;
+};
 
 export function PalFrWordingPage({
   backHref,
@@ -61,28 +82,30 @@ export function PalFrWordingPage({
   const [loading, setLoading] = useState(() => getCachedPalFrWordingStatus(cacheKey) == null);
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
-    draftsFromStatus(getCachedPalFrWordingStatus(cacheKey)),
-  );
+  const [dirtyDrafts, setDirtyDrafts] = useState<Record<string, DirtyDraft>>({});
+  const [resetVersion, setResetVersion] = useState(0);
   const loadBackups = useSetAtom(loadBackupsAtom);
 
   useEffect(() => {
     const cached = getCachedPalFrWordingStatus(cacheKey);
     if (cached) {
       setStatus(cached);
-      setDrafts(draftsFromStatus(cached));
+      setDirtyDrafts({});
+      setResetVersion((version) => version + 1);
       setLoading(false);
       return;
     }
     let alive = true;
     setLoading(true);
     setStatus(null);
-    setDrafts({});
+    setDirtyDrafts({});
+    setResetVersion((version) => version + 1);
     fetchPalFrWordingStatus({ cacheKey })
       .then((next) => {
         if (!alive) return;
         setStatus(next);
-        setDrafts(draftsFromStatus(next));
+        setDirtyDrafts({});
+        setResetVersion((version) => version + 1);
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
@@ -103,27 +126,47 @@ export function PalFrWordingPage({
     () => entries.filter((entry) => entry.kind === selectedKind),
     [entries, selectedKind],
   );
+  const selectedConstraints = WORDING_TAB_CONSTRAINTS[selectedTab];
   const filtered = useMemo(
-    () => filterEntries(visibleEntries, query, contexts, drafts),
-    [contexts, drafts, query, visibleEntries],
+    () => filterEntries(visibleEntries, query, contexts, dirtyDrafts),
+    [contexts, dirtyDrafts, query, visibleEntries],
   );
   const changes = useMemo(
     () =>
       entries
-        .map((entry) => ({ entry, text: drafts[entry.id] ?? entry.text }))
+        .map((entry) => ({ entry, text: dirtyDrafts[entry.id]?.text ?? entry.text }))
         .filter(({ entry, text }) => text !== entry.text),
-    [drafts, entries],
-  );
-  const invalidEntries = entries.filter(
-    (entry) => estimateEncodedLength(drafts[entry.id] ?? entry.text) > entry.maxByteLength,
+    [dirtyDrafts, entries],
   );
   const glyphPatchPending = Boolean(status?.supported && !status.glyphRenderingPatch.applied);
   const hasUnsavedChanges = changes.length > 0;
   const canSave =
-    status?.supported === true &&
-    !pending &&
-    invalidEntries.length === 0 &&
-    (changes.length > 0 || glyphPatchPending);
+    status?.supported === true && !pending && (changes.length > 0 || glyphPatchPending);
+
+  const onDraftChange = useCallback((entry: PalFrWordingEntry, text: string) => {
+    setDirtyDrafts((current) => {
+      if (text === entry.text) {
+        if (!current[entry.id]) return current;
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      }
+      const previous = current[entry.id];
+      if (previous?.text === text) return current;
+      return {
+        ...current,
+        [entry.id]: {
+          kind: entry.kind,
+          text,
+        },
+      };
+    });
+  }, []);
+
+  const onReset = useCallback(() => {
+    setDirtyDrafts({});
+    setResetVersion((version) => version + 1);
+  }, []);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -155,12 +198,12 @@ export function PalFrWordingPage({
       };
       setStatus(nextStatus);
       primePalFrWordingStatusCache(cacheKey, nextStatus);
-      setDrafts(Object.fromEntries(result.entries.map((entry) => [entry.id, entry.text])));
+      setDirtyDrafts({});
+      setResetVersion((version) => version + 1);
       await loadBackups();
       const backupPart = result.backup ? ` · backup ${result.backup.filename}` : "";
-      const glyphPart = result.glyphRenderingPatch.changed ? " Glyph renderer patched." : "";
       const reloadPart = result.closedGame ? " Reload the game in DuckStation." : "";
-      toast.success(`PAL FR wording saved${backupPart}.${glyphPart}${reloadPart}`, {
+      toast.success(`PAL FR wording saved${backupPart}.${reloadPart}`, {
         duration: 10000,
       });
     } catch (err) {
@@ -192,7 +235,7 @@ export function PalFrWordingPage({
           <>
             <Button
               disabled={pending || changes.length === 0}
-              onClick={() => resetDrafts(entries, setDrafts)}
+              onClick={onReset}
               size="sm"
               variant="ghost"
             >
@@ -206,7 +249,7 @@ export function PalFrWordingPage({
       </header>
 
       {loading ? (
-        <WordingLoadingState />
+        <WordingLoadingState constraints={selectedConstraints} />
       ) : !status?.supported ? (
         <div className="flex flex-1 items-center justify-center px-6 py-16">
           <div className="max-w-lg text-center">
@@ -221,14 +264,14 @@ export function PalFrWordingPage({
         </div>
       ) : (
         <WordingEditorBody
+          constraints={selectedConstraints}
           contexts={contexts}
-          drafts={drafts}
-          entries={entries}
+          dirtyDrafts={dirtyDrafts}
           filtered={filtered}
-          invalidEntryCount={invalidEntries.length}
+          onDraftChange={onDraftChange}
           query={query}
+          resetVersion={resetVersion}
           selectedTab={selectedTab}
-          setDrafts={setDrafts}
           setQuery={setQuery}
           tabHrefFor={tabHrefFor}
         />
@@ -239,28 +282,28 @@ export function PalFrWordingPage({
 
 function WordingEditorBody({
   contexts,
-  drafts,
-  entries,
+  constraints,
+  dirtyDrafts,
   filtered,
-  invalidEntryCount,
+  onDraftChange,
   query,
+  resetVersion,
   selectedTab,
-  setDrafts,
   setQuery,
   tabHrefFor,
 }: {
   contexts: ReadonlyMap<string, string>;
-  drafts: Record<string, string>;
-  entries: readonly PalFrWordingEntry[];
+  constraints: WordingTabConstraints;
+  dirtyDrafts: Record<string, DirtyDraft>;
   filtered: readonly PalFrWordingEntry[];
-  invalidEntryCount: number;
+  onDraftChange: (entry: PalFrWordingEntry, text: string) => void;
   query: string;
+  resetVersion: number;
   selectedTab: WordingTab;
-  setDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   setQuery: (query: string) => void;
   tabHrefFor: (tab: WordingTab) => string;
 }) {
-  const editedCounts = useMemo(() => countEditedByKind(entries, drafts), [drafts, entries]);
+  const editedCounts = useMemo(() => countEditedByKind(dirtyDrafts), [dirtyDrafts]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
@@ -296,28 +339,25 @@ function WordingEditorBody({
           value={query}
         />
       </div>
-      {invalidEntryCount > 0 && (
-        <p className="rounded-md border border-red-400/40 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-          {invalidEntryCount} entr{invalidEntryCount === 1 ? "y is" : "ies are"} over budget.
-        </p>
-      )}
       <div className="min-h-0 overflow-auto rounded-md border border-border-subtle">
-        <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
+        <table className="w-auto max-w-full border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 bg-bg-panel text-[11px] uppercase tracking-widest text-text-muted">
             <tr className="border-b border-border-subtle">
               <th className="w-64 px-2 py-2 font-display">Context</th>
-              <th className="px-2 py-2 font-display">Text</th>
-              <th className="w-28 px-2 py-2 text-right font-display">Bytes</th>
+              <th className="px-2 py-2 font-display" style={textColumnStyle(constraints)}>
+                Text
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle/50">
             {filtered.map((entry) => (
               <WordingRow
+                constraints={constraints}
                 context={contexts.get(entry.id) ?? fallbackContext(entry)}
-                draft={drafts[entry.id] ?? entry.text}
                 entry={entry}
-                key={entry.id}
-                onChange={(text) => setDrafts((current) => ({ ...current, [entry.id]: text }))}
+                initialText={dirtyDrafts[entry.id]?.text ?? entry.text}
+                key={`${entry.id}:${resetVersion}`}
+                onDraftChange={onDraftChange}
               />
             ))}
           </tbody>
@@ -330,116 +370,199 @@ function WordingEditorBody({
   );
 }
 
-function WordingLoadingState() {
+function WordingLoadingState({ constraints }: { constraints: WordingTabConstraints }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="h-8 w-full max-w-md animate-pulse rounded-md border border-border-subtle bg-bg-elevated" />
-        <div className="h-3 w-44 animate-pulse rounded-full bg-border-subtle/70" />
-      </div>
-      <div className="overflow-hidden rounded-md border border-border-subtle">
-        <div className="grid grid-cols-[16rem_minmax(0,1fr)_7rem] border-b border-border-subtle bg-bg-panel px-2 py-2">
-          <div className="h-3 w-20 animate-pulse rounded-full bg-border-subtle/70" />
-          <div className="h-3 w-20 animate-pulse rounded-full bg-border-subtle/70" />
-          <div className="ml-auto h-3 w-12 animate-pulse rounded-full bg-border-subtle/70" />
+        <div className="inline-flex h-8 overflow-hidden rounded-md border border-border-subtle bg-bg-surface">
+          <div className="w-28 animate-pulse border-r border-border-subtle bg-bg-elevated" />
+          <div className="w-36 animate-pulse bg-bg-elevated/70" />
         </div>
-        {LOADING_ROW_IDS.map((rowId) => (
-          <div
-            className="grid grid-cols-[16rem_minmax(0,1fr)_7rem] items-center gap-2 border-b border-border-subtle/50 px-2 py-2 last:border-b-0"
-            key={rowId}
-          >
-            <div className="h-3 w-24 animate-pulse rounded-full bg-bg-elevated" />
-            <div className="h-9 animate-pulse rounded-md border border-border-subtle bg-bg-elevated" />
-            <div className="ml-auto h-3 w-12 animate-pulse rounded-full bg-bg-elevated" />
-          </div>
-        ))}
+        <div className="h-8 w-full max-w-md animate-pulse rounded-md border border-border-subtle bg-bg-elevated" />
+      </div>
+      <div className="min-h-0 overflow-hidden rounded-md border border-border-subtle">
+        <table className="w-auto max-w-full border-collapse text-left text-xs">
+          <thead className="bg-bg-panel text-[11px] uppercase tracking-widest text-text-muted">
+            <tr className="border-b border-border-subtle">
+              <th className="w-64 px-2 py-2 font-display">
+                <div className="h-3 w-16 animate-pulse rounded-full bg-border-subtle/70" />
+              </th>
+              <th className="px-2 py-2 font-display" style={textColumnStyle(constraints)}>
+                <div className="h-3 w-10 animate-pulse rounded-full bg-border-subtle/70" />
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-subtle/50">
+            {LOADING_ROW_IDS.map((rowId) => (
+              <tr key={rowId}>
+                <td className="px-2 py-2 align-top">
+                  <div className="h-3 w-28 animate-pulse rounded-full bg-bg-elevated" />
+                </td>
+                <td className="px-2 py-1.5 align-top" style={textColumnStyle(constraints)}>
+                  <div
+                    className="h-10 animate-pulse rounded-md border border-border-subtle bg-bg-elevated"
+                    style={textAreaStyle(constraints)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function WordingRow({
+const WordingRow = memo(function WordingRow({
+  constraints,
   context,
-  draft,
   entry,
-  onChange,
-}: {
-  context: string;
-  draft: string;
-  entry: PalFrWordingEntry;
-  onChange: (text: string) => void;
-}) {
-  const encodedLength = estimateEncodedLength(draft);
-  const overBudget = encodedLength > entry.maxByteLength;
+  initialText,
+  onDraftChange,
+}: WordingRowProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [dirty, setDirty] = useState(() => initialText !== entry.text);
+
+  useEffect(() => {
+    const node = textareaRef.current;
+    if (!node) return;
+    node.value = initialText;
+    resizeTextarea(node);
+    setDirty(initialText !== entry.text);
+  }, [entry.text, initialText]);
+
+  function onTextBeforeInput(event: FormEvent<HTMLTextAreaElement>) {
+    const nativeEvent = event.nativeEvent as InputEvent;
+    if (nativeEvent.inputType?.startsWith("delete")) return;
+    const insertion = insertedTextForInput(nativeEvent);
+    if (insertion == null) return;
+    const nextText = textAfterSelection(event.currentTarget, insertion);
+    if (violatesTextConstraints(nextText, constraints)) event.preventDefault();
+  }
+
+  function onTextPaste(event: ReactClipboardEvent<HTMLTextAreaElement>) {
+    const pasted = event.clipboardData.getData("text");
+    if (!pasted) return;
+    const nextText = textAfterSelection(event.currentTarget, pasted);
+    if (!violatesTextConstraints(nextText, constraints)) return;
+    event.preventDefault();
+    const constrainedText = applyTextConstraints(nextText, constraints);
+    event.currentTarget.value = constrainedText;
+    const cursor = Math.min(
+      event.currentTarget.selectionStart + pasted.length,
+      constrainedText.length,
+    );
+    event.currentTarget.setSelectionRange(cursor, cursor);
+    commitText(event.currentTarget, constrainedText);
+  }
+
+  function onTextChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    let text = event.currentTarget.value;
+    const constrainedText = applyTextConstraints(text, constraints);
+    if (constrainedText !== text) {
+      text = constrainedText;
+      event.currentTarget.value = constrainedText;
+      const cursor = Math.min(event.currentTarget.selectionStart, constrainedText.length);
+      event.currentTarget.setSelectionRange(cursor, cursor);
+    }
+    commitText(event.currentTarget, text);
+  }
+
+  function commitText(node: HTMLTextAreaElement, text: string) {
+    resizeTextarea(node);
+    setDirty(text !== entry.text);
+    onDraftChange(entry, text);
+  }
+
   return (
-    <tr className={draft !== entry.text ? "bg-bg-surface/50" : ""}>
+    <tr className={dirty ? "bg-bg-surface/50" : ""}>
       <td className="px-2 py-2 align-top text-text-secondary">{context}</td>
       <td className="px-2 py-1.5 align-top">
-        <AutoGrowTextarea
+        <textarea
           aria-label={`PAL FR wording text ${entry.id}`}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          value={draft}
+          className="min-h-10 w-full resize-none overflow-hidden rounded-md border border-border-subtle bg-bg-elevated px-2 py-1.5 font-mono text-xs text-text-primary outline-none focus:border-gold-dim"
+          defaultValue={initialText}
+          maxLength={constraints.maxEntryLength}
+          onBeforeInput={onTextBeforeInput}
+          onChange={onTextChange}
+          onPaste={onTextPaste}
+          ref={textareaRef}
+          rows={1}
+          spellCheck={false}
+          style={textAreaStyle(constraints)}
         />
-      </td>
-      <td
-        className={`px-2 py-2 text-right align-top font-mono text-[11px] ${
-          overBudget ? "text-red-300" : "text-text-muted"
-        }`}
-      >
-        {encodedLength}/{entry.maxByteLength}
       </td>
     </tr>
   );
-}
+}, areWordingRowPropsEqual);
 
-function AutoGrowTextarea({
-  value,
-  onChange,
-  "aria-label": ariaLabel,
-}: {
-  value: string;
-  onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
-  "aria-label": string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    node.style.height = "auto";
-    node.style.height = `${node.scrollHeight}px`;
-  });
+function areWordingRowPropsEqual(previous: WordingRowProps, next: WordingRowProps): boolean {
   return (
-    <textarea
-      aria-label={ariaLabel}
-      className="min-h-10 w-full resize-none overflow-hidden rounded-md border border-border-subtle bg-bg-elevated px-2 py-1.5 font-mono text-xs text-text-primary outline-none focus:border-gold-dim"
-      onChange={onChange}
-      ref={ref}
-      rows={1}
-      spellCheck={false}
-      value={value}
-    />
+    previous.context === next.context &&
+    previous.constraints === next.constraints &&
+    previous.entry === next.entry &&
+    previous.onDraftChange === next.onDraftChange
   );
 }
 
-function draftsFromStatus(status: PalFrWordingStatus | null): Record<string, string> {
-  return status?.supported ? Object.fromEntries(status.entries.map((e) => [e.id, e.text])) : {};
+function textColumnStyle(constraints: WordingTabConstraints): CSSProperties {
+  return {
+    width: `${fieldColumns(constraints)}ch`,
+  };
 }
 
-function resetDrafts(
-  entries: readonly PalFrWordingEntry[],
-  setDrafts: (drafts: Record<string, string>) => void,
-) {
-  setDrafts(Object.fromEntries(entries.map((entry) => [entry.id, entry.text])));
+function textAreaStyle(constraints: WordingTabConstraints): CSSProperties {
+  return {
+    maxWidth: "100%",
+    width: `${fieldColumns(constraints)}ch`,
+  };
+}
+
+function fieldColumns(constraints: WordingTabConstraints): number {
+  return Math.min(40, Math.max(12, constraints.maxLineLength + 2));
+}
+
+function resizeTextarea(node: HTMLTextAreaElement) {
+  node.style.height = "auto";
+  node.style.height = `${node.scrollHeight}px`;
+}
+
+function insertedTextForInput(event: InputEvent): string | null {
+  if (event.inputType === "insertFromPaste") return null;
+  if (event.inputType === "insertLineBreak" || event.inputType === "insertParagraph") return "\n";
+  if (event.data != null) return event.data;
+  return null;
+}
+
+function textAfterSelection(node: HTMLTextAreaElement, insertion: string): string {
+  const start = node.selectionStart ?? node.value.length;
+  const end = node.selectionEnd ?? start;
+  return `${node.value.slice(0, start)}${insertion}${node.value.slice(end)}`;
+}
+
+function violatesTextConstraints(text: string, constraints: WordingTabConstraints): boolean {
+  return applyTextConstraints(text, constraints) !== normalizeLineEndings(text);
+}
+
+function applyTextConstraints(text: string, constraints: WordingTabConstraints): string {
+  const lines = normalizeLineEndings(text).split("\n");
+  const visibleLines = constraints.maxLines == null ? lines : lines.slice(0, constraints.maxLines);
+  return visibleLines
+    .map((line) => line.slice(0, constraints.maxLineLength))
+    .join("\n")
+    .slice(0, constraints.maxEntryLength);
+}
+
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 
 function countEditedByKind(
-  entries: readonly PalFrWordingEntry[],
-  drafts: Record<string, string>,
+  dirtyDrafts: Record<string, DirtyDraft>,
 ): Partial<Record<PalFrWordingEntry["kind"], number>> {
   const counts: Partial<Record<PalFrWordingEntry["kind"], number>> = {};
-  for (const entry of entries) {
-    if ((drafts[entry.id] ?? entry.text) === entry.text) continue;
-    counts[entry.kind] = (counts[entry.kind] ?? 0) + 1;
+  for (const draft of Object.values(dirtyDrafts)) {
+    counts[draft.kind] = (counts[draft.kind] ?? 0) + 1;
   }
   return counts;
 }
@@ -472,13 +595,12 @@ function contextForEntry(
 }
 
 function fallbackContext(entry: PalFrWordingEntry): string {
-  return entry.kind === "script" ? `Dialog ${entry.entryIndex + 1}` : `#${entry.entryIndex}`;
+  return `#${entry.entryIndex}`;
 }
 
 function kindForTab(tab: WordingTab): PalFrWordingEntry["kind"] {
   if (tab === "names") return "cardName";
-  if (tab === "descriptions") return "cardDescription";
-  return "script";
+  return "cardDescription";
 }
 
 function compactParts(...parts: (string | undefined)[]): string[] {
@@ -497,50 +619,15 @@ function filterEntries(
   entries: readonly PalFrWordingEntry[],
   query: string,
   contexts: ReadonlyMap<string, string>,
-  drafts: Record<string, string>,
+  dirtyDrafts: Record<string, DirtyDraft>,
 ): PalFrWordingEntry[] {
   const needle = query.trim().toLocaleLowerCase();
   if (!needle) return [...entries];
   return entries.filter((entry) => {
     const context = contexts.get(entry.id) ?? fallbackContext(entry);
     return (
-      (drafts[entry.id] ?? entry.text).toLocaleLowerCase().includes(needle) ||
+      (dirtyDrafts[entry.id]?.text ?? entry.text).toLocaleLowerCase().includes(needle) ||
       context.toLocaleLowerCase().includes(needle)
     );
   });
-}
-
-function estimateEncodedLength(text: string): number {
-  let length = 0;
-  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/’/g, "'");
-  for (let i = 0; i < normalized.length; i++) {
-    if (normalized[i] === "{") {
-      const close = normalized.indexOf("}", i + 1);
-      if (close !== -1) {
-        const token = normalized.slice(i + 1, close).trim();
-        const bytes = estimateTokenLength(token);
-        if (bytes != null) {
-          length += bytes;
-          i = close;
-          continue;
-        }
-      }
-    }
-    length += normalized[i] === "…" ? 3 : 1;
-  }
-  return length;
-}
-
-function estimateTokenLength(token: string): number | null {
-  const parts = token.split(/\s+/).filter(Boolean);
-  if (parts.length === 1 && /^[0-9a-f]{1,2}$/i.test(parts[0] ?? "")) return 1;
-  if (
-    parts.length === 3 &&
-    parts[0]?.toLowerCase() === "f8" &&
-    /^[0-9a-f]{1,2}$/i.test(parts[1] ?? "") &&
-    /^[0-9a-f]{1,2}$/i.test(parts[2] ?? "")
-  ) {
-    return 3;
-  }
-  return null;
 }

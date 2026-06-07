@@ -43,7 +43,7 @@ export type DropX15Status =
       reason: string;
     };
 
-export type PalFrWordingKind = "cardDescription" | "cardName" | "script";
+export type PalFrWordingKind = "cardDescription" | "cardName";
 
 export type PalFrWordingEntry = {
   id: string;

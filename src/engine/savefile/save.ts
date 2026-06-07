@@ -1,7 +1,7 @@
 import { crc16Ccitt } from "./crc16.ts";
 
 export const CARD_QUANTITY_OFFSET = 0x2250;
-export const CARD_QUANTITY_COUNT = 720;
+export const CARD_QUANTITY_COUNT = 722;
 export const STARCHIPS_OFFSET = 0x27e0;
 export const STARCHIPS_MAX = 0xffffff;
 export const QUANTITY_MAX = 0xff;

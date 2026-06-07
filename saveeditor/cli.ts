@@ -20,13 +20,12 @@ Commands:
                                     idOrIndex = 3-digit vanilla card ID ("089"),
                                     exact card name, or 0-based index.
   set-starchips <save> <n>          Set starchips (0..16777215).
-  all-cards <save> [n=1]            Grant n copies of every card (720 slots).
+  all-cards <save> [n=1]            Grant n copies of every card.
   crc <save>                        Recompute CRCs and rewrite the file in place.
 
 Notes:
   Reads/writes raw PSX memcard dumps (.mcd / .mcr — same binary format).
-  Only the first 720 trunk slots are addressable; that is the save's limit,
-  not a port limitation.`;
+  Card quantities are stored as ${CARD_QUANTITY_COUNT} one-byte trunk slots.`;
 
 type CommandHandler = (path: string, rest: readonly string[]) => number;
 

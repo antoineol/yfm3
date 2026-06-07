@@ -53,7 +53,7 @@ import {
   NUM_CARDS,
   NUM_DUELISTS,
 } from "./extract/types.ts";
-import { discOffset, writeU16LeArray } from "./extract/write-iso.ts";
+import { discOffset, writeU16LeArray, writeU16LeAt } from "./extract/write-iso.ts";
 
 export const POOL_SUM = 2048;
 export const ISO_BACKUP_DIR_NAME = ".yfm3-iso-backups";
@@ -61,7 +61,7 @@ export const MAX_ISO_BACKUPS = 20;
 const BACKUP_NAME_RE = /^\d{8}_\d{6}(?:_\d{2})?\.iso$/;
 
 export type PoolType = "deck" | "saPow" | "bcd" | "saTec";
-export type PalFrWordingKind = "cardDescription" | "cardName" | "script";
+export type PalFrWordingKind = "cardDescription" | "cardName";
 
 export type PalFrWordingStatus =
   | {
@@ -104,6 +104,25 @@ export type PutPalFrWordingBatchResult = {
 export interface PalFrWordingChange {
   entryId: string;
   text: string;
+}
+
+interface ValidatedPalFrWordingChange {
+  encoded: Buffer;
+  entry: PalFrWordingEntry;
+}
+
+interface PalFrWordingRebuildPlan {
+  encodedEntries: Buffer[];
+  entries: PalFrWordingEntry[];
+  kind: PalFrWordingKind;
+  pointerTable: PalFrWordingPointerTable;
+  startOffset: number;
+  spanLength: number;
+}
+
+interface PalFrWordingPointerTable {
+  firstCardValueOffset: number;
+  valueBase: number;
 }
 
 export interface PalFrGlyphRenderingPatchStatus {
@@ -292,39 +311,15 @@ export function patchPalFrWordingEntries(
     fmt,
   ).subarray(0, waMrgEntry.size);
   const currentEntries = extractPalFrWordingEntries(waMrg);
+  const rebuildPlans = buildPalFrWordingRebuildPlans(waMrg, currentEntries, pending);
   const updatedEntries = [...status.entries];
 
-  for (const change of pending) {
-    const current = currentEntries.find((candidate) => candidate.id === change.entry.id);
-    if (
-      !current ||
-      current.offset !== change.entry.offset ||
-      current.maxByteLength !== change.entry.maxByteLength
-    ) {
-      throw new Error(
-        "PAL FR wording entry moved while patching; reload the active ISO and retry.",
-      );
+  for (const plan of rebuildPlans) {
+    writePalFrWordingRebuildPlan(bin, waMrgEntry.sector, fmt, plan);
+    for (const updated of plan.entries) {
+      const index = updatedEntries.findIndex((entry) => entry.id === updated.id);
+      if (index !== -1) updatedEntries[index] = updated;
     }
-
-    for (let i = 0; i < change.entry.maxByteLength; i++) {
-      const value = change.encoded[i] ?? 0x00;
-      bin[discOffset(waMrgEntry.sector, change.entry.offset + i, fmt)] = value;
-    }
-
-    const updated = {
-      ...change.entry,
-      byteLength: change.encoded.length,
-      text: decodePalFrWordingText(
-        Buffer.concat([
-          change.encoded,
-          Buffer.alloc(change.entry.maxByteLength - change.encoded.length, 0x00),
-        ]),
-        0,
-        change.entry.maxByteLength,
-      ),
-    };
-    const index = updatedEntries.findIndex((entry) => entry.id === updated.id);
-    if (index !== -1) updatedEntries[index] = updated;
   }
 
   patchPalFrGlyphRendering(bin, exeEntry, fmt, status.glyphRenderingPatch.targets);
@@ -349,30 +344,53 @@ export function patchPalFrWordingEntries(
 const PAL_FR_SERIAL = "SLES_039.48";
 const PAL_FR_LANG_IDX = 1;
 const PAL_FR_DESC_CARD_START = 2;
-const PAL_FR_NAME_SKIP = 1;
-const PAL_FR_MAX_SCRIPT_ENTRY_BYTES = 500;
+const PAL_FR_DESC_POINTER_VALUE_BASE = 0xc800;
+const PAL_FR_NAME_POINTER_VALUE_BASE = 0x6000;
+const PAL_FR_NAME_POINTER_TABLE_PREFIX = [0x6004, 0x6005] as const;
+const PAL_FR_DESC_POINTER_TABLE_PREFIX = [0x2618, 0x2619] as const;
+const WORDING_KINDS = [
+  "cardName",
+  "cardDescription",
+] as const satisfies readonly PalFrWordingKind[];
 const PAL_FR_GLYPH_TABLE_RAM = 0x801d9000;
-const PAL_FR_GLYPH_ID_MASK = 0x0ff00000;
-const PAL_FR_GLYPH_RENDERING_FIXES = [
+const PAL_FR_RENDERER_CALL_SITE_RAM = 0x80039700;
+const PAL_FR_RENDERER_CALL_DELAY_WORD = 0x00a72824;
+const PAL_FR_RENDERER_ORIGINAL_CALL_WORD = 0x0c00db19;
+const PAL_FR_RENDERER_HOOK_RAM = 0x80095044;
+const PAL_FR_RENDERER_HOOK_CALL_WORD = jalWord(PAL_FR_RENDERER_HOOK_RAM);
+// FUN_800393b8 calls FUN_80036c64 after resolving a glyph word through
+// DAT_801d9000. The hook calls the original emitter, inspects the emitted slot,
+// and expands only the two PAL FR ligature slots that are wrong in the normal
+// menu font: 0x59 (Œ) -> O+E and 0x74 (œ) -> o+e.
+const PAL_FR_RENDERER_HOOK_WORDS = [
+  0x27bdffe0, 0xafbf001c, 0xafa40018, 0x0c00db19, 0x00000000, 0x8fa80018, 0x8d090020, 0x2529ffea,
+  0x912a000e, 0x240b0059, 0x114b0006, 0x00000000, 0x240b0074, 0x114b0009, 0x00000000, 0x0802543f,
+  0x00000000, 0x240c002e, 0x240d0024, 0x2406826e, 0x24078264, 0x0802542c, 0x00000000, 0x240c0048,
+  0x240d003e, 0x2406828f, 0x24078285, 0xa12c000e, 0xa5260000, 0x8d190020, 0x272e0000, 0x240f0016,
+  0x91380000, 0xa1d80000, 0x25290001, 0x25ce0001, 0x25efffff, 0x15e0fffa, 0x00000000, 0xa32d000e,
+  0xa7270000, 0x932b0002, 0x256b0004, 0xa32b0002, 0xad0e0020, 0xa1c0000f, 0x8fbf001c, 0x27bd0020,
+  0x03e00008, 0x00000000,
+] as const;
+const PAL_FR_GLYPH_RENDERING_OBSERVATIONS = [
   {
     label: "œ",
     rawByte: 0x3f,
-    expectedGlyphId: 0x75,
+    expectedWord: 0x074089e7,
   },
   {
     label: "à",
     rawByte: 0x3e,
-    expectedGlyphId: 0x74,
+    expectedWord: 0x075089ce,
   },
   {
     label: "Œ",
     rawByte: 0x69,
-    expectedGlyphId: 0x5a,
+    expectedWord: 0x059089b2,
   },
   {
     label: "À",
     rawByte: 0x6d,
-    expectedGlyphId: 0x59,
+    expectedWord: 0x05a089b4,
   },
 ] as const;
 
@@ -400,7 +418,7 @@ const PAL_FR_WORDING_BYTE_BY_CHAR: ReadonlyMap<string, number> = (() => {
 function validatePalFrWordingChanges(
   entries: readonly PalFrWordingEntry[],
   changes: readonly PalFrWordingChange[],
-): { entry: PalFrWordingEntry; encoded: Buffer }[] {
+): ValidatedPalFrWordingChange[] {
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
   const seen = new Set<string>();
   return changes.map((change) => {
@@ -411,34 +429,260 @@ function validatePalFrWordingChanges(
 
     const entry = byId.get(change.entryId);
     if (!entry) throw new Error(`PAL FR wording entry not found: ${change.entryId}`);
+    validatePalFrWordingDisplayText(entry.kind, change.text);
     const encoded = encodePalFrWordingText(change.text);
-    if (encoded.length > entry.maxByteLength) {
-      throw new Error(
-        `Encoded text is ${encoded.length} bytes; this entry can hold ${entry.maxByteLength}.`,
-      );
-    }
     return { entry, encoded };
   });
 }
 
+function validatePalFrWordingDisplayText(kind: PalFrWordingKind, text: string): void {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+  const maxEntryLength = kind === "cardName" ? 33 : 124;
+  const maxLineLength = kind === "cardName" ? 33 : 29;
+  if (kind === "cardName" && lines.length > 1) {
+    throw new Error("PAL FR card names must fit on one line.");
+  }
+  if (normalized.length > maxEntryLength) {
+    throw new Error(
+      `PAL FR ${palFrWordingKindLabel(kind)} must fit in ${maxEntryLength} characters.`,
+    );
+  }
+  if (lines.some((line) => line.length > maxLineLength)) {
+    throw new Error(
+      `PAL FR ${palFrWordingKindLabel(kind)} lines must fit in ${maxLineLength} characters.`,
+    );
+  }
+}
+
+function palFrWordingKindLabel(kind: PalFrWordingKind): string {
+  return kind === "cardName" ? "card names" : "card descriptions";
+}
+
+function buildPalFrWordingRebuildPlans(
+  waMrg: Buffer,
+  currentEntries: readonly PalFrWordingEntry[],
+  pending: readonly ValidatedPalFrWordingChange[],
+): PalFrWordingRebuildPlan[] {
+  const changesByKind = groupPalFrWordingChangesByKind(pending);
+  return WORDING_KINDS.flatMap((kind) => {
+    const changes = changesByKind.get(kind);
+    if (!changes?.size) return [];
+    return [
+      buildPalFrWordingRebuildPlan(
+        kind,
+        currentEntries.filter((entry) => entry.kind === kind),
+        changes,
+        waMrg,
+      ),
+    ];
+  });
+}
+
+function groupPalFrWordingChangesByKind(
+  pending: readonly ValidatedPalFrWordingChange[],
+): Map<PalFrWordingKind, Map<string, Buffer>> {
+  const byKind = new Map<PalFrWordingKind, Map<string, Buffer>>();
+  for (const change of pending) {
+    const changes = byKind.get(change.entry.kind) ?? new Map<string, Buffer>();
+    changes.set(change.entry.id, change.encoded);
+    byKind.set(change.entry.kind, changes);
+  }
+  return byKind;
+}
+
+function buildPalFrWordingRebuildPlan(
+  kind: PalFrWordingKind,
+  entries: readonly PalFrWordingEntry[],
+  changes: ReadonlyMap<string, Buffer>,
+  waMrg: Buffer,
+): PalFrWordingRebuildPlan {
+  if (entries.length !== NUM_CARDS) {
+    throw new Error(
+      `PAL FR ${palFrWordingKindLabel(kind)} table has ${entries.length} entries; expected ${NUM_CARDS}.`,
+    );
+  }
+  const sorted = [...entries].sort((a, b) => a.entryIndex - b.entryIndex);
+  const startOffset = sorted[0]?.offset;
+  const last = sorted[sorted.length - 1];
+  if (startOffset == null || !last) {
+    throw new Error(`PAL FR ${palFrWordingKindLabel(kind)} table is empty.`);
+  }
+  const lastEnd = waMrg.indexOf(0xff, last.offset);
+  if (lastEnd === -1) {
+    throw new Error(`PAL FR ${palFrWordingKindLabel(kind)} table terminator was not found.`);
+  }
+  const spanLength = findPalFrWordingSpanEnd(waMrg, lastEnd) - startOffset;
+  const encodedEntries = sorted.map(
+    (entry) => changes.get(entry.id) ?? encodePalFrWordingText(entry.text),
+  );
+  const encodedLength = encodedEntries.reduce((sum, encoded) => sum + encoded.length + 1, 0);
+  if (encodedLength > spanLength) {
+    throw new Error(
+      `PAL FR ${palFrWordingKindLabel(kind)} table is ${encodedLength - spanLength} encoded bytes over its in-game text block.`,
+    );
+  }
+  const plannedEntries = makePlannedPalFrWordingEntries(kind, sorted, encodedEntries, startOffset);
+  const pointerTable = findPalFrWordingPointerTable(kind, waMrg);
+  return { encodedEntries, entries: plannedEntries, kind, pointerTable, startOffset, spanLength };
+}
+
+function makePlannedPalFrWordingEntries(
+  kind: PalFrWordingKind,
+  sorted: readonly PalFrWordingEntry[],
+  encodedEntries: readonly Buffer[],
+  startOffset: number,
+): PalFrWordingEntry[] {
+  const planned: PalFrWordingEntry[] = [];
+  let offset = startOffset;
+  for (let i = 0; i < sorted.length; i++) {
+    const original = sorted[i];
+    if (!original) continue;
+    const encoded = encodedEntries[i] ?? Buffer.alloc(0);
+    const byteLength = encoded.length;
+    planned.push({
+      ...original,
+      id: palFrWordingEntryId(kind, original.entryIndex),
+      offset,
+      byteLength,
+      maxByteLength: byteLength,
+      text: decodePalFrWordingText(encoded, 0, byteLength),
+    });
+    offset += byteLength + 1;
+  }
+  return planned;
+}
+
+function findPalFrWordingSpanEnd(waMrg: Buffer, lastEnd: number): number {
+  let end = lastEnd + 1;
+  while (end < waMrg.length && waMrg[end] === 0xff) end++;
+  return end;
+}
+
+function writePalFrWordingRebuildPlan(
+  bin: Buffer,
+  waMrgSector: number,
+  fmt: ReturnType<typeof detectDiscFormat>,
+  plan: PalFrWordingRebuildPlan,
+): void {
+  const bytes = encodePalFrWordingRebuildPlan(plan);
+  for (let i = 0; i < bytes.length; i++) {
+    bin[discOffset(waMrgSector, plan.startOffset + i, fmt)] = bytes[i] ?? 0;
+  }
+  writePalFrWordingPointerTable(bin, waMrgSector, fmt, plan);
+}
+
+function encodePalFrWordingRebuildPlan(plan: PalFrWordingRebuildPlan): Buffer {
+  const out = Buffer.alloc(plan.spanLength, 0xff);
+  let pos = 0;
+  for (let i = 0; i < plan.encodedEntries.length; i++) {
+    const encoded = plan.encodedEntries[i] ?? Buffer.alloc(0);
+    encoded.copy(out, pos);
+    pos += encoded.length;
+    out[pos] = 0xff;
+    pos++;
+  }
+  return out;
+}
+
+function writePalFrWordingPointerTable(
+  bin: Buffer,
+  waMrgSector: number,
+  fmt: ReturnType<typeof detectDiscFormat>,
+  plan: PalFrWordingRebuildPlan,
+): void {
+  for (let i = 0; i < plan.entries.length; i++) {
+    const entry = plan.entries[i];
+    if (!entry) continue;
+    const value = (entry.offset & 0xffff) - plan.pointerTable.valueBase;
+    if (value < 0 || value > 0xffff) {
+      throw new Error(
+        `PAL FR ${palFrWordingKindLabel(plan.kind)} #${entry.entryIndex + 1} pointer 0x${value.toString(16)} is outside the runtime text table range.`,
+      );
+    }
+    writeU16LeAt(bin, waMrgSector, plan.pointerTable.firstCardValueOffset + i * 2, value, fmt);
+  }
+}
+
+function findPalFrWordingPointerTable(
+  kind: PalFrWordingKind,
+  waMrg: Buffer,
+): PalFrWordingPointerTable {
+  if (kind === "cardName") {
+    const tableStart = findPalFrNamePointerTable(waMrg);
+    return {
+      firstCardValueOffset: tableStart + 2,
+      valueBase: PAL_FR_NAME_POINTER_VALUE_BASE,
+    };
+  }
+
+  const tableStart = findPalFrDescPointerTable(waMrg);
+  return {
+    firstCardValueOffset: tableStart + 2,
+    valueBase: PAL_FR_DESC_POINTER_VALUE_BASE,
+  };
+}
+
+function findPalFrNamePointerTable(waMrg: Buffer): number {
+  const hits = findPalFrPointerTableCandidates(waMrg, PAL_FR_NAME_POINTER_TABLE_PREFIX);
+  const hit = hits[PAL_FR_LANG_IDX];
+  if (hit == null) throw new Error("PAL FR card-name pointer table was not found.");
+  return hit;
+}
+
+function findPalFrDescPointerTable(waMrg: Buffer): number {
+  const textBlock = findAllWaMrgTextBlocks(waMrg)[PAL_FR_LANG_IDX];
+  if (!textBlock) throw new Error("PAL FR text block not found in WA_MRG.MRG.");
+  const hits = findPalFrPointerTableCandidates(waMrg, PAL_FR_DESC_POINTER_TABLE_PREFIX);
+  const beforeDescBlock = hits.filter((hit) => hit < textBlock.descBlockStart);
+  const hit = beforeDescBlock[beforeDescBlock.length - 1];
+  if (hit == null) throw new Error("PAL FR card-description pointer table was not found.");
+  return hit;
+}
+
+function findPalFrPointerTableCandidates(waMrg: Buffer, values: readonly number[]): number[] {
+  const pattern = Buffer.alloc(values.length * 2);
+  for (let i = 0; i < values.length; i++) pattern.writeUInt16LE(values[i] ?? 0, i * 2);
+
+  const hits: number[] = [];
+  let pos = waMrg.indexOf(pattern);
+  while (pos !== -1) {
+    hits.push(pos);
+    pos = waMrg.indexOf(pattern, pos + 1);
+  }
+  return hits;
+}
+
 function inspectPalFrGlyphRenderingPatch(slus: Buffer): PalFrGlyphRenderingPatchStatus {
   const header = parsePsxExeHeader(slus);
-  const targets = PAL_FR_GLYPH_RENDERING_FIXES.map((fix) => {
-    const fileOffset = psxRamToExeFileOffset(PAL_FR_GLYPH_TABLE_RAM + fix.rawByte * 4, header);
+  const targets = PAL_FR_GLYPH_RENDERING_OBSERVATIONS.map((observation) => {
+    const fileOffset = psxRamToExeFileOffset(
+      PAL_FR_GLYPH_TABLE_RAM + observation.rawByte * 4,
+      header,
+    );
     const currentWord = slus.readUInt32LE(fileOffset);
-    const expectedWord =
-      ((currentWord & ~PAL_FR_GLYPH_ID_MASK) | (fix.expectedGlyphId << 20)) >>> 0;
     return {
-      label: fix.label,
-      rawByte: fix.rawByte,
-      tableRamAddress: PAL_FR_GLYPH_TABLE_RAM + fix.rawByte * 4,
+      label: observation.label,
+      rawByte: observation.rawByte,
+      tableRamAddress: PAL_FR_GLYPH_TABLE_RAM + observation.rawByte * 4,
       fileOffset,
       currentWord,
-      expectedWord,
+      expectedWord: observation.expectedWord,
     };
   });
+  const callSiteOffset = psxRamToExeFileOffset(PAL_FR_RENDERER_CALL_SITE_RAM, header);
+  const hookOffset = psxRamToExeFileOffset(PAL_FR_RENDERER_HOOK_RAM, header);
+  const callSiteWord = slus.readUInt32LE(callSiteOffset);
+  const callDelayWord = slus.readUInt32LE(callSiteOffset + 4);
+  const hookApplied = PAL_FR_RENDERER_HOOK_WORDS.every(
+    (word, index) => slus.readUInt32LE(hookOffset + index * 4) === word,
+  );
   return {
-    applied: targets.every((target) => target.currentWord === target.expectedWord),
+    applied:
+      callSiteWord === PAL_FR_RENDERER_HOOK_CALL_WORD &&
+      callDelayWord === PAL_FR_RENDERER_CALL_DELAY_WORD &&
+      hookApplied &&
+      targets.every((target) => target.currentWord === target.expectedWord),
     changed: false,
     targets,
   };
@@ -450,10 +694,41 @@ function patchPalFrGlyphRendering(
   fmt: ReturnType<typeof detectDiscFormat>,
   targets: readonly PalFrGlyphRenderingPatchTarget[],
 ): void {
+  const slus = readSectors(
+    bin,
+    exeEntry.sector,
+    Math.ceil(exeEntry.size / SECTOR_DATA_SIZE),
+    fmt,
+  ).subarray(0, exeEntry.size);
+  const header = parsePsxExeHeader(slus);
+  const callSiteOffset = psxRamToExeFileOffset(PAL_FR_RENDERER_CALL_SITE_RAM, header);
+  const callSiteWord = slus.readUInt32LE(callSiteOffset);
+  if (
+    callSiteWord !== PAL_FR_RENDERER_ORIGINAL_CALL_WORD &&
+    callSiteWord !== PAL_FR_RENDERER_HOOK_CALL_WORD
+  ) {
+    throw new Error(
+      `PAL FR glyph renderer callsite is 0x${callSiteWord.toString(16)}; expected the original or YFM3 hook.`,
+    );
+  }
+  if (slus.readUInt32LE(callSiteOffset + 4) !== PAL_FR_RENDERER_CALL_DELAY_WORD) {
+    throw new Error("PAL FR glyph renderer delay slot changed; refusing to patch.");
+  }
+
+  writeU32LeToIso(bin, exeEntry.sector, callSiteOffset, PAL_FR_RENDERER_HOOK_CALL_WORD, fmt);
+  writeU32LeToIso(bin, exeEntry.sector, callSiteOffset + 4, PAL_FR_RENDERER_CALL_DELAY_WORD, fmt);
+  const hookOffset = psxRamToExeFileOffset(PAL_FR_RENDERER_HOOK_RAM, header);
+  for (let i = 0; i < PAL_FR_RENDERER_HOOK_WORDS.length; i++) {
+    writeU32LeToIso(
+      bin,
+      exeEntry.sector,
+      hookOffset + i * 4,
+      PAL_FR_RENDERER_HOOK_WORDS[i] ?? 0,
+      fmt,
+    );
+  }
   for (const target of targets) {
-    if (target.currentWord === target.expectedWord) continue;
-    const offset = target.fileOffset;
-    writeU32LeToIso(bin, exeEntry.sector, offset, target.expectedWord, fmt);
+    writeU32LeToIso(bin, exeEntry.sector, target.fileOffset, target.expectedWord, fmt);
   }
 }
 
@@ -468,76 +743,45 @@ function psxRamToExeFileOffset(ramAddress: number, header: ReturnType<typeof par
 }
 
 function extractPalFrWordingEntries(waMrg: Buffer): PalFrWordingEntry[] {
-  const textBlock = findAllWaMrgTextBlocks(waMrg)[PAL_FR_LANG_IDX];
-  if (!textBlock) throw new Error("PAL FR text block not found in WA_MRG.MRG.");
-
   const entries: PalFrWordingEntry[] = [];
   entries.push(
-    ...extractSequentialPalFrEntries(
+    ...extractPalFrPointerTableEntries(
+      "cardDescription",
       waMrg,
-      textBlock.descBlockStart,
-      PAL_FR_DESC_CARD_START + NUM_CARDS,
-      (entryIndex, offset) =>
-        entryIndex >= PAL_FR_DESC_CARD_START
-          ? makePalFrWordingEntry("cardDescription", entryIndex, offset, waMrg)
-          : null,
+      findPalFrWordingPointerTable("cardDescription", waMrg),
+      PAL_FR_DESC_CARD_START,
     ),
   );
   entries.push(
-    ...extractPalFrScriptEntries(
+    ...extractPalFrPointerTableEntries(
+      "cardName",
       waMrg,
-      skipWaMrgEntriesForWording(
-        waMrg,
-        textBlock.descBlockStart,
-        PAL_FR_DESC_CARD_START + NUM_CARDS,
-      ),
-      textBlock.nameBlockStart,
-    ),
-  );
-
-  const nameStart = skipWaMrgEntriesForWording(waMrg, textBlock.nameBlockStart, PAL_FR_NAME_SKIP);
-  entries.push(
-    ...extractSequentialPalFrEntries(waMrg, nameStart, NUM_CARDS, (entryIndex, offset) =>
-      makePalFrWordingEntry("cardName", entryIndex, offset, waMrg),
+      findPalFrWordingPointerTable("cardName", waMrg),
+      0,
     ),
   );
   return entries;
 }
 
-function extractSequentialPalFrEntries(
+function extractPalFrPointerTableEntries(
+  kind: PalFrWordingKind,
   waMrg: Buffer,
-  start: number,
-  count: number,
-  makeEntry: (entryIndex: number, offset: number) => PalFrWordingEntry | null,
+  pointerTable: PalFrWordingPointerTable,
+  firstEntryIndex: number,
 ): PalFrWordingEntry[] {
   const entries: PalFrWordingEntry[] = [];
-  let pos = start;
-  for (let entryIndex = 0; entryIndex < count && pos < waMrg.length; entryIndex++) {
-    const end = waMrg.indexOf(0xff, pos);
-    if (end === -1 || end - pos > PAL_FR_MAX_SCRIPT_ENTRY_BYTES) break;
-    const entry = makeEntry(entryIndex, pos);
+  const offsetBase = pointerTableOffsetBase(pointerTable.firstCardValueOffset);
+  for (let i = 0; i < NUM_CARDS; i++) {
+    const value = waMrg.readUInt16LE(pointerTable.firstCardValueOffset + i * 2);
+    const offset = offsetBase + pointerTable.valueBase + value;
+    const entry = makePalFrWordingEntry(kind, firstEntryIndex + i, offset, waMrg);
     if (entry) entries.push(entry);
-    pos = end + 1;
   }
   return entries;
 }
 
-function extractPalFrScriptEntries(waMrg: Buffer, start: number, end: number): PalFrWordingEntry[] {
-  const entries: PalFrWordingEntry[] = [];
-  let pos = start;
-  let entryIndex = 0;
-  while (pos < end) {
-    const term = waMrg.indexOf(0xff, pos);
-    if (term === -1 || term >= end) break;
-    const byteLength = term - pos;
-    if (byteLength > 0 && byteLength <= PAL_FR_MAX_SCRIPT_ENTRY_BYTES) {
-      const entry = makePalFrWordingEntry("script", entryIndex, pos, waMrg);
-      if (entry && looksLikeEditablePalFrText(entry.text)) entries.push(entry);
-    }
-    pos = term + 1;
-    entryIndex++;
-  }
-  return entries;
+function pointerTableOffsetBase(pointerOffset: number): number {
+  return pointerOffset & 0xffff0000;
 }
 
 function makePalFrWordingEntry(
@@ -550,7 +794,7 @@ function makePalFrWordingEntry(
   if (end === -1 || end < offset) return null;
   const maxByteLength = end - offset;
   return {
-    id: `pal-fr:${kind}:${offset.toString(16)}`,
+    id: palFrWordingEntryId(kind, entryIndex),
     kind,
     entryIndex,
     offset,
@@ -560,9 +804,8 @@ function makePalFrWordingEntry(
   };
 }
 
-function looksLikeEditablePalFrText(text: string): boolean {
-  const plain = text.replace(/\{[0-9a-f ]+\}/gi, "");
-  return /[A-Za-zÀ-ÿœŒ]/.test(plain) && plain.trim().length >= 3;
+function palFrWordingEntryId(kind: PalFrWordingKind, entryIndex: number): string {
+  return `pal-fr:${kind}:${entryIndex}`;
 }
 
 function decodePalFrWordingText(buf: Buffer, start: number, byteLength: number): string {
@@ -645,16 +888,6 @@ function parseHexByte(value: string): number | null {
   return byte >= 0 && byte <= 0xff ? byte : null;
 }
 
-function skipWaMrgEntriesForWording(buf: Buffer, offset: number, count: number): number {
-  let pos = offset;
-  for (let i = 0; i < count; i++) {
-    const end = buf.indexOf(0xff, pos);
-    if (end === -1) return pos;
-    pos = end + 1;
-  }
-  return pos;
-}
-
 function trimRightSpaceBytes(buf: Buffer, start: number, end: number): number {
   let pos = end;
   while (pos > start && buf[pos - 1] === 0x00) pos--;
@@ -716,28 +949,34 @@ function findWaMrgEntry(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): 
 
 function findExecutableEntry(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): IsoFile {
   const rootFiles = readRootFiles(bin, fmt);
-  const standard = rootFiles.find((f) => /^S[CL][A-Z]{2}_\d/.test(f.name));
+  const standard = rootFiles.find((file) => /^S[CL][A-Z]{2}_\d/.test(file.name));
   if (standard) return standard;
 
-  const cnfEntry = rootFiles.find((f) => f.name === "SYSTEM.CNF");
-  if (!cnfEntry) {
-    throw new Error(
-      `No PS1 executable found in disc image (files: ${rootFiles.map((f) => f.name).join(", ")})`,
-    );
-  }
-  const cnfData = readSectors(
-    bin,
-    cnfEntry.sector,
-    Math.ceil(cnfEntry.size / SECTOR_DATA_SIZE),
-    fmt,
-  )
+  const cnfEntry = rootFiles.find((file) => file.name === "SYSTEM.CNF");
+  if (!cnfEntry) throw new Error("SYSTEM.CNF not found in disc image");
+  const cnf = readSectors(bin, cnfEntry.sector, Math.ceil(cnfEntry.size / SECTOR_DATA_SIZE), fmt)
     .subarray(0, cnfEntry.size)
     .toString("ascii");
-  const bootName = parseBootExeName(cnfData);
-  if (!bootName) throw new Error("Could not parse BOOT entry from SYSTEM.CNF");
-  const exeEntry = rootFiles.find((f) => f.name === bootName);
-  if (!exeEntry) throw new Error(`Boot executable '${bootName}' not found on disc`);
+  const exeName = parseBootExeName(cnf)?.split("\\").pop()?.split("/").pop();
+  const exeEntry = exeName ? rootFiles.find((file) => file.name === exeName) : null;
+  if (!exeEntry) throw new Error("PS1 executable not found in disc image");
   return exeEntry;
+}
+
+function writeU32LeToIso(
+  bin: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  value: number,
+  fmt: ReturnType<typeof detectDiscFormat>,
+): void {
+  for (let i = 0; i < 4; i++) {
+    bin[discOffset(fileStartSector, fileOffset + i, fmt)] = (value >>> (i * 8)) & 0xff;
+  }
+}
+
+function jalWord(ramAddress: number): number {
+  return (0x0c000000 | ((ramAddress >>> 2) & 0x03ffffff)) >>> 0;
 }
 
 function readRootFiles(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): IsoFile[] {
@@ -750,19 +989,6 @@ function readRootFiles(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): I
     fmt,
   );
   return parseDirectory(rootData, root.readUInt32LE(10));
-}
-
-function writeU32LeToIso(
-  bin: Buffer,
-  fileStartSector: number,
-  fileOffset: number,
-  value: number,
-  fmt: ReturnType<typeof detectDiscFormat>,
-): void {
-  bin[discOffset(fileStartSector, fileOffset, fmt)] = value & 0xff;
-  bin[discOffset(fileStartSector, fileOffset + 1, fmt)] = (value >>> 8) & 0xff;
-  bin[discOffset(fileStartSector, fileOffset + 2, fmt)] = (value >>> 16) & 0xff;
-  bin[discOffset(fileStartSector, fileOffset + 3, fmt)] = (value >>> 24) & 0xff;
 }
 
 function traverse(

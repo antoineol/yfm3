@@ -1,5 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_MAX_COPIES, extractDeckLimits } from "./extract-deck-limits.ts";
+import { readDiscExe } from "./index.ts";
 
 /**
  * Build a PSX-EXE buffer whose text section contains a synthetic deck-limit
@@ -282,13 +284,14 @@ describe("extractDeckLimits", () => {
   });
 });
 
-describe("extractDeckLimits — real fixture parity (Alpha / RP / vanilla)", async () => {
-  // These tests only run when the repo's fixture binaries are present. They
-  // give us end-to-end coverage without shipping the ~6 MB of binaries in the
-  // test suite.
-  const { existsSync, readFileSync } = await import("node:fs");
+const alphaPath = "./gamedata/exe/alpha-slus.bin";
+const palFrPath = "./gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin";
+const realFixtureDescribe =
+  existsSync(alphaPath) || existsSync(palFrPath) ? describe : describe.skip;
 
-  const alphaPath = "./gamedata/exe/alpha-slus.bin";
+realFixtureDescribe("extractDeckLimits — real fixture parity (Alpha / RP / vanilla)", () => {
+  // These tests only run when the repo's fixture binaries are present. They
+  // give us end-to-end coverage without shipping binaries in the test suite.
   if (existsSync(alphaPath)) {
     it("decodes Alpha's 15 × 1-copy + 14 × 2-copy rule", () => {
       const exe = readFileSync(alphaPath);
@@ -318,10 +321,7 @@ describe("extractDeckLimits — real fixture parity (Alpha / RP / vanilla)", asy
     });
   }
 
-  const palFrPath = "./gamedata/vanilla-bin/Yu-Gi-Oh! Forbidden Memories (France).bin";
   if (existsSync(palFrPath)) {
-    const { readDiscExe } = await import("./index.ts");
-
     it("decodes PAL French vanilla's inline Exodia one-copy rule", () => {
       const { slus, serial } = readDiscExe(palFrPath);
       expect(serial).toBe("SLES_039.48");

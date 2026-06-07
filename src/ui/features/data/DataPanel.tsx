@@ -12,7 +12,7 @@ import { StarchipPanel } from "./StarchipPanel.tsx";
 
 type View = "cards" | "fusions" | "duelists" | "starchip" | "edit";
 type EditSection = "pools" | "wording";
-type WordingTab = "names" | "descriptions" | "dialogs";
+type WordingTab = "names" | "descriptions";
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: "cards", label: "Cards" },
@@ -23,7 +23,7 @@ const VIEW_OPTIONS: { value: View; label: string }[] = [
 ];
 
 const VALID_VIEWS = new Set<string>(VIEW_OPTIONS.map((o) => o.value));
-const VALID_WORDING_TABS = new Set<string>(["names", "descriptions", "dialogs"]);
+const VALID_WORDING_TABS = new Set<string>(["names", "descriptions"]);
 
 function parseDataHash(hash: string): {
   view: View;

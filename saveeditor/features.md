@@ -49,7 +49,7 @@ The feature ships in two surfaces:
   badge until someone adds its fingerprint to `src/engine/mods.ts`. Card
   names are still correct because they come from the BIN.
 - **Keyboard shortcuts** (e.g. `/` focus search, arrow-key row navigation).
-- **Virtualization** of the 720-row ledger — renders fine on modern hardware.
+- **Virtualization** of the 722-row ledger — renders fine on modern hardware.
 - **Deck desktop layout restructure.** The original 4-column `collection / deck
   / result / farm` layout is untouched. Edit renders full-width on all
   breakpoints. A broader restructure — sub-tabs on desktop, similar to the

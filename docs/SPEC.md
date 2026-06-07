@@ -313,13 +313,15 @@ Reward patching:
 PAL FR wording patching:
 
 - Wording edits are bridge-only active-ISO writes and currently support only `SLES_039.48`.
-- The PAL FR wording editor is a dedicated Edit subpage opened by a normal `#data/edit/wording/:tab` hash link from the Edit toolbar next to ISO backups. Supported tabs are `names`, `descriptions`, and `dialogs`; the route is refreshable and includes a Back link to the parent Edit page.
+- The PAL FR wording editor is a dedicated Edit subpage opened by a normal `#data/edit/wording/:tab` hash link from the Edit toolbar next to ISO backups. Supported tabs are `names` and `descriptions`; the route is refreshable and includes a Back link to the parent Edit page.
 - PAL FR wording status is cached in memory per active game/disc key after the first load. Successful wording saves refresh the cache; ISO backup restores invalidate it.
-- The editor exposes PAL FR WA_MRG card descriptions, card names, and short script entries with one global save. One save creates one ISO backup and writes every changed entry.
-- The wording UI is organized by tabs for card names, card descriptions, and dialogs. Technical offsets are not shown; rows use concise context such as card id/name or type/stats, and text editors grow to show their full content instead of using inner scrollbars.
-- Replacement text is encoded with the PAL FR table and must fit the selected entry's original byte budget; shorter text is padded before the original terminator so downstream entry boundaries do not move.
-- Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the script/data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.
-- PAL FR saves also apply the verified live text renderer glyph-table fix for `œ/Œ`: the source card/script bytes are already correct, but the renderer resolves the ligature bytes through `DAT_801d9000` to swapped glyph ids in the executable metadata table.
+- The editor exposes PAL FR WA_MRG card descriptions and card names with one global save. One save creates one ISO backup and writes every changed entry.
+- The wording UI is organized by tabs for card names and card descriptions. Technical offsets are not shown; rows use concise context such as card id/name or type/stats, and text editors grow to show their full content instead of using inner scrollbars.
+- Wording input character limits are global display-space limits per tab: card names are one 33-character line, and card descriptions are 124 characters total with 29 characters per line.
+- Replacement text is encoded with the PAL FR table. Saves rebuild each card-name or card-description pool compactly with `FF` terminators, can use trailing `FF` padding before the next PAL text table, update the corresponding PAL FR runtime pointer table copied into RAM (`DAT_801d5804` for card names, the FR description table for descriptions), and reject only when the whole pool would exceed that reserved in-game text block.
+- Wording saves close any running DuckStation game before writing because the game keeps text indexes in RAM; repacking while the old runtime index is live can make labels point into the middle of shifted strings.
+- Control tokens shown as `{xx}` or `{f8 xx yy}` are part of the data stream and must round-trip unchanged unless a future tokenizer proves a broader rewrite is safe.
+- PAL FR `œ/Œ` source bytes are decoded correctly by the app, but the runtime menu/list renderer draws their normal-font slots as wrong glyphs. Decompiled `FUN_800393b8` resolves each byte through `DAT_801d9000` and `FUN_80036c64` emits one glyph primitive; the normal-font draw path in `FUN_80036298` uses the emitted slot byte. Wording saves install an executable hook at `0x80039700` to wrap `FUN_80036c64`: after the original glyph primitive is emitted, the wrapper expands only the unique PAL FR ligature slots `0x59` (`Œ`) and `0x74` (`œ`) into compact `O+E` / `o+e` primitives. The patch also restores the vanilla `œ/à/Œ/À` table words; the earlier table-swap approach is disproven because it breaks or preserves wrong menu rendering.
 
 ## Agent Game Control
 
