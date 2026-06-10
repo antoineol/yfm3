@@ -5,8 +5,9 @@ import {
   readCardStats,
   readGameState,
   readModFingerprint,
+  validateProfile,
 } from "./memory.ts";
-import { PAL_PROFILE } from "./offset-profiles.ts";
+import { DEFAULT_PROFILE, PAL_PROFILE } from "./offset-profiles.ts";
 import { readLiveRankCounters, readRankCounters } from "./rank-counters.ts";
 
 describe("readCardStats", () => {
@@ -23,6 +24,14 @@ describe("readCardStats", () => {
     expect(stats[255]).toBe(255);
     expect(stats[256]).toBe(0);
     expect(readModFingerprint(view)).toBe("000102030405060708090a0b0c0d0e0f");
+  });
+});
+
+describe("validateProfile", () => {
+  it("rejects all-zero LP values from not-yet-loaded shared memory", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+
+    expect(validateProfile(view, DEFAULT_PROFILE)).toBe(false);
   });
 });
 

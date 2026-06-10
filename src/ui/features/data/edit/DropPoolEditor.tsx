@@ -37,6 +37,8 @@ const CONFIRM_MESSAGE =
   "After it saves, click the game row in DuckStation and choose 'Démarrage normal' to reload.\n\n" +
   "Any unsaved in-duel progress will be lost. Continue?";
 
+const SHOW_PAL_FR_WORDING_LINK = import.meta.env.DEV;
+
 export function DropPoolEditor({
   gameData,
   onDuelistChange,
@@ -133,12 +135,14 @@ function PickerBar({
       </div>
       <div className="ml-auto flex items-center gap-2">
         <GlobalSaveRevert duelists={duelists} />
-        <a
-          className="font-display text-[11px] uppercase tracking-widest text-gold transition-colors hover:text-gold-bright hover:underline underline-offset-4"
-          href="#data/edit/wording/names"
-        >
-          PAL FR wording
-        </a>
+        {SHOW_PAL_FR_WORDING_LINK && (
+          <a
+            className="font-display text-[11px] uppercase tracking-widest text-gold transition-colors hover:text-gold-bright hover:underline underline-offset-4"
+            href="#data/edit/wording/names"
+          >
+            PAL FR wording
+          </a>
+        )}
         <IsoBackupsDrawerButton />
       </div>
     </div>

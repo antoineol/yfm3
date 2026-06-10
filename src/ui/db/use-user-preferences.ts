@@ -23,7 +23,9 @@ export function useBridgeAutoSync() {
   const [localMode] = useState(() => getAutoSyncMode());
   const settings = useUserSettings();
   // If localStorage says auto-sync, trust it immediately; otherwise fall back to Convex
-  return localMode === true ? true : (settings?.bridgeAutoSync ?? false);
+  if (localMode !== undefined) return localMode;
+  if (settings === undefined) return true;
+  return settings?.bridgeAutoSync ?? false;
 }
 
 /** Raw tri-state: `undefined` = never chosen, `true` = auto-sync, `false` = manual.

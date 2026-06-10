@@ -189,11 +189,12 @@ let lastCollectionKey = ""; // stringified collection for change detection
 let lastDeckKey = ""; // stringified deck for change detection
 let consecutiveZeroReads = 0;
 const STALE_ZERO_THRESHOLD = 60; // 60 × 50ms = 3 seconds of all-zero reads
-const VIEW_REFRESH_INTERVAL = 100; // refresh DataView every 100 polls (5s) when game never detected
+const VIEW_REFRESH_INTERVAL = 100; // refresh DataView every 100 polls (5s)
 let hadNonZeroData = false; // true once we've seen real game data
 let reopenedAfterStale = false; // prevents repeated reopen attempts
 let lastConnectStatus = ""; // deduplicates tryConnect console logs
 let pidCheckCounter = 0;
+let viewRefreshCounter = 0;
 const PID_CHECK_INTERVAL = 40; // check PID every 40 polls (40 × 50ms = 2 seconds)
 
 // ── Input control state ─────────────────────────────────────────────
@@ -335,8 +336,12 @@ function resolveOffsetProfile(view: DataView): OffsetProfile | null {
   const serial = readGameSerial(view);
 
   // Re-resolve if the game serial changed (user loaded a different disc/mod)
-  if (serial !== lastSerial && lastSerial !== null) {
-    console.log(`Game serial changed: ${lastSerial} → ${serial} — re-resolving profile`);
+  if (serial !== lastSerial) {
+    if (lastSerial !== null || resolvedProfile !== undefined) {
+      console.log(
+        `Game serial changed: ${lastSerial ?? "unknown"} → ${serial ?? "unknown"} — re-resolving profile`,
+      );
+    }
     resolvedProfile = undefined;
   }
   lastSerial = serial;
@@ -1366,6 +1371,7 @@ async function forceReconnect(): Promise<void> {
   hadNonZeroData = false;
   reopenedAfterStale = false;
   pidCheckCounter = 0;
+  viewRefreshCounter = 0;
   lastConnectStatus = "";
   dsHwnd = null;
   resetProfile();
@@ -1423,6 +1429,7 @@ async function restartDuckStation(): Promise<boolean> {
     hadNonZeroData = false;
     reopenedAfterStale = false;
     consecutiveZeroReads = 0;
+    viewRefreshCounter = 0;
     resetProfile();
     resetGameData();
     resetDiagnosticProbes();
@@ -1616,6 +1623,12 @@ async function poll(): Promise<void> {
 
   if (mapping) {
     try {
+      viewRefreshCounter++;
+      if (viewRefreshCounter >= VIEW_REFRESH_INTERVAL) {
+        refreshView(mapping);
+        viewRefreshCounter = 0;
+      }
+
       const gameLoaded = isGameLoaded(mapping.view);
 
       if (!gameLoaded) {
@@ -1635,6 +1648,7 @@ async function poll(): Promise<void> {
         // writes made by DuckStation after the initial mapping.
         if (!hadNonZeroData && consecutiveZeroReads % VIEW_REFRESH_INTERVAL === 0) {
           refreshView(mapping);
+          viewRefreshCounter = 0;
         }
 
         if (consecutiveZeroReads >= STALE_ZERO_THRESHOLD && hadNonZeroData && !reopenedAfterStale) {
@@ -1653,6 +1667,7 @@ async function poll(): Promise<void> {
             hadNonZeroData = false;
             reopenedAfterStale = false;
             pidCheckCounter = 0;
+            viewRefreshCounter = 0;
             lastJson = "";
             resetProfile();
             resetGameData();
@@ -1674,6 +1689,7 @@ async function poll(): Promise<void> {
           consecutiveZeroReads = 0;
           reopenedAfterStale = true;
           pidCheckCounter = 0;
+          viewRefreshCounter = 0;
           resetProfile();
           resetGameData();
           resetDiagnosticProbes();
@@ -1697,6 +1713,7 @@ async function poll(): Promise<void> {
           mapping = openSharedMemory(oldPid, { quiet: true });
           consecutiveZeroReads = 0;
           pidCheckCounter = 0;
+          viewRefreshCounter = 0;
           resetProfile();
           resetGameData();
           resetDiagnosticProbes();
@@ -1742,6 +1759,7 @@ async function poll(): Promise<void> {
             consecutiveZeroReads = 0;
             hadNonZeroData = false;
             reopenedAfterStale = false;
+            viewRefreshCounter = 0;
             lastJson = "";
             resetProfile();
             resetGameData();
@@ -1862,6 +1880,7 @@ async function poll(): Promise<void> {
       hadNonZeroData = false;
       reopenedAfterStale = false;
       pidCheckCounter = 0;
+      viewRefreshCounter = 0;
       resetProfile();
       resetGameData();
       resetDiagnosticProbes();

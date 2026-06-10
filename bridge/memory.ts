@@ -127,13 +127,14 @@ const PS1_RAM_SIZE = 0x200000;
 /**
  * Validate that a profile's LP addresses point to reasonable values.
  * YGO FM LP is 0–9999 in all known versions (8000 vanilla, 9900 RP).
- * Values above that indicate the addresses are wrong for this binary.
+ * Values above that, or both LP values being zero, indicate the addresses
+ * are wrong or the game-state block is not initialized yet.
  */
 const MAX_VALID_LP = 9999;
 export function validateProfile(view: DataView, profile: OffsetProfile): boolean {
   const lp1 = readU16(view, profile.lpP1);
   const lp2 = readU16(view, profile.lpP2);
-  return lp1 <= MAX_VALID_LP && lp2 <= MAX_VALID_LP;
+  return lp1 <= MAX_VALID_LP && lp2 <= MAX_VALID_LP && (lp1 > 0 || lp2 > 0);
 }
 
 /**
