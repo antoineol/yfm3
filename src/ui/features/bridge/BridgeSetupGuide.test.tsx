@@ -118,11 +118,13 @@ describe("BridgeSetupGuide", () => {
 
   it("keeps game data acquisition as an active setup step while bridge gameData is missing", () => {
     mockBridge.mockReturnValue(defaultBridge({ status: "connected", detail: "ready" }));
-    render(<BridgeSetupGuide />);
+    const { container } = render(<BridgeSetupGuide />);
 
     expect(screen.getByText("Connected")).toBeDefined();
     expect(screen.getByText("Reading game data from the active disc...")).toBeDefined();
     expect(screen.getByText("This runs automatically. Keep DuckStation open.")).toBeDefined();
+    expect(container.querySelectorAll(".animate-spin-gold")).toHaveLength(1);
+    expect(screen.queryByText("9")).toBeNull();
     expect(screen.queryByText("Game loaded — reading game data")).toBeNull();
     expect(screen.queryByText(/Start or load a game/)).toBeNull();
   });

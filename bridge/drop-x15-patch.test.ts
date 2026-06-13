@@ -5,23 +5,25 @@ import { describe, expect, test } from "vitest";
 import { inspectDropX15Image, patchDropX15DiscInPlace } from "./drop-x15-patch.ts";
 import { SECTOR_DATA_SIZE } from "./extract/iso9660.ts";
 
+const GENERAL_DROP_COUNTS = [1, 5, 15, 50, 150, 1000] as const;
+
 describe("drop x15 patch inspection", () => {
   test.each([
     "SLUS_014.11",
     "SLUS_000.04",
     "SLUS_999.99",
   ])("supports unpatched Ghost/FMR loop-limit %s images", (serial) => {
-    const image = makeDiscImage(serial, false);
+    const image = makeCommunityGhostLoopDiscImage(serial);
     seedGhostLoopPatterns(image, "vanilla");
 
     expect(inspectDropX15Image(image)).toEqual({
       supported: true,
       enabled: false,
       definitionId: "ghost-loop-limits",
-      definitionName: "Ghost/FMR loop-limit x15",
-      cardDropCount: 15,
+      definitionName: "Ghost/FMR loop-limit x5",
+      cardDropCount: 5,
       starchipMultiplier: 1,
-      availableDropCounts: [15],
+      availableDropCounts: [...GENERAL_DROP_COUNTS],
       gameSerial: serial,
     });
   });
@@ -33,7 +35,7 @@ describe("drop x15 patch inspection", () => {
   ])("patches %s executables in place", (serial) => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
-    const image = makeDiscImage(serial, false);
+    const image = makeCommunityGhostLoopDiscImage(serial);
     seedGhostLoopPatterns(image, "vanilla");
     writeFileSync(discPath, image);
 
@@ -45,7 +47,7 @@ describe("drop x15 patch inspection", () => {
       expect(inspectDropX15Image(readFileSync(discPath))).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
       });
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -65,9 +67,63 @@ describe("drop x15 patch inspection", () => {
       definitionName: "Ghost/FMR loop-limit x15",
       cardDropCount: 15,
       starchipMultiplier: 15,
-      availableDropCounts: [15],
+      availableDropCounts: [...GENERAL_DROP_COUNTS],
       gameSerial: "SLUS_014.11",
     });
+  });
+
+  test("normalizes the community RP x15 loop-limit image before applying x1000", () => {
+    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
+    const discPath = join(dir, "disc.iso");
+    const image = makeCommunityGhostLoopDiscImage("SLUS_014.11");
+    seedGhostLoopPatterns(image, "vanilla", 1, 0);
+    seedGhostLoopPatterns(image, "patched", 7, 1);
+    writeFileSync(discPath, image);
+
+    try {
+      expect(inspectDropX15Image(image)).toMatchObject({
+        supported: true,
+        enabled: false,
+        definitionId: "ghost-loop-limits",
+        cardDropCount: 15,
+        starchipMultiplier: 1,
+        availableDropCounts: [...GENERAL_DROP_COUNTS],
+      });
+
+      const result = patchDropX15DiscInPlace(discPath, 1000);
+      const patched = readFileSync(discPath);
+
+      expect(result.changed).toBe(true);
+      expect(result.status).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 1000,
+        starchipMultiplier: 1000,
+      });
+      expect(inspectDropX15Image(patched)).toMatchObject({
+        supported: true,
+        enabled: true,
+        definitionId: "ghost-drop-more-cards",
+        cardDropCount: 1000,
+        starchipMultiplier: 1000,
+      });
+      expect(
+        patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b440, 21 * SECTOR_DATA_SIZE + 0x19b448),
+      ).toEqual(Buffer.from("1B001D3C00B0BD27", "hex"));
+      expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x19b550)).toBe(0x2484b000);
+      expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x19b5d0)).toBe(0x2442b000);
+      expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b478)).toBe(1001);
+      expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b574)).toBe(1001);
+      expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b5ec)).toBe(1000);
+      expect(patched.readUInt16LE(waOffset(0xbc1c78))).toBe(1001);
+      expect(patched.readUInt16LE(waOffset(0xbc1d74))).toBe(1001);
+      expect(patched.readUInt16LE(waOffset(0xbc1dec))).toBe(1000);
+      expect(patched.readUInt16LE(waOffset(0xbc17e4))).toBe(1001);
+      expect(executeStarchipSaveUpdate(patched, 0x126d4, 2727, 5)).toBe(7727);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test.each([
@@ -84,7 +140,7 @@ describe("drop x15 patch inspection", () => {
       definitionName: "Ghost Drop More Cards x1",
       cardDropCount: 1,
       starchipMultiplier: 1,
-      availableDropCounts: [15],
+      availableDropCounts: [...GENERAL_DROP_COUNTS],
       gameSerial: serial,
     });
   });
@@ -113,7 +169,7 @@ describe("drop x15 patch inspection", () => {
       expect(result.status).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
       });
       expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x1247c)).toBe(0x24050101);
       expect(
@@ -121,7 +177,7 @@ describe("drop x15 patch inspection", () => {
       ).toEqual(Buffer.alloc(16));
       expect(
         patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b440, 21 * SECTOR_DATA_SIZE + 0x19b448),
-      ).toEqual(Buffer.from("1B001D3C00ACBD27", "hex"));
+      ).toEqual(Buffer.from("1B001D3C00B0BD27", "hex"));
       expect(patched[waOffset(0xbc1c78)]).toBe(16);
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
@@ -200,13 +256,13 @@ describe("drop x15 patch inspection", () => {
       expect(result.status).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
         cardDropCount: 15,
       });
       expect(inspectDropX15Image(patched)).toMatchObject({
         supported: true,
         enabled: true,
-        definitionId: "ghost-loop-limits",
+        definitionId: "ghost-drop-more-cards",
         cardDropCount: 15,
       });
       expect(
@@ -214,7 +270,7 @@ describe("drop x15 patch inspection", () => {
       ).toEqual(Buffer.alloc(16));
       expect(
         patched.subarray(21 * SECTOR_DATA_SIZE + 0x19b440, 21 * SECTOR_DATA_SIZE + 0x19b448),
-      ).toEqual(Buffer.from("1B001D3C00ACBD27", "hex"));
+      ).toEqual(Buffer.from("1B001D3C00B0BD27", "hex"));
       expect(patched[waOffset(0xbc1c78)]).toBe(16);
       expect(patched[waOffset(0xbc1d74)]).toBe(16);
       expect(patched[waOffset(0xbc1dec)]).toBe(15);
@@ -346,7 +402,7 @@ describe("drop x15 patch inspection", () => {
         expect(patched.readUInt16LE(waOffset(base + 0x1ec))).toBe(1000);
       }
       expect(patched.readUInt16LE(waOffset(0xe24fe4))).toBe(1001);
-      expect(executePalStarchipSaveUpdate(patched, 2727, 5)).toBe(7727);
+      expect(executeStarchipSaveUpdate(patched, 0x12790, 2727, 5)).toBe(7727);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -410,7 +466,7 @@ describe("drop x15 patch inspection", () => {
       patchDropX15DiscInPlace(discPath, multiplier);
       const patched = readFileSync(discPath);
 
-      expect(executePalStarchipSaveUpdate(patched, before, rankStarchips)).toBe(after);
+      expect(executeStarchipSaveUpdate(patched, 0x12790, before, rankStarchips)).toBe(after);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -516,7 +572,7 @@ describe("drop x15 patch inspection", () => {
         cardDropCount: 150,
         starchipMultiplier: 150,
       });
-      expect(executePalStarchipSaveUpdate(staleHelper, 2727, 5)).toBe(1490);
+      expect(executeStarchipSaveUpdate(staleHelper, 0x12790, 2727, 5)).toBe(1490);
 
       const result = patchDropX15DiscInPlace(discPath, 150);
       const patched = readFileSync(discPath);
@@ -527,7 +583,7 @@ describe("drop x15 patch inspection", () => {
         cardDropCount: 150,
         starchipMultiplier: 150,
       });
-      expect(executePalStarchipSaveUpdate(patched, 2727, 5)).toBe(3477);
+      expect(executeStarchipSaveUpdate(patched, 0x12790, 2727, 5)).toBe(3477);
       expectPalStarchipMultiplier(patched, 21 * SECTOR_DATA_SIZE, 150);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -602,7 +658,7 @@ describe("drop x15 patch inspection", () => {
     }
   });
 
-  test("upgrades card-only Ghost/FMR images with starchip x15", () => {
+  test("rejects card-only Ghost/FMR images because normalization needs WA_MRG", () => {
     const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
     const discPath = join(dir, "disc.iso");
     const image = makeDiscImage("SLUS_014.11", false);
@@ -617,12 +673,7 @@ describe("drop x15 patch inspection", () => {
         definitionId: "ghost-loop-limits",
       });
 
-      const result = patchDropX15DiscInPlace(discPath, 15);
-      const patched = readFileSync(discPath);
-
-      expect(result.changed).toBe(true);
-      expect(result.status.enabled).toBe(true);
-      expectStarchipX15(patched, 21 * SECTOR_DATA_SIZE + 0x126d4);
+      expect(() => patchDropX15DiscInPlace(discPath, 15)).toThrow("DATA/WA_MRG.MRG was not found.");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -713,6 +764,12 @@ function makeGhostToolDiscImage(serial: string, continuationWord = 0x00021400): 
   return image;
 }
 
+function makeCommunityGhostLoopDiscImage(serial: string): Buffer {
+  const image = makeGhostToolDiscImage(serial);
+  seedGhostToolPatchedHooks(image, 21);
+  return image;
+}
+
 function makePalGhostToolDiscImage(serial: string): Buffer {
   const rootSector = 20;
   const slusSector = 21;
@@ -742,11 +799,12 @@ function seedGhostLoopPatterns(
   image: Buffer,
   mode: keyof typeof GHOST_LOOP_PATTERN_BYTES,
   copies = 1,
+  startCopy = 0,
 ): void {
   for (let copy = 0; copy < copies; copy++) {
     for (let i = 0; i < GHOST_LOOP_PATTERN_BYTES[mode].length; i++) {
       const pattern = Buffer.from(GHOST_LOOP_PATTERN_BYTES[mode][i] ?? "", "hex");
-      pattern.copy(image, 0x3000 + copy * 0x400 + i * 0x80);
+      pattern.copy(image, 0x3000 + (startCopy + copy) * 0x400 + i * 0x80);
     }
   }
 }
@@ -824,6 +882,13 @@ function seedGhostToolHooks(
   writeU32(image, slusSector, 0x1247c, continuationWord);
   writeBytes(image, slusSector, 0x12710, "3C0044842586000C");
   writeBytes(image, slusSector, 0x285fc, "30048387C7DF000821286200");
+}
+
+function seedGhostToolPatchedHooks(image: Buffer, slusSector: number): void {
+  writeBytes(image, slusSector, 0x12034, "95AB060800000000");
+  writeBytes(image, slusSector, 0x1246c, "10AB060800000000");
+  writeBytes(image, slusSector, 0x12710, "53AB060800000000");
+  writeBytes(image, slusSector, 0x285fc, "9DAB06080000000000000000");
 }
 
 function seedPalGhostToolHooks(image: Buffer, slusSector: number): void {
@@ -916,14 +981,15 @@ function expectStarchipX15(image: Buffer, offset: number): void {
   );
 }
 
-function executePalStarchipSaveUpdate(
+function executeStarchipSaveUpdate(
   image: Buffer,
+  starchipAwardOffset: number,
   starchipsBefore: number,
   rankStarchips: number,
 ): number {
   const slusBase = 21 * SECTOR_DATA_SIZE;
   const fileToRamDelta = 0x8000f800;
-  const returnAddress = fileToRamDelta + 0x12790 + 24;
+  const returnAddress = fileToRamDelta + starchipAwardOffset + 24;
   const memory = Buffer.alloc(0x2000);
   const resultPointer = 0x10000000;
   const savePointer = resultPointer + 0x1000;
@@ -934,7 +1000,7 @@ function executePalStarchipSaveUpdate(
   memory[0x3a] = rankStarchips;
   memory.writeUInt32LE(starchipsBefore, 0x1000 + 0x5e0);
 
-  let pc = fileToRamDelta + 0x12790;
+  let pc = fileToRamDelta + starchipAwardOffset;
   for (let step = 0; step < 40 && pc !== returnAddress; step++) {
     pc = executeInstruction(readInstruction(image, slusBase, fileToRamDelta, pc), pc);
   }

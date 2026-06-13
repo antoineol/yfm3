@@ -68,7 +68,7 @@ export function FusionResultsList({
     );
   }
 
-  // Keep natural ATK-sorted order. Extra field plays collapse after the first one.
+  // Keep the engine-ranked order. Extra field plays collapse after the first one.
   const firstFieldIdx = results.findIndex((r) => r.fieldMaterialCardIds.length > 0);
   const extraFieldPlays =
     firstFieldIdx >= 0

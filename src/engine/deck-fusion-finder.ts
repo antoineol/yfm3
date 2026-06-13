@@ -1,10 +1,12 @@
 import { applyFieldBonus } from "./data/field-bonus.ts";
 import type { CardDb } from "./data/game-db.ts";
+import { compareRankedPlays, type RankedPlay } from "./play-ranking.ts";
 import { FUSION_NONE, MAX_CARD_ID } from "./types/constants.ts";
 
 export type DeckFusion = {
   resultCardId: number;
   resultAtk: number;
+  resultDef: number;
   resultName: string;
   /** Number of original deck cards consumed (2 = direct fusion, 3+ = chain). */
   materialCount: number;
@@ -18,7 +20,9 @@ export type DeckFusion = {
  * For each unique pair of cards, checks the fusion table. For chain fusions,
  * recursively checks if a fusion result can fuse with another deck card.
  *
- * Returns results grouped by material count and sorted by ATK descending.
+ * Returns results sorted by the shared play-ranking criteria available without
+ * a concrete hand: result ATK, material count, result DEF, then lower-value
+ * materials.
  */
 export function findDeckFusions(
   deckCardIds: number[],
@@ -32,7 +36,7 @@ export function findDeckFusions(
 
   exploreFusions(uniqueCards, fusionTable, cardDb, fusionDepth, results, terrain);
 
-  return sortAndGroup(Array.from(results.values()));
+  return sortDeckFusions(Array.from(results.values()), cardDb);
 }
 
 function exploreFusions(
@@ -135,24 +139,59 @@ function recordDeckFusion(
     );
     if (!isDuplicate) {
       existing.materialPaths.push(materials);
+      existing.materialPaths.sort((a, b) => compareMaterialPaths(a, b, cardDb));
     }
     return;
   }
 
   const card = cardDb.cardsById.get(resultId);
   const baseAtk = card?.attack ?? 0;
+  const baseDef = card?.defense ?? 0;
   results.set(key, {
     resultCardId: resultId,
     resultAtk: terrain ? applyFieldBonus(baseAtk, terrain, card?.cardType) : baseAtk,
+    resultDef: terrain ? applyFieldBonus(baseDef, terrain, card?.cardType) : baseDef,
     resultName: card?.name ?? `Card #${String(resultId)}`,
     materialCount,
     materialPaths: [materials],
   });
 }
 
-function sortAndGroup(fusions: DeckFusion[]): DeckFusion[] {
-  return fusions.sort((a, b) => {
-    if (a.materialCount !== b.materialCount) return a.materialCount - b.materialCount;
-    return b.resultAtk - a.resultAtk;
-  });
+function sortDeckFusions(fusions: DeckFusion[], cardDb: CardDb): DeckFusion[] {
+  for (const fusion of fusions) {
+    fusion.materialPaths.sort((a, b) => compareMaterialPaths(a, b, cardDb));
+  }
+  return fusions.sort((a, b) =>
+    compareRankedPlays(rankedDeckFusion(a, cardDb), rankedDeckFusion(b, cardDb)),
+  );
+}
+
+function rankedDeckFusion(fusion: DeckFusion, cardDb: CardDb): RankedPlay {
+  const consumed = materialPathStats(fusion.materialPaths[0] ?? [], cardDb);
+  return {
+    resultAtk: fusion.resultAtk,
+    resultDef: fusion.resultDef,
+    consumedCardCount: fusion.materialCount,
+    consumedMaterialAtk: consumed.atk,
+    consumedMaterialDef: consumed.def,
+  };
+}
+
+function compareMaterialPaths(a: number[], b: number[], cardDb: CardDb): number {
+  const aStats = materialPathStats(a, cardDb);
+  const bStats = materialPathStats(b, cardDb);
+  if (aStats.atk !== bStats.atk) return aStats.atk - bStats.atk;
+  return aStats.def - bStats.def;
+}
+
+function materialPathStats(path: number[], cardDb: CardDb): { atk: number; def: number } {
+  return path.reduce(
+    (sum, cardId) => {
+      const card = cardDb.cardsById.get(cardId);
+      sum.atk += card?.attack ?? 0;
+      sum.def += card?.defense ?? 0;
+      return sum;
+    },
+    { atk: 0, def: 0 },
+  );
 }

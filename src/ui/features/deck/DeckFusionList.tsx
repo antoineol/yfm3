@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { CardId } from "../../../engine/data/card-model.ts";
 import { type DeckFusion, findDeckFusions } from "../../../engine/deck-fusion-finder.ts";
@@ -64,46 +64,27 @@ export function DeckFusionList({ deckCardIds }: { deckCardIds: number[] }) {
         (fusions.length === 0 ? (
           <p className="text-text-muted text-sm pl-5">No fusions possible with this deck</p>
         ) : (
-          <FusionGroups cardDb={cardDb} fusions={fusions} />
+          <FusionRows cardDb={cardDb} fusions={fusions} />
         ))}
     </div>
   );
 }
 
-function FusionGroups({
+function FusionRows({
   fusions,
   cardDb,
 }: {
   fusions: DeckFusion[];
   cardDb: ReturnType<typeof useCardDb>;
 }) {
-  const groups = useMemo(() => {
-    const map = new Map<number, DeckFusion[]>();
-    for (const f of fusions) {
-      const group = map.get(f.materialCount) ?? [];
-      group.push(f);
-      map.set(f.materialCount, group);
-    }
-    return [...map.entries()].sort(([a], [b]) => a - b);
-  }, [fusions]);
-
   return (
-    <div className="flex flex-col gap-3 pl-5">
-      {groups.map(([materialCount, group]) => (
-        <div className="flex flex-col gap-1" key={materialCount}>
-          <p className="text-xs text-text-secondary font-medium">
-            {materialCount}-Material Fusions ({group.length})
-          </p>
-          <div className="flex flex-col gap-1">
-            {group.map((f) => (
-              <FusionRow
-                cardDb={cardDb}
-                fusion={f}
-                key={`${String(f.resultCardId)}_${String(f.materialCount)}`}
-              />
-            ))}
-          </div>
-        </div>
+    <div className="flex flex-col gap-1 pl-5">
+      {fusions.map((f) => (
+        <FusionRow
+          cardDb={cardDb}
+          fusion={f}
+          key={`${String(f.resultCardId)}_${String(f.materialCount)}`}
+        />
       ))}
     </div>
   );
@@ -129,7 +110,9 @@ function FusionRow({
         labelColor={getLabelColor(fusion.resultCardId)}
         name={fusion.resultName}
       />
+      <span className="text-text-muted text-xs tabular-nums">{fusion.materialCount}m</span>
       <span className="font-mono font-bold text-stat-atk tabular-nums">{fusion.resultAtk}</span>
+      <span className="font-mono text-stat-def tabular-nums">{fusion.resultDef}</span>
       <span className="text-text-muted text-xs flex items-baseline gap-1">
         {"\u2190"}{" "}
         {path.map((id, i) => (

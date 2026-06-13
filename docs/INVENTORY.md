@@ -174,17 +174,17 @@ These must be answered before converting this draft into a durable source of
 truth:
 
 1. Which live-duel companion surfaces are core?
-   - Manual hand analyzer when the bridge is unavailable.
-   - Live player hand/field view.
-   - Live player fusion suggestions.
-   - Cheat-mode opponent hand/field view.
-   - Cheat-mode opponent fusion suggestions.
-   - Cheat-mode opponent available-card pool.
-   - Rank tracker.
-   - Battle prediction.
-   - Waiting-for-duel and duel-ended states.
-   - Post-duel optimization.
-   - Automatic collection/deck synchronization after duels.
+   - Manual hand analyzer when the bridge is unavailable. => yes (although the condition is "when in manual mode", not "when the bridge is unavailable")
+   - Live player hand/field view. => yes
+   - Live player fusion suggestions. => yes
+   - Cheat-mode opponent hand/field view. => yes
+   - Cheat-mode opponent fusion suggestions. => yes
+   - Cheat-mode opponent available-card pool. => yes
+   - Rank tracker. => yes
+   - Battle prediction. => yes
+   - Waiting-for-duel and duel-ended states. => yes
+   - Post-duel optimization. => yes
+   - Automatic collection/deck synchronization after duels. => yes, although from product perspective, it's not specifically at the end of the duel: in autosync mode, at any time, the collection and deck must be up to date with whatever happened in the game. Another example: when loading a state. As far as I know, it's currently working.
 
 ## Verification Anchors
 

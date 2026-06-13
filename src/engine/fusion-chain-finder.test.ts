@@ -792,6 +792,32 @@ describe("findFusionChains prefers simpler plays", () => {
     });
   });
 
+  it("uses remaining play material count before remaining DEF", () => {
+    const db = createCardDb();
+    addTestCard(db, 90, "Fusion Follow Material", 500);
+    addTestCardWithDef(db, 91, "Direct Follow-up", 1800, 500);
+    addTestCard(db, 92, "Thunder", 400);
+    addTestCard(db, 93, "Storm Dragon", 2000);
+    addTestCard(db, 94, "Second Follow Material", 300);
+    addTestCardWithDef(db, 96, "High-DEF Follow-up", 1800, 2000);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 90, 92, 93); // Leaves Direct Follow-up as a 1-card remaining play.
+    setFusion(ft, 91, 92, 93); // Leaves a higher-DEF 2-card remaining play.
+    setFusion(ft, 90, 94, 96);
+
+    const results = findFusionChains([90, 91, 92, 94], ft, db, 3);
+    const storm = results.find((r) => r.resultCardId === 93);
+    expect(storm).toBeDefined();
+    expect(storm?.materialCardIds).toEqual([90, 92]);
+    expect(storm?.steps[0]).toEqual({
+      material1CardId: 90,
+      material2CardId: 92,
+      resultCardId: 93,
+    });
+  });
+
   it("uses lower material ATK when equivalent paths leave the same remaining play", () => {
     const db = createCardDb();
     addTestCard(db, 100, "Weak Dragon", 500);
@@ -892,7 +918,7 @@ describe("findFusionChains prefers simpler plays", () => {
     expect(idx1000[1]?.steps).toHaveLength(1);
   });
 
-  it("sorts by DEF descending before steps when ATK is equal across different cards", () => {
+  it("sorts by consumed count before DEF when ATK is equal across different cards", () => {
     const db = createCardDb();
     addTestCard(db, 80, "M1", 400);
     addTestCard(db, 81, "M2", 500);
@@ -905,8 +931,8 @@ describe("findFusionChains prefers simpler plays", () => {
 
     const results = findFusionChains([80, 81, 83], ft, db, 3);
     const tied = results.filter((r) => r.resultAtk === 1000);
-    expect(tied.map((r) => r.resultCardId)).toEqual([82, 83]);
-    expect(tied.map((r) => r.resultDef)).toEqual([1800, 500]);
+    expect(tied.map((r) => r.resultCardId)).toEqual([83, 82]);
+    expect(tied.map((r) => r.resultDef)).toEqual([500, 1800]);
   });
 });
 

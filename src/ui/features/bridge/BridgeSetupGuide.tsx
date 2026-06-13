@@ -130,7 +130,7 @@ function SetupSteps() {
 
       <Step number={8} state={states[7]} title="Load the game in DuckStation" />
 
-      <Step number={9} state={step9} title={step9Title}>
+      <Step busy={readingGameData} number={9} state={step9} title={step9Title}>
         {step9 === STEP_ACTIVE && <GameDataStepDetail error={bridge.gameDataError} />}
       </Step>
     </div>
@@ -143,13 +143,7 @@ function GameDataStepDetail({ error }: { error: string | null }) {
   }
 
   return (
-    <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
-      <span
-        aria-hidden="true"
-        className="size-3 rounded-full border border-gold-dim border-t-gold animate-spin-gold"
-      />
-      <span>This runs automatically. Keep DuckStation open.</span>
-    </div>
+    <p className="mt-1 text-xs text-text-muted">This runs automatically. Keep DuckStation open.</p>
   );
 }
 

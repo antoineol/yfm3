@@ -16,6 +16,10 @@ function addTestCard(db: CardDb, id: number, name: string, atk: number): void {
   addCard(db, { id, name, kinds: [], isMonster: true, attack: atk, defense: 0 });
 }
 
+function addTestCardWithDef(db: CardDb, id: number, name: string, atk: number, def: number): void {
+  addCard(db, { id, name, kinds: [], isMonster: true, attack: atk, defense: def });
+}
+
 function setFusion(ft: Int16Array, a: number, b: number, result: number): void {
   ft[a * MAX_CARD_ID + b] = result;
   ft[b * MAX_CARD_ID + a] = result;
@@ -75,18 +79,30 @@ describe("findDeckFusions", () => {
     expect(chain4?.materialPaths[0]?.sort()).toEqual([1, 2, 3, 4]);
   });
 
-  it("results are grouped by material count, sorted by ATK desc within groups", () => {
+  it("sorts by result ATK before material count", () => {
     const results = findDeckFusions([1, 2, 3, 4, 5], fusionTable, cardDb, 3);
-    // Check ordering: material count ascending, ATK descending within each group
-    for (let i = 1; i < results.length; i++) {
-      const prev = results[i - 1];
-      const curr = results[i];
-      if (prev && curr && prev.materialCount === curr.materialCount) {
-        expect(curr.resultAtk).toBeLessThanOrEqual(prev.resultAtk);
-      } else if (prev && curr) {
-        expect(curr.materialCount).toBeGreaterThan(prev.materialCount);
-      }
-    }
+    expect(results.map((r) => r.resultCardId)).toEqual([12, 11, 13, 10]);
+    expect(results.map((r) => r.materialCount)).toEqual([4, 3, 2, 2]);
+  });
+
+  it("uses material count before DEF when ATK ties", () => {
+    const db = createCardDb();
+    addTestCard(db, 80, "A", 500);
+    addTestCard(db, 81, "B", 600);
+    addTestCard(db, 82, "C", 700);
+    addTestCardWithDef(db, 83, "High Def Target", 2000, 1800);
+    addTestCardWithDef(db, 84, "Short Target", 2000, 500);
+    addTestCard(db, 85, "AB", 1000);
+
+    const ft = new Int16Array(MAX_CARD_ID * MAX_CARD_ID);
+    ft.fill(FUSION_NONE);
+    setFusion(ft, 80, 81, 85);
+    setFusion(ft, 85, 82, 83);
+    setFusion(ft, 81, 82, 84);
+
+    const results = findDeckFusions([80, 81, 82], ft, db, 3);
+    expect(results.map((r) => r.resultCardId)).toEqual([84, 83, 85]);
+    expect(results.map((r) => r.materialCount)).toEqual([2, 3, 2]);
   });
 
   it("finds all direct fusions from the deck", () => {

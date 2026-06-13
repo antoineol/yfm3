@@ -36,7 +36,7 @@ The optimizer's business metric is the expected value of the highest ATK achieva
 - Engine: deterministic card, fusion, scoring, farming, ranking, and worker logic.
 - Bridge: local Windows/Bun process that reads DuckStation shared memory and active disc data.
 - Extraction: disc image readers for cards, fusions, equips, duelists, rank scoring, deck limits, and artwork.
-- Patching: local bridge-only ISO edits for supported reward/drop/deck/wording workflows. PAL Ghost Drop More Cards reward patch targets are x1, x5, x15, x50, x150, and x1000.
+- Patching: local bridge-only ISO edits for supported reward/drop/deck/wording workflows. Reward drop patch targets are x1, x5, x15, x50, x150, and x1000.
 - Agent control: optional bridge WebSocket commands for controlled gameplay automation.
 
 ## Core Terms
@@ -242,12 +242,15 @@ Rules:
 - The cheat-mode focus row shows the current cursor target and the opponent pool's highest available ATK and highest available DEF as separate values; the two maxima may come from different cards.
 - The former CPU swap "cheat detected" banner/detector is disabled; cheat-mode insight should come from the opponent available pool.
 
-Best-play path selection:
+Best-play ranking:
 
-- Prefer higher result DEF when ATK ties.
-- Prefer fewer materials when result stats tie.
-- Prefer paths that leave the strongest remaining hand play.
+- Prefer fewer materials when result ATK ties.
+- Prefer higher result DEF when ATK and material count tie.
+- Prefer paths that leave the strongest remaining hand play when a concrete
+  hand is available.
 - Prefer lower-value consumed materials when equivalent paths remain.
+- Deck-level fusion lists use the same result/material criteria, excluding
+  remaining-hand criteria because they are not tied to a concrete hand.
 
 ## Rank Scoring
 
@@ -306,7 +309,7 @@ Farm recommendations should answer practical player questions:
 Reward patching:
 
 - Keep patch support explicit per disc family.
-- Ghost/FMR loop-limit style patches are compatible with NTSC/RP-style images.
+- Community Ghost/FMR loop-limit x15 images are recognized as source images, then normalized to the canonical Ghost Drop More Cards patch layout before applying the selected x1, x5, x15, x50, x150, or x1000 target.
 - PAL French multiplier support uses verified scratch relocation and root save-update helper logic.
 - Patch code must be tested at the arithmetic/byte level; live emulator verification is still required for final confidence.
 

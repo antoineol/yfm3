@@ -23,7 +23,7 @@ import { type DeckLimits, extractDeckLimits } from "./extract/extract-deck-limit
 import { extractDuelists } from "./extract/extract-duelists.ts";
 import { extractEquips } from "./extract/extract-equips.ts";
 import { extractFusions } from "./extract/extract-fusions.ts";
-import { extractRankScoringFromFile } from "./extract/extract-rank-scoring.ts";
+import { extractRankScoring } from "./extract/extract-rank-scoring.ts";
 import { langIdxForSerial, loadDiscData, readDiscExe } from "./extract/index.ts";
 import { buildPerEquipBonuses } from "./extract/parse-equip-bonus.ts";
 import type {
@@ -412,7 +412,7 @@ function extractFromWinner(
     const equipBonuses = detectEquipBonuses(slus);
     const perEquipBonuses = buildPerEquipBonuses(cards, equips);
     const deckLimits = extractDeckLimits(slus);
-    const rankScoring = extractRankScoringFromFile(match.binPath);
+    const rankScoring = extractRankScoring(waMrg);
 
     startArtworkExtraction(dirKey, artworkDir, waMrg, waMrgLayout.artworkBlockSize);
 

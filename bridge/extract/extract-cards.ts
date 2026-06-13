@@ -228,14 +228,15 @@ function findPackedFrameColorTable(exe: Buffer): number {
 }
 
 function isPackedFrameColorTable(exe: Buffer, offset: number): boolean {
+  for (const [cardId, code] of FRAME_COLOR_PROBES) {
+    if (readFrameColorCode(exe, offset, cardId - 1) !== code) return false;
+  }
+
   const counts = Array(Object.keys(FRAME_COLORS).length).fill(0) as number[];
   for (let i = 0; i < NUM_CARDS; i++) {
     const code = readFrameColorCode(exe, offset, i);
     if (!(code in FRAME_COLORS)) return false;
     counts[code] = (counts[code] ?? 0) + 1;
-  }
-  for (const [cardId, code] of FRAME_COLOR_PROBES) {
-    if (readFrameColorCode(exe, offset, cardId - 1) !== code) return false;
   }
   return (
     (counts[0] ?? 0) > 500 &&

@@ -42,29 +42,42 @@ export function Step({
   number,
   state,
   title,
+  busy = false,
   children,
 }: {
   number: number;
   state: StepState;
   title: string;
+  busy?: boolean;
   children?: React.ReactNode;
 }) {
   const [animateRef] = useAutoAnimate();
   const isDone = state === STEP_DONE;
   const isActive = state === STEP_ACTIVE;
+  const showBusy = busy && isActive && !isDone;
 
   return (
     <div className={`flex gap-3 py-2 ${state === STEP_PENDING ? "opacity-40" : ""}`}>
       <span
+        aria-current={isActive ? "step" : undefined}
         className={`shrink-0 flex items-center justify-center size-6 rounded-full text-xs font-bold ${
           isDone
             ? "bg-green-400/20 text-green-400"
             : isActive
-              ? "bg-gold/20 text-gold animate-pulse"
+              ? `bg-gold/20 text-gold ${showBusy ? "" : "animate-pulse"}`
               : "bg-surface-secondary text-text-muted"
         }`}
       >
-        {isDone ? <CheckIcon /> : number}
+        {isDone ? (
+          <CheckIcon />
+        ) : showBusy ? (
+          <>
+            <StepSpinner />
+            <span className="sr-only">Step {number} in progress</span>
+          </>
+        ) : (
+          number
+        )}
       </span>
       <div className="min-w-0" ref={animateRef}>
         <p
@@ -75,6 +88,15 @@ export function Step({
         {children}
       </div>
     </div>
+  );
+}
+
+function StepSpinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="size-3.5 rounded-full border-2 border-gold-dim border-t-gold animate-spin-gold"
+    />
   );
 }
 

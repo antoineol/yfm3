@@ -16,7 +16,6 @@ const VISIBLE_PICK_HOOK_OFFSET = 0x12460;
 const LOCAL_PROGRAM_OFFSET = 0x12724;
 
 const GHOST_LOOP_DEFINITION_ID = "ghost-loop-limits";
-const GHOST_LOOP_DEFINITION_NAME = "Ghost/FMR loop-limit x15";
 const GHOST_NO_ANCHORS_REASON =
   "No Ghost/FMR loop-limit x15 anchors were found in this disc image.";
 
@@ -31,8 +30,9 @@ const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_VISIBLE_REWARD_RESTORE_OFFSET = 0xf4;
 const GHOST_TOOL_LOAD_FIRST_PICKED_REWARD = 0x97a20022;
-const PAL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150, 1000] as const;
-const PAL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150, 1000] as const;
+const GHOST_TOOL_SELECTABLE_DROP_COUNTS = [1, 5, 15, 50, 150, 1000] as const;
+const GHOST_TOOL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150, 1000] as const;
+const GHOST_LOOP_RECOGNIZED_DROP_COUNTS = [1, 5, 15] as const;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
 const PAL_REWARD_COUNTER_HALFWORD_OPS = [
@@ -50,8 +50,6 @@ const GHOST_TOOL_NTSC_RNG_CALL = jal(0x8008e590);
 const GHOST_TOOL_PAL_RNG_CALL = jal(0x8008f708);
 const STARCHIP_X15_VANILLA = Buffer.from("3a004390e005828c0000000021104300e00582ac", "hex");
 const STARCHIP_X15_PATCHED = Buffer.from("3a004390e005828c002903002318a30021104300e00582ac", "hex");
-const STARCHIP_X15_REPLACEMENT = Buffer.from("002903002318a30021104300e00582ac", "hex");
-const STARCHIP_X15_REPLACEMENT_OFFSET = 8;
 const STARCHIP_VANILLA_PATCH_SITE = Buffer.from("0000000021104300e00582ac", "hex");
 const STARCHIP_PATCH_SITE_OFFSET = 8;
 const STARCHIP_HOOK_WORD_COUNT = 3;
@@ -101,6 +99,19 @@ const GHOST_TOOL_EXPANSION = Buffer.from(
   "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001B001D3C00ACBD270000A2AF0400A3AF0800B0AF0C00A4AF1000A5AF1400BFAF1800B6AF1C00B7AF2000A0A32000B693000000000100D626100017241D00D7122000A0A32000B6A31B80103C50AE108E00000000A8AB060800000000FF0742300100452421200000211880000000029600000000212082002A108500060040100100622401006324D2026228F7FF40140200102621100000020017241800F60212B8000021B8B7032000E2A61BAB0608000000000000A28F000000000400A38F000000000800B08F000000000C00A48F000000001000A58F000000001400BF8F000000001800B68F000000001C00B78F0000000020801D3C1D80033C0A80013C28FFBD271D870008000000001B80043C00AC8424000092AC21908000040056AE080057AE200040A220005692000000000100D626100017240C00D712200040A2200056A2020017241800F60212B8000021B857022000E496000000002586000C000000005AAB0608000000000400568E000000000800578E000000000000528E00000000C6870008000000001B80023C00AC4224000056AC040057AC080044AC20005690000000000100D6260F0017240200D712200040A0200056A0020017241800F60212B8000021B857002000F796000000001D80043C300497A7A85697A40000568C000000000400578C000000000800448C00000000008002343004838700000000C7DF0008212862000000000020801D3C1B80033C50AE63241880023C8C87422421800202000070AC0F860008000000002080023CA0FE422406004810008002343004838700000000C7DF0008212862000000000073AB0608000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C000000006439020C0000000027AB06080000000000000000000000000000000000000000",
   "hex",
 );
+const GHOST_LOOP_STARCHIP_LAYOUT: GhostToolLayout = {
+  hooks: [],
+  expansion: GHOST_TOOL_EXPANSION,
+  selectableDropCounts: GHOST_LOOP_RECOGNIZED_DROP_COUNTS,
+  recognizedDropCounts: GHOST_LOOP_RECOGNIZED_DROP_COUNTS,
+  scratchBase: 0xac00,
+  waCopyOffset: 0,
+  waCopyStride: 0,
+  waCopyStart: 0,
+  waCopyCount: 0,
+  waExtraLimits: [],
+  starchipAwardOffset: 0x126d4,
+};
 const GHOST_TOOL_PAL_EXPANSION = makePalGhostToolExpansion();
 
 function makePalGhostToolExpansion(): Buffer {
@@ -152,20 +163,22 @@ interface GhostToolLayout {
   starchipAwardOffset: number;
 }
 
+const GHOST_TOOL_NTSC_LAYOUT: GhostToolLayout = {
+  hooks: GHOST_TOOL_SLUS_HOOKS,
+  expansion: GHOST_TOOL_EXPANSION,
+  selectableDropCounts: GHOST_TOOL_SELECTABLE_DROP_COUNTS,
+  recognizedDropCounts: GHOST_TOOL_RECOGNIZED_DROP_COUNTS,
+  scratchBase: 0xb000,
+  waCopyOffset: 0xb4c400,
+  waCopyStride: 0x75800,
+  waCopyStart: 1,
+  waCopyCount: 7,
+  waExtraLimits: [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }],
+  starchipAwardOffset: 0x126d4,
+};
+
 const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
-  {
-    hooks: GHOST_TOOL_SLUS_HOOKS,
-    expansion: GHOST_TOOL_EXPANSION,
-    selectableDropCounts: [15],
-    recognizedDropCounts: [15],
-    scratchBase: 0xac00,
-    waCopyOffset: 0xb4c400,
-    waCopyStride: 0x75800,
-    waCopyStart: 1,
-    waCopyCount: 7,
-    waExtraLimits: [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }],
-    starchipAwardOffset: 0x126d4,
-  },
+  GHOST_TOOL_NTSC_LAYOUT,
   {
     hooks: [
       {
@@ -195,8 +208,8 @@ const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
       },
     ],
     expansion: GHOST_TOOL_PAL_EXPANSION,
-    selectableDropCounts: PAL_SELECTABLE_DROP_COUNTS,
-    recognizedDropCounts: PAL_RECOGNIZED_DROP_COUNTS,
+    selectableDropCounts: GHOST_TOOL_SELECTABLE_DROP_COUNTS,
+    recognizedDropCounts: GHOST_TOOL_RECOGNIZED_DROP_COUNTS,
     scratchBase: 0xb500,
     waCopyOffset: 0xe25400,
     waCopyStride: 0x78000,
@@ -210,18 +223,21 @@ const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
 const GHOST_LOOP_PATTERNS = [
   {
     label: "reward pick loop",
-    vanilla: Buffer.from("2000a0a32000b693000000000100d626060017241d00d712", "hex"),
-    patched: Buffer.from("2000a0a32000b693000000000100d626100017241d00d712", "hex"),
+    bytePrefix: Buffer.from("2000a0a32000b693000000000100d626", "hex"),
+    suffix: Buffer.from("1d00d712", "hex"),
+    loopLimit: firstLoopLimit,
   },
   {
     label: "reward transfer loop",
-    vanilla: Buffer.from("200040a220005692000000000100d626060017240c00d712", "hex"),
-    patched: Buffer.from("200040a220005692000000000100d626100017240c00d712", "hex"),
+    bytePrefix: Buffer.from("200040a220005692000000000100d626", "hex"),
+    suffix: Buffer.from("0c00d712", "hex"),
+    loopLimit: firstLoopLimit,
   },
   {
     label: "reward display loop",
-    vanilla: Buffer.from("080044ac20005690000000000100d626050017240200d712", "hex"),
-    patched: Buffer.from("080044ac20005690000000000100d6260f0017240200d712", "hex"),
+    bytePrefix: Buffer.from("080044ac20005690000000000100d626", "hex"),
+    suffix: Buffer.from("0200d712", "hex"),
+    loopLimit: (dropCount: number) => dropCount,
   },
 ] as const;
 
@@ -261,7 +277,7 @@ export function inspectDropX15Patch(discPath: string): DropX15PatchStatus {
 export function inspectDropX15Image(image: Buffer): DropX15PatchStatus {
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
-  const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
+  const ghostState = inspectGhostLoopPatchState(image, slusEntry, format);
   const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
   if (shouldPreferGhostToolState(ghostToolState, ghostState)) return ghostToolState;
   if (ghostState.supported || ghostState.reason !== GHOST_NO_ANCHORS_REASON) {
@@ -282,7 +298,7 @@ export function patchDropX15DiscInPlace(
   const format = detectDiscFormat(image);
   const slusEntry = findExecutableEntry(image, format);
 
-  const ghostState = inspectGhostLoopPatchState(image, slusEntry.name);
+  const ghostState = inspectGhostLoopPatchState(image, slusEntry, format);
   const ghostToolState = inspectGhostToolPatchState(image, slusEntry, format);
   let before: DropX15PatchStatus = shouldPreferGhostToolState(ghostToolState, ghostState)
     ? ghostToolState
@@ -308,10 +324,7 @@ export function patchDropX15DiscInPlace(
   }
 
   if (before.definitionId === GHOST_LOOP_DEFINITION_ID) {
-    if (desiredDropCount !== 15) {
-      throw new Error("Ghost/FMR loop-limit images only support 15-card rewards.");
-    }
-    writeGhostLoopPatch(image);
+    normalizeGhostLoopPatchToGhostTool(image, slusEntry, format, desiredDropCount);
   } else {
     writeGhostToolPatch(image, slusEntry, format, desiredDropCount);
   }
@@ -467,13 +480,26 @@ function writeGhostToolPatch(
   const layout = findGhostToolPatchLayout(image, slusEntry, waEntry, format);
   if (!layout) throw new Error("DATA/WA_MRG.MRG does not match a verified Ghost layout.");
 
-  if (ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla")) {
+  writeGhostToolPatchWithLayout(image, slusEntry, waEntry, format, layout, targetDropCount);
+}
+
+function writeGhostToolPatchWithLayout(
+  image: Buffer,
+  slusEntry: IsoFile,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  targetDropCount: number,
+  forceRewrite = false,
+): void {
+  if (forceRewrite || ghostToolHooksMatch(image, slusEntry, format, layout, "vanilla")) {
     for (const hook of layout.hooks) {
       writeBytesAt(image, slusEntry.sector, hook.offset, hook.patched, format);
     }
   }
 
   if (
+    forceRewrite ||
     !ghostToolExpansionPatched(image, slusEntry.sector, format, layout, targetDropCount) ||
     !ghostToolWaCopiesPatched(image, waEntry, format, layout, targetDropCount)
   ) {
@@ -680,6 +706,7 @@ function ghostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: numb
 
 function legacyGhostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: number): Buffer {
   const expansion = Buffer.from(layout.expansion);
+  if (dropCount > 0xff) writePalRewardCounterHalfwordOps(expansion);
   writeAddiuImmediate(expansion, 0x44, layout.scratchBase);
   writeAddiuImmediate(expansion, 0x78, firstLoopLimit(dropCount));
   writeAddiuImmediate(expansion, 0x150, layout.scratchBase);
@@ -700,6 +727,10 @@ function firstLoopLimit(dropCount: number): number {
 
 function ghostToolDefinitionName(dropCount: number): string {
   return `Ghost Drop More Cards x${dropCount}`;
+}
+
+function ghostLoopDefinitionName(dropCount: number): string {
+  return `Ghost/FMR loop-limit x${dropCount}`;
 }
 
 function ghostToolWaTargetsClean(
@@ -813,20 +844,27 @@ function writeBytesAt(
   }
 }
 
-function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15PatchStatus {
-  const matches = GHOST_LOOP_PATTERNS.map((pattern) => ({
-    vanilla: findPatternOffsets(image, pattern.vanilla),
-    patched: findPatternOffsets(image, pattern.patched),
-  }));
-  const starchipState = inspectStarchipX15PatchState(image);
-  const totals = matches.map((match) => match.vanilla.length + match.patched.length);
+function inspectGhostLoopPatchState(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+): DropX15PatchStatus {
+  const matches = GHOST_LOOP_PATTERNS.map((pattern) => inspectGhostLoopPattern(image, pattern));
+  const starchipState = inspectGhostToolStarchipPatchState(
+    image,
+    slusEntry,
+    null,
+    format,
+    GHOST_LOOP_STARCHIP_LAYOUT,
+  );
+  const totals = matches.map((match) => match.total);
   const hasAnyGhostAnchor = totals.some((total) => total > 0);
 
   if (!hasAnyGhostAnchor) {
     return {
       supported: false,
       enabled: false,
-      gameSerial,
+      gameSerial: slusEntry.name,
       reason: GHOST_NO_ANCHORS_REASON,
     };
   }
@@ -836,7 +874,7 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     return {
       supported: false,
       enabled: false,
-      gameSerial,
+      gameSerial: slusEntry.name,
       reason: "Only part of the Ghost/FMR loop-limit x15 anchor set was found.",
     };
   }
@@ -845,54 +883,80 @@ function inspectGhostLoopPatchState(image: Buffer, gameSerial: string): DropX15P
     return {
       supported: false,
       enabled: false,
-      gameSerial,
+      gameSerial: slusEntry.name,
       reason: "No compatible starchip reward x15 anchor was found.",
     };
   }
 
-  const cardsEnabled = matches.every(
-    (match) => match.patched.length > 0 && match.vanilla.length <= 1,
-  );
+  const cardDropCount = currentGhostLoopDropCount(matches);
 
   return {
     supported: true,
-    enabled: cardsEnabled && starchipState.enabled,
+    enabled:
+      cardDropCount > 1 &&
+      matches.every((match) => (match.byDropCount.get(cardDropCount)?.length ?? 0) > 0) &&
+      starchipState.multiplier === cardDropCount &&
+      starchipState.current,
     definitionId: GHOST_LOOP_DEFINITION_ID,
-    definitionName: GHOST_LOOP_DEFINITION_NAME,
-    cardDropCount: 15,
+    definitionName: ghostLoopDefinitionName(cardDropCount),
+    cardDropCount,
     starchipMultiplier: starchipState.multiplier,
-    availableDropCounts: [15],
-    gameSerial,
+    availableDropCounts: [...GHOST_TOOL_SELECTABLE_DROP_COUNTS],
+    gameSerial: slusEntry.name,
   };
 }
 
-function writeGhostLoopPatch(image: Buffer): void {
-  for (const pattern of GHOST_LOOP_PATTERNS) {
-    for (const offset of findPatternOffsets(image, pattern.vanilla)) {
-      pattern.patched.copy(image, offset);
-    }
+function inspectGhostLoopPattern(
+  image: Buffer,
+  pattern: (typeof GHOST_LOOP_PATTERNS)[number],
+): { total: number; byDropCount: Map<number, number[]> } {
+  const byDropCount = new Map<number, number[]>();
+  for (const dropCount of GHOST_LOOP_RECOGNIZED_DROP_COUNTS) {
+    const offsets = findPatternOffsets(image, ghostLoopPatternBytes(pattern, dropCount));
+    if (offsets.length === 0) continue;
+    byDropCount.set(dropCount, offsets);
   }
-  writeStarchipX15Patch(image);
-}
-
-function inspectStarchipX15PatchState(image: Buffer): {
-  supported: boolean;
-  enabled: boolean;
-  multiplier: number;
-} {
-  const vanillaOffsets = findPatternOffsets(image, STARCHIP_X15_VANILLA);
-  const patchedOffsets = findPatternOffsets(image, STARCHIP_X15_PATCHED);
   return {
-    supported: vanillaOffsets.length > 0 || patchedOffsets.length > 0,
-    enabled: vanillaOffsets.length === 0 && patchedOffsets.length > 0,
-    multiplier: vanillaOffsets.length === 0 && patchedOffsets.length > 0 ? 15 : 1,
+    total: [...byDropCount.values()].reduce((sum, entries) => sum + entries.length, 0),
+    byDropCount,
   };
 }
 
-function writeStarchipX15Patch(image: Buffer): void {
-  for (const offset of findPatternOffsets(image, STARCHIP_X15_VANILLA)) {
-    STARCHIP_X15_REPLACEMENT.copy(image, offset + STARCHIP_X15_REPLACEMENT_OFFSET);
-  }
+function currentGhostLoopDropCount(matches: Array<{ byDropCount: Map<number, number[]> }>): number {
+  const candidates = GHOST_LOOP_RECOGNIZED_DROP_COUNTS.filter((dropCount) =>
+    matches.every((match) => (match.byDropCount.get(dropCount)?.length ?? 0) > 0),
+  );
+  const nonVanilla = candidates.filter((dropCount) => dropCount > 1);
+  return nonVanilla.length > 0 ? Math.max(...nonVanilla) : 1;
+}
+
+function normalizeGhostLoopPatchToGhostTool(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+  targetDropCount: number,
+): void {
+  const waEntry = findWaMrgEntry(image, format);
+  if (!waEntry) throw new Error("DATA/WA_MRG.MRG was not found.");
+  writeGhostToolPatchWithLayout(
+    image,
+    slusEntry,
+    waEntry,
+    format,
+    GHOST_TOOL_NTSC_LAYOUT,
+    targetDropCount,
+    true,
+  );
+}
+
+function ghostLoopPatternBytes(
+  pattern: (typeof GHOST_LOOP_PATTERNS)[number],
+  dropCount: number,
+): Buffer {
+  const limit = pattern.loopLimit(dropCount);
+  const immediate = Buffer.alloc(4);
+  immediate.writeUInt32LE((0x24170000 | (limit & 0xffff)) >>> 0, 0);
+  return Buffer.concat([pattern.bytePrefix, immediate, pattern.suffix]);
 }
 
 function inspectGhostToolStarchipPatchState(
@@ -973,13 +1037,13 @@ function inspectGhostToolStarchipPatchState(
 function writeGhostToolStarchipPatch(
   image: Buffer,
   slusEntry: IsoFile,
-  waEntry: IsoFile,
+  waEntry: IsoFile | null,
   format: DiscFormat,
   layout: GhostToolLayout,
   multiplier: number,
 ): void {
-  if (layout.selectableDropCounts.length === 1) {
-    writeStarchipX15Patch(image);
+  if (layout.selectableDropCounts.length === 1 || multiplier === 15) {
+    writeBytesAt(image, slusEntry.sector, layout.starchipAwardOffset, STARCHIP_X15_PATCHED, format);
     return;
   }
 
@@ -1002,14 +1066,16 @@ function writeGhostToolStarchipPatch(
     PSX_EXE_FILE_OFFSET_TO_RAM_DELTA + layout.starchipAwardOffset + STARCHIP_X15_PATCHED.length;
   const helper = starchipTrampolineForMultiplier(multiplier, returnAddress);
   writeBytesAt(image, slusEntry.sector, GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET, helper, format);
-  for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
-    writeBytesAt(
-      image,
-      waEntry.sector,
-      copyOffset + GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA,
-      helper,
-      format,
-    );
+  if (waEntry) {
+    for (const copyOffset of ghostToolWaCopyOffsets(layout)) {
+      writeBytesAt(
+        image,
+        waEntry.sector,
+        copyOffset + GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA,
+        helper,
+        format,
+      );
+    }
   }
 }
 
