@@ -13,6 +13,7 @@
 import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { existsSync, watch } from "node:fs";
 import { dirname, join } from "node:path";
+import { shouldReloadBridge } from "./watch-files.ts";
 
 const __dirname = import.meta.dir;
 const ROOT = join(__dirname, "..");
@@ -183,7 +184,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const watcher = watch(__dirname, { recursive: true }, (_event, filename) => {
   if (stopping) return;
-  if (!filename?.endsWith(".ts")) return;
+  if (!shouldReloadBridge(filename)) return;
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
