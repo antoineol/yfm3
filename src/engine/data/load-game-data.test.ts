@@ -23,9 +23,9 @@ describe("loadGameDataFromStrings", () => {
 
     expect(cards2.map((c) => c.id)).toEqual(cards1.map((c) => c.id));
     expect(cards2.map((c) => c.attack)).toEqual(cards1.map((c) => c.attack));
-    expect(Array.from(buf2.cardAtk)).toEqual(Array.from(buf1.cardAtk));
-    expect(Array.from(buf2.fusionTable)).toEqual(Array.from(buf1.fusionTable));
-    expect(Array.from(buf2.equipCompat)).toEqual(Array.from(buf1.equipCompat));
+    expectTypedArrayEqual(buf2.cardAtk, buf1.cardAtk);
+    expectTypedArrayEqual(buf2.fusionTable, buf1.fusionTable);
+    expectTypedArrayEqual(buf2.equipCompat, buf1.equipCompat);
   });
 
   it("loads all 722 cards and populates cardAtk", () => {
@@ -146,3 +146,13 @@ describe("loadGameDataFromStrings", () => {
     expect(buf.fusionTable[156 * MAX_CARD_ID + 1]).toBe(186);
   });
 });
+
+function expectTypedArrayEqual(actual: ArrayBufferView, expected: ArrayBufferView): void {
+  expect(actual.constructor).toBe(expected.constructor);
+  expect(actual.byteLength).toBe(expected.byteLength);
+  expect(Buffer.compare(viewBytes(actual), viewBytes(expected))).toBe(0);
+}
+
+function viewBytes(view: ArrayBufferView): Buffer {
+  return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
+}

@@ -1,0 +1,14 @@
+import path from "node:path";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      "@engine": path.resolve(import.meta.dirname, "src/engine"),
+    },
+  },
+  test: {
+    include: ["tests/bridge/**/*.test.ts", "bridge/**/*.test.ts"],
+    exclude: ["**/*.integration.test.ts"],
+  },
+});

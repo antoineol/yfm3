@@ -603,7 +603,7 @@ describe("worker lifecycle", () => {
                 },
               } as MessageEvent<WorkerResponse>);
             }
-          }, 100);
+          }, 1);
         }
       },
     );
@@ -672,7 +672,7 @@ describe("worker lifecycle", () => {
                 },
               } as MessageEvent<WorkerResponse>);
             }
-          }, 100);
+          }, 1);
         }
       },
     );
@@ -739,7 +739,7 @@ describe("onProgress callback", () => {
                 },
               } as MessageEvent<WorkerResponse>);
             }
-          }, 50);
+          }, 1);
         }
       },
     );
