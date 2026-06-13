@@ -310,6 +310,7 @@ Reward patching:
 
 - Keep patch support explicit per disc family.
 - Community Ghost/FMR loop-limit x15 images are recognized as source images, then normalized to the canonical Ghost Drop More Cards patch layout before applying the selected x1, x5, x15, x50, x150, or x1000 target.
+- NTSC Ghost Drop More Cards x50/x150/x1000 keeps the selected reward/save count, but caps result-screen card-object rendering at 15 to avoid overflowing the original result UI loop.
 - PAL French multiplier support uses verified scratch relocation and root save-update helper logic.
 - Patch code must be tested at the arithmetic/byte level; live emulator verification is still required for final confidence.
 

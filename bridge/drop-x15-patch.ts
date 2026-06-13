@@ -26,6 +26,11 @@ const GHOST_TOOL_STARCHIP_TRAMPOLINE_DELTA =
   GHOST_TOOL_STARCHIP_TRAMPOLINE_OFFSET - GHOST_TOOL_SLUS_EXPANSION_OFFSET;
 const GHOST_TOOL_STARCHIP_TRAMPOLINE_MAX_LENGTH = 0x40;
 const GHOST_TOOL_STARCHIP_TRAMPOLINE_RAM = 0x801aaf00;
+const GHOST_TOOL_NTSC_DISPLAY_CAP_HOOK_OFFSET = 0x12508;
+const GHOST_TOOL_NTSC_DISPLAY_CAP_HELPER_RAM = 0x801aaee0;
+const GHOST_TOOL_NTSC_DISPLAY_CAP_HELPER_OFFSET =
+  GHOST_TOOL_NTSC_DISPLAY_CAP_HELPER_RAM - 0x801aac00;
+const GHOST_TOOL_NTSC_DISPLAY_CAP_RETURN_RAM = 0x80021d10;
 const GHOST_TOOL_DROP_COUNT = 15;
 const GHOST_TOOL_FIRST_LIMIT = GHOST_TOOL_DROP_COUNT + 1;
 const GHOST_TOOL_VISIBLE_REWARD_RESTORE_OFFSET = 0xf4;
@@ -35,6 +40,11 @@ const GHOST_TOOL_RECOGNIZED_DROP_COUNTS = [1, 5, 15, 30, 50, 150, 1000] as const
 const GHOST_LOOP_RECOGNIZED_DROP_COUNTS = [1, 5, 15] as const;
 const GHOST_TOOL_WA_LIMIT_OFFSETS = [0x78, 0x174, 0x1ec] as const;
 const GHOST_TOOL_WA_CLEAN_PREFIX = Buffer.from("0c0007140193143f0200003f0000013f", "hex");
+const GHOST_TOOL_NTSC_DISPLAY_CAP_ORIGINAL = Buffer.from("3a00629000000000", "hex");
+const GHOST_TOOL_NTSC_DISPLAY_CAP_PATCHED = wordsBuffer([
+  j(GHOST_TOOL_NTSC_DISPLAY_CAP_HELPER_RAM),
+  0,
+]);
 const PAL_REWARD_COUNTER_HALFWORD_OPS = [
   { offset: 0x6c, word: 0x97b60020 },
   { offset: 0x80, word: 0xa7a00020 },
@@ -161,6 +171,11 @@ interface GhostToolLayout {
   waCopyCount: number;
   waExtraLimits: readonly { offset: number; value: number }[];
   starchipAwardOffset: number;
+  displayCapHook?: {
+    offset: number;
+    original: Buffer;
+    patched: Buffer;
+  };
 }
 
 const GHOST_TOOL_NTSC_LAYOUT: GhostToolLayout = {
@@ -175,6 +190,11 @@ const GHOST_TOOL_NTSC_LAYOUT: GhostToolLayout = {
   waCopyCount: 7,
   waExtraLimits: [{ offset: 0xbc17e4, value: GHOST_TOOL_FIRST_LIMIT }],
   starchipAwardOffset: 0x126d4,
+  displayCapHook: {
+    offset: GHOST_TOOL_NTSC_DISPLAY_CAP_HOOK_OFFSET,
+    original: GHOST_TOOL_NTSC_DISPLAY_CAP_ORIGINAL,
+    patched: GHOST_TOOL_NTSC_DISPLAY_CAP_PATCHED,
+  },
 };
 
 const GHOST_TOOL_LAYOUTS: readonly GhostToolLayout[] = [
@@ -535,6 +555,7 @@ function writeGhostToolPatchWithLayout(
     }
   }
   writeGhostToolStarchipPatch(image, slusEntry, waEntry, format, layout, targetDropCount);
+  writeGhostToolDisplayCapHook(image, slusEntry, format, layout, targetDropCount);
 }
 
 function ghostToolHooksMatch(
@@ -579,7 +600,8 @@ function ghostToolPatchedDropCount(
   for (const dropCount of layout.recognizedDropCounts) {
     if (
       ghostToolExpansionPatched(image, slusEntry.sector, format, layout, dropCount) &&
-      ghostToolWaCopiesPatched(image, waEntry, format, layout, dropCount)
+      ghostToolWaCopiesPatched(image, waEntry, format, layout, dropCount) &&
+      ghostToolDisplayCapHookPatched(image, slusEntry, format, layout, dropCount)
     ) {
       return dropCount;
     }
@@ -587,7 +609,8 @@ function ghostToolPatchedDropCount(
   if (
     layout.recognizedDropCounts.includes(15) &&
     ghostToolExpansionPatched(image, slusEntry.sector, format, layout, "base") &&
-    ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base")
+    ghostToolWaCopiesPatched(image, waEntry, format, layout, 15, "base") &&
+    ghostToolDisplayCapHookPatched(image, slusEntry, format, layout, 15)
   ) {
     return 15;
   }
@@ -605,6 +628,18 @@ function ghostToolLegacyVisibleDropCount(
     if (
       legacyGhostToolExpansionPatched(image, slusEntry.sector, format, layout, dropCount) &&
       legacyGhostToolWaCopiesPatched(image, waEntry, format, layout, dropCount)
+    ) {
+      return dropCount;
+    }
+    if (
+      staleDisplayCapGhostToolExpansionPatched(
+        image,
+        slusEntry.sector,
+        format,
+        layout,
+        dropCount,
+      ) &&
+      staleDisplayCapGhostToolWaCopiesPatched(image, waEntry, format, layout, dropCount)
     ) {
       return dropCount;
     }
@@ -677,6 +712,54 @@ function legacyGhostToolWaCopiesPatched(
   );
 }
 
+function staleDisplayCapGhostToolExpansionPatched(
+  image: Buffer,
+  slusSector: number,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): boolean {
+  return bytesMatchAt(
+    image,
+    slusSector,
+    GHOST_TOOL_SLUS_EXPANSION_OFFSET,
+    staleDisplayCapGhostToolExpansionForDropCount(layout, dropCount),
+    format,
+  );
+}
+
+function staleDisplayCapGhostToolWaCopiesPatched(
+  image: Buffer,
+  waEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): boolean {
+  return ghostToolWaCopiesMatchExpansion(
+    image,
+    waEntry,
+    format,
+    layout,
+    staleDisplayCapGhostToolExpansionForDropCount(layout, dropCount),
+    firstLoopLimit(dropCount),
+  );
+}
+
+function ghostToolDisplayCapHookPatched(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): boolean {
+  if (!layout.displayCapHook) return true;
+  const expected =
+    dropCount > GHOST_TOOL_DROP_COUNT
+      ? layout.displayCapHook.patched
+      : layout.displayCapHook.original;
+  return bytesMatchAt(image, slusEntry.sector, layout.displayCapHook.offset, expected, format);
+}
+
 function ghostToolWaCopiesMatchExpansion(
   image: Buffer,
   waEntry: IsoFile,
@@ -695,6 +778,15 @@ function ghostToolWaCopiesMatchExpansion(
 }
 
 function ghostToolExpansionForDropCount(layout: GhostToolLayout, dropCount: number): Buffer {
+  const expansion = staleDisplayCapGhostToolExpansionForDropCount(layout, dropCount);
+  writeGhostToolDisplayCapHelper(expansion, layout, dropCount);
+  return expansion;
+}
+
+function staleDisplayCapGhostToolExpansionForDropCount(
+  layout: GhostToolLayout,
+  dropCount: number,
+): Buffer {
   const expansion = legacyGhostToolExpansionForDropCount(layout, dropCount);
   writeU32LeToBuffer(
     expansion,
@@ -714,6 +806,33 @@ function legacyGhostToolExpansionForDropCount(layout: GhostToolLayout, dropCount
   writeAddiuImmediate(expansion, 0x1d0, layout.scratchBase);
   writeAddiuImmediate(expansion, 0x1ec, dropCount);
   return expansion;
+}
+
+function writeGhostToolDisplayCapHelper(
+  expansion: Buffer,
+  layout: GhostToolLayout,
+  dropCount: number,
+): void {
+  if (!layout.displayCapHook || dropCount <= GHOST_TOOL_DROP_COUNT) return;
+  wordsBuffer([0x2402000f, j(GHOST_TOOL_NTSC_DISPLAY_CAP_RETURN_RAM), 0]).copy(
+    expansion,
+    GHOST_TOOL_NTSC_DISPLAY_CAP_HELPER_OFFSET,
+  );
+}
+
+function writeGhostToolDisplayCapHook(
+  image: Buffer,
+  slusEntry: IsoFile,
+  format: DiscFormat,
+  layout: GhostToolLayout,
+  dropCount: number,
+): void {
+  if (!layout.displayCapHook) return;
+  const bytes =
+    dropCount > GHOST_TOOL_DROP_COUNT
+      ? layout.displayCapHook.patched
+      : layout.displayCapHook.original;
+  writeBytesAt(image, slusEntry.sector, layout.displayCapHook.offset, bytes, format);
 }
 
 function writeAddiuImmediate(buffer: Buffer, offset: number, immediate: number): void {
@@ -1113,11 +1232,7 @@ function starchipTrampolineForMultiplier(multiplier: number, returnAddress: numb
     j(returnAddress),
     0,
   ];
-  const buffer = Buffer.alloc(words.length * 4);
-  for (let i = 0; i < words.length; i++) {
-    buffer.writeUInt32LE(words[i] ?? 0, i * 4);
-  }
-  return buffer;
+  return wordsBuffer(words);
 }
 
 function staleLoadDelayStarchipTrampolineForMultiplier(
@@ -1132,11 +1247,7 @@ function staleLoadDelayStarchipTrampolineForMultiplier(
     j(returnAddress),
     0,
   ];
-  const buffer = Buffer.alloc(words.length * 4);
-  for (let i = 0; i < words.length; i++) {
-    buffer.writeUInt32LE(words[i] ?? 0, i * 4);
-  }
-  return buffer;
+  return wordsBuffer(words);
 }
 
 function starchipMultiplierWords(multiplier: number): number[] {
@@ -1172,6 +1283,10 @@ function legacyStarchipTrampolineForMultiplier(multiplier: number, returnAddress
     j(returnAddress),
     0,
   ];
+  return wordsBuffer(words);
+}
+
+function wordsBuffer(words: readonly number[]): Buffer {
   const buffer = Buffer.alloc(words.length * 4);
   for (let i = 0; i < words.length; i++) {
     buffer.writeUInt32LE(words[i] ?? 0, i * 4);
