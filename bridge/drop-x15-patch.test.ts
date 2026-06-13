@@ -113,9 +113,6 @@ describe("drop x15 patch inspection", () => {
       ).toEqual(Buffer.from("1B001D3C00B0BD27", "hex"));
       expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x19b550)).toBe(0x2484b000);
       expect(patched.readUInt32LE(21 * SECTOR_DATA_SIZE + 0x19b5d0)).toBe(0x2442b000);
-      expect(
-        patched.subarray(21 * SECTOR_DATA_SIZE + 0x12508, 21 * SECTOR_DATA_SIZE + 0x12510),
-      ).toEqual(Buffer.from("3a00629000000000", "hex"));
       expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b478)).toBe(1001);
       expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b574)).toBe(1001);
       expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b5ec)).toBe(15);
@@ -124,57 +121,6 @@ describe("drop x15 patch inspection", () => {
       expect(patched.readUInt16LE(waOffset(0xbc1dec))).toBe(15);
       expect(patched.readUInt16LE(waOffset(0xbc17e4))).toBe(1001);
       expect(executeStarchipSaveUpdate(patched, 0x126d4, 2727, 5)).toBe(7727);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  test("refreshes stale NTSC x1000 images with unsafe result-screen UI state", () => {
-    const dir = mkdtempSync(join(tmpdir(), "yfm3-drop-x15-"));
-    const discPath = join(dir, "disc.iso");
-    const image = makeCommunityGhostLoopDiscImage("SLUS_014.11");
-    seedGhostLoopPatterns(image, "patched", 7, 1);
-    writeFileSync(discPath, image);
-
-    try {
-      patchDropX15DiscInPlace(discPath, 1000);
-      const stale = readFileSync(discPath);
-      stale.writeUInt32LE(0x0806abb8, 21 * SECTOR_DATA_SIZE + 0x12508);
-      stale.writeUInt32LE(0, 21 * SECTOR_DATA_SIZE + 0x1250c);
-      stale.writeUInt32LE(0x2402000f, 21 * SECTOR_DATA_SIZE + 0x19b6e0);
-      stale.writeUInt32LE(0x08008744, 21 * SECTOR_DATA_SIZE + 0x19b6e4);
-      stale.writeUInt32LE(0, 21 * SECTOR_DATA_SIZE + 0x19b6e8);
-      stale.writeUInt16LE(1000, 21 * SECTOR_DATA_SIZE + 0x19b5ec);
-      for (const base of ntscWaCopyOffsets()) {
-        stale.writeUInt32LE(0x2402000f, waOffset(base + 0x2e0));
-        stale.writeUInt32LE(0x08008744, waOffset(base + 0x2e4));
-        stale.writeUInt32LE(0, waOffset(base + 0x2e8));
-        stale.writeUInt16LE(1000, waOffset(base + 0x1ec));
-      }
-      writeFileSync(discPath, stale);
-
-      expect(inspectDropX15Image(stale)).toMatchObject({
-        supported: true,
-        enabled: false,
-        definitionId: "ghost-drop-more-cards",
-        cardDropCount: 1000,
-        starchipMultiplier: 1000,
-      });
-
-      const result = patchDropX15DiscInPlace(discPath, 1000);
-      const patched = readFileSync(discPath);
-
-      expect(result.changed).toBe(true);
-      expect(result.status).toMatchObject({
-        enabled: true,
-        cardDropCount: 1000,
-        starchipMultiplier: 1000,
-      });
-      expect(
-        patched.subarray(21 * SECTOR_DATA_SIZE + 0x12508, 21 * SECTOR_DATA_SIZE + 0x12510),
-      ).toEqual(Buffer.from("3a00629000000000", "hex"));
-      expect(patched.readUInt16LE(21 * SECTOR_DATA_SIZE + 0x19b5ec)).toBe(15);
-      expect(patched.readUInt16LE(waOffset(0xbc1dec))).toBe(15);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -387,7 +333,7 @@ describe("drop x15 patch inspection", () => {
         Buffer.from("00B54224", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b5ec, slusBase + 0x19b5f0)).toEqual(
-        Buffer.from("96001724", "hex"),
+        Buffer.from("0F001724", "hex"),
       );
       expect(patched.readUInt32LE(slusBase + 0x19b538)).toBe(0x3c03801c);
       expect(patched.readUInt32LE(slusBase + 0x19b544)).toBe(0x0800874c);
@@ -402,7 +348,7 @@ describe("drop x15 patch inspection", () => {
         );
         expect(patched[waOffset(base + 0x78)]).toBe(151);
         expect(patched[waOffset(base + 0x174)]).toBe(151);
-        expect(patched[waOffset(base + 0x1ec)]).toBe(150);
+        expect(patched[waOffset(base + 0x1ec)]).toBe(15);
         expect(patched.readUInt32LE(waOffset(base + 0xf4))).toBe(0x97a20022);
       }
       expect(patched[waOffset(0xe24fe4)]).toBe(151);
@@ -445,7 +391,7 @@ describe("drop x15 patch inspection", () => {
         Buffer.from("E9031724", "hex"),
       );
       expect(patched.subarray(slusBase + 0x19b5ec, slusBase + 0x19b5f0)).toEqual(
-        Buffer.from("E8031724", "hex"),
+        Buffer.from("0F001724", "hex"),
       );
       expectRewardCounterOps(patched, slusBase + 0x19b400);
       for (let copy = 0; copy < 7; copy++) {
@@ -453,7 +399,7 @@ describe("drop x15 patch inspection", () => {
         expectRewardCounterOps(patched, waOffset(base));
         expect(patched.readUInt16LE(waOffset(base + 0x78))).toBe(1001);
         expect(patched.readUInt16LE(waOffset(base + 0x174))).toBe(1001);
-        expect(patched.readUInt16LE(waOffset(base + 0x1ec))).toBe(1000);
+        expect(patched.readUInt16LE(waOffset(base + 0x1ec))).toBe(15);
       }
       expect(patched.readUInt16LE(waOffset(0xe24fe4))).toBe(1001);
       expect(executeStarchipSaveUpdate(patched, 0x12790, 2727, 5)).toBe(7727);
@@ -1027,10 +973,6 @@ function writeBytes(image: Buffer, slusSector: number, fileOffset: number, hex: 
 function waOffset(fileOffset: number): number {
   const waSector = 1001;
   return waSector * SECTOR_DATA_SIZE + fileOffset;
-}
-
-function ntscWaCopyOffsets(): number[] {
-  return Array.from({ length: 7 }, (_, i) => 0xb4c400 + (i + 1) * 0x75800);
 }
 
 function expectStarchipX15(image: Buffer, offset: number): void {
