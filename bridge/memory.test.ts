@@ -112,6 +112,58 @@ describe("readGameState", () => {
     expect(state.duelBattleTargetMode).toBe(0x83);
   });
 
+  it("leaves the NTSC battle target mode unmapped", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+
+    const state = readGameState(view, DEFAULT_PROFILE);
+
+    expect(state.duelBattleTargetMode).toBeNull();
+  });
+
+  it("maps the NTSC live field cursor coordinates to a duel-table slot", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint8(DEFAULT_PROFILE.turnIndicator, 0);
+    view.setInt8(DEFAULT_PROFILE.duelFieldCursorColumn, 1);
+    view.setInt8(DEFAULT_PROFILE.duelFieldCursorRow, 2);
+    view.setUint8(DEFAULT_PROFILE.duelFieldCursorMap + 11, 6);
+
+    const state = readGameState(view, DEFAULT_PROFILE);
+
+    expect(state.duelCursorDuelTableSlot).toBe(6);
+  });
+
+  it("reads the NTSC active target-selection slot from the turn object pointer", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint8(DEFAULT_PROFILE.turnIndicator, 0);
+    view.setUint32(DEFAULT_PROFILE.duelTargetSelectionObject, 0x80001000, true);
+    view.setInt8(DEFAULT_PROFILE.duelTargetSelectionObject + 0x0b, 4);
+    view.setInt8(DEFAULT_PROFILE.duelTargetSelectionObject + 0x0c, 1);
+    view.setUint8(DEFAULT_PROFILE.duelFieldCursorMap + 9, 20);
+
+    const state = readGameState(view, DEFAULT_PROFILE);
+
+    expect(state.duelTargetSelectionDuelTableSlot).toBe(20);
+  });
+
+  it("returns null when the NTSC target-selection object is inactive", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint8(DEFAULT_PROFILE.turnIndicator, 0);
+    view.setUint32(DEFAULT_PROFILE.duelTargetSelectionObject, 0, true);
+
+    const state = readGameState(view, DEFAULT_PROFILE);
+
+    expect(state.duelTargetSelectionDuelTableSlot).toBeNull();
+  });
+
+  it("reads the NTSC selected action card id", () => {
+    const view = new DataView(new ArrayBuffer(0x200000));
+    view.setUint16(DEFAULT_PROFILE.duelSelectedActionCard, 462, true);
+
+    const state = readGameState(view, DEFAULT_PROFILE);
+
+    expect(state.duelSelectedActionCardId).toBe(462);
+  });
+
   it("reads the PAL terrain byte from the live field-bonus routine address", () => {
     const view = new DataView(new ArrayBuffer(0x200000));
     view.setUint8(PAL_PROFILE.terrain, 6);

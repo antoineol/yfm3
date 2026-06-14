@@ -26,9 +26,22 @@ export interface OffsetProfile {
   equipCounter: number;
   /** Selected card id under the in-game duel cursor (u16), 0 when unmapped. */
   duelCursorTargetCard: number;
-  /** Active player field cursor focus signal (u8), 0 when unmapped or no active field card. */
+  /**
+   * Action-struct selected card id captured when the player confirms a field card (u16),
+   * 0 when unmapped.
+   */
+  duelSelectedActionCard: number;
+  /** Field cursor column byte used by the decompiled board-slot mapper, 0 when unmapped. */
+  duelFieldCursorColumn: number;
+  /** Field cursor row byte used by the decompiled board-slot mapper, 0 when unmapped. */
+  duelFieldCursorRow: number;
+  /** `DAT_800907D8` board cursor map base, 0 when unmapped. */
+  duelFieldCursorMap: number;
+  /** `DAT_800E9F68` active target-selection object pointer base. */
+  duelTargetSelectionObject: number;
+  /** Field cursor/rendering mode signal (u8), 0 when unmapped or inactive; not a physical slot. */
   duelCursorFieldSlot: number;
-  /** Battle target-selection mode byte, 0 when unmapped. */
+  /** PAL battle target-selection/cancel mode byte, 0 when unmapped. */
   duelBattleTargetMode: number;
 }
 
@@ -50,7 +63,12 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   rankStatsBase: 0x0e9ff1, // lpP1-0x13: [turns, effAtk, defWin, faceDown, pureMagic, traps]
   equipCounter: 0x0e9ff9, // rankStatsBase+0x08: scored by FUN_80021598 row 9
   duelCursorTargetCard: 0x09b338,
-  duelCursorFieldSlot: 0x09b34e,
+  duelSelectedActionCard: 0x0ea1ee, // DAT_800EA1E8 + 6: selected action card id
+  duelFieldCursorColumn: 0x0e9f57,
+  duelFieldCursorRow: 0x0e9f58,
+  duelFieldCursorMap: 0x0907d8,
+  duelTargetSelectionObject: 0x0e9f68,
+  duelCursorFieldSlot: 0,
   duelBattleTargetMode: 0,
 };
 
@@ -77,6 +95,11 @@ export const PAL_PROFILE: OffsetProfile = {
   rankStatsBase: 0x0eb279,
   equipCounter: 0x0eb281,
   duelCursorTargetCard: 0x09c6b8,
+  duelSelectedActionCard: 0,
+  duelFieldCursorColumn: 0,
+  duelFieldCursorRow: 0,
+  duelFieldCursorMap: 0,
+  duelTargetSelectionObject: 0,
   duelCursorFieldSlot: 0x09c6d1,
   duelBattleTargetMode: 0x09c585,
 };

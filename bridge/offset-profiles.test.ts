@@ -21,6 +21,18 @@ describe("offset profiles", () => {
 
   it("maps the PAL cursor target without reusing NTSC relative offsets", () => {
     expect(PAL_PROFILE.duelCursorTargetCard).toBe(0x09c6b8);
+    expect(DEFAULT_PROFILE.duelSelectedActionCard).toBe(0x0ea1ee);
+    expect(DEFAULT_PROFILE.duelFieldCursorColumn).toBe(0x0e9f57);
+    expect(DEFAULT_PROFILE.duelFieldCursorRow).toBe(0x0e9f58);
+    expect(DEFAULT_PROFILE.duelFieldCursorMap).toBe(0x0907d8);
+    expect(DEFAULT_PROFILE.duelTargetSelectionObject).toBe(0x0e9f68);
+    expect(DEFAULT_PROFILE.duelCursorFieldSlot).toBe(0);
+    expect(DEFAULT_PROFILE.duelBattleTargetMode).toBe(0);
+    expect(PAL_PROFILE.duelSelectedActionCard).toBe(0);
+    expect(PAL_PROFILE.duelFieldCursorColumn).toBe(0);
+    expect(PAL_PROFILE.duelFieldCursorRow).toBe(0);
+    expect(PAL_PROFILE.duelFieldCursorMap).toBe(0);
+    expect(PAL_PROFILE.duelTargetSelectionObject).toBe(0);
     expect(PAL_PROFILE.duelCursorTargetCard).not.toBe(
       PAL_PROFILE.duelPhase + (DEFAULT_PROFILE.duelCursorTargetCard - DEFAULT_PROFILE.duelPhase),
     );

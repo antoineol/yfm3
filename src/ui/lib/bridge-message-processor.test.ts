@@ -423,7 +423,7 @@ describe("processBridgeMessage", () => {
       });
     });
 
-    it("tracks the player attacker while an opponent target is focused", () => {
+    it("uses the NTSC active target-selection slot while cursor map stays on attacker", () => {
       const field = [
         { cardId: 0, atk: 0, def: 0, status: 0 },
         { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
@@ -456,7 +456,8 @@ describe("processBridgeMessage", () => {
           field,
           opponentField,
           duelCursorTargetCardId: 493,
-          duelCursorFieldSlotIndex: 1,
+          duelCursorDuelTableSlot: 6,
+          duelTargetSelectionDuelTableSlot: 20,
         }),
         attackerPoll.state,
         attackerPoll.tracker,
@@ -468,7 +469,7 @@ describe("processBridgeMessage", () => {
       });
     });
 
-    it("recovers the attacker from the current field slot signal without prior cursor history", () => {
+    it("does not recover the attacker from the cursor-rendering mode without prior cursor history", () => {
       const { state } = process(
         readyMsg({
           duelPhase: 0x05,
@@ -491,9 +492,239 @@ describe("processBridgeMessage", () => {
         }),
       );
 
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("does not recover the attacker from card-id-only state", () => {
+      const { state } = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field: [
+            { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+            { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 268,
+          duelCursorFieldSlotIndex: 2,
+        }),
+      );
+
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("keeps the NTSC battle target while the target-selection mode is active", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+            { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+            { cardId: 227, atk: 4000, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 6,
+          duelTargetSelectionDuelTableSlot: 20,
+        }),
+      );
+
+      expect(state.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 268,
+        hidden: true,
+      });
       expect(state.battleTarget).toEqual({
-        attacker: { zone: "playerField", index: 1, cardId: 531, hidden: false },
-        defender: { zone: "opponentField", index: 0, cardId: 493, hidden: true },
+        attacker: { zone: "playerField", index: 1, cardId: 283, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 268, hidden: true },
+      });
+    });
+
+    it("restores NTSC player focus from the C cursor map when target selection is cancelled with stale target bytes", () => {
+      const field = [
+        { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+        { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+        { cardId: 227, atk: 4000, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const opponentField = [
+        { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const attackerPoll = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 462,
+          duelCursorDuelTableSlot: 5,
+        }),
+      );
+      const targetPoll = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 5,
+          duelTargetSelectionDuelTableSlot: 20,
+        }),
+        attackerPoll.state,
+        attackerPoll.tracker,
+      );
+      const cancelPoll = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 5,
+        }),
+        targetPoll.state,
+        targetPoll.tracker,
+      );
+
+      expect(cancelPoll.state.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 462,
+        hidden: false,
+      });
+      expect(cancelPoll.state.battleTarget).toBeNull();
+    });
+
+    it("restores NTSC player focus on cancel even when the opponent-target poll was missed", () => {
+      const field = [
+        { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+        { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+        { cardId: 227, atk: 4000, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const opponentField = [
+        { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+        { cardId: 0, atk: 0, def: 0, status: 0 },
+      ];
+      const attackerPoll = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 462,
+          duelCursorDuelTableSlot: 5,
+        }),
+      );
+      const cancelPoll = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field,
+          opponentField,
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 5,
+        }),
+        attackerPoll.state,
+        attackerPoll.tracker,
+      );
+
+      expect(cancelPoll.state.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 0,
+        cardId: 462,
+        hidden: false,
+      });
+      expect(cancelPoll.state.battleTarget).toBeNull();
+    });
+
+    it("restores NTSC second player field slot from the live C cursor map on cancel", () => {
+      const { state } = process(
+        readyMsg({
+          gameSerial: "SLUS_014.11",
+          duelPhase: 0x05,
+          field: [
+            { cardId: 462, atk: 5000, def: 4500, status: 0x84 },
+            { cardId: 283, atk: 3610, def: 3460, status: 0x86 },
+            { cardId: 227, atk: 4000, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 6,
+        }),
+      );
+
+      expect(state.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 1,
+        cardId: 283,
+        hidden: false,
+      });
+      expect(state.battleTarget).toBeNull();
+    });
+
+    it("uses the cursor-map attacker slot to disambiguate duplicate attackers", () => {
+      const { state } = process(
+        readyMsg({
+          duelPhase: 0x05,
+          field: [
+            { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+            { cardId: 283, atk: 3110, def: 2960, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 6,
+          duelTargetSelectionDuelTableSlot: 20,
+        }),
+      );
+
+      expect(state.battleTarget).toEqual({
+        attacker: { zone: "playerField", index: 1, cardId: 283, hidden: false },
+        defender: { zone: "opponentField", index: 0, cardId: 268, hidden: true },
       });
     });
 
@@ -524,7 +755,8 @@ describe("processBridgeMessage", () => {
             { cardId: 0, atk: 0, def: 0, status: 0 },
           ],
           duelCursorTargetCardId: 706,
-          duelCursorFieldSlotIndex: 0,
+          duelCursorDuelTableSlot: 5 + attackerIndex,
+          duelTargetSelectionDuelTableSlot: 20,
         }),
       );
 
@@ -539,7 +771,7 @@ describe("processBridgeMessage", () => {
       });
     });
 
-    it("preserves the PAL player attacker when the field slot signal points elsewhere", () => {
+    it("uses the selected action card when the PAL field slot signal points elsewhere", () => {
       const field = [
         { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
         { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
@@ -574,6 +806,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 706,
           duelCursorFieldSlotIndex: 2,
+          duelSelectedActionCardId: 713,
         }),
         attackerPoll.state,
         attackerPoll.tracker,
@@ -585,7 +818,7 @@ describe("processBridgeMessage", () => {
       });
     });
 
-    it("restores PAL player focus when target selection is cancelled with stale target bytes", () => {
+    it("does not restore PAL player focus from stale target bytes without a mapped selected source", () => {
       const field = [
         { cardId: 713, atk: 3500, def: 2000, status: 0x84 },
         { cardId: 371, atk: 3100, def: 2700, status: 0x84 },
@@ -609,6 +842,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 713,
           duelCursorFieldSlotIndex: 1,
+          duelSelectedActionCardId: 713,
           duelBattleTargetMode: 0x83,
         }),
       );
@@ -620,6 +854,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 706,
           duelCursorFieldSlotIndex: 2,
+          duelSelectedActionCardId: 713,
           duelBattleTargetMode: 0x06,
         }),
         attackerPoll.state,
@@ -633,6 +868,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 706,
           duelCursorFieldSlotIndex: 2,
+          duelSelectedActionCardId: 713,
           duelBattleTargetMode: 0x83,
         }),
         targetPoll.state,
@@ -646,6 +882,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 706,
           duelCursorFieldSlotIndex: 2,
+          duelSelectedActionCardId: 713,
           duelBattleTargetMode: 0xc3,
         }),
         cancelPoll.state,
@@ -659,6 +896,7 @@ describe("processBridgeMessage", () => {
           opponentField,
           duelCursorTargetCardId: 0,
           duelCursorFieldSlotIndex: null,
+          duelSelectedActionCardId: 713,
           duelBattleTargetMode: 0x83,
         }),
         staleMoveToEmptyPoll.state,
@@ -666,17 +904,17 @@ describe("processBridgeMessage", () => {
       );
 
       expect(cancelPoll.state.cursorTarget).toEqual({
-        zone: "playerField",
+        zone: "opponentField",
         index: 0,
-        cardId: 713,
-        hidden: false,
+        cardId: 706,
+        hidden: true,
       });
       expect(cancelPoll.state.battleTarget).toBeNull();
       expect(staleMoveToEmptyPoll.state.cursorTarget).toEqual({
-        zone: "playerField",
+        zone: "opponentField",
         index: 0,
-        cardId: 713,
-        hidden: false,
+        cardId: 706,
+        hidden: true,
       });
       expect(staleMoveToEmptyPoll.state.battleTarget).toBeNull();
       expect(emptyPoll.state.cursorTarget).toBeNull();
@@ -812,7 +1050,7 @@ describe("processBridgeMessage", () => {
       expect(state.battleTarget).toBeNull();
     });
 
-    it("preserves a PAL attacker even when the stale field slot signal matches it", () => {
+    it("does not carry a PAL attacker without selected-action memory", () => {
       const pollutedPoll = process(
         readyMsg({
           gameSerial: "SLES_039.48",
@@ -862,10 +1100,7 @@ describe("processBridgeMessage", () => {
         pollutedPoll.tracker,
       );
 
-      expect(targetPoll.state.battleTarget).toEqual({
-        attacker: { zone: "playerField", index: 2, cardId: 460, hidden: false },
-        defender: { zone: "opponentField", index: 0, cardId: 706, hidden: true },
-      });
+      expect(targetPoll.state.battleTarget).toBeNull();
     });
   });
 

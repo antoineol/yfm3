@@ -265,7 +265,7 @@ describe("interpretRawState", () => {
       expect(result.cursorTarget).toBeNull();
     });
 
-    it("uses the live player field cursor slot during field phase", () => {
+    it("uses the target card id during field phase", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
@@ -289,12 +289,75 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("uses the trusted player field cursor slot when duplicate cards have different live stats", () => {
+    it("uses the live C cursor-map slot over a stale displayed target card", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 6,
+          field: [
+            { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+            { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+            { cardId: 227, atk: 4000, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 1,
+        cardId: 283,
+        hidden: false,
+      });
+    });
+
+    it("uses the active C target-selection object slot over the cursor-map attacker slot", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 268,
+          duelCursorDuelTableSlot: 6,
+          duelTargetSelectionDuelTableSlot: 20,
+          field: [
+            { cardId: 462, atk: 5000, def: 4500, status: 0x86 },
+            { cardId: 283, atk: 3610, def: 3460, status: 0x84 },
+            { cardId: 227, atk: 4000, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+          opponentField: [
+            { cardId: 268, atk: 3800, def: 2400, status: 0x86 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "opponentField",
+        index: 0,
+        cardId: 268,
+        hidden: true,
+      });
+    });
+
+    it("uses the field cursor slot when duplicate cards have different live stats", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 613,
-          duelCursorFieldSlotIndex: 2,
+          duelCursorDuelTableSlot: 7,
           field: [
             { cardId: 401, atk: 2150, def: 1950, status: 0x84 },
             { cardId: 613, atk: 3300, def: 2600, status: 0x84 },

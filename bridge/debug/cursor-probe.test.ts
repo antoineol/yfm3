@@ -53,6 +53,11 @@ const profile: OffsetProfile = {
   rankStatsBase: 0x2f1,
   equipCounter: 0x2f9,
   duelCursorTargetCard: 0x2fe,
+  duelSelectedActionCard: 0,
+  duelFieldCursorColumn: 0,
+  duelFieldCursorRow: 0,
+  duelFieldCursorMap: 0,
+  duelTargetSelectionObject: 0,
   duelCursorFieldSlot: 0x314,
   duelBattleTargetMode: 0,
 };
