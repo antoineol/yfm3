@@ -39,7 +39,7 @@ export function predictBattleOutcome(
 ): BattlePrediction | null {
   if (attacker.card.atk <= 0 || defender.card.atk <= 0) return null;
 
-  const guardian = guardianBattleBonus(attacker.card, defender.card);
+  const guardian = guardianBattleBonus(attacker, defender);
   const attackerStats = effectiveBattleStats(attacker, guardian.attacker, terrain);
   const defenderStats = effectiveBattleStats(defender, guardian.defender, terrain);
   const defenderPosition = isAttackPosition(defender.field.status) ? "attack" : "defense";
@@ -88,8 +88,8 @@ function battleOutcome(
 }
 
 function guardianBattleBonus(
-  attacker: BridgeCard,
-  defender: BridgeCard,
+  attacker: BattleCard,
+  defender: BattleCard,
 ): { attacker: number; defender: number } {
   const attackerStar = selectedGuardianStar(attacker);
   const defenderStar = selectedGuardianStar(defender);
@@ -98,17 +98,24 @@ function guardianBattleBonus(
   return { attacker: 0, defender: 0 };
 }
 
-function selectedGuardianStar(card: BridgeCard): string {
-  return card.gs1 || "None";
+function selectedGuardianStar(battleCard: BattleCard): string {
+  if (isSecondaryGuardianSelected(battleCard.field.status)) return battleCard.card.gs2 || "None";
+  return battleCard.card.gs1 || "None";
 }
 
 function hasGuardianAdvantage(attackerStar: string, defenderStar: string): boolean {
   return GUARDIAN_ADVANTAGE[attackerStar] === defenderStar;
 }
 
+function isSecondaryGuardianSelected(status: number | undefined): boolean {
+  return status != null && (status & SELECTED_SECONDARY_GUARDIAN_STATUS_BIT) !== 0;
+}
+
 function isAttackPosition(status: number | undefined): boolean {
   return status != null && ATTACK_POSITION_STATUSES.has(status);
 }
+
+const SELECTED_SECONDARY_GUARDIAN_STATUS_BIT = 0x02;
 
 const GUARDIAN_ADVANTAGE: Readonly<Record<string, string>> = {
   Mars: "Jupiter",

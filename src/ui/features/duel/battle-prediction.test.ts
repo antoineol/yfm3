@@ -86,13 +86,46 @@ describe("predictBattleOutcome", () => {
       },
       {
         card: card({ id: 2, atk: 2300, gs1: "Jupiter", type: "Fiend" }),
-        field: field({ cardId: 2, atk: 2300, status: 0x86 }),
+        field: field({ cardId: 2, atk: 2300, status: 0x84 }),
       },
     );
 
     expect(result?.outcome).toBe("win");
     expect(result?.attackerAtk).toBe(2400);
     expect(result?.defenderValue).toBe(2300);
+  });
+
+  it("uses the live selected guardian star from the field status", () => {
+    const result = predictBattleOutcome(
+      {
+        card: card({
+          id: 283,
+          name: "Dark Chimera",
+          atk: 3110,
+          def: 2960,
+          gs1: "Mercury",
+          gs2: "Mars",
+          type: "Fiend",
+        }),
+        field: field({ cardId: 283, atk: 3610, def: 3460, status: 0x84 }),
+      },
+      {
+        card: card({
+          id: 268,
+          name: "Gilford The Lightning",
+          atk: 3800,
+          def: 2400,
+          gs1: "Pluto",
+          gs2: "Sun",
+          type: "Thunder",
+        }),
+        field: field({ cardId: 268, atk: 3800, def: 2400, status: 0x86 }),
+      },
+    );
+
+    expect(result?.outcome).toBe("win");
+    expect(result?.attackerAtk).toBe(4110);
+    expect(result?.defenderValue).toBe(3800);
   });
 
   it("uses live field stats without terrain when terrain is Normal", () => {
