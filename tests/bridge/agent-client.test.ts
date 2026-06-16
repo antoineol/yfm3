@@ -89,7 +89,6 @@ function makeState(overrides: Partial<AgentGameState> = {}): AgentGameState {
     cpuShuffledDeck: [],
     cpuDuelDeck: [],
     duelCursorTargetCardId: null,
-    duelCursorFieldSlotIndex: null,
     duelistUnlock: [],
     rankCounters: null,
     ...overrides,

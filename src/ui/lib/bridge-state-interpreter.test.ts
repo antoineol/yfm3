@@ -47,7 +47,6 @@ function makeRaw(overrides: Record<string, unknown> = {}) {
     opponentHandSlots: null,
     cpuShuffledDeck: new Array(40).fill(0) as number[],
     duelCursorTargetCardId: null,
-    duelCursorFieldSlotIndex: null,
     ...overrides,
   };
 }
@@ -93,7 +92,9 @@ describe("interpretRawState", () => {
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 572,
-          duelCursorFieldSlotIndex: 0,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 1,
+          duelCursorDuelTableSlot: 8,
           field: [
             { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -112,12 +113,14 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("resolves opponent field preview while the logical phase still says hand", () => {
+    it("resolves opponent active cursor while the logical phase still says hand", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 493,
-          duelCursorFieldSlotIndex: 1,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 2,
+          duelCursorDuelTableSlot: 5,
           opponentField: [
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 493, atk: 1400, def: 1200, status: 0xbc },
@@ -141,7 +144,6 @@ describe("interpretRawState", () => {
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 493,
-          duelCursorFieldSlotIndex: null,
           opponentField: [
             { cardId: 493, atk: 1400, def: 1200, status: 0xb8 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -155,12 +157,12 @@ describe("interpretRawState", () => {
       expect(result.cursorTarget).toBeNull();
     });
 
-    it("ignores a stale field target when field preview has closed but the field signal lags", () => {
+    it("ignores a stale field target when active cursor has closed but the cursor map lags", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 493,
-          duelCursorFieldSlotIndex: 1,
+          duelCursorDuelTableSlot: 21,
           opponentField: [
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 493, atk: 1400, def: 1200, status: 0xb8 },
@@ -197,12 +199,12 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("clears focus when field preview is on an empty slot with a stale hand target", () => {
+    it("does not treat field highlight status as hand-phase field view after release", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x04,
-          duelCursorTargetCardId: 200,
-          duelCursorFieldSlotIndex: null,
+          duelCursorTargetCardId: 572,
+          duelFieldViewActive: false,
           field: [
             { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -216,15 +218,83 @@ describe("interpretRawState", () => {
       expect(result.cursorTarget).toBeNull();
     });
 
-    it("clears focus when field preview has no matching field card for the stale target", () => {
+    it("clears focus when active cursor is on an empty slot with a stale hand target", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x04,
           duelCursorTargetCardId: 200,
-          duelCursorFieldSlotIndex: 0,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 0,
+          duelCursorDuelTableSlot: 5,
           field: [
             { cardId: 572, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
+    it("uses the active card-info target over the stale normal cursor map while field view is held", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 1,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 1,
+          duelCursorDuelTableSlot: 5,
+          field: [
+            { cardId: 204, atk: 5000, def: 4500, status: 0x80 },
+            { cardId: 1, atk: 4500, def: 4000, status: 0x84 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toEqual({
+        zone: "playerField",
+        index: 1,
+        cardId: 1,
+        hidden: false,
+      });
+    });
+
+    it("clears held field-view focus when the physical cursor is on an empty slot", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 1,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 0,
+          field: [
+            { cardId: 204, atk: 5000, def: 4500, status: 0x84 },
+            { cardId: 1, atk: 4500, def: 4000, status: 0x84 },
+            { cardId: 381, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
+
+      expect(result.cursorTarget).toBeNull();
+    });
+
+    it("does not guess a held field-view target from a duplicated card id", () => {
+      const result = interpretRawState(
+        makeRaw({
+          duelPhase: 0x04,
+          duelCursorTargetCardId: 1,
+          duelFieldViewActive: true,
+          duelFieldViewTargetMode: 1,
+          field: [
+            { cardId: 1, atk: 4500, def: 4000, status: 0x84 },
+            { cardId: 1, atk: 4500, def: 4000, status: 0x80 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
             { cardId: 0, atk: 0, def: 0, status: 0 },
@@ -265,12 +335,12 @@ describe("interpretRawState", () => {
       expect(result.cursorTarget).toBeNull();
     });
 
-    it("uses the target card id during field phase", () => {
+    it("uses the live cursor-map slot during field phase", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 531,
-          duelCursorFieldSlotIndex: 1,
+          duelCursorDuelTableSlot: 6,
           field: [
             { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
@@ -376,12 +446,12 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("uses the target card id when the field slot signal points to a different live player card", () => {
+    it("uses the live cursor-map slot over a different displayed player card id", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 460,
-          duelCursorFieldSlotIndex: 1,
+          duelCursorDuelTableSlot: 6,
           field: [
             { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
@@ -394,8 +464,8 @@ describe("interpretRawState", () => {
 
       expect(result.cursorTarget).toEqual({
         zone: "playerField",
-        index: 0,
-        cardId: 460,
+        index: 1,
+        cardId: 531,
         hidden: false,
       });
     });
@@ -405,7 +475,7 @@ describe("interpretRawState", () => {
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 531,
-          duelCursorFieldSlotIndex: null,
+          duelCursorDuelTableSlot: 7,
           field: [
             { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
@@ -419,12 +489,12 @@ describe("interpretRawState", () => {
       expect(result.cursorTarget).toBeNull();
     });
 
-    it("keeps opponent hidden field focus when the field slot signal is non-empty", () => {
+    it("keeps opponent hidden field focus from the live cursor-map slot", () => {
       const result = interpretRawState(
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 548,
-          duelCursorFieldSlotIndex: 2,
+          duelCursorDuelTableSlot: 20,
           field: [
             { cardId: 460, atk: 1400, def: 1500, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
@@ -450,52 +520,32 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("resolves PAL field focus when only the target card address is mapped", () => {
-      const raw = makeRaw({
-        gameSerial: "SLES_039.48",
-        duelPhase: 0x05,
-        duelCursorTargetCardId: 277,
-        field: [
-          { cardId: 401, atk: 2150, def: 1950, status: 0x84 },
-          { cardId: 487, atk: 1800, def: 1400, status: 0x84 },
-          { cardId: 41, atk: 1400, def: 1200, status: 0x84 },
-          { cardId: 41, atk: 1400, def: 1200, status: 0 },
-          { cardId: 0, atk: 0, def: 0, status: 0 },
-        ],
-        opponentHand: [
-          { cardId: 277, atk: 300, def: 1300, status: 0xb0 },
-          { cardId: 432, atk: 1100, def: 700, status: 0xa0 },
-          { cardId: 298, atk: 900, def: 900, status: 0xa0 },
-          { cardId: 116, atk: 900, def: 800, status: 0xa0 },
-          { cardId: 206, atk: 900, def: 700, status: 0xa0 },
-        ],
-        opponentField: [
-          { cardId: 277, atk: 300, def: 1300, status: 0xbc },
-          { cardId: 0, atk: 0, def: 0, status: 0 },
-          { cardId: 0, atk: 0, def: 0, status: 0 },
-          { cardId: 0, atk: 0, def: 0, status: 0 },
-          { cardId: 0, atk: 0, def: 0, status: 0 },
-        ],
-      });
-      const { duelCursorFieldSlotIndex: _fieldSlot, ...rawWithoutFieldSlot } = raw;
+    it("does not resolve PAL field focus from only a displayed target card id", () => {
+      const result = interpretRawState(
+        makeRaw({
+          gameSerial: "SLES_039.48",
+          duelPhase: 0x05,
+          duelCursorTargetCardId: 277,
+          opponentField: [
+            { cardId: 277, atk: 300, def: 1300, status: 0xbc },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+            { cardId: 0, atk: 0, def: 0, status: 0 },
+          ],
+        }),
+      );
 
-      const result = interpretRawState(rawWithoutFieldSlot);
-
-      expect(result.cursorTarget).toEqual({
-        zone: "opponentField",
-        index: 0,
-        cardId: 277,
-        hidden: true,
-      });
+      expect(result.cursorTarget).toBeNull();
     });
 
-    it("uses PAL's non-zero field focus signal without treating it as a trusted slot index", () => {
+    it("uses PAL's cursor-map slot to disambiguate duplicate field cards", () => {
       const result = interpretRawState(
         makeRaw({
           gameSerial: "SLES_039.48",
           duelPhase: 0x05,
           duelCursorTargetCardId: 531,
-          duelCursorFieldSlotIndex: 1,
+          duelCursorDuelTableSlot: 5,
           field: [
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0 },
@@ -514,13 +564,12 @@ describe("interpretRawState", () => {
       });
     });
 
-    it("clears PAL field focus when the focus-present signal is empty but the target id is stale", () => {
+    it("clears PAL field focus when the cursor-map slot is unavailable but the target id is stale", () => {
       const result = interpretRawState(
         makeRaw({
           gameSerial: "SLES_039.48",
           duelPhase: 0x05,
           duelCursorTargetCardId: 531,
-          duelCursorFieldSlotIndex: null,
           field: [
             { cardId: 531, atk: 2100, def: 1700, status: 0x84 },
             { cardId: 531, atk: 2100, def: 1700, status: 0 },
@@ -539,7 +588,6 @@ describe("interpretRawState", () => {
         makeRaw({
           duelPhase: 0x05,
           duelCursorTargetCardId: 548,
-          duelCursorFieldSlotIndex: null,
           opponentField: [
             { cardId: 548, atk: 400, def: 300, status: 0xbc },
             { cardId: 0, atk: 0, def: 0, status: 0 },

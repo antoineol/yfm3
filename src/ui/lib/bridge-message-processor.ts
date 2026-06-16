@@ -333,10 +333,6 @@ function nextConfirmedPlayerHandTarget(
   return null;
 }
 
-function isPalBattleTargetModeDismissed(raw: RawBridgeState): boolean {
-  return raw.duelBattleTargetMode === 0x83 || raw.duelBattleTargetMode === 0xc3;
-}
-
 function isPlayerHandPhase(raw: RawBridgeState): boolean {
   return (
     raw.turnIndicator === 0 &&
@@ -348,12 +344,7 @@ function isPlayerHandPhase(raw: RawBridgeState): boolean {
 }
 
 function isFieldPreviewCursorActive(raw: RawBridgeState): boolean {
-  return (
-    isPlayerHandPhase(raw) &&
-    [...raw.field, ...(raw.opponentField ?? [])].some(
-      (slot) => slot.cardId > 0 && slot.cardId < 723 && (slot.status & 0x04) !== 0,
-    )
-  );
+  return isPlayerHandPhase(raw) && raw.duelFieldViewActive === true;
 }
 
 function isAvailableRawHandTarget(raw: RawBridgeState, target: DuelCursorTarget): boolean {
@@ -372,10 +363,6 @@ function selectedPlayerAttackTarget(
 ): DuelCursorTarget | null {
   if (raw.turnIndicator !== 0 || raw.duelPhase !== 0x05) return null;
   if (cursorTarget?.zone === "opponentField") {
-    if (isPalGame(raw)) {
-      if (isPalBattleTargetModeDismissed(raw)) return null;
-      return selectedActionTargetFromRaw(raw);
-    }
     if (raw.duelTargetSelectionDuelTableSlot == null) return null;
     return resolveCursorPlayerFieldSlot(raw);
   }
@@ -389,26 +376,6 @@ function resolveBattleTarget(
 ): BattleTarget | null {
   if (cursorTarget?.zone !== "opponentField" || !selectedAttackTarget) return null;
   return { attacker: selectedAttackTarget, defender: cursorTarget };
-}
-
-function selectedActionTargetFromRaw(raw: RawBridgeState): DuelCursorTarget | null {
-  const cardId = raw.duelSelectedActionCardId;
-  if (cardId == null || cardId <= 0 || cardId >= 723) return null;
-  return uniquePlayerFieldTarget(raw.field, cardId);
-}
-
-function uniquePlayerFieldTarget(slots: RawCardSlot[], cardId: number): DuelCursorTarget | null {
-  let target: DuelCursorTarget | null = null;
-  for (const [index, slot] of slots.entries()) {
-    if (slot.cardId !== cardId || slot.status === 0) continue;
-    if (target) return null;
-    target = { zone: "playerField", index, cardId, hidden: false };
-  }
-  return target;
-}
-
-function isPalGame(raw: RawBridgeState): boolean {
-  return raw.gameSerial?.startsWith("SLES_039.") === true;
 }
 
 function isAvailableRawHandSlot(

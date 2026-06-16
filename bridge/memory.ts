@@ -20,7 +20,7 @@
 import type { Pointer } from "bun:ffi";
 import { execSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
+import { DEFAULT_PROFILE, type OffsetProfile } from "./offset-profiles.ts";
 import { readLiveRankCounters } from "./rank-counters.ts";
 
 export { DEFAULT_PROFILE, type OffsetProfile, PAL_PROFILE } from "./offset-profiles.ts";
@@ -82,16 +82,14 @@ export interface GameState {
   rankCounters: Array<number | null> | null;
   /** Suspected selected card id under the in-game cursor. Null when profile is unavailable. */
   duelCursorTargetCardId: number | null;
-  /** Action-struct selected card id captured when the player confirms a field card. Null when unmapped. */
-  duelSelectedActionCardId?: number | null;
+  /** True while the hand-phase L2/R2 field-look cursor is held open. */
+  duelFieldViewActive?: boolean | null;
+  /** C target-mode byte for the hand-phase L2/R2 field-look card-info target. */
+  duelFieldViewTargetMode?: number | null;
   /** Duel-table slot under the live field cursor, mapped from the C row/column cursor table. */
   duelCursorDuelTableSlot?: number | null;
   /** Defender duel-table slot from the active attack-target cursor map. */
   duelTargetSelectionDuelTableSlot?: number | null;
-  /** Legacy field cursor/rendering mode in index-shaped form. Not a trusted physical field slot. */
-  duelCursorFieldSlotIndex?: number | null;
-  /** PAL battle target-selection mode byte. Null when the active profile has not mapped it. */
-  duelBattleTargetMode?: number | null;
 }
 
 // ── Windows constants ──────────────────────────────────────────────
@@ -122,11 +120,13 @@ const CPU_SHUFFLED_DECK_OFFSET = 0x178038; // CPU shuffled deck during duel
 const DUEL_CARD_TABLE_OFFSET = 0x1a7e20; // 80 entries x 6 bytes: player 0..39, CPU 40..79
 const DUEL_CARD_TABLE_STRIDE = 6;
 const DUEL_CURSOR_TARGET_CARD_REL = 0xfe; // NTSC-U: duelPhase + 0xfe = 0x9b338
+const DUEL_FIELD_VIEW_INPUT_REL = 0x16a; // NTSC-U: duelPhase + 0x16a = 0x9b3a4
+const DUEL_FIELD_VIEW_TARGET_MODE_REL = 0x114; // NTSC-U: duelPhase + 0x114 = 0x9b34e
+const DUEL_BOARD_PLAYER_REL = 0x93; // NTSC-U: duelPhase + 0x93 = 0x9b2cd
 const DUEL_FIELD_CURSOR_COLUMN_REL = 0x54d1d; // NTSC-U: duelPhase + 0x54d1d = 0xe9f57
 const DUEL_FIELD_CURSOR_ROW_REL = 0x54d1e; // NTSC-U: duelPhase + 0x54d1e = 0xe9f58
 const DUEL_FIELD_CURSOR_MAP_REL = -0xaa62; // NTSC-U: duelPhase - 0xaa62 = 0x907d8
 const DUEL_TARGET_SELECTION_OBJECT_REL = 0x54d2e; // NTSC-U: duelPhase + 0x54d2e = 0xe9f68
-const DUEL_CURSOR_FIELD_SLOT_REL = 0x114; // NTSC-U: cursor-rendering mode, not a physical field slot.
 
 export const CARD_STATS_OFFSET = 0x1d4244;
 export const CARD_STATS_SIZE = 722 * 4; // 2888 bytes — full card stats table
@@ -221,17 +221,13 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
       rankStatsBase: DEFAULT_PROFILE.rankStatsBase + d,
       equipCounter: DEFAULT_PROFILE.equipCounter + d,
       duelCursorTargetCard: DEFAULT_PROFILE.duelCursorTargetCard + d,
-      duelSelectedActionCard: DEFAULT_PROFILE.duelSelectedActionCard + d,
+      duelFieldViewInput: DEFAULT_PROFILE.duelFieldViewInput + d,
+      duelFieldViewTargetMode: DEFAULT_PROFILE.duelFieldViewTargetMode + d,
+      duelBoardPlayer: DEFAULT_PROFILE.duelBoardPlayer + d,
       duelFieldCursorColumn: DEFAULT_PROFILE.duelFieldCursorColumn + d,
       duelFieldCursorRow: DEFAULT_PROFILE.duelFieldCursorRow + d,
       duelFieldCursorMap: DEFAULT_PROFILE.duelFieldCursorMap + d,
       duelTargetSelectionObject: DEFAULT_PROFILE.duelTargetSelectionObject + d,
-      duelCursorFieldSlot: DEFAULT_PROFILE.duelCursorFieldSlot
-        ? DEFAULT_PROFILE.duelCursorFieldSlot + d
-        : 0,
-      duelBattleTargetMode: DEFAULT_PROFILE.duelBattleTargetMode
-        ? DEFAULT_PROFILE.duelBattleTargetMode + d
-        : 0,
     };
 
     // Quick validation: duel phase should be a recognized value (1–13) during a duel
@@ -248,68 +244,6 @@ export function scanForOffsets(view: DataView, startingLP: number): OffsetProfil
   console.log(
     `scanForOffsets: ${candidates.length} LP candidates but none had valid phase: ${candidates.map((c) => `0x${c.toString(16)}`).join(", ")}`,
   );
-
-  // LP and phase segments have different deltas in PAL.
-  // Scan for phase independently: during HAND_SELECT, phase=0x04 and
-  // turn indicator=0x00 at a fixed relative offset (0x65 bytes before phase).
-  const phaseCandidates: Array<{ offset: number; duelistId: number; sceneId: number }> = [];
-
-  for (let off = 0x090000; off < 0x0b0000; off++) {
-    if (readU8(view, off) !== 0x04) continue; // HAND_SELECT
-    if (readU8(view, off - turnDist) !== 0x00) continue; // player's turn
-    const dId = readU8(view, off + duelistDist);
-    if (dId > 50) continue; // plausible duelist ID
-    phaseCandidates.push({
-      offset: off,
-      duelistId: dId,
-      sceneId: readU16(view, off + (DEFAULT_PROFILE.sceneId - DEFAULT_PROFILE.duelPhase)),
-    });
-  }
-
-  if (phaseCandidates.length > 0) {
-    console.log("scanForOffsets: independent phase scan found candidates:");
-    for (const c of phaseCandidates) {
-      const d = c.offset - DEFAULT_PROFILE.duelPhase;
-      console.log(
-        `  phase=0x04 at 0x${c.offset.toString(16)} (delta=0x${d.toString(16)}), ` +
-          `duelistId=${c.duelistId}, sceneId=0x${c.sceneId.toString(16).padStart(4, "0")}`,
-      );
-    }
-    if (phaseCandidates.length === 1) {
-      const pc = phaseCandidates[0];
-      const lpP1 = candidates[0];
-      if (!pc || lpP1 === undefined) return null;
-      return {
-        label: "PAL-discovered",
-        duelPhase: pc.offset,
-        turnIndicator: pc.offset - turnDist,
-        sceneId: pc.offset + (DEFAULT_PROFILE.sceneId - DEFAULT_PROFILE.duelPhase),
-        terrain: pc.offset + (DEFAULT_PROFILE.terrain - DEFAULT_PROFILE.duelPhase),
-        duelistId: pc.offset + duelistDist,
-        lpP1,
-        lpP2: lpP1 + 0x20,
-        rankLp: lpP1 + (PAL_PROFILE.rankLp - PAL_PROFILE.lpP1),
-        fusionCounter: lpP1 + (PAL_PROFILE.fusionCounter - PAL_PROFILE.lpP1),
-        rankCardsUsed: lpP1 + (PAL_PROFILE.rankCardsUsed - PAL_PROFILE.lpP1),
-        cardsDealt: lpP1 + (PAL_PROFILE.cardsDealt - PAL_PROFILE.lpP1),
-        handSlots: lpP1 + (PAL_PROFILE.handSlots - PAL_PROFILE.lpP1),
-        rankStatsBase: lpP1 + (PAL_PROFILE.rankStatsBase - PAL_PROFILE.lpP1),
-        equipCounter: PAL_PROFILE.equipCounter
-          ? lpP1 + (PAL_PROFILE.equipCounter - PAL_PROFILE.lpP1)
-          : 0,
-        duelCursorTargetCard: 0,
-        duelSelectedActionCard: 0,
-        duelFieldCursorColumn: 0,
-        duelFieldCursorRow: 0,
-        duelFieldCursorMap: 0,
-        duelTargetSelectionObject: 0,
-        duelCursorFieldSlot: 0,
-        duelBattleTargetMode: 0,
-      };
-    }
-  } else {
-    console.log("scanForOffsets: no phase candidates found in 0x090000-0x0B0000");
-  }
 
   return null;
 }
@@ -423,17 +357,13 @@ export function buildProfileFromDiscovery(
     rankStatsBase: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.rankStatsBase) : 0,
     equipCounter: lpP1Addr ? lpP1Addr - (DEFAULT_PROFILE.lpP1 - DEFAULT_PROFILE.equipCounter) : 0,
     duelCursorTargetCard: phaseAddr + DUEL_CURSOR_TARGET_CARD_REL,
-    duelSelectedActionCard: lpP1Addr
-      ? lpP1Addr + (DEFAULT_PROFILE.duelSelectedActionCard - DEFAULT_PROFILE.lpP1)
-      : DEFAULT_PROFILE.duelSelectedActionCard,
+    duelFieldViewInput: phaseAddr + DUEL_FIELD_VIEW_INPUT_REL,
+    duelFieldViewTargetMode: phaseAddr + DUEL_FIELD_VIEW_TARGET_MODE_REL,
+    duelBoardPlayer: phaseAddr + DUEL_BOARD_PLAYER_REL,
     duelFieldCursorColumn: phaseAddr + DUEL_FIELD_CURSOR_COLUMN_REL,
     duelFieldCursorRow: phaseAddr + DUEL_FIELD_CURSOR_ROW_REL,
     duelFieldCursorMap: phaseAddr + DUEL_FIELD_CURSOR_MAP_REL,
     duelTargetSelectionObject: phaseAddr + DUEL_TARGET_SELECTION_OBJECT_REL,
-    duelCursorFieldSlot: DEFAULT_PROFILE.duelCursorFieldSlot
-      ? phaseAddr + DUEL_CURSOR_FIELD_SLOT_REL
-      : 0,
-    duelBattleTargetMode: DEFAULT_PROFILE.duelBattleTargetMode,
   };
 }
 
@@ -525,8 +455,20 @@ function readDuelCursorTargetCardId(view: DataView, profile: OffsetProfile): num
   return profile.duelCursorTargetCard ? readU16(view, profile.duelCursorTargetCard) : null;
 }
 
-function readDuelSelectedActionCardId(view: DataView, profile: OffsetProfile): number | null {
-  return profile.duelSelectedActionCard ? readU16(view, profile.duelSelectedActionCard) : null;
+function readDuelFieldViewActive(view: DataView, profile: OffsetProfile): boolean | null {
+  return profile.duelFieldViewInput
+    ? (readU16(view, profile.duelFieldViewInput) & 0x0003) !== 0
+    : null;
+}
+
+function readDuelFieldViewTargetMode(view: DataView, profile: OffsetProfile): number | null {
+  return profile.duelFieldViewTargetMode ? readU8(view, profile.duelFieldViewTargetMode) : null;
+}
+
+function readDuelBoardPlayer(view: DataView, profile: OffsetProfile): number | null {
+  if (!profile.duelBoardPlayer) return null;
+  const boardPlayer = readU8(view, profile.duelBoardPlayer);
+  return boardPlayer <= 1 ? boardPlayer : null;
 }
 
 function readDuelCursorDuelTableSlot(view: DataView, profile: OffsetProfile): number | null {
@@ -538,11 +480,12 @@ function readDuelCursorDuelTableSlot(view: DataView, profile: OffsetProfile): nu
     return null;
   }
   const turn = readU8(view, profile.turnIndicator);
-  if (turn > 1) return null;
+  const boardPlayer = readDuelBoardPlayer(view, profile);
+  if (turn > 1 || boardPlayer == null) return null;
   const column = readI8(view, profile.duelFieldCursorColumn + turn * 0x70);
   const row = readI8(view, profile.duelFieldCursorRow + turn * 0x70);
   if (column < 0 || column >= 5 || row < 0 || row >= 4) return null;
-  return readU8(view, profile.duelFieldCursorMap + turn * 0x14 + row * 5 + column);
+  return readU8(view, profile.duelFieldCursorMap + boardPlayer * 0x14 + row * 5 + column);
 }
 
 function readDuelTargetSelectionDuelTableSlot(
@@ -551,7 +494,8 @@ function readDuelTargetSelectionDuelTableSlot(
 ): number | null {
   if (!profile.duelTargetSelectionObject || !profile.duelFieldCursorMap) return null;
   const turn = readU8(view, profile.turnIndicator);
-  if (turn > 1) return null;
+  const boardPlayer = readDuelBoardPlayer(view, profile);
+  if (turn > 1 || boardPlayer == null) return null;
   const objectPtr = readU32(view, profile.duelTargetSelectionObject + turn * 0x70);
   const objectOffset = objectPtr - 0x80000000;
   if (objectOffset < 0 || objectOffset >= PS1_RAM_SIZE) return null;
@@ -560,17 +504,7 @@ function readDuelTargetSelectionDuelTableSlot(
   const column = readI8(view, targetStateBase + 0x0b);
   const row = readI8(view, targetStateBase + 0x0c);
   if (column < 0 || column >= 5 || row < 0 || row >= 4) return null;
-  return readU8(view, profile.duelFieldCursorMap + turn * 0x14 + row * 5 + column);
-}
-
-function readDuelCursorFieldSlotIndex(view: DataView, profile: OffsetProfile): number | null {
-  if (!profile.duelCursorFieldSlot) return null;
-  const oneBasedSlot = readU8(view, profile.duelCursorFieldSlot);
-  return oneBasedSlot >= 1 && oneBasedSlot <= FIELD_SLOTS ? oneBasedSlot - 1 : null;
-}
-
-function readDuelBattleTargetMode(view: DataView, profile: OffsetProfile): number | null {
-  return profile.duelBattleTargetMode ? readU8(view, profile.duelBattleTargetMode) : null;
+  return readU8(view, profile.duelFieldCursorMap + boardPlayer * 0x14 + row * 5 + column);
 }
 
 // ── Exported functions ─────────────────────────────────────────────
@@ -662,15 +596,12 @@ export function readGameState(view: DataView, profile: OffsetProfile | null): Ga
 
   const cursorFields = {
     duelCursorTargetCardId: profile ? readDuelCursorTargetCardId(view, profile) : null,
-    duelSelectedActionCardId: profile ? readDuelSelectedActionCardId(view, profile) : null,
+    duelFieldViewActive: profile ? readDuelFieldViewActive(view, profile) : null,
+    duelFieldViewTargetMode: profile ? readDuelFieldViewTargetMode(view, profile) : null,
     duelCursorDuelTableSlot: profile ? readDuelCursorDuelTableSlot(view, profile) : null,
     duelTargetSelectionDuelTableSlot: profile
       ? readDuelTargetSelectionDuelTableSlot(view, profile)
       : null,
-    ...(profile?.duelCursorFieldSlot
-      ? { duelCursorFieldSlotIndex: readDuelCursorFieldSlotIndex(view, profile) }
-      : {}),
-    duelBattleTargetMode: profile ? readDuelBattleTargetMode(view, profile) : null,
   };
 
   return {

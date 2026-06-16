@@ -26,23 +26,20 @@ export interface OffsetProfile {
   equipCounter: number;
   /** Selected card id under the in-game duel cursor (u16), 0 when unmapped. */
   duelCursorTargetCard: number;
-  /**
-   * Action-struct selected card id captured when the player confirms a field card (u16),
-   * 0 when unmapped.
-   */
-  duelSelectedActionCard: number;
+  /** Held field-view input/mode word used by the hand-phase field-look branch, 0 when unmapped. */
+  duelFieldViewInput: number;
+  /** C target-mode byte written by the displayed card-info routine, 0 when unmapped. */
+  duelFieldViewTargetMode: number;
+  /** Board-side byte used by the decompiled cursor-map readers, 0 when unmapped. */
+  duelBoardPlayer: number;
   /** Field cursor column byte used by the decompiled board-slot mapper, 0 when unmapped. */
   duelFieldCursorColumn: number;
   /** Field cursor row byte used by the decompiled board-slot mapper, 0 when unmapped. */
   duelFieldCursorRow: number;
-  /** `DAT_800907D8` board cursor map base, 0 when unmapped. */
+  /** Board cursor map base, 0 when unmapped. */
   duelFieldCursorMap: number;
-  /** `DAT_800E9F68` active target-selection object pointer base. */
+  /** Active target-selection object pointer base. */
   duelTargetSelectionObject: number;
-  /** Field cursor/rendering mode signal (u8), 0 when unmapped or inactive; not a physical slot. */
-  duelCursorFieldSlot: number;
-  /** PAL battle target-selection/cancel mode byte, 0 when unmapped. */
-  duelBattleTargetMode: number;
 }
 
 /** Default profile: NTSC-U (SLUS-01411) -- also used by RP mod. */
@@ -63,13 +60,13 @@ export const DEFAULT_PROFILE: OffsetProfile = {
   rankStatsBase: 0x0e9ff1, // lpP1-0x13: [turns, effAtk, defWin, faceDown, pureMagic, traps]
   equipCounter: 0x0e9ff9, // rankStatsBase+0x08: scored by FUN_80021598 row 9
   duelCursorTargetCard: 0x09b338,
-  duelSelectedActionCard: 0x0ea1ee, // DAT_800EA1E8 + 6: selected action card id
+  duelFieldViewInput: 0x09b3a4,
+  duelFieldViewTargetMode: 0x09b34e,
+  duelBoardPlayer: 0x09b2cd,
   duelFieldCursorColumn: 0x0e9f57,
   duelFieldCursorRow: 0x0e9f58,
   duelFieldCursorMap: 0x0907d8,
   duelTargetSelectionObject: 0x0e9f68,
-  duelCursorFieldSlot: 0,
-  duelBattleTargetMode: 0,
 };
 
 /**
@@ -95,11 +92,11 @@ export const PAL_PROFILE: OffsetProfile = {
   rankStatsBase: 0x0eb279,
   equipCounter: 0x0eb281,
   duelCursorTargetCard: 0x09c6b8,
-  duelSelectedActionCard: 0,
-  duelFieldCursorColumn: 0,
-  duelFieldCursorRow: 0,
-  duelFieldCursorMap: 0,
-  duelTargetSelectionObject: 0,
-  duelCursorFieldSlot: 0x09c6d1,
-  duelBattleTargetMode: 0x09c585,
+  duelFieldViewInput: 0x09c710,
+  duelFieldViewTargetMode: 0x09c6ce,
+  duelBoardPlayer: 0x09c504,
+  duelFieldCursorColumn: 0x0eb3d7,
+  duelFieldCursorRow: 0x0eb3d8,
+  duelFieldCursorMap: 0x0919e0,
+  duelTargetSelectionObject: 0x0eb3e8,
 };

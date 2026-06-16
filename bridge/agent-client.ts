@@ -63,10 +63,10 @@ export interface AgentGameState {
   cpuShuffledDeck: number[];
   cpuDuelDeck?: number[];
   duelCursorTargetCardId: number | null;
-  duelSelectedActionCardId?: number | null;
+  duelFieldViewActive?: boolean | null;
+  duelFieldViewTargetMode?: number | null;
   duelCursorDuelTableSlot?: number | null;
   duelTargetSelectionDuelTableSlot?: number | null;
-  duelCursorFieldSlotIndex?: number | null;
   duelistUnlock: number[];
   rankCounters: Array<number | null> | null;
 }

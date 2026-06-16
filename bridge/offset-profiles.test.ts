@@ -19,26 +19,28 @@ describe("offset profiles", () => {
     expect(PAL_PROFILE.rankCardsUsed).not.toBe(PAL_PROFILE.cardsDealt);
   });
 
-  it("maps the PAL cursor target without reusing NTSC relative offsets", () => {
+  it("maps PAL field cursor and targeting from the PAL decompiled branch", () => {
     expect(PAL_PROFILE.duelCursorTargetCard).toBe(0x09c6b8);
-    expect(DEFAULT_PROFILE.duelSelectedActionCard).toBe(0x0ea1ee);
+    expect(DEFAULT_PROFILE.duelFieldViewInput).toBe(0x09b3a4);
+    expect(DEFAULT_PROFILE.duelFieldViewTargetMode).toBe(0x09b34e);
+    expect(DEFAULT_PROFILE.duelBoardPlayer).toBe(0x09b2cd);
+    expect(PAL_PROFILE.duelFieldViewInput).toBe(0x09c710);
+    expect(PAL_PROFILE.duelFieldViewTargetMode).toBe(0x09c6ce);
+    expect(PAL_PROFILE.duelBoardPlayer).toBe(0x09c504);
     expect(DEFAULT_PROFILE.duelFieldCursorColumn).toBe(0x0e9f57);
     expect(DEFAULT_PROFILE.duelFieldCursorRow).toBe(0x0e9f58);
     expect(DEFAULT_PROFILE.duelFieldCursorMap).toBe(0x0907d8);
     expect(DEFAULT_PROFILE.duelTargetSelectionObject).toBe(0x0e9f68);
-    expect(DEFAULT_PROFILE.duelCursorFieldSlot).toBe(0);
-    expect(DEFAULT_PROFILE.duelBattleTargetMode).toBe(0);
-    expect(PAL_PROFILE.duelSelectedActionCard).toBe(0);
-    expect(PAL_PROFILE.duelFieldCursorColumn).toBe(0);
-    expect(PAL_PROFILE.duelFieldCursorRow).toBe(0);
-    expect(PAL_PROFILE.duelFieldCursorMap).toBe(0);
-    expect(PAL_PROFILE.duelTargetSelectionObject).toBe(0);
+    expect(PAL_PROFILE.duelFieldCursorColumn).toBe(0x0eb3d7);
+    expect(PAL_PROFILE.duelFieldCursorRow).toBe(0x0eb3d8);
+    expect(PAL_PROFILE.duelFieldCursorMap).toBe(0x0919e0);
+    expect(PAL_PROFILE.duelTargetSelectionObject).toBe(0x0eb3e8);
     expect(PAL_PROFILE.duelCursorTargetCard).not.toBe(
       PAL_PROFILE.duelPhase + (DEFAULT_PROFILE.duelCursorTargetCard - DEFAULT_PROFILE.duelPhase),
     );
-    expect(PAL_PROFILE.duelCursorFieldSlot).toBe(0x09c6d1);
-    expect(PAL_PROFILE.duelCursorFieldSlot).not.toBe(0x09c6e8);
-    expect(PAL_PROFILE.duelBattleTargetMode).toBe(0x09c585);
+    expect(PAL_PROFILE.duelFieldCursorMap).not.toBe(
+      PAL_PROFILE.duelPhase + (DEFAULT_PROFILE.duelFieldCursorMap - DEFAULT_PROFILE.duelPhase),
+    );
   });
 
   it("maps PAL terrain from the field-bonus routine terrain byte", () => {

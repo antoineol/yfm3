@@ -33,7 +33,6 @@ const baseState: GameState = {
   duelistUnlock: [],
   rankCounters: null,
   duelCursorTargetCardId: null,
-  duelCursorFieldSlotIndex: null,
 };
 
 const profile: OffsetProfile = {
@@ -53,13 +52,13 @@ const profile: OffsetProfile = {
   rankStatsBase: 0x2f1,
   equipCounter: 0x2f9,
   duelCursorTargetCard: 0x2fe,
-  duelSelectedActionCard: 0,
+  duelFieldViewInput: 0,
+  duelFieldViewTargetMode: 0,
+  duelBoardPlayer: 0,
   duelFieldCursorColumn: 0,
   duelFieldCursorRow: 0,
   duelFieldCursorMap: 0,
   duelTargetSelectionObject: 0,
-  duelCursorFieldSlot: 0x314,
-  duelBattleTargetMode: 0,
 };
 
 describe("cursor probe", () => {
