@@ -34,6 +34,7 @@ import {
 import { detectWaMrgLayout } from "./extract/detect-wamrg.ts";
 import { findAllWaMrgTextBlocks } from "./extract/detect-wamrg-text.ts";
 import { extractDuelists } from "./extract/extract-duelists.ts";
+import { extractFusions } from "./extract/extract-fusions.ts";
 import { langIdxForSerial, loadDiscData, parseBootExeName } from "./extract/index.ts";
 import {
   detectDiscFormat,
@@ -43,13 +44,14 @@ import {
   readSectors,
   SECTOR_DATA_SIZE,
 } from "./extract/iso9660.ts";
-import type { DuelistData, IsoFile } from "./extract/types.ts";
+import type { DuelistData, Fusion, IsoFile } from "./extract/types.ts";
 import {
   DUELIST_BCD_OFFSET,
   DUELIST_DECK_OFFSET,
   DUELIST_ENTRY_SIZE,
   DUELIST_SA_POW_OFFSET,
   DUELIST_SA_TEC_OFFSET,
+  FUSION_TABLE_SIZE,
   NUM_CARDS,
   NUM_DUELISTS,
 } from "./extract/types.ts";
@@ -215,6 +217,31 @@ export function patchDuelistPool(
   writeFileSync(discPath, bin);
   pruneOldBackups(discPath);
   return backup;
+}
+
+export function patchFusionTable(
+  discPath: string,
+  fusions: readonly Fusion[],
+): { backup: IsoBackupEntry | null; fusionTable: Fusion[] } {
+  const fusionTable = normalizeFusionTable(fusions);
+  const encoded = encodeFusionTable(fusionTable);
+  const backup = backupIso(discPath);
+
+  const bin = readFileSync(discPath);
+  const fmt = detectDiscFormat(bin);
+  const waMrgEntry = findWaMrgEntry(bin, fmt);
+  const waMrg = readSectors(
+    bin,
+    waMrgEntry.sector,
+    Math.ceil(waMrgEntry.size / SECTOR_DATA_SIZE),
+    fmt,
+  ).subarray(0, waMrgEntry.size);
+  const layout = detectWaMrgLayout(waMrg);
+
+  writeBytesAt(bin, waMrgEntry.sector, layout.fusionTable, encoded, fmt);
+  writeFileSync(discPath, bin);
+  pruneOldBackups(discPath);
+  return { backup, fusionTable };
 }
 
 export function getDropX15PatchStatus(discPath: string): DropX15PatchStatus {
@@ -898,6 +925,104 @@ function hexByte(value: number): string {
   return value.toString(16).padStart(2, "0");
 }
 
+export function normalizeFusionTable(fusions: readonly Fusion[]): Fusion[] {
+  const byMaterial1 = new Map<number, Fusion[]>();
+  const seen = new Set<string>();
+  for (const fusion of fusions) {
+    validateFusionId("material1", fusion.material1);
+    validateFusionId("material2", fusion.material2);
+    validateFusionId("result", fusion.result);
+    const material1 = Math.min(fusion.material1, fusion.material2);
+    const material2 = Math.max(fusion.material1, fusion.material2);
+    const key = `${material1},${material2}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const normalized = { material1, material2, result: fusion.result };
+    const group = byMaterial1.get(material1) ?? [];
+    group.push(normalized);
+    byMaterial1.set(material1, group);
+  }
+
+  const out: Fusion[] = [];
+  for (let material1 = 1; material1 <= NUM_CARDS; material1++) {
+    out.push(...(byMaterial1.get(material1) ?? []));
+  }
+  return out;
+}
+
+export function encodeFusionTable(fusions: readonly Fusion[]): Buffer {
+  const headerSize = 2 + NUM_CARDS * 2;
+  const out = Buffer.alloc(FUSION_TABLE_SIZE);
+  const byMaterial1 = new Map<number, Fusion[]>();
+  for (const fusion of fusions) {
+    const group = byMaterial1.get(fusion.material1) ?? [];
+    group.push(fusion);
+    byMaterial1.set(fusion.material1, group);
+  }
+
+  let pos = headerSize;
+  for (let material1 = 1; material1 <= NUM_CARDS; material1++) {
+    const group = byMaterial1.get(material1);
+    if (!group?.length) continue;
+    if (group.length > 511) {
+      throw new Error(`card #${material1} has ${group.length} fusions; max is 511`);
+    }
+    out.writeUInt16LE(pos, 2 + (material1 - 1) * 2);
+    if (group.length <= 255) {
+      out[pos] = group.length;
+      pos++;
+    } else {
+      out[pos] = 0;
+      out[pos + 1] = 511 - group.length;
+      pos += 2;
+    }
+
+    for (let i = 0; i < group.length; i += 2) {
+      if (pos + 5 > FUSION_TABLE_SIZE) {
+        throw new Error("fusion table does not fit in the 64 KiB WA_MRG block");
+      }
+      const first = group[i];
+      const second = group[i + 1];
+      if (!first) continue;
+      encodeFusionGroup(
+        out,
+        pos,
+        first.material2,
+        first.result,
+        second?.material2 ?? 0,
+        second?.result ?? 0,
+      );
+      pos += 5;
+    }
+  }
+  return out;
+}
+
+function encodeFusionGroup(
+  out: Buffer,
+  offset: number,
+  material2a: number,
+  resultA: number,
+  material2b: number,
+  resultB: number,
+): void {
+  out[offset] =
+    ((material2a >> 8) & 0x03) |
+    (((resultA >> 8) & 0x03) << 2) |
+    (((material2b >> 8) & 0x03) << 4) |
+    (((resultB >> 8) & 0x03) << 6);
+  out[offset + 1] = material2a & 0xff;
+  out[offset + 2] = resultA & 0xff;
+  out[offset + 3] = material2b & 0xff;
+  out[offset + 4] = resultB & 0xff;
+}
+
+function validateFusionId(field: string, value: number): void {
+  if (!Number.isInteger(value) || value < 1 || value > NUM_CARDS) {
+    throw new Error(`invalid fusion ${field}: ${value}`);
+  }
+}
+
 function validateWeights(weights: readonly number[]): void {
   if (weights.length !== NUM_CARDS) {
     throw new Error(`weights must have ${NUM_CARDS} entries, got ${weights.length}`);
@@ -972,6 +1097,18 @@ function writeU32LeToIso(
 ): void {
   for (let i = 0; i < 4; i++) {
     bin[discOffset(fileStartSector, fileOffset + i, fmt)] = (value >>> (i * 8)) & 0xff;
+  }
+}
+
+function writeBytesAt(
+  bin: Buffer,
+  fileStartSector: number,
+  fileOffset: number,
+  bytes: Buffer,
+  fmt: ReturnType<typeof detectDiscFormat>,
+): void {
+  for (let i = 0; i < bytes.length; i++) {
+    bin[discOffset(fileStartSector, fileOffset + i, fmt)] = bytes[i] ?? 0;
   }
 }
 
@@ -1097,6 +1234,11 @@ export function reReadDuelists(discPath: string, cardStats: Uint8Array): Duelist
   void detectAttributeMapping(slus, exeLayout, langIdx);
   const waMrgTextBlocks = exeLayout.nameOffsetTable === -1 ? findAllWaMrgTextBlocks(waMrg) : [];
   return extractDuelists(slus, waMrg, exeLayout, waMrgLayout, waMrgTextBlocks, langIdx);
+}
+
+export function reReadFusionTable(discPath: string): Fusion[] {
+  const { waMrg } = loadDiscData(discPath);
+  return extractFusions(waMrg, detectWaMrgLayout(waMrg));
 }
 
 export function listIsoBackups(discPath: string): IsoBackupEntry[] {

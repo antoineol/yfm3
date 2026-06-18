@@ -42,8 +42,10 @@ import {
   type PalFrWordingEntry,
   patchDropX15,
   patchDuelistPool,
+  patchFusionTable,
   patchPalFrWordingEntries,
   reReadDuelists,
+  reReadFusionTable,
   restoreIsoBackup,
 } from "./iso-edit.ts";
 import { probeLockedIsos } from "./iso-lock-probe.ts";
@@ -710,6 +712,7 @@ async function serveActiveSaveApi(req: Request, url: URL): Promise<Response> {
 // know the path. These routes expose:
 //   GET  /api/active-iso              — metadata (serial, filename, backup count)
 //   PUT  /api/active-iso/duelist-pool — patch one {duelistId, poolType, weights}
+//   PUT  /api/active-iso/fusion-table — replace the fusion table
 //   GET  /api/active-iso/drop-x15     — multi-card/starchip reward patch status
 //   PUT  /api/active-iso/drop-x15     — enable multi-card/starchip rewards when supported
 //   GET  /api/active-iso/backups      — list rotating backups
@@ -874,6 +877,64 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     return methodNotAllowed();
   }
 
+  if (pathname === "/api/active-iso/fusion-table") {
+    if (req.method !== "PUT") return methodNotAllowed();
+    try {
+      const body = (await req.json()) as {
+        fusions?: { material1?: number; material2?: number; result?: number }[];
+      };
+      if (
+        !Array.isArray(body.fusions) ||
+        body.fusions.some(
+          (fusion) =>
+            typeof fusion.material1 !== "number" ||
+            typeof fusion.material2 !== "number" ||
+            typeof fusion.result !== "number",
+        )
+      ) {
+        return jsonResponse({ ok: false, error: "invalid_body" }, { status: 400 });
+      }
+
+      const fusions = body.fusions.map((fusion) => ({
+        material1: fusion.material1 as number,
+        material2: fusion.material2 as number,
+        result: fusion.result as number,
+      }));
+      const applyPatch = () => patchFusionTable(discPath, fusions);
+
+      let result: ReturnType<typeof patchFusionTable>;
+      let closedGame = false;
+      try {
+        result = applyPatch();
+      } catch (err: unknown) {
+        if (!isIsoLockedError(err, discPath)) throw err;
+        console.log("[iso] PUT fusion-table: ISO locked; closing game in DuckStation");
+        const closeResult = await closeDuckStationGameAndWaitForUnlock(discPath);
+        if (!closeResult.ok) {
+          console.warn(`[iso] close-game fallback failed: ${closeResult.reason}`);
+          return jsonResponse(
+            { ok: false, error: "iso_locked", reason: closeResult.reason },
+            { status: 409 },
+          );
+        }
+        result = applyPatch();
+        closedGame = true;
+      }
+
+      currentGameData = { ...currentGameData, fusionTable: result.fusionTable };
+      persistGameDataCache(currentGameData);
+      broadcastGameData(currentGameData);
+      console.log(
+        `[iso] PUT fusion-table fusions=${result.fusionTable.length}${result.backup ? ` · backup ${result.backup.filename}` : ""}${closedGame ? " · closed game" : ""}`,
+      );
+      return jsonResponse({ ok: true, ...result, closedGame });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[iso] PUT fusion-table failed: ${message}`);
+      return jsonResponse({ ok: false, error: message }, { status: 500 });
+    }
+  }
+
   if (pathname === "/api/active-iso/pal-fr-wording") {
     if (req.method === "GET") {
       return jsonResponse(getPalFrWordingStatus(discPath));
@@ -967,7 +1028,8 @@ async function serveActiveIsoApi(req: Request, url: URL): Promise<Response> {
     try {
       const preRestore = restoreIsoBackup(discPath, backupFilename);
       const duelists = reReadDuelists(discPath, currentGameData.cardStats);
-      currentGameData = { ...currentGameData, duelists };
+      const fusionTable = reReadFusionTable(discPath);
+      currentGameData = { ...currentGameData, duelists, fusionTable };
       persistGameDataCache(currentGameData);
       broadcastGameData(currentGameData);
       return jsonResponse({

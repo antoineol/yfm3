@@ -124,6 +124,8 @@ export type PutDuelistPoolError = {
   reason?: string;
 };
 
+export type BridgeFusion = { material1: number; material2: number; result: number };
+
 export async function putDuelistPool(
   duelistId: number,
   poolType: PoolType,
@@ -141,6 +143,31 @@ export async function putDuelistPool(
     return (await res.json()) as PutDuelistPoolError;
   }
   return parseJson<PutDuelistPoolResult>(res);
+}
+
+export type PutFusionTableResult =
+  | {
+      ok: true;
+      backup: IsoBackupEntry | null;
+      fusionTable: BridgeFusion[];
+      closedGame: boolean;
+    }
+  | {
+      ok: false;
+      error: string;
+      reason?: string;
+    };
+
+export async function putFusionTable(
+  fusions: readonly BridgeFusion[],
+): Promise<PutFusionTableResult> {
+  const res = await fetch(`${BRIDGE_HTTP_BASE}/api/active-iso/fusion-table`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fusions }),
+  });
+  if (res.status === 409) return (await res.json()) as PutFusionTableResult;
+  return parseJson<PutFusionTableResult>(res);
 }
 
 export type PutDropX15Result =

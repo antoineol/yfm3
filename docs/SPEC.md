@@ -36,7 +36,7 @@ The optimizer's business metric is the expected value of the highest ATK achieva
 - Engine: deterministic card, fusion, scoring, farming, ranking, and worker logic.
 - Bridge: local Windows/Bun process that reads DuckStation shared memory and active disc data.
 - Extraction: disc image readers for cards, fusions, equips, duelists, rank scoring, deck limits, and artwork.
-- Patching: local bridge-only ISO edits for supported reward/drop/deck/wording workflows. Reward drop patch targets are x1, x5, x15, x50, x150, and x1000.
+- Patching: local bridge-only ISO edits for supported reward/drop/deck/fusion-table/wording workflows. Reward drop patch targets are x1, x5, x15, x50, x150, and x1000.
 - Agent control: optional bridge WebSocket commands for controlled gameplay automation.
 
 ## Core Terms
@@ -315,6 +315,14 @@ Reward patching:
 - Ghost Drop More Cards x50/x150/x1000 keeps the selected reward/save count, but caps only the injected display-card script loop at x15.
 - PAL French multiplier support uses verified scratch relocation and root save-update helper logic.
 - Patch code must be tested at the arithmetic/byte level; live emulator verification is still required for final confidence.
+
+Fusion table patching:
+
+- Fusion table edits are bridge-only active-ISO writes that replace the WA_MRG fusion table and create one rotating ISO backup per save.
+- The Edit page exposes fusion-table deletion separately from card drop/deck editing at `#data/edit/fusions`; the legacy `#data/edit` route remains the card/drop editor.
+- The fusion deletion UI filters by a selected card and scope before rendering rows, so bulk deletion workflows target a meaningful subset instead of loading the entire table by default.
+- Saves rebuild the fixed 64 KiB fusion block from normalized `(material1, material2, result)` triples, preserving first occurrence per material pair and using the lower card id as `material1`.
+- Successful fusion-table saves and ISO backup restores refresh bridge game data and the on-disk game-data cache so scorers, farm discovery, and data tables use the patched fusions.
 
 PAL FR wording patching:
 

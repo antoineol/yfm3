@@ -3,9 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { PAL_CHAR_TABLE } from "./extract/char-tables.ts";
+import { extractFusions } from "./extract/extract-fusions.ts";
 import { loadDiscData } from "./extract/index.ts";
 import { SECTOR_DATA_SIZE } from "./extract/iso9660.ts";
-import { getPalFrWordingStatus, patchPalFrWordingEntries } from "./iso-edit.ts";
+import type { WaMrgLayout } from "./extract/types.ts";
+import {
+  encodeFusionTable,
+  getPalFrWordingStatus,
+  normalizeFusionTable,
+  patchPalFrWordingEntries,
+} from "./iso-edit.ts";
 
 const PAL_FR_SERIAL = "SLES_039.48";
 const EXE_SECTOR = 21;
@@ -25,6 +32,32 @@ const NAME_POINTER_TABLE = 0x11000;
 const NAME_BLOCK_START = 0x1c005;
 const DESC_POINTER_TABLE = 0x0800;
 const DESC_BLOCK_START = 0xee19;
+
+const FUSION_TEST_LAYOUT: WaMrgLayout = {
+  artworkBlockSize: 0x3800,
+  duelistTable: 0,
+  equipTable: 0,
+  fusionTable: 0,
+  starchipTable: 0,
+};
+
+describe("fusion table ISO editing", () => {
+  test("normalizes, packs, and round-trips fusion triples", () => {
+    const normalized = normalizeFusionTable([
+      { material1: 7, material2: 2, result: 10 },
+      { material1: 2, material2: 7, result: 99 },
+      { material1: 1, material2: 3, result: 5 },
+      { material1: 1, material2: 300, result: 301 },
+    ]);
+
+    expect(normalized).toEqual([
+      { material1: 1, material2: 3, result: 5 },
+      { material1: 1, material2: 300, result: 301 },
+      { material1: 2, material2: 7, result: 10 },
+    ]);
+    expect(extractFusions(encodeFusionTable(normalized), FUSION_TEST_LAYOUT)).toEqual(normalized);
+  });
+});
 
 describe("PAL FR ISO editing", () => {
   test("documents the PAL FR runtime glyph table words without the disproven swap", () => {

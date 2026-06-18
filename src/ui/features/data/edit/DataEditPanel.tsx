@@ -3,16 +3,19 @@ import { useBridgeAutoSync } from "../../../db/use-user-preferences.ts";
 import { useBridge } from "../../../lib/bridge-context.tsx";
 import { DropPoolEditor } from "./DropPoolEditor.tsx";
 import { DropX15PatchPanel } from "./DropX15PatchPanel.tsx";
+import { FusionTableEditor } from "./FusionTableEditor.tsx";
 import { PalFrWordingPage } from "./PalFrWordingPanel.tsx";
 
 export function DataEditPanel({
   editBackHref,
+  editFeature,
   editSection,
   onDuelistChange,
   selectedDuelistId,
   wordingTab,
 }: {
   editBackHref: string;
+  editFeature: "cards" | "fusions";
   editSection: "pools" | "wording";
   onDuelistChange: (id: number) => void;
   selectedDuelistId: number | undefined;
@@ -66,6 +69,8 @@ export function DataEditPanel({
           selectedTab={wordingTab}
           tabHrefFor={(tab) => `#data/edit/wording/${tab}`}
         />
+      ) : editFeature === "fusions" ? (
+        <FusionTableEditor gameData={bridge.gameData} />
       ) : (
         <>
           <DropX15PatchPanel />
