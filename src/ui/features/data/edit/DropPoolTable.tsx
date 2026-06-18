@@ -44,8 +44,10 @@ type Entry = {
   needMore: boolean;
 };
 
-function buildSortGetters(pools: readonly PoolType[]): Record<SortKey, (e: Entry) => number> {
-  const out: Record<string, (e: Entry) => number> = {
+function buildSortGetters(
+  pools: readonly PoolType[],
+): Partial<Record<SortKey, (e: Entry) => number>> {
+  const out: Partial<Record<SortKey, (e: Entry) => number>> = {
     id: (e) => e.cardId,
     atk: (e) => e.atk,
     def: (e) => e.def,
@@ -53,7 +55,7 @@ function buildSortGetters(pools: readonly PoolType[]): Record<SortKey, (e: Entry
   for (const p of pools) {
     out[`weight:${p}`] = (e) => e.weights[p] ?? 0;
   }
-  return out as Record<SortKey, (e: Entry) => number>;
+  return out;
 }
 
 export function DropPoolTable({ view }: { view: EditView }) {
@@ -66,10 +68,11 @@ export function DropPoolTable({ view }: { view: EditView }) {
   const [showAll, setShowAll] = useState(false);
   const pools = POOLS_BY_VIEW[view];
   const firstPool = pools[0] ?? "saPow";
-  const [sort, setSort] = useState<SortState<SortKey>>({
-    key: `weight:${firstPool}`,
-    dir: "desc",
-  });
+  const defaultSort = useMemo<NonNullable<SortState<SortKey>>>(
+    () => ({ key: `weight:${firstPool}`, dir: "desc" }),
+    [firstPool],
+  );
+  const [sort, setSort] = useState<SortState<SortKey>>(defaultSort);
   const togglePin = useSetAtom(togglePinAtom);
   const setRangePinned = useSetAtom(setRangePinnedAtom);
   // Anchor for shift-click range selection, held in a ref so it doesn't
@@ -79,8 +82,8 @@ export function DropPoolTable({ view }: { view: EditView }) {
   // Re-seed the sort key when the view switches, so we don't carry a
   // weight:saPow sort into the deck view (which has no saPow column).
   useEffect(() => {
-    setSort({ key: `weight:${firstPool}`, dir: "desc" });
-  }, [firstPool]);
+    setSort(defaultSort);
+  }, [defaultSort]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!draft) return [];
@@ -122,9 +125,14 @@ export function DropPoolTable({ view }: { view: EditView }) {
   }, [draft, cardDb, search, showAll, pinned, modified, pools, firstPool, ownedTotals]);
 
   const sortGetters = useMemo(() => buildSortGetters(pools), [pools]);
+  const activeSort = useMemo<SortState<SortKey>>(() => {
+    if (sort === null) return null;
+    if (sortGetters[sort.key]) return sort;
+    return defaultSort;
+  }, [sort, sortGetters, defaultSort]);
   const sorted = useMemo(
-    () => sortEntries(entries, sort, sortGetters),
-    [entries, sort, sortGetters],
+    () => sortEntries(entries, activeSort, sortGetters),
+    [entries, activeSort, sortGetters],
   );
 
   function handleSort(key: SortKey) {
@@ -222,7 +230,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
               <MasterPinCheckbox onToggle={handleMasterTogglePin} state={masterPinState} />
             </th>
             <SortableHeader
-              dir={sort?.key === "id" ? sort.dir : undefined}
+              dir={activeSort?.key === "id" ? activeSort.dir : undefined}
               label="#"
               onClick={() => handleSort("id")}
               px="px-1"
@@ -230,14 +238,14 @@ export function DropPoolTable({ view }: { view: EditView }) {
             <th className="text-left py-1.5 px-1 font-normal">Card</th>
             <SortableHeader
               align="text-right"
-              dir={sort?.key === "atk" ? sort.dir : undefined}
+              dir={activeSort?.key === "atk" ? activeSort.dir : undefined}
               label="ATK"
               onClick={() => handleSort("atk")}
               px="px-1"
             />
             <SortableHeader
               align="text-right"
-              dir={sort?.key === "def" ? sort.dir : undefined}
+              dir={activeSort?.key === "def" ? activeSort.dir : undefined}
               label="DFD"
               onClick={() => handleSort("def")}
               px="px-1"
@@ -247,7 +255,7 @@ export function DropPoolTable({ view }: { view: EditView }) {
                 key={p}
                 onSort={() => handleSort(`weight:${p}`)}
                 poolType={p}
-                sortDir={sort?.key === `weight:${p}` ? sort.dir : undefined}
+                sortDir={activeSort?.key === `weight:${p}` ? activeSort.dir : undefined}
               />
             ))}
           </tr>

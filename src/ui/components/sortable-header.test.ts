@@ -38,6 +38,14 @@ describe("sortEntries", () => {
     expect(sortEntries(entries, null, getters)).toBe(entries);
   });
 
+  it("returns entries as-is when the active sort getter is missing", () => {
+    const partialGetters: Partial<
+      Record<"id" | "atk" | "missing", (e: (typeof entries)[0]) => number>
+    > = getters;
+    const result = sortEntries(entries, { key: "missing", dir: "desc" }, partialGetters);
+    expect(result).toBe(entries);
+  });
+
   it("sorts by id asc", () => {
     const result = sortEntries(entries, { key: "id", dir: "asc" }, getters);
     expect(result.map((e) => e.id)).toEqual([1, 2, 3]);

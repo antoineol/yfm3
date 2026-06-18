@@ -19,11 +19,12 @@ export function toggleSort<K extends string>(
 export function sortEntries<T, K extends string>(
   entries: T[],
   sort: SortState<K>,
-  getters: Record<K, (e: T) => number>,
+  getters: Partial<Record<K, (e: T) => number>>,
 ): T[] {
   if (!sort) return entries;
   const dir = sort.dir === "asc" ? 1 : -1;
   const getter = getters[sort.key];
+  if (!getter) return entries;
   return [...entries].sort((a, b) => dir * (getter(a) - getter(b)));
 }
 
