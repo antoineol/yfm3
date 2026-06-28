@@ -1578,10 +1578,7 @@ function logStateChange(state: GameState): void {
     parts.push(`opp-field=[${currOppField}]`);
   }
 
-  if (
-    state.lp != null &&
-    (!prev || !prev.lp || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1])
-  ) {
+  if (state.lp != null && (!prev?.lp || prev.lp[0] !== state.lp[0] || prev.lp[1] !== state.lp[1])) {
     parts.push(`lp=${state.lp[0]}/${state.lp[1]}`);
   }
   if (state.fusions != null && (!prev || prev.fusions !== state.fusions)) {

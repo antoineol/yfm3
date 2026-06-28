@@ -47,7 +47,7 @@ export function getCachedDeckLimits(
   modId: ModId = DEFAULT_MOD,
 ): Record<number, number> | undefined {
   const cached = csvCache.get(modId);
-  if (!cached || !cached.deckLimits) return undefined;
+  if (!cached?.deckLimits) return undefined;
   const map: Record<number, number> = {};
   const lines = cached.deckLimits.split("\n").slice(1);
   for (const line of lines) {
