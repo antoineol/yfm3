@@ -1,0 +1,4 @@
+interface:
+  display_name: "Loop Next"
+  short_description: "Continue the repo decomp loop to the next verified manual gate."
+  default_prompt: "Use $loopnext to continue the active repo loop through verified non-manual transitions until the next real manual-test gate."

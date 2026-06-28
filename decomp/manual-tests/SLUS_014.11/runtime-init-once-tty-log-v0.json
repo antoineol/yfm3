@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "runtime-init-once-tty-log-v0",
+  "evidenceClass": "behavioral_equivalence",
+  "sourceType": "mips_asm_linked_behavioral",
+  "source": "decomp/src/SLUS_014.11/runtime-init-once-tty-log.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.runtime-init-once.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 12920,
+    "fileEnd": 13032,
+    "ramStart": 2147560056,
+    "ramEnd": 2147560168,
+    "size": 112
+  },
+  "expectedLogText": "MDEC_out_sync",
+  "expectedChanges": [
+    {
+      "fileOffset": 12976,
+      "ram": 2147560112,
+      "originalWordLe": "07002012",
+      "replacementWordLe": "01002012",
+      "reason": "Redirect first-run beq target to the TTY log block"
+    },
+    {
+      "fileOffset": 12984,
+      "ram": 2147560120,
+      "originalWordLe": "0000088e",
+      "replacementWordLe": "0180043c",
+      "reason": "Load existing TTY message pointer high word"
+    },
+    {
+      "fileOffset": 12988,
+      "ram": 2147560124,
+      "originalWordLe": "04001026",
+      "replacementWordLe": "b4298424",
+      "reason": "Load existing TTY message pointer low word"
+    },
+    {
+      "fileOffset": 12992,
+      "ram": 2147560128,
+      "originalWordLe": "09f80001",
+      "replacementWordLe": "a0000a24",
+      "reason": "Load BIOS A-call vector address"
+    },
+    {
+      "fileOffset": 12996,
+      "ram": 2147560132,
+      "originalWordLe": "ffff3126",
+      "replacementWordLe": "09f84001",
+      "reason": "Call BIOS vector"
+    },
+    {
+      "fileOffset": 13000,
+      "ram": 2147560136,
+      "originalWordLe": "fbff2016",
+      "replacementWordLe": "3e000924",
+      "reason": "Select BIOS std_out_puts in the jalr delay slot"
+    }
+  ],
+  "outputs": {
+    "object": "decomp/build/manual/SLUS_014.11.runtime-init-once-tty-log-v0.o",
+    "elf": "decomp/build/manual/SLUS_014.11.runtime-init-once-tty-log-v0.elf",
+    "unitBinary": "decomp/build/manual/SLUS_014.11.runtime-init-once-tty-log-v0.bin",
+    "executable": "decomp/build/manual/SLUS_014.11.runtime-init-once-tty-log-v0.exe",
+    "discBin": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).bin",
+    "discCue": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).cue"
+  }
+}

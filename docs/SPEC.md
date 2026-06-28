@@ -75,6 +75,39 @@ Extraction rules:
 - Refuse write operations when active-disc resolution is ambiguous.
 - Invalidate cached game data when extractor semantics change.
 
+## Decomp/Recomp Loop
+
+The decomp/recomp track is separate from bridge patching. Its north star is to rebuild
+the original Forbidden Memories executable from repo-controlled sources with identical
+behavior before making intentional gameplay changes.
+
+Loop rules:
+
+- Project memory lives in `decomp/GOAL.md`, `decomp/ROADMAP.md`, `decomp/STATE.json`, and
+  `decomp/LOG.md`; chat history is not a source of truth.
+- `$loopnext` is an agent orchestration skill. It should continue deterministic verified
+  milestones until the next real manual-test gate, not ask for emulator tests when a
+  rebuilt artifact is byte-identical to the original.
+- `decomp/scripts/decomp-state.ts` is a deterministic state/checkpoint helper, not the
+  orchestrator.
+- Generated executables, rebuilt discs, extraction artifacts, and local MIPS toolchains
+  stay out of git under ignored `decomp/artifacts`, `decomp/build`, and `decomp/toolchains`.
+- Manual DuckStation tests are evidence only for non-byte-identical artifacts or runtime
+  behavior that hashes cannot prove.
+
+Current decomp target:
+
+- Vanilla NTSC-U `SLUS_014.11`.
+- Original disc SHA-256:
+  `19e659b0c6f63eca661e0129b38bcb6f83d6458dbab905c119f02bb15d689181`.
+- Boot executable SHA-256:
+  `e5a19297b87f2bdb59e35335a7c8ce2cc1119f906fbb11f7f8829b61a4fb27d4`.
+- PS-X executable load address is `0x80010000`; payload size is `0x1D0000`.
+- Mapped linked-source coverage currently includes `entrypoint_bootstrap`
+  `0x800129D8..0x80012A78` and `runtime_init_once` `0x80012A78..0x80012AE8`.
+- Runtime evidence has confirmed that a source-generated `runtime_init_once` variant can
+  boot, load a save, and emit the DuckStation-visible TTY marker `MDEC_out_sync`.
+
 ## Fusion Rules
 
 Fusion lookup is an ordered table lookup, not a recovered hidden rule engine.

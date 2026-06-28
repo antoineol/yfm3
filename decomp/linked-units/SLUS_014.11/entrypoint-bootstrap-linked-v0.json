@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "entrypoint-bootstrap-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/entrypoint-bootstrap.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.entrypoint-bootstrap.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 12760,
+    "fileEnd": 12920,
+    "ramStart": 2147559896,
+    "ramEnd": 2147560056,
+    "size": 160
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.entrypoint-bootstrap.o",
+    "elf": "decomp/build/linked/SLUS_014.11.entrypoint-bootstrap.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.entrypoint-bootstrap.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "entrypoint-init-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/entrypoint-init.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.entrypoint-init.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 12760,
+    "fileEnd": 12768,
+    "ramStart": 2147559896,
+    "ramEnd": 2147559904,
+    "size": 8
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.entrypoint-init.o",
+    "elf": "decomp/build/linked/SLUS_014.11.entrypoint-init.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.entrypoint-init.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "entrypoint-init-v0",
+  "description": "First two instructions at the PS-X EXE entrypoint, represented as a source-controlled matching unit.",
+  "evidenceClass": "byte_replay_unit",
+  "sourceType": "byte_replay",
+  "range": {
+    "fileStart": 12760,
+    "fileEnd": 12768,
+    "ramStart": 2147559896,
+    "ramEnd": 2147559904,
+    "size": 8
+  },
+  "words": [
+    {
+      "ram": 2147559896,
+      "word": "3c02800a",
+      "bytesLe": "0a80023c",
+      "asm": "lui v0,0x800a"
+    },
+    {
+      "ram": 2147559900,
+      "word": "2442b090",
+      "bytesLe": "90b04224",
+      "asm": "addiu v0,v0,-20336"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "runtime-init-once-nop-variant-v0",
+  "evidenceClass": "behavioral_equivalence",
+  "sourceType": "mips_asm_linked_behavioral",
+  "source": "decomp/src/SLUS_014.11/runtime-init-once-behavioral.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.runtime-init-once.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 12920,
+    "fileEnd": 13032,
+    "ramStart": 2147560056,
+    "ramEnd": 2147560168,
+    "size": 112
+  },
+  "expectedChanges": [
+    {
+      "fileOffset": 12980,
+      "ram": 2147560116,
+      "originalWordLe": "00000000",
+      "replacementWordLe": "25000000",
+      "reason": "Executed beq delay-slot no-op encoded as or zero,zero,zero instead of sll zero,zero,0"
+    }
+  ],
+  "outputs": {
+    "object": "decomp/build/manual/SLUS_014.11.runtime-init-once-nop-variant-v0.o",
+    "elf": "decomp/build/manual/SLUS_014.11.runtime-init-once-nop-variant-v0.elf",
+    "unitBinary": "decomp/build/manual/SLUS_014.11.runtime-init-once-nop-variant-v0.bin",
+    "executable": "decomp/build/manual/SLUS_014.11.runtime-init-once-nop-variant-v0.exe",
+    "discBin": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).bin",
+    "discCue": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).cue"
+  }
+}

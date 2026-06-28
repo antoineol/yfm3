@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "source": "PS-X EXE header and selected header fields",
+  "exe": {
+    "fileSize": 1902592,
+    "sha256": "e5a19297b87f2bdb59e35335a7c8ce2cc1119f906fbb11f7f8829b61a4fb27d4",
+    "entrypoint": 2147559896,
+    "initialGp": 0,
+    "loadAddress": 2147549184,
+    "payloadSize": 1900544,
+    "stackPointer": 2149580784
+  },
+  "ranges": [
+    {
+      "name": "psx_exe_header",
+      "kind": "header",
+      "fileStart": 0,
+      "fileEnd": 2048,
+      "size": 2048
+    },
+    {
+      "name": "main_payload",
+      "kind": "payload",
+      "fileStart": 2048,
+      "fileEnd": 1902592,
+      "size": 1900544,
+      "ramStart": 2147549184,
+      "ramEnd": 2149449728
+    }
+  ],
+  "functions": [
+    {
+      "name": "entrypoint_bootstrap",
+      "kind": "entrypoint_bootstrap",
+      "fileStart": 12760,
+      "fileEnd": 12920,
+      "ramStart": 2147559896,
+      "ramEnd": 2147560056,
+      "size": 160,
+      "boundaryEvidence": "linked_bootstrap_window"
+    },
+    {
+      "name": "runtime_init_once",
+      "kind": "function",
+      "fileStart": 12920,
+      "fileEnd": 13032,
+      "ramStart": 2147560056,
+      "ramEnd": 2147560168,
+      "size": 112,
+      "boundaryEvidence": "post_bootstrap_disassembly_return"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "source-generated-seed-manifest",
+  "base": "extracted_executable",
+  "output": "decomp/build/manifest/SLUS_014.11.exe",
+  "units": ["decomp/units/SLUS_014.11/entrypoint-init-source-v0.json"]
+}

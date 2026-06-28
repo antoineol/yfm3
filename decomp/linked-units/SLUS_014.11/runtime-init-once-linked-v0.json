@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "runtime-init-once-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/runtime-init-once.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.runtime-init-once.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 12920,
+    "fileEnd": 13032,
+    "ramStart": 2147560056,
+    "ramEnd": 2147560168,
+    "size": 112
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.runtime-init-once.o",
+    "elf": "decomp/build/linked/SLUS_014.11.runtime-init-once.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.runtime-init-once.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

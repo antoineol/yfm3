@@ -26,6 +26,9 @@ dist-ssr
 .vercel
 
 /gamedata
+/decomp/artifacts
+/decomp/build
+/decomp/toolchains
 .cache
 bridge/game-data-cache.json
 bridge/artwork/
