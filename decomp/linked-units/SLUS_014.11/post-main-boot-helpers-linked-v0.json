@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "post-main-boot-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/post-main-boot-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.post-main-boot-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 13524,
+    "fileEnd": 13916,
+    "ramStart": 2147560660,
+    "ramEnd": 2147561052,
+    "size": 392
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.post-main-boot-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.post-main-boot-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.post-main-boot-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

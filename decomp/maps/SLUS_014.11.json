@@ -49,6 +49,1786 @@
       "ramEnd": 2147560168,
       "size": 112,
       "boundaryEvidence": "post_bootstrap_disassembly_return"
+    },
+    {
+      "name": "runtime_init_always",
+      "kind": "function",
+      "fileStart": 13032,
+      "fileEnd": 13136,
+      "ramStart": 2147560168,
+      "ramEnd": 2147560272,
+      "size": 104,
+      "boundaryEvidence": "post_runtime_init_once_disassembly_return"
+    },
+    {
+      "name": "main_boot",
+      "kind": "function",
+      "fileStart": 13136,
+      "fileEnd": 13524,
+      "ramStart": 2147560272,
+      "ramEnd": 2147560660,
+      "size": 388,
+      "boundaryEvidence": "post_runtime_init_always_disassembly_return"
+    },
+    {
+      "name": "boot_frame_counters",
+      "kind": "function",
+      "fileStart": 13524,
+      "fileEnd": 13644,
+      "ramStart": 2147560660,
+      "ramEnd": 2147560780,
+      "size": 120,
+      "boundaryEvidence": "post_main_boot_disassembly_return"
+    },
+    {
+      "name": "boot_frame_step",
+      "kind": "function",
+      "fileStart": 13644,
+      "fileEnd": 13700,
+      "ramStart": 2147560780,
+      "ramEnd": 2147560836,
+      "size": 56,
+      "boundaryEvidence": "post_boot_frame_counters_disassembly_return"
+    },
+    {
+      "name": "boot_frame_repeat",
+      "kind": "function",
+      "fileStart": 13700,
+      "fileEnd": 13748,
+      "ramStart": 2147560836,
+      "ramEnd": 2147560884,
+      "size": 48,
+      "boundaryEvidence": "post_boot_frame_step_disassembly_return"
+    },
+    {
+      "name": "boot_wait_draw_gate",
+      "kind": "function",
+      "fileStart": 13748,
+      "fileEnd": 13916,
+      "ramStart": 2147560884,
+      "ramEnd": 2147561052,
+      "size": 168,
+      "boundaryEvidence": "post_boot_frame_repeat_disassembly_return"
+    },
+    {
+      "name": "boot_status_renderer",
+      "kind": "function",
+      "fileStart": 13916,
+      "fileEnd": 14444,
+      "ramStart": 2147561052,
+      "ramEnd": 2147561580,
+      "size": 528,
+      "boundaryEvidence": "post_boot_wait_draw_gate_disassembly_return"
+    },
+    {
+      "name": "boot_frame_dispatch",
+      "kind": "function",
+      "fileStart": 14444,
+      "fileEnd": 14676,
+      "ramStart": 2147561580,
+      "ramEnd": 2147561812,
+      "size": 232,
+      "boundaryEvidence": "post_boot_status_renderer_disassembly_return"
+    },
+    {
+      "name": "boot_status_state_init",
+      "kind": "function",
+      "fileStart": 14676,
+      "fileEnd": 15200,
+      "ramStart": 2147561812,
+      "ramEnd": 2147562336,
+      "size": 524,
+      "boundaryEvidence": "post_boot_frame_dispatch_disassembly_return"
+    },
+    {
+      "name": "boot_input_position_loop",
+      "kind": "function",
+      "fileStart": 15200,
+      "fileEnd": 15540,
+      "ramStart": 2147562336,
+      "ramEnd": 2147562676,
+      "size": 340,
+      "boundaryEvidence": "post_boot_status_state_init_disassembly_return"
+    },
+    {
+      "name": "boot_callback_slots_clear",
+      "kind": "function",
+      "fileStart": 15540,
+      "fileEnd": 15584,
+      "ramStart": 2147562676,
+      "ramEnd": 2147562720,
+      "size": 44,
+      "boundaryEvidence": "post_boot_input_position_loop_disassembly_return"
+    },
+    {
+      "name": "boot_apply_object_offset",
+      "kind": "function",
+      "fileStart": 15584,
+      "fileEnd": 15660,
+      "ramStart": 2147562720,
+      "ramEnd": 2147562796,
+      "size": 76,
+      "boundaryEvidence": "post_boot_callback_slots_clear_disassembly_return"
+    },
+    {
+      "name": "boot_rotate_status_object_a",
+      "kind": "function",
+      "fileStart": 15660,
+      "fileEnd": 15868,
+      "ramStart": 2147562796,
+      "ramEnd": 2147563004,
+      "size": 208,
+      "boundaryEvidence": "post_boot_apply_object_offset_disassembly_return"
+    },
+    {
+      "name": "boot_rotate_status_object_b",
+      "kind": "function",
+      "fileStart": 15868,
+      "fileEnd": 16084,
+      "ramStart": 2147563004,
+      "ramEnd": 2147563220,
+      "size": 216,
+      "boundaryEvidence": "post_boot_rotate_status_object_a_disassembly_return"
+    },
+    {
+      "name": "boot_frame_draw_hook",
+      "kind": "function",
+      "fileStart": 16084,
+      "fileEnd": 16100,
+      "ramStart": 2147563220,
+      "ramEnd": 2147563236,
+      "size": 16,
+      "boundaryEvidence": "post_boot_rotate_status_object_b_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_init",
+      "kind": "function",
+      "fileStart": 16100,
+      "fileEnd": 16356,
+      "ramStart": 2147563236,
+      "ramEnd": 2147563492,
+      "size": 256,
+      "boundaryEvidence": "post_boot_frame_draw_hook_disassembly_return"
+    },
+    {
+      "name": "boot_frame_wait_loop",
+      "kind": "function",
+      "fileStart": 16356,
+      "fileEnd": 16536,
+      "ramStart": 2147563492,
+      "ramEnd": 2147563672,
+      "size": 180,
+      "boundaryEvidence": "post_boot_gfx_init_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_state_reset",
+      "kind": "function",
+      "fileStart": 16536,
+      "fileEnd": 16628,
+      "ramStart": 2147563672,
+      "ramEnd": 2147563764,
+      "size": 92,
+      "boundaryEvidence": "post_boot_frame_wait_loop_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_asset_load",
+      "kind": "function",
+      "fileStart": 16628,
+      "fileEnd": 16704,
+      "ramStart": 2147563764,
+      "ramEnd": 2147563840,
+      "size": 76,
+      "boundaryEvidence": "post_boot_gfx_state_reset_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_coords_init",
+      "kind": "function",
+      "fileStart": 16704,
+      "fileEnd": 16792,
+      "ramStart": 2147563840,
+      "ramEnd": 2147563928,
+      "size": 88,
+      "boundaryEvidence": "post_boot_gfx_asset_load_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_object_init",
+      "kind": "function",
+      "fileStart": 16792,
+      "fileEnd": 17044,
+      "ramStart": 2147563928,
+      "ramEnd": 2147564180,
+      "size": 252,
+      "boundaryEvidence": "post_boot_gfx_coords_init_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_static_object_setup",
+      "kind": "function",
+      "fileStart": 17044,
+      "fileEnd": 17156,
+      "ramStart": 2147564180,
+      "ramEnd": 2147564292,
+      "size": 112,
+      "boundaryEvidence": "post_boot_gfx_object_init_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_stream_object_setup",
+      "kind": "function",
+      "fileStart": 17156,
+      "fileEnd": 17256,
+      "ramStart": 2147564292,
+      "ramEnd": 2147564392,
+      "size": 100,
+      "boundaryEvidence": "post_boot_gfx_static_object_setup_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_object_setup",
+      "kind": "function",
+      "fileStart": 17256,
+      "fileEnd": 17448,
+      "ramStart": 2147564392,
+      "ramEnd": 2147564584,
+      "size": 192,
+      "boundaryEvidence": "post_boot_gfx_stream_object_setup_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_stream_step",
+      "kind": "function",
+      "fileStart": 17448,
+      "fileEnd": 18592,
+      "ramStart": 2147564584,
+      "ramEnd": 2147565728,
+      "size": 1144,
+      "boundaryEvidence": "post_boot_gfx_callback_object_setup_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_fade_overlay",
+      "kind": "function",
+      "fileStart": 18592,
+      "fileEnd": 18740,
+      "ramStart": 2147565728,
+      "ramEnd": 2147565876,
+      "size": 148,
+      "boundaryEvidence": "post_boot_gfx_stream_step_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_loading_image",
+      "kind": "function",
+      "fileStart": 18740,
+      "fileEnd": 18856,
+      "ramStart": 2147565876,
+      "ramEnd": 2147565992,
+      "size": 116,
+      "boundaryEvidence": "post_boot_gfx_callback_fade_overlay_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_flag_ready",
+      "kind": "function",
+      "fileStart": 18856,
+      "fileEnd": 18976,
+      "ramStart": 2147565992,
+      "ramEnd": 2147566112,
+      "size": 120,
+      "boundaryEvidence": "post_boot_gfx_callback_loading_image_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_mark_done",
+      "kind": "function",
+      "fileStart": 18976,
+      "fileEnd": 19092,
+      "ramStart": 2147566112,
+      "ramEnd": 2147566228,
+      "size": 116,
+      "boundaryEvidence": "post_boot_gfx_callback_flag_ready_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_mode_done",
+      "kind": "function",
+      "fileStart": 19092,
+      "fileEnd": 19208,
+      "ramStart": 2147566228,
+      "ramEnd": 2147566344,
+      "size": 116,
+      "boundaryEvidence": "post_boot_gfx_callback_mark_done_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_enable_stage",
+      "kind": "function",
+      "fileStart": 19208,
+      "fileEnd": 19344,
+      "ramStart": 2147566344,
+      "ramEnd": 2147566480,
+      "size": 136,
+      "boundaryEvidence": "post_boot_gfx_callback_mode_done_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_callback_store_asset_size",
+      "kind": "function",
+      "fileStart": 19344,
+      "fileEnd": 19420,
+      "ramStart": 2147566480,
+      "ramEnd": 2147566556,
+      "size": 76,
+      "boundaryEvidence": "post_boot_gfx_callback_enable_stage_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_state_commit",
+      "kind": "function",
+      "fileStart": 19420,
+      "fileEnd": 19640,
+      "ramStart": 2147566556,
+      "ramEnd": 2147566776,
+      "size": 220,
+      "boundaryEvidence": "post_boot_gfx_callback_store_asset_size_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_dma_pump",
+      "kind": "function",
+      "fileStart": 19640,
+      "fileEnd": 19804,
+      "ramStart": 2147566776,
+      "ramEnd": 2147566940,
+      "size": 164,
+      "boundaryEvidence": "post_boot_gfx_state_commit_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_driver_step",
+      "kind": "function",
+      "fileStart": 19804,
+      "fileEnd": 21084,
+      "ramStart": 2147566940,
+      "ramEnd": 2147568220,
+      "size": 1280,
+      "boundaryEvidence": "post_boot_gfx_dma_pump_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_frame_service",
+      "kind": "function",
+      "fileStart": 21084,
+      "fileEnd": 21296,
+      "ramStart": 2147568220,
+      "ramEnd": 2147568432,
+      "size": 212,
+      "boundaryEvidence": "post_boot_gfx_driver_step_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_object_mode_apply",
+      "kind": "function",
+      "fileStart": 21296,
+      "fileEnd": 21568,
+      "ramStart": 2147568432,
+      "ramEnd": 2147568704,
+      "size": 272,
+      "boundaryEvidence": "post_boot_gfx_frame_service_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_object_submit",
+      "kind": "function",
+      "fileStart": 21568,
+      "fileEnd": 22044,
+      "ramStart": 2147568704,
+      "ramEnd": 2147569180,
+      "size": 476,
+      "boundaryEvidence": "post_boot_gfx_object_mode_apply_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_primary_object_submit",
+      "kind": "function",
+      "fileStart": 22044,
+      "fileEnd": 22252,
+      "ramStart": 2147569180,
+      "ramEnd": 2147569388,
+      "size": 208,
+      "boundaryEvidence": "post_boot_gfx_object_submit_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_secondary_object_submit",
+      "kind": "function",
+      "fileStart": 22252,
+      "fileEnd": 22436,
+      "ramStart": 2147569388,
+      "ramEnd": 2147569572,
+      "size": 184,
+      "boundaryEvidence": "post_boot_gfx_primary_object_submit_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_dma_idle_guard",
+      "kind": "function",
+      "fileStart": 22436,
+      "fileEnd": 22544,
+      "ramStart": 2147569572,
+      "ramEnd": 2147569680,
+      "size": 108,
+      "boundaryEvidence": "post_boot_gfx_secondary_object_submit_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_dma_mode_reset",
+      "kind": "function",
+      "fileStart": 22544,
+      "fileEnd": 22584,
+      "ramStart": 2147569680,
+      "ramEnd": 2147569720,
+      "size": 40,
+      "boundaryEvidence": "post_boot_gfx_dma_idle_guard_disassembly_return"
+    },
+    {
+      "name": "boot_gfx_dma_flush",
+      "kind": "function",
+      "fileStart": 22584,
+      "fileEnd": 22648,
+      "ramStart": 2147569720,
+      "ramEnd": 2147569784,
+      "size": 64,
+      "boundaryEvidence": "post_boot_gfx_dma_mode_reset_disassembly_return"
+    },
+    {
+      "name": "boot_fade_object_spawn",
+      "kind": "function",
+      "fileStart": 22648,
+      "fileEnd": 22844,
+      "ramStart": 2147569784,
+      "ramEnd": 2147569980,
+      "size": 196,
+      "boundaryEvidence": "post_boot_gfx_dma_flush_disassembly_return"
+    },
+    {
+      "name": "boot_fade_callback_tick",
+      "kind": "function",
+      "fileStart": 22844,
+      "fileEnd": 22960,
+      "ramStart": 2147569980,
+      "ramEnd": 2147570096,
+      "size": 116,
+      "boundaryEvidence": "post_boot_fade_object_spawn_disassembly_return"
+    },
+    {
+      "name": "boot_fade_state_reset",
+      "kind": "function",
+      "fileStart": 22960,
+      "fileEnd": 23000,
+      "ramStart": 2147570096,
+      "ramEnd": 2147570136,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_callback_tick_disassembly_return"
+    },
+    {
+      "name": "boot_fade_ramp_step",
+      "kind": "function",
+      "fileStart": 23000,
+      "fileEnd": 23312,
+      "ramStart": 2147570136,
+      "ramEnd": 2147570448,
+      "size": 312,
+      "boundaryEvidence": "post_boot_fade_state_reset_disassembly_return"
+    },
+    {
+      "name": "boot_fade_state_step",
+      "kind": "function",
+      "fileStart": 23312,
+      "fileEnd": 23780,
+      "ramStart": 2147570448,
+      "ramEnd": 2147570916,
+      "size": 468,
+      "boundaryEvidence": "post_boot_fade_ramp_step_disassembly_return"
+    },
+    {
+      "name": "boot_fade_render",
+      "kind": "function",
+      "fileStart": 23780,
+      "fileEnd": 24248,
+      "ramStart": 2147570916,
+      "ramEnd": 2147571384,
+      "size": 468,
+      "boundaryEvidence": "post_boot_fade_state_step_disassembly_return"
+    },
+    {
+      "name": "boot_fade_palette_fill",
+      "kind": "function",
+      "fileStart": 24248,
+      "fileEnd": 24284,
+      "ramStart": 2147571384,
+      "ramEnd": 2147571420,
+      "size": 36,
+      "boundaryEvidence": "post_boot_fade_render_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_reset",
+      "kind": "function",
+      "fileStart": 24284,
+      "fileEnd": 24364,
+      "ramStart": 2147571420,
+      "ramEnd": 2147571500,
+      "size": 80,
+      "boundaryEvidence": "post_boot_fade_palette_fill_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_apply_defaults",
+      "kind": "function",
+      "fileStart": 24364,
+      "fileEnd": 24448,
+      "ramStart": 2147571500,
+      "ramEnd": 2147571584,
+      "size": 84,
+      "boundaryEvidence": "post_boot_fade_out_reset_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_prepare",
+      "kind": "function",
+      "fileStart": 24448,
+      "fileEnd": 24540,
+      "ramStart": 2147571584,
+      "ramEnd": 2147571676,
+      "size": 92,
+      "boundaryEvidence": "post_boot_fade_out_apply_defaults_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_start",
+      "kind": "function",
+      "fileStart": 24540,
+      "fileEnd": 24604,
+      "ramStart": 2147571676,
+      "ramEnd": 2147571740,
+      "size": 64,
+      "boundaryEvidence": "post_boot_fade_out_prepare_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_start_from_color",
+      "kind": "function",
+      "fileStart": 24604,
+      "fileEnd": 24688,
+      "ramStart": 2147571740,
+      "ramEnd": 2147571824,
+      "size": 84,
+      "boundaryEvidence": "post_boot_fade_out_start_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_apply_defaults",
+      "kind": "function",
+      "fileStart": 24688,
+      "fileEnd": 24760,
+      "ramStart": 2147571824,
+      "ramEnd": 2147571896,
+      "size": 72,
+      "boundaryEvidence": "post_boot_fade_out_start_from_color_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_prepare",
+      "kind": "function",
+      "fileStart": 24760,
+      "fileEnd": 24836,
+      "ramStart": 2147571896,
+      "ramEnd": 2147571972,
+      "size": 76,
+      "boundaryEvidence": "post_boot_fade_in_apply_defaults_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_start",
+      "kind": "function",
+      "fileStart": 24836,
+      "fileEnd": 24900,
+      "ramStart": 2147571972,
+      "ramEnd": 2147572036,
+      "size": 64,
+      "boundaryEvidence": "post_boot_fade_in_prepare_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_start_from_color",
+      "kind": "function",
+      "fileStart": 24900,
+      "fileEnd": 24984,
+      "ramStart": 2147572036,
+      "ramEnd": 2147572120,
+      "size": 84,
+      "boundaryEvidence": "post_boot_fade_in_start_disassembly_return"
+    },
+    {
+      "name": "boot_fade_wait",
+      "kind": "function",
+      "fileStart": 24984,
+      "fileEnd": 25048,
+      "ramStart": 2147572120,
+      "ramEnd": 2147572184,
+      "size": 64,
+      "boundaryEvidence": "post_boot_fade_in_start_from_color_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_and_wait",
+      "kind": "function",
+      "fileStart": 25048,
+      "fileEnd": 25088,
+      "ramStart": 2147572184,
+      "ramEnd": 2147572224,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_flagged_and_wait",
+      "kind": "function",
+      "fileStart": 25088,
+      "fileEnd": 25128,
+      "ramStart": 2147572224,
+      "ramEnd": 2147572264,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_out_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_color_and_wait",
+      "kind": "function",
+      "fileStart": 25128,
+      "fileEnd": 25168,
+      "ramStart": 2147572264,
+      "ramEnd": 2147572304,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_out_flagged_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_hold_and_wait",
+      "kind": "function",
+      "fileStart": 25168,
+      "fileEnd": 25236,
+      "ramStart": 2147572304,
+      "ramEnd": 2147572372,
+      "size": 68,
+      "boundaryEvidence": "post_boot_fade_out_color_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_hold_flagged_and_wait",
+      "kind": "function",
+      "fileStart": 25236,
+      "fileEnd": 25304,
+      "ramStart": 2147572372,
+      "ramEnd": 2147572440,
+      "size": 68,
+      "boundaryEvidence": "post_boot_fade_out_hold_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_and_wait",
+      "kind": "function",
+      "fileStart": 25304,
+      "fileEnd": 25344,
+      "ramStart": 2147572440,
+      "ramEnd": 2147572480,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_out_hold_flagged_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_flagged_and_wait",
+      "kind": "function",
+      "fileStart": 25344,
+      "fileEnd": 25384,
+      "ramStart": 2147572480,
+      "ramEnd": 2147572520,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_in_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_color_and_wait",
+      "kind": "function",
+      "fileStart": 25384,
+      "fileEnd": 25424,
+      "ramStart": 2147572520,
+      "ramEnd": 2147572560,
+      "size": 40,
+      "boundaryEvidence": "post_boot_fade_in_flagged_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_hold_and_wait",
+      "kind": "function",
+      "fileStart": 25424,
+      "fileEnd": 25492,
+      "ramStart": 2147572560,
+      "ramEnd": 2147572628,
+      "size": 68,
+      "boundaryEvidence": "post_boot_fade_in_color_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_hold_flagged_and_wait",
+      "kind": "function",
+      "fileStart": 25492,
+      "fileEnd": 25560,
+      "ramStart": 2147572628,
+      "ramEnd": 2147572696,
+      "size": 68,
+      "boundaryEvidence": "post_boot_fade_in_hold_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_set_target_and_flags",
+      "kind": "function",
+      "fileStart": 25560,
+      "fileEnd": 25584,
+      "ramStart": 2147572696,
+      "ramEnd": 2147572720,
+      "size": 24,
+      "boundaryEvidence": "post_boot_fade_in_hold_flagged_and_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_set_level",
+      "kind": "function",
+      "fileStart": 25584,
+      "fileEnd": 25612,
+      "ramStart": 2147572720,
+      "ramEnd": 2147572748,
+      "size": 28,
+      "boundaryEvidence": "post_boot_fade_set_target_and_flags_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_start_no_wait",
+      "kind": "function",
+      "fileStart": 25612,
+      "fileEnd": 25672,
+      "ramStart": 2147572748,
+      "ramEnd": 2147572808,
+      "size": 60,
+      "boundaryEvidence": "post_boot_fade_set_level_disassembly_return"
+    },
+    {
+      "name": "boot_fade_out_hold_no_wait",
+      "kind": "function",
+      "fileStart": 25672,
+      "fileEnd": 25732,
+      "ramStart": 2147572808,
+      "ramEnd": 2147572868,
+      "size": 60,
+      "boundaryEvidence": "post_boot_fade_out_start_no_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_start_no_wait",
+      "kind": "function",
+      "fileStart": 25732,
+      "fileEnd": 25792,
+      "ramStart": 2147572868,
+      "ramEnd": 2147572928,
+      "size": 60,
+      "boundaryEvidence": "post_boot_fade_out_hold_no_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_in_hold_no_wait",
+      "kind": "function",
+      "fileStart": 25792,
+      "fileEnd": 25852,
+      "ramStart": 2147572928,
+      "ramEnd": 2147572988,
+      "size": 60,
+      "boundaryEvidence": "post_boot_fade_in_start_no_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_mark_visible",
+      "kind": "function",
+      "fileStart": 25852,
+      "fileEnd": 25868,
+      "ramStart": 2147572988,
+      "ramEnd": 2147573004,
+      "size": 16,
+      "boundaryEvidence": "post_boot_fade_in_hold_no_wait_disassembly_return"
+    },
+    {
+      "name": "boot_fade_mark_hidden",
+      "kind": "function",
+      "fileStart": 25868,
+      "fileEnd": 25880,
+      "ramStart": 2147573004,
+      "ramEnd": 2147573016,
+      "size": 12,
+      "boundaryEvidence": "post_boot_fade_mark_visible_disassembly_return"
+    },
+    {
+      "name": "boot_gte_project_object_origin",
+      "kind": "function",
+      "fileStart": 25880,
+      "fileEnd": 26040,
+      "ramStart": 2147573016,
+      "ramEnd": 2147573176,
+      "size": 160,
+      "boundaryEvidence": "post_boot_fade_mark_hidden_disassembly_return"
+    },
+    {
+      "name": "boot_gte_project_object_from_slot",
+      "kind": "function",
+      "fileStart": 26040,
+      "fileEnd": 26108,
+      "ramStart": 2147573176,
+      "ramEnd": 2147573244,
+      "size": 68,
+      "boundaryEvidence": "post_boot_gte_project_object_origin_disassembly_return"
+    },
+    {
+      "name": "boot_gte_project_object_screen_pos",
+      "kind": "function",
+      "fileStart": 26108,
+      "fileEnd": 26356,
+      "ramStart": 2147573244,
+      "ramEnd": 2147573492,
+      "size": 248,
+      "boundaryEvidence": "post_boot_gte_project_object_from_slot_disassembly_return"
+    },
+    {
+      "name": "boot_gte_submit_object_quad",
+      "kind": "function",
+      "fileStart": 26356,
+      "fileEnd": 27900,
+      "ramStart": 2147573492,
+      "ramEnd": 2147575036,
+      "size": 1544,
+      "boundaryEvidence": "post_boot_gte_project_object_screen_pos_disassembly_return"
+    },
+    {
+      "name": "boot_gte_scene_object_loop",
+      "kind": "function",
+      "fileStart": 27900,
+      "fileEnd": 28536,
+      "ramStart": 2147575036,
+      "ramEnd": 2147575672,
+      "size": 636,
+      "boundaryEvidence": "post_boot_gte_submit_object_quad_disassembly_return"
+    },
+    {
+      "name": "boot_gte_set_depth_side_flag",
+      "kind": "function",
+      "fileStart": 28536,
+      "fileEnd": 28548,
+      "ramStart": 2147575672,
+      "ramEnd": 2147575684,
+      "size": 12,
+      "boundaryEvidence": "post_boot_gte_scene_object_loop_disassembly_return"
+    },
+    {
+      "name": "boot_object_quad_emit",
+      "kind": "function",
+      "fileStart": 28548,
+      "fileEnd": 29956,
+      "ramStart": 2147575684,
+      "ramEnd": 2147577092,
+      "size": 1408,
+      "boundaryEvidence": "post_boot_gte_set_depth_side_flag_disassembly_return"
+    },
+    {
+      "name": "boot_object_quad_emit_from_object",
+      "kind": "function",
+      "fileStart": 29956,
+      "fileEnd": 29996,
+      "ramStart": 2147577092,
+      "ramEnd": 2147577132,
+      "size": 40,
+      "boundaryEvidence": "post_boot_object_quad_emit_disassembly_return"
+    },
+    {
+      "name": "boot_object_glyph_strip_emit",
+      "kind": "function",
+      "fileStart": 29996,
+      "fileEnd": 30172,
+      "ramStart": 2147577132,
+      "ramEnd": 2147577308,
+      "size": 176,
+      "boundaryEvidence": "post_boot_object_quad_emit_from_object_disassembly_return"
+    },
+    {
+      "name": "boot_object_ease_height",
+      "kind": "function",
+      "fileStart": 30172,
+      "fileEnd": 30320,
+      "ramStart": 2147577308,
+      "ramEnd": 2147577456,
+      "size": 148,
+      "boundaryEvidence": "post_boot_object_glyph_strip_emit_disassembly_return"
+    },
+    {
+      "name": "boot_object_shadow_emit",
+      "kind": "function",
+      "fileStart": 30320,
+      "fileEnd": 30732,
+      "ramStart": 2147577456,
+      "ramEnd": 2147577868,
+      "size": 412,
+      "boundaryEvidence": "post_boot_object_ease_height_disassembly_return"
+    },
+    {
+      "name": "boot_object_flags_visible",
+      "kind": "function",
+      "fileStart": 30732,
+      "fileEnd": 30772,
+      "ramStart": 2147577868,
+      "ramEnd": 2147577908,
+      "size": 40,
+      "boundaryEvidence": "post_boot_object_shadow_emit_disassembly_return"
+    },
+    {
+      "name": "boot_object_lookup_visibility_height",
+      "kind": "function",
+      "fileStart": 30772,
+      "fileEnd": 30920,
+      "ramStart": 2147577908,
+      "ramEnd": 2147578056,
+      "size": 148,
+      "boundaryEvidence": "post_boot_object_flags_visible_disassembly_return"
+    },
+    {
+      "name": "boot_object_metric_pack",
+      "kind": "function",
+      "fileStart": 30920,
+      "fileEnd": 31024,
+      "ramStart": 2147578056,
+      "ramEnd": 2147578160,
+      "size": 104,
+      "boundaryEvidence": "post_boot_object_lookup_visibility_height_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_system_init",
+      "kind": "function",
+      "fileStart": 31024,
+      "fileEnd": 31144,
+      "ramStart": 2147578160,
+      "ramEnd": 2147578280,
+      "size": 120,
+      "boundaryEvidence": "post_boot_object_metric_pack_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_configure",
+      "kind": "function",
+      "fileStart": 31144,
+      "fileEnd": 32092,
+      "ramStart": 2147578280,
+      "ramEnd": 2147579228,
+      "size": 948,
+      "boundaryEvidence": "post_boot_scene_object_system_init_disassembly_return"
+    },
+    {
+      "name": "boot_scene_stream_load",
+      "kind": "function",
+      "fileStart": 32092,
+      "fileEnd": 32160,
+      "ramStart": 2147579228,
+      "ramEnd": 2147579296,
+      "size": 68,
+      "boundaryEvidence": "post_boot_scene_object_configure_disassembly_return"
+    },
+    {
+      "name": "boot_scene_anim_state_init",
+      "kind": "function",
+      "fileStart": 32160,
+      "fileEnd": 32464,
+      "ramStart": 2147579296,
+      "ramEnd": 2147579600,
+      "size": 304,
+      "boundaryEvidence": "post_boot_scene_stream_load_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_slots_clear",
+      "kind": "function",
+      "fileStart": 32464,
+      "fileEnd": 32520,
+      "ramStart": 2147579600,
+      "ramEnd": 2147579656,
+      "size": 56,
+      "boundaryEvidence": "post_boot_scene_anim_state_init_disassembly_return"
+    },
+    {
+      "name": "boot_scene_actor_slots_clear",
+      "kind": "function",
+      "fileStart": 32520,
+      "fileEnd": 32652,
+      "ramStart": 2147579656,
+      "ramEnd": 2147579788,
+      "size": 132,
+      "boundaryEvidence": "post_boot_scene_object_slots_clear_disassembly_return"
+    },
+    {
+      "name": "boot_scene_model_slots_clear",
+      "kind": "function",
+      "fileStart": 32652,
+      "fileEnd": 32708,
+      "ramStart": 2147579788,
+      "ramEnd": 2147579844,
+      "size": 56,
+      "boundaryEvidence": "post_boot_scene_actor_slots_clear_disassembly_return"
+    },
+    {
+      "name": "boot_scene_project_points",
+      "kind": "function",
+      "fileStart": 32708,
+      "fileEnd": 32956,
+      "ramStart": 2147579844,
+      "ramEnd": 2147580092,
+      "size": 248,
+      "boundaryEvidence": "post_boot_scene_model_slots_clear_disassembly_return"
+    },
+    {
+      "name": "boot_scene_camera_reset",
+      "kind": "function",
+      "fileStart": 32956,
+      "fileEnd": 33164,
+      "ramStart": 2147580092,
+      "ramEnd": 2147580300,
+      "size": 208,
+      "boundaryEvidence": "post_boot_scene_project_points_disassembly_return"
+    },
+    {
+      "name": "boot_scene_intro_object_submit",
+      "kind": "function",
+      "fileStart": 33164,
+      "fileEnd": 33268,
+      "ramStart": 2147580300,
+      "ramEnd": 2147580404,
+      "size": 104,
+      "boundaryEvidence": "post_boot_scene_camera_reset_disassembly_return"
+    },
+    {
+      "name": "boot_scene_bootstrap",
+      "kind": "function",
+      "fileStart": 33268,
+      "fileEnd": 34228,
+      "ramStart": 2147580404,
+      "ramEnd": 2147581364,
+      "size": 960,
+      "boundaryEvidence": "post_boot_scene_intro_object_submit_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_frame_limit",
+      "kind": "function",
+      "fileStart": 34228,
+      "fileEnd": 34364,
+      "ramStart": 2147581364,
+      "ramEnd": 2147581500,
+      "size": 136,
+      "boundaryEvidence": "post_boot_scene_bootstrap_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_visual_flags",
+      "kind": "function",
+      "fileStart": 34364,
+      "fileEnd": 34564,
+      "ramStart": 2147581500,
+      "ramEnd": 2147581700,
+      "size": 200,
+      "boundaryEvidence": "post_boot_runtime_object_frame_limit_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_alloc_from_scene_slot",
+      "kind": "function",
+      "fileStart": 34564,
+      "fileEnd": 34820,
+      "ramStart": 2147581700,
+      "ramEnd": 2147581956,
+      "size": 256,
+      "boundaryEvidence": "post_boot_runtime_object_visual_flags_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_alloc_with_flag",
+      "kind": "function",
+      "fileStart": 34820,
+      "fileEnd": 34944,
+      "ramStart": 2147581956,
+      "ramEnd": 2147582080,
+      "size": 124,
+      "boundaryEvidence": "post_boot_runtime_object_alloc_from_scene_slot_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_visual_refresh",
+      "kind": "function",
+      "fileStart": 34944,
+      "fileEnd": 35152,
+      "ramStart": 2147582080,
+      "ramEnd": 2147582288,
+      "size": 208,
+      "boundaryEvidence": "post_boot_runtime_object_alloc_with_flag_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_marker_object_spawn",
+      "kind": "function",
+      "fileStart": 35152,
+      "fileEnd": 35308,
+      "ramStart": 2147582288,
+      "ramEnd": 2147582444,
+      "size": 156,
+      "boundaryEvidence": "post_boot_runtime_object_visual_refresh_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_status_kind",
+      "kind": "function",
+      "fileStart": 35308,
+      "fileEnd": 35420,
+      "ramStart": 2147582444,
+      "ramEnd": 2147582556,
+      "size": 112,
+      "boundaryEvidence": "post_boot_runtime_marker_object_spawn_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_scene_active_objects_step",
+      "kind": "function",
+      "fileStart": 35420,
+      "fileEnd": 36360,
+      "ramStart": 2147582556,
+      "ramEnd": 2147583496,
+      "size": 940,
+      "boundaryEvidence": "post_boot_runtime_object_status_kind_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_scene_phase_step_a",
+      "kind": "function",
+      "fileStart": 36360,
+      "fileEnd": 37260,
+      "ramStart": 2147583496,
+      "ramEnd": 2147584396,
+      "size": 900,
+      "boundaryEvidence": "post_boot_runtime_scene_active_objects_step_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_scene_phase_step_b",
+      "kind": "function",
+      "fileStart": 37260,
+      "fileEnd": 37940,
+      "ramStart": 2147584396,
+      "ramEnd": 2147585076,
+      "size": 680,
+      "boundaryEvidence": "post_boot_runtime_scene_phase_step_a_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_vertical_step",
+      "kind": "function",
+      "fileStart": 37940,
+      "fileEnd": 38136,
+      "ramStart": 2147585076,
+      "ramEnd": 2147585272,
+      "size": 196,
+      "boundaryEvidence": "post_boot_runtime_scene_phase_step_b_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_hand_slot_filter",
+      "kind": "function",
+      "fileStart": 38136,
+      "fileEnd": 38324,
+      "ramStart": 2147585272,
+      "ramEnd": 2147585460,
+      "size": 188,
+      "boundaryEvidence": "post_boot_runtime_object_vertical_step_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_scene_phase_step_c",
+      "kind": "function",
+      "fileStart": 38324,
+      "fileEnd": 38892,
+      "ramStart": 2147585460,
+      "ramEnd": 2147586028,
+      "size": 568,
+      "boundaryEvidence": "post_boot_runtime_hand_slot_filter_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_scene_phase_step_d",
+      "kind": "function",
+      "fileStart": 38892,
+      "fileEnd": 40012,
+      "ramStart": 2147586028,
+      "ramEnd": 2147587148,
+      "size": 1120,
+      "boundaryEvidence": "post_boot_runtime_scene_phase_step_c_disassembly_return"
+    },
+    {
+      "name": "boot_scene_wait_vram_prepare",
+      "kind": "function",
+      "fileStart": 40012,
+      "fileEnd": 40292,
+      "ramStart": 2147587148,
+      "ramEnd": 2147587428,
+      "size": 280,
+      "boundaryEvidence": "post_boot_runtime_scene_phase_step_d_disassembly_return"
+    },
+    {
+      "name": "boot_scene_wait_marker_spawn",
+      "kind": "function",
+      "fileStart": 40292,
+      "fileEnd": 40456,
+      "ramStart": 2147587428,
+      "ramEnd": 2147587592,
+      "size": 164,
+      "boundaryEvidence": "post_boot_scene_wait_vram_prepare_disassembly_return"
+    },
+    {
+      "name": "boot_scene_wait_phase_step",
+      "kind": "function",
+      "fileStart": 40456,
+      "fileEnd": 41480,
+      "ramStart": 2147587592,
+      "ramEnd": 2147588616,
+      "size": 1024,
+      "boundaryEvidence": "post_boot_scene_wait_marker_spawn_disassembly_return"
+    },
+    {
+      "name": "boot_scene_pair_table_lookup",
+      "kind": "function",
+      "fileStart": 41480,
+      "fileEnd": 41568,
+      "ramStart": 2147588616,
+      "ramEnd": 2147588704,
+      "size": 88,
+      "boundaryEvidence": "post_boot_scene_wait_phase_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_range_table_lookup",
+      "kind": "function",
+      "fileStart": 41568,
+      "fileEnd": 41772,
+      "ramStart": 2147588704,
+      "ramEnd": 2147588908,
+      "size": 204,
+      "boundaryEvidence": "post_boot_scene_pair_table_lookup_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_alpha_tick",
+      "kind": "function",
+      "fileStart": 41772,
+      "fileEnd": 41888,
+      "ramStart": 2147588908,
+      "ramEnd": 2147589024,
+      "size": 116,
+      "boundaryEvidence": "post_boot_scene_range_table_lookup_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_alpha_start",
+      "kind": "function",
+      "fileStart": 41888,
+      "fileEnd": 41936,
+      "ramStart": 2147589024,
+      "ramEnd": 2147589072,
+      "size": 48,
+      "boundaryEvidence": "post_boot_runtime_object_alpha_tick_disassembly_return"
+    },
+    {
+      "name": "boot_runtime_object_alpha_step",
+      "kind": "function",
+      "fileStart": 41936,
+      "fileEnd": 42184,
+      "ramStart": 2147589072,
+      "ramEnd": 2147589320,
+      "size": 248,
+      "boundaryEvidence": "post_boot_runtime_object_alpha_start_disassembly_return"
+    },
+    {
+      "name": "boot_scene_wait_optional_sound",
+      "kind": "function",
+      "fileStart": 42184,
+      "fileEnd": 42264,
+      "ramStart": 2147589320,
+      "ramEnd": 2147589400,
+      "size": 80,
+      "boundaryEvidence": "post_boot_runtime_object_alpha_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_duel_runtime_phase_a",
+      "kind": "function",
+      "fileStart": 42264,
+      "fileEnd": 47308,
+      "ramStart": 2147589400,
+      "ramEnd": 2147594444,
+      "size": 5044,
+      "boundaryEvidence": "post_boot_scene_wait_optional_sound_disassembly_return"
+    },
+    {
+      "name": "boot_scene_gte_project_wait_object",
+      "kind": "function",
+      "fileStart": 47308,
+      "fileEnd": 47472,
+      "ramStart": 2147594444,
+      "ramEnd": 2147594608,
+      "size": 164,
+      "boundaryEvidence": "post_boot_scene_duel_runtime_phase_a_disassembly_return"
+    },
+    {
+      "name": "boot_scene_duel_runtime_phase_b",
+      "kind": "function",
+      "fileStart": 47472,
+      "fileEnd": 49024,
+      "ramStart": 2147594608,
+      "ramEnd": 2147596160,
+      "size": 1552,
+      "boundaryEvidence": "post_boot_scene_gte_project_wait_object_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_position_apply",
+      "kind": "function",
+      "fileStart": 49024,
+      "fileEnd": 49068,
+      "ramStart": 2147596160,
+      "ramEnd": 2147596204,
+      "size": 44,
+      "boundaryEvidence": "post_boot_scene_duel_runtime_phase_b_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_marker_spawn",
+      "kind": "function",
+      "fileStart": 49068,
+      "fileEnd": 49336,
+      "ramStart": 2147596204,
+      "ramEnd": 2147596472,
+      "size": 268,
+      "boundaryEvidence": "post_boot_scene_slot_position_apply_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_color_clear",
+      "kind": "function",
+      "fileStart": 49336,
+      "fileEnd": 49464,
+      "ramStart": 2147596472,
+      "ramEnd": 2147596600,
+      "size": 128,
+      "boundaryEvidence": "post_boot_scene_slot_marker_spawn_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_cleanup_step",
+      "kind": "function",
+      "fileStart": 49464,
+      "fileEnd": 49904,
+      "ramStart": 2147596600,
+      "ramEnd": 2147597040,
+      "size": 440,
+      "boundaryEvidence": "post_boot_scene_slot_color_clear_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_object_emit",
+      "kind": "function",
+      "fileStart": 49904,
+      "fileEnd": 50504,
+      "ramStart": 2147597040,
+      "ramEnd": 2147597640,
+      "size": 600,
+      "boundaryEvidence": "post_boot_scene_slot_cleanup_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_slot_flag_check",
+      "kind": "function",
+      "fileStart": 50504,
+      "fileEnd": 50568,
+      "ramStart": 2147597640,
+      "ramEnd": 2147597704,
+      "size": 64,
+      "boundaryEvidence": "post_boot_scene_slot_object_emit_disassembly_return"
+    },
+    {
+      "name": "boot_scene_duel_runtime_phase_c",
+      "kind": "function",
+      "fileStart": 50568,
+      "fileEnd": 55872,
+      "ramStart": 2147597704,
+      "ramEnd": 2147603008,
+      "size": 5304,
+      "boundaryEvidence": "post_boot_scene_slot_flag_check_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_exit_step",
+      "kind": "function",
+      "fileStart": 55872,
+      "fileEnd": 56132,
+      "ramStart": 2147603008,
+      "ramEnd": 2147603268,
+      "size": 260,
+      "boundaryEvidence": "post_boot_scene_duel_runtime_phase_c_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_rgb_step",
+      "kind": "function",
+      "fileStart": 56132,
+      "fileEnd": 56260,
+      "ramStart": 2147603268,
+      "ramEnd": 2147603396,
+      "size": 128,
+      "boundaryEvidence": "post_boot_scene_object_exit_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_ease_step",
+      "kind": "function",
+      "fileStart": 56260,
+      "fileEnd": 56600,
+      "ramStart": 2147603396,
+      "ramEnd": 2147603736,
+      "size": 340,
+      "boundaryEvidence": "post_boot_scene_object_rgb_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_aux_object_spawn",
+      "kind": "function",
+      "fileStart": 56600,
+      "fileEnd": 56756,
+      "ramStart": 2147603736,
+      "ramEnd": 2147603892,
+      "size": 156,
+      "boundaryEvidence": "post_boot_scene_object_ease_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_grid_compare_step",
+      "kind": "function",
+      "fileStart": 56756,
+      "fileEnd": 56944,
+      "ramStart": 2147603892,
+      "ramEnd": 2147604080,
+      "size": 188,
+      "boundaryEvidence": "post_boot_scene_aux_object_spawn_disassembly_return"
+    },
+    {
+      "name": "boot_scene_duel_runtime_phase_d",
+      "kind": "function",
+      "fileStart": 56944,
+      "fileEnd": 62576,
+      "ramStart": 2147604080,
+      "ramEnd": 2147609712,
+      "size": 5632,
+      "boundaryEvidence": "post_boot_scene_grid_compare_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_ease_y_step",
+      "kind": "function",
+      "fileStart": 62576,
+      "fileEnd": 62752,
+      "ramStart": 2147609712,
+      "ramEnd": 2147609888,
+      "size": 176,
+      "boundaryEvidence": "post_boot_scene_duel_runtime_phase_d_disassembly_return"
+    },
+    {
+      "name": "boot_scene_object_ease_z_step",
+      "kind": "function",
+      "fileStart": 62752,
+      "fileEnd": 63044,
+      "ramStart": 2147609888,
+      "ramEnd": 2147610180,
+      "size": 292,
+      "boundaryEvidence": "post_boot_scene_object_ease_y_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_card_match_score",
+      "kind": "function",
+      "fileStart": 63044,
+      "fileEnd": 63260,
+      "ramStart": 2147610180,
+      "ramEnd": 2147610396,
+      "size": 216,
+      "boundaryEvidence": "post_boot_scene_object_ease_z_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_card_attack_score",
+      "kind": "function",
+      "fileStart": 63260,
+      "fileEnd": 63352,
+      "ramStart": 2147610396,
+      "ramEnd": 2147610488,
+      "size": 92,
+      "boundaryEvidence": "post_boot_scene_card_match_score_disassembly_return"
+    },
+    {
+      "name": "boot_scene_card_defense_score",
+      "kind": "function",
+      "fileStart": 63352,
+      "fileEnd": 63444,
+      "ramStart": 2147610488,
+      "ramEnd": 2147610580,
+      "size": 92,
+      "boundaryEvidence": "post_boot_scene_card_attack_score_disassembly_return"
+    },
+    {
+      "name": "boot_scene_card_compare_score",
+      "kind": "function",
+      "fileStart": 63444,
+      "fileEnd": 63696,
+      "ramStart": 2147610580,
+      "ramEnd": 2147610832,
+      "size": 252,
+      "boundaryEvidence": "post_boot_scene_card_defense_score_disassembly_return"
+    },
+    {
+      "name": "boot_scene_target_card_select",
+      "kind": "function",
+      "fileStart": 63696,
+      "fileEnd": 64356,
+      "ramStart": 2147610832,
+      "ramEnd": 2147611492,
+      "size": 660,
+      "boundaryEvidence": "post_boot_scene_card_compare_score_disassembly_return"
+    },
+    {
+      "name": "boot_scene_reward_panel_step",
+      "kind": "function",
+      "fileStart": 64356,
+      "fileEnd": 64860,
+      "ramStart": 2147611492,
+      "ramEnd": 2147611996,
+      "size": 504,
+      "boundaryEvidence": "post_boot_scene_target_card_select_disassembly_return"
+    },
+    {
+      "name": "boot_scene_duel_runtime_phase_e",
+      "kind": "function",
+      "fileStart": 64860,
+      "fileEnd": 69844,
+      "ramStart": 2147611996,
+      "ramEnd": 2147616980,
+      "size": 4984,
+      "boundaryEvidence": "post_boot_scene_reward_panel_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_a",
+      "kind": "function",
+      "fileStart": 69844,
+      "fileEnd": 70024,
+      "ramStart": 2147616980,
+      "ramEnd": 2147617160,
+      "size": 180,
+      "boundaryEvidence": "post_boot_scene_duel_runtime_phase_e_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_b",
+      "kind": "function",
+      "fileStart": 70024,
+      "fileEnd": 70628,
+      "ramStart": 2147617160,
+      "ramEnd": 2147617764,
+      "size": 604,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_a_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_c",
+      "kind": "function",
+      "fileStart": 70628,
+      "fileEnd": 70988,
+      "ramStart": 2147617764,
+      "ramEnd": 2147618124,
+      "size": 360,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_b_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_d",
+      "kind": "function",
+      "fileStart": 70988,
+      "fileEnd": 71400,
+      "ramStart": 2147618124,
+      "ramEnd": 2147618536,
+      "size": 412,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_c_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_object_flag_step",
+      "kind": "function",
+      "fileStart": 71400,
+      "fileEnd": 71500,
+      "ramStart": 2147618536,
+      "ramEnd": 2147618636,
+      "size": 100,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_d_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_e",
+      "kind": "function",
+      "fileStart": 71500,
+      "fileEnd": 72832,
+      "ramStart": 2147618636,
+      "ramEnd": 2147619968,
+      "size": 1332,
+      "boundaryEvidence": "post_boot_scene_late_runtime_object_flag_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_card_setup",
+      "kind": "function",
+      "fileStart": 72832,
+      "fileEnd": 73048,
+      "ramStart": 2147619968,
+      "ramEnd": 2147620184,
+      "size": 216,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_e_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_value_clear",
+      "kind": "function",
+      "fileStart": 73048,
+      "fileEnd": 73112,
+      "ramStart": 2147620184,
+      "ramEnd": 2147620248,
+      "size": 64,
+      "boundaryEvidence": "post_boot_scene_late_runtime_card_setup_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_f",
+      "kind": "function",
+      "fileStart": 73112,
+      "fileEnd": 73744,
+      "ramStart": 2147620248,
+      "ramEnd": 2147620880,
+      "size": 632,
+      "boundaryEvidence": "post_boot_scene_late_runtime_value_clear_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_input_gate",
+      "kind": "function",
+      "fileStart": 73744,
+      "fileEnd": 73876,
+      "ramStart": 2147620880,
+      "ramEnd": 2147621012,
+      "size": 132,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_f_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_store_pair",
+      "kind": "function",
+      "fileStart": 73876,
+      "fileEnd": 73968,
+      "ramStart": 2147621012,
+      "ramEnd": 2147621104,
+      "size": 92,
+      "boundaryEvidence": "post_boot_scene_late_runtime_input_gate_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_g",
+      "kind": "function",
+      "fileStart": 73968,
+      "fileEnd": 75960,
+      "ramStart": 2147621104,
+      "ramEnd": 2147623096,
+      "size": 1992,
+      "boundaryEvidence": "post_boot_scene_late_runtime_store_pair_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_h",
+      "kind": "function",
+      "fileStart": 75960,
+      "fileEnd": 76532,
+      "ramStart": 2147623096,
+      "ramEnd": 2147623668,
+      "size": 572,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_g_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_i",
+      "kind": "function",
+      "fileStart": 76532,
+      "fileEnd": 77336,
+      "ramStart": 2147623668,
+      "ramEnd": 2147624472,
+      "size": 804,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_h_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_sound_flag",
+      "kind": "function",
+      "fileStart": 77336,
+      "fileEnd": 77428,
+      "ramStart": 2147624472,
+      "ramEnd": 2147624564,
+      "size": 92,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_i_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_j",
+      "kind": "function",
+      "fileStart": 77428,
+      "fileEnd": 78324,
+      "ramStart": 2147624564,
+      "ramEnd": 2147625460,
+      "size": 896,
+      "boundaryEvidence": "post_boot_scene_late_runtime_sound_flag_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_k",
+      "kind": "function",
+      "fileStart": 78324,
+      "fileEnd": 79252,
+      "ramStart": 2147625460,
+      "ramEnd": 2147626388,
+      "size": 928,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_j_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_window_anim_step",
+      "kind": "function",
+      "fileStart": 79252,
+      "fileEnd": 79596,
+      "ramStart": 2147626388,
+      "ramEnd": 2147626732,
+      "size": 344,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_k_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_l",
+      "kind": "function",
+      "fileStart": 79596,
+      "fileEnd": 79768,
+      "ramStart": 2147626732,
+      "ramEnd": 2147626904,
+      "size": 172,
+      "boundaryEvidence": "post_boot_scene_late_runtime_window_anim_step_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_value_pack",
+      "kind": "function",
+      "fileStart": 79768,
+      "fileEnd": 79856,
+      "ramStart": 2147626904,
+      "ramEnd": 2147626992,
+      "size": 88,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_l_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_m",
+      "kind": "function",
+      "fileStart": 79856,
+      "fileEnd": 80016,
+      "ramStart": 2147626992,
+      "ramEnd": 2147627152,
+      "size": 160,
+      "boundaryEvidence": "post_boot_scene_late_runtime_value_pack_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_actor_sound",
+      "kind": "function",
+      "fileStart": 80016,
+      "fileEnd": 80196,
+      "ramStart": 2147627152,
+      "ramEnd": 2147627332,
+      "size": 180,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_m_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_n",
+      "kind": "function",
+      "fileStart": 80196,
+      "fileEnd": 81036,
+      "ramStart": 2147627332,
+      "ramEnd": 2147628172,
+      "size": 840,
+      "boundaryEvidence": "post_boot_scene_late_runtime_actor_sound_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_o",
+      "kind": "function",
+      "fileStart": 81036,
+      "fileEnd": 81124,
+      "ramStart": 2147628172,
+      "ramEnd": 2147628260,
+      "size": 88,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_n_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_p",
+      "kind": "function",
+      "fileStart": 81124,
+      "fileEnd": 81344,
+      "ramStart": 2147628260,
+      "ramEnd": 2147628480,
+      "size": 220,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_o_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_q",
+      "kind": "function",
+      "fileStart": 81344,
+      "fileEnd": 83208,
+      "ramStart": 2147628480,
+      "ramEnd": 2147630344,
+      "size": 1864,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_p_disassembly_return"
+    },
+    {
+      "name": "boot_scene_late_runtime_phase_r",
+      "kind": "function",
+      "fileStart": 83208,
+      "fileEnd": 83900,
+      "ramStart": 2147630344,
+      "ramEnd": 2147631036,
+      "size": 692,
+      "boundaryEvidence": "post_boot_scene_late_runtime_phase_q_disassembly_return"
     }
   ]
 }

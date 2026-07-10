@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-fade-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-fade-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-fade-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 22648,
+    "fileEnd": 25880,
+    "ramStart": 2147569784,
+    "ramEnd": 2147573016,
+    "size": 3232
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-fade-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-fade-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-fade-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-gte-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-gte-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-gte-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 25880,
+    "fileEnd": 28548,
+    "ramStart": 2147573016,
+    "ramEnd": 2147575684,
+    "size": 2668
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-gte-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-gte-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-gte-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

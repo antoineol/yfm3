@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-scene-late-runtime-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-scene-late-runtime-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-scene-late-runtime-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 69844,
+    "fileEnd": 83900,
+    "ramStart": 2147616980,
+    "ramEnd": 2147631036,
+    "size": 14056
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-scene-late-runtime-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-scene-late-runtime-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-scene-late-runtime-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

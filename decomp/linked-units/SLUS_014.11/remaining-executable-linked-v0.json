@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "remaining-executable-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/remaining-executable.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.remaining-executable.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 198700,
+    "fileEnd": 1902592,
+    "ramStart": 2147745836,
+    "ramEnd": 2166226944,
+    "size": 1703892
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.remaining-executable.o",
+    "elf": "decomp/build/linked/SLUS_014.11.remaining-executable.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.remaining-executable.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

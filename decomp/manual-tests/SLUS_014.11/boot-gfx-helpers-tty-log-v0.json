@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-gfx-helpers-tty-log-v0",
+  "evidenceClass": "behavioral_equivalence",
+  "sourceType": "mips_asm_linked_behavioral",
+  "expectedLogText": "MDEC_out_sync",
+  "overlays": [
+    {
+      "name": "boot-gfx-helpers-tty-entry-v0",
+      "source": "decomp/src/SLUS_014.11/boot-gfx-helpers-tty-entry.s",
+      "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-helpers-tty-entry.ld",
+      "section": ".text",
+      "range": {
+        "fileStart": 16536,
+        "fileEnd": 16544,
+        "ramStart": 2147563672,
+        "ramEnd": 2147563680,
+        "size": 8
+      },
+      "expectedChanges": [
+        {
+          "fileOffset": 16536,
+          "ram": 2147563672,
+          "originalWordLe": "e8ffbd27",
+          "replacementWordLe": "f84d0408",
+          "reason": "Redirect boot_gfx_state_reset entry through the generated TTY hook"
+        },
+        {
+          "fileOffset": 16540,
+          "ram": 2147563676,
+          "originalWordLe": "1000bfaf",
+          "replacementWordLe": "00000000",
+          "reason": "Replace the displaced prologue delay slot with nop; the hook executes the original store before returning"
+        }
+      ],
+      "outputs": {
+        "object": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-entry-v0.o",
+        "elf": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-entry-v0.elf",
+        "unitBinary": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-entry-v0.bin"
+      }
+    },
+    {
+      "name": "boot-gfx-helpers-tty-stub-v0",
+      "source": "decomp/src/SLUS_014.11/boot-gfx-helpers-tty-stub.s",
+      "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-helpers-tty-stub.ld",
+      "section": ".text",
+      "range": {
+        "fileStart": 1064928,
+        "fileEnd": 1064988,
+        "ramStart": 2148612064,
+        "ramEnd": 2148612124,
+        "size": 60
+      },
+      "expectedChanges": [
+        {
+          "fileOffset": 1064928,
+          "ram": 2148612064,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "f0ffbd27",
+          "reason": "Open a stack frame for the generated TTY hook"
+        },
+        {
+          "fileOffset": 1064932,
+          "ram": 2148612068,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0c00bfaf",
+          "reason": "Preserve boot_gfx_state_reset return address across the BIOS call"
+        },
+        {
+          "fileOffset": 1064936,
+          "ram": 2148612072,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0800a4af",
+          "reason": "Preserve boot_gfx_state_reset argument across the BIOS call"
+        },
+        {
+          "fileOffset": 1064940,
+          "ram": 2148612076,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0180043c",
+          "reason": "Load existing TTY message pointer high word"
+        },
+        {
+          "fileOffset": 1064944,
+          "ram": 2148612080,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "b4298424",
+          "reason": "Load existing TTY message pointer low word"
+        },
+        {
+          "fileOffset": 1064948,
+          "ram": 2148612084,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "a0000a24",
+          "reason": "Load BIOS A-call vector address"
+        },
+        {
+          "fileOffset": 1064952,
+          "ram": 2148612088,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "09f84001",
+          "reason": "Call BIOS vector"
+        },
+        {
+          "fileOffset": 1064956,
+          "ram": 2148612092,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "3e000924",
+          "reason": "Select BIOS std_out_puts in the jalr delay slot"
+        },
+        {
+          "fileOffset": 1064960,
+          "ram": 2148612096,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0800a48f",
+          "reason": "Restore boot_gfx_state_reset argument"
+        },
+        {
+          "fileOffset": 1064964,
+          "ram": 2148612100,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0c00bf8f",
+          "reason": "Restore boot_gfx_state_reset return address"
+        },
+        {
+          "fileOffset": 1064968,
+          "ram": 2148612104,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "1000bd27",
+          "reason": "Close the generated TTY hook stack frame"
+        },
+        {
+          "fileOffset": 1064972,
+          "ram": 2148612108,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "e8ffbd27",
+          "reason": "Execute the displaced boot_gfx_state_reset stack-frame open"
+        },
+        {
+          "fileOffset": 1064976,
+          "ram": 2148612112,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "1000bfaf",
+          "reason": "Execute the displaced boot_gfx_state_reset return-address save"
+        },
+        {
+          "fileOffset": 1064980,
+          "ram": 2148612116,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "284e0008",
+          "reason": "Return to boot_gfx_state_reset after the displaced prologue"
+        }
+      ],
+      "outputs": {
+        "object": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-stub-v0.o",
+        "elf": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-stub-v0.elf",
+        "unitBinary": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-stub-v0.bin"
+      }
+    }
+  ],
+  "outputs": {
+    "executable": "decomp/build/manual/SLUS_014.11.boot-gfx-helpers-tty-log-v0.exe",
+    "discBin": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).bin",
+    "discCue": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).cue"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-input-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-input-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-input-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 15200,
+    "fileEnd": 15584,
+    "ramStart": 2147562336,
+    "ramEnd": 2147562720,
+    "size": 384
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-input-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-input-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-input-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

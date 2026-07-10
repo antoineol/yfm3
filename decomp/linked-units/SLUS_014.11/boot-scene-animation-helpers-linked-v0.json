@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-scene-animation-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-scene-animation-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-scene-animation-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 32092,
+    "fileEnd": 34228,
+    "ramStart": 2147579228,
+    "ramEnd": 2147581364,
+    "size": 2136
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-scene-animation-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-scene-animation-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-scene-animation-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

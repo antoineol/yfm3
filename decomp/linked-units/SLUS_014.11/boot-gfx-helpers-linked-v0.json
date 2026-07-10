@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-gfx-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-gfx-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 16356,
+    "fileEnd": 22648,
+    "ramStart": 2147563492,
+    "ramEnd": 2147569784,
+    "size": 6292
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-gfx-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-gfx-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-gfx-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

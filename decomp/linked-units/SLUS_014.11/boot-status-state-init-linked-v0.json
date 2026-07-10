@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-status-state-init-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-status-state-init.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-status-state-init.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 14676,
+    "fileEnd": 15200,
+    "ramStart": 2147561812,
+    "ramEnd": 2147562336,
+    "size": 524
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-status-state-init.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-status-state-init.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-status-state-init.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

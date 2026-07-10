@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "linked-asm-v0",
+  "base": "extracted_executable",
+  "evidenceClass": "linked_executable",
+  "sourceGeneratedExecutableBytes": 185940,
+  "output": "decomp/build/linked-manifest/SLUS_014.11.exe",
+  "units": [
+    "decomp/linked-units/SLUS_014.11/entrypoint-bootstrap-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/runtime-init-once-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/runtime-init-always-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/main-boot-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/post-main-boot-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-status-renderer-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-frame-dispatch-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-status-state-init-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-input-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-transform-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-gfx-init-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-gfx-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-fade-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-gte-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-object-render-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-scene-animation-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-object-runtime-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-scene-runtime-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-scene-wait-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-scene-late-runtime-helpers-linked-v0.json",
+    "decomp/linked-units/SLUS_014.11/boot-scene-interaction-helpers-linked-v0.json"
+  ]
+}

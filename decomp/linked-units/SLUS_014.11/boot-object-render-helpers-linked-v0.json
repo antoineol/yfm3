@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-object-render-helpers-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-object-render-helpers.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-object-render-helpers.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 28548,
+    "fileEnd": 32092,
+    "ramStart": 2147575684,
+    "ramEnd": 2147579228,
+    "size": 3544
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-object-render-helpers.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-object-render-helpers.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-object-render-helpers.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

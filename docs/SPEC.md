@@ -94,6 +94,9 @@ Loop rules:
   stay out of git under ignored `decomp/artifacts`, `decomp/build`, and `decomp/toolchains`.
 - Manual DuckStation tests are evidence only for non-byte-identical artifacts or runtime
   behavior that hashes cannot prove.
+- A semantic no-op instruction re-encoding alone is not a meaningful manual gate. Manual
+  test requests must state the binary change under test and why manual runtime evidence
+  adds information.
 
 Current decomp target:
 
@@ -104,9 +107,29 @@ Current decomp target:
   `e5a19297b87f2bdb59e35335a7c8ce2cc1119f906fbb11f7f8829b61a4fb27d4`.
 - PS-X executable load address is `0x80010000`; payload size is `0x1D0000`.
 - Mapped linked-source coverage currently includes `entrypoint_bootstrap`
-  `0x800129D8..0x80012A78` and `runtime_init_once` `0x80012A78..0x80012AE8`.
+  `0x800129D8..0x80012A78`, `runtime_init_once` `0x80012A78..0x80012AE8`,
+  `runtime_init_always` `0x80012AE8..0x80012B50`, `main_boot`
+  `0x80012B50..0x80012CD4`, the contiguous post-main helper block
+  `0x80012CD4..0x80012E5C`, `boot_status_renderer`
+  `0x80012E5C..0x8001306C`, `boot_frame_dispatch`
+  `0x8001306C..0x80013154`, `boot_status_state_init`
+  `0x80013154..0x80013360`, and the boot input helper block
+  `0x80013360..0x800134E0`, plus the boot transform helper block
+  `0x800134E0..0x800136E4`, `boot_gfx_init` `0x800136E4..0x800137E4`,
+  graphics helpers `0x800137E4..0x80015078`, fade/palette helpers
+  `0x80015078..0x80015D18`, GTE/object projection helpers
+  `0x80015D18..0x80016784`, object-render helpers `0x80016784..0x8001755C`,
+  scene/object animation helpers `0x8001755C..0x80017DB4`, and object-runtime helpers
+  `0x80017DB4..0x80018DB4`, scene-runtime helpers `0x80018DB4..0x8001944C`,
+  scene wait/duel-runtime helpers `0x8001944C..0x800208D4`, and scene late-runtime
+  helpers `0x800208D4..0x80023FBC`.
+- The linked assembly manifest verifies `71,140` executable bytes from repo-controlled
+  assembly and rebuilds a byte-identical executable.
 - Runtime evidence has confirmed that a source-generated `runtime_init_once` variant can
   boot, load a save, and emit the DuckStation-visible TTY marker `MDEC_out_sync`.
+- Runtime evidence has also confirmed a `boot_gfx_state_reset` TTY/log probe in the
+  expanded graphics helper block, proving that linked boot graphics helper code can run
+  in DuckStation.
 
 ## Fusion Rules
 

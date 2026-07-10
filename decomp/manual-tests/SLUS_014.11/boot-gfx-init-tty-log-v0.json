@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-gfx-init-tty-log-v0",
+  "evidenceClass": "behavioral_equivalence",
+  "sourceType": "mips_asm_linked_behavioral",
+  "expectedLogText": "MDEC_out_sync",
+  "overlays": [
+    {
+      "name": "boot-gfx-init-tty-call-v0",
+      "source": "decomp/src/SLUS_014.11/boot-gfx-init-tty-call.s",
+      "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-init-tty-call.ld",
+      "section": ".text",
+      "range": {
+        "fileStart": 16100,
+        "fileEnd": 16136,
+        "ramStart": 2147563236,
+        "ramEnd": 2147563272,
+        "size": 36
+      },
+      "expectedChanges": [
+        {
+          "fileOffset": 16128,
+          "ram": 2147563264,
+          "originalWordLe": "264e000c",
+          "replacementWordLe": "f84d040c",
+          "reason": "Route boot_gfx_init's initialization call through the generated TTY hook"
+        }
+      ],
+      "outputs": {
+        "object": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-call-v0.o",
+        "elf": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-call-v0.elf",
+        "unitBinary": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-call-v0.bin"
+      }
+    },
+    {
+      "name": "boot-gfx-init-tty-stub-v0",
+      "source": "decomp/src/SLUS_014.11/boot-gfx-init-tty-stub.s",
+      "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-init-tty-stub.ld",
+      "section": ".text",
+      "range": {
+        "fileStart": 1064928,
+        "fileEnd": 1064976,
+        "ramStart": 2148612064,
+        "ramEnd": 2148612112,
+        "size": 48
+      },
+      "expectedChanges": [
+        {
+          "fileOffset": 1064928,
+          "ram": 2148612064,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "f8ffbd27",
+          "reason": "Open a small stack frame for the generated TTY hook"
+        },
+        {
+          "fileOffset": 1064932,
+          "ram": 2148612068,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0400bfaf",
+          "reason": "Preserve boot_gfx_init's return address across the BIOS call"
+        },
+        {
+          "fileOffset": 1064936,
+          "ram": 2148612072,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0180043c",
+          "reason": "Load existing TTY message pointer high word"
+        },
+        {
+          "fileOffset": 1064940,
+          "ram": 2148612076,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "b4298424",
+          "reason": "Load existing TTY message pointer low word"
+        },
+        {
+          "fileOffset": 1064944,
+          "ram": 2148612080,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "a0000a24",
+          "reason": "Load BIOS A-call vector address"
+        },
+        {
+          "fileOffset": 1064948,
+          "ram": 2148612084,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "09f84001",
+          "reason": "Call BIOS vector"
+        },
+        {
+          "fileOffset": 1064952,
+          "ram": 2148612088,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "3e000924",
+          "reason": "Select BIOS std_out_puts in the jalr delay slot"
+        },
+        {
+          "fileOffset": 1064956,
+          "ram": 2148612092,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0400bf8f",
+          "reason": "Restore boot_gfx_init's return address"
+        },
+        {
+          "fileOffset": 1064960,
+          "ram": 2148612096,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "0800bd27",
+          "reason": "Close the generated TTY hook stack frame"
+        },
+        {
+          "fileOffset": 1064964,
+          "ram": 2148612100,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "1e80043c",
+          "reason": "Restore boot_gfx_init's original initialization argument high word"
+        },
+        {
+          "fileOffset": 1064968,
+          "ram": 2148612104,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "264e0008",
+          "reason": "Tail-jump to the original boot graphics state initialization function"
+        },
+        {
+          "fileOffset": 1064972,
+          "ram": 2148612108,
+          "originalWordLe": "00000000",
+          "replacementWordLe": "00c08424",
+          "reason": "Restore boot_gfx_init's original initialization argument low word"
+        }
+      ],
+      "outputs": {
+        "object": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-stub-v0.o",
+        "elf": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-stub-v0.elf",
+        "unitBinary": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-stub-v0.bin"
+      }
+    }
+  ],
+  "outputs": {
+    "executable": "decomp/build/manual/SLUS_014.11.boot-gfx-init-tty-log-v0.exe",
+    "discBin": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).bin",
+    "discCue": "/mnt/c/jeux/ps1/Yu-gi-oh! Forbidden Memories/Vanilla USA rebuilt/Yu-Gi-Oh! Forbidden Memories (USA).cue"
+  }
+}

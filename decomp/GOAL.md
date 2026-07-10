@@ -45,9 +45,9 @@ Evidence classes, from weakest to strongest:
 5. `behavioral_equivalence`: non-byte-identical or only partially matching builds pass
    targeted automated/manual runtime checks.
 
-The current loop target is to run a behavioral manual boot/load gate that also proves the
-repo-controlled `runtime_init_once` code path executed by emitting a DuckStation-visible
-TTY log message.
+The current loop target is to expand linked assembly coverage across early boot functions
+in meaningful contiguous blocks and keep the combined linked-assembly manifest
+byte-identical to the original executable.
 
 ## Non-Goals
 
@@ -58,6 +58,11 @@ TTY log message.
 - Do not start C conversion before the raw executable rebuild pipeline is verified.
 - Do not request manual emulator testing for a full-disc artifact whose SHA-256 equals
   the original target disc; that is already fully covered by hashing.
+- Do not create manual gates from semantically equivalent instruction re-encodings alone.
+  A manual gate must cover an observable runtime signal, a meaningful non-byte-identical
+  integration risk, or another behavior that automated hashing cannot prove.
+- Every manual-test request must state the binary change being tested, not only the
+  in-game action to perform.
 
 ## Agent Loop Rule
 

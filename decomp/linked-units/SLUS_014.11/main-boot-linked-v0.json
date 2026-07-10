@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "main-boot-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/main-boot.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.main-boot.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 13136,
+    "fileEnd": 13524,
+    "ramStart": 2147560272,
+    "ramEnd": 2147560660,
+    "size": 388
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.main-boot.o",
+    "elf": "decomp/build/linked/SLUS_014.11.main-boot.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.main-boot.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

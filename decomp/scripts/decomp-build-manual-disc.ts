@@ -32,26 +32,43 @@ interface ManualDiscProbe {
   name: string;
   evidenceClass: "behavioral_equivalence";
   sourceType: "mips_asm_linked_behavioral";
+  source?: string;
+  linkerScript?: string;
+  section?: string;
+  expectedLogText?: string;
+  range?: ProbeRange;
+  expectedChanges?: ExpectedChange[];
+  overlays?: LinkedOverlay[];
+  outputs: {
+    object?: string;
+    elf?: string;
+    unitBinary?: string;
+    executable: string;
+    discBin: string;
+    discCue: string;
+  };
+}
+
+interface LinkedOverlay {
+  name: string;
   source: string;
   linkerScript: string;
   section: string;
-  expectedLogText?: string;
-  range: {
-    fileStart: number;
-    fileEnd: number;
-    ramStart: number;
-    ramEnd: number;
-    size: number;
-  };
+  range: ProbeRange;
   expectedChanges: ExpectedChange[];
   outputs: {
     object: string;
     elf: string;
     unitBinary: string;
-    executable: string;
-    discBin: string;
-    discCue: string;
   };
+}
+
+interface ProbeRange {
+  fileStart: number;
+  fileEnd: number;
+  ramStart: number;
+  ramEnd: number;
+  size: number;
 }
 
 interface ExpectedChange {
@@ -85,16 +102,19 @@ function buildManualDisc(stateFile: string, probeFile: string): void {
   const toolchain = resolveToolchain();
 
   verifyProbe(probe, serial, loadAddress);
-  assembleProbe(toolchain, probe);
+  const overlays = probeOverlays(probe);
+  assertNonOverlapping(overlays);
+  for (const overlay of overlays) assembleOverlay(toolchain, overlay);
 
   const originalExe = readFileSync(extractedExePath);
   assertEqual(sha256(originalExe), expectedExeSha256, "original extracted executable SHA-256");
-  const linkedBytes = readFileSync(probe.outputs.unitBinary);
-  const originalRange = originalExe.subarray(probe.range.fileStart, probe.range.fileEnd);
-  verifyExpectedChanges(probe, originalRange, linkedBytes, loadAddress);
-
   const rebuiltExe = Buffer.from(originalExe);
-  linkedBytes.copy(rebuiltExe, probe.range.fileStart);
+  for (const overlay of overlays) {
+    const linkedBytes = readFileSync(overlay.outputs.unitBinary);
+    const originalRange = originalExe.subarray(overlay.range.fileStart, overlay.range.fileEnd);
+    verifyExpectedChanges(overlay, originalRange, linkedBytes, loadAddress);
+    linkedBytes.copy(rebuiltExe, overlay.range.fileStart);
+  }
   const rebuiltExeSha256 = sha256(rebuiltExe);
   if (rebuiltExeSha256 === expectedExeSha256) {
     throw new Error("Manual probe executable unexpectedly matches the original executable hash");
@@ -122,7 +142,7 @@ function buildManualDisc(stateFile: string, probeFile: string): void {
   );
 
   console.log(
-    `Built manual behavioral disc ${probe.outputs.discBin}: exeSha256=${rebuiltExeSha256}, discSha256=${rebuiltDiscSha256}, expectedChanges=${probe.expectedChanges.length}`,
+    `Built manual behavioral disc ${probe.outputs.discBin}: exeSha256=${rebuiltExeSha256}, discSha256=${rebuiltDiscSha256}, overlays=${overlays.length}, expectedChanges=${overlays.reduce((total, overlay) => total + overlay.expectedChanges.length, 0)}`,
   );
 }
 
@@ -131,101 +151,141 @@ function verifyProbe(probe: ManualDiscProbe, serial: string, loadAddress: number
   assertEqual(probe.serial, serial, `${probe.name}.serial`);
   assertEqual(probe.evidenceClass, "behavioral_equivalence", `${probe.name}.evidenceClass`);
   assertEqual(probe.sourceType, "mips_asm_linked_behavioral", `${probe.name}.sourceType`);
-  assertEqual(
-    probe.range.fileEnd - probe.range.fileStart,
-    probe.range.size,
-    `${probe.name}.file size`,
-  );
-  assertEqual(
-    probe.range.ramEnd - probe.range.ramStart,
-    probe.range.size,
-    `${probe.name}.RAM size`,
-  );
-  assertEqual(
-    probe.range.fileStart,
-    0x800 + (probe.range.ramStart - loadAddress),
-    `${probe.name}.fileStart vs RAM`,
-  );
-  if (!existsSync(probe.source)) throw new Error(`Assembly source not found: ${probe.source}`);
-  if (!existsSync(probe.linkerScript))
-    throw new Error(`Linker script not found: ${probe.linkerScript}`);
-  if (probe.expectedChanges.length === 0) throw new Error(`${probe.name}.expectedChanges is empty`);
+  for (const overlay of probeOverlays(probe)) verifyOverlay(overlay, loadAddress);
   if (probe.expectedLogText !== undefined && probe.expectedLogText.trim() === "") {
     throw new Error(`${probe.name}.expectedLogText is empty`);
   }
 }
 
-function assembleProbe(toolchain: Toolchain, probe: ManualDiscProbe): void {
-  mkdirSync(dirname(probe.outputs.object), { recursive: true });
+function verifyOverlay(overlay: LinkedOverlay, loadAddress: number): void {
+  assertEqual(
+    overlay.range.fileEnd - overlay.range.fileStart,
+    overlay.range.size,
+    `${overlay.name}.file size`,
+  );
+  assertEqual(
+    overlay.range.ramEnd - overlay.range.ramStart,
+    overlay.range.size,
+    `${overlay.name}.RAM size`,
+  );
+  assertEqual(
+    overlay.range.fileStart,
+    0x800 + (overlay.range.ramStart - loadAddress),
+    `${overlay.name}.fileStart vs RAM`,
+  );
+  if (!existsSync(overlay.source)) throw new Error(`Assembly source not found: ${overlay.source}`);
+  if (!existsSync(overlay.linkerScript))
+    throw new Error(`Linker script not found: ${overlay.linkerScript}`);
+  if (overlay.expectedChanges.length === 0)
+    throw new Error(`${overlay.name}.expectedChanges is empty`);
+}
+
+function assembleOverlay(toolchain: Toolchain, overlay: LinkedOverlay): void {
+  mkdirSync(dirname(overlay.outputs.object), { recursive: true });
   runTool(toolchain, "as", [
     "-EL",
     "-march=r3000",
     "-mabi=32",
     "-o",
-    probe.outputs.object,
-    probe.source,
+    overlay.outputs.object,
+    overlay.source,
   ]);
   runTool(toolchain, "ld", [
     "-EL",
     "-T",
-    probe.linkerScript,
+    overlay.linkerScript,
     "-o",
-    probe.outputs.elf,
-    probe.outputs.object,
+    overlay.outputs.elf,
+    overlay.outputs.object,
   ]);
   runTool(toolchain, "objcopy", [
     "-O",
     "binary",
     "-j",
-    probe.section,
-    probe.outputs.elf,
-    probe.outputs.unitBinary,
+    overlay.section,
+    overlay.outputs.elf,
+    overlay.outputs.unitBinary,
   ]);
 
   const section = parseSection(
-    runToolCapture(toolchain, "objdump", ["-h", probe.outputs.elf]),
-    probe.section,
+    runToolCapture(toolchain, "objdump", ["-h", overlay.outputs.elf]),
+    overlay.section,
   );
-  assertEqual(section.size, probe.range.size, `${probe.name}.${probe.section} linked section size`);
-  assertEqual(section.vma, probe.range.ramStart, `${probe.name}.${probe.section} linked VMA`);
+  assertEqual(
+    section.size,
+    overlay.range.size,
+    `${overlay.name}.${overlay.section} linked section size`,
+  );
+  assertEqual(section.vma, overlay.range.ramStart, `${overlay.name}.${overlay.section} linked VMA`);
 }
 
 function verifyExpectedChanges(
-  probe: ManualDiscProbe,
+  overlay: LinkedOverlay,
   originalRange: Buffer,
   linkedBytes: Buffer,
   loadAddress: number,
 ): void {
-  assertEqual(linkedBytes.length, probe.range.size, `${probe.name}.linked byte size`);
+  assertEqual(linkedBytes.length, overlay.range.size, `${overlay.name}.linked byte size`);
   const expected = Buffer.from(originalRange);
-  for (const change of probe.expectedChanges) {
+  for (const change of overlay.expectedChanges) {
     if (change.reason.trim() === "") throw new Error("Expected change reason is empty");
     assertEqual(
       change.fileOffset,
       0x800 + (change.ram - loadAddress),
-      `${probe.name}.expectedChanges fileOffset vs RAM`,
+      `${overlay.name}.expectedChanges fileOffset vs RAM`,
     );
-    const relative = change.fileOffset - probe.range.fileStart;
+    const relative = change.fileOffset - overlay.range.fileStart;
     if (relative < 0 || relative + 4 > expected.length) {
       throw new Error(`Expected change is outside probe range: fileOffset=${change.fileOffset}`);
     }
     assertEqual(
       originalRange.subarray(relative, relative + 4).toString("hex"),
       change.originalWordLe,
-      `${probe.name}.expected original word`,
+      `${overlay.name}.expected original word`,
     );
     assertEqual(
       linkedBytes.subarray(relative, relative + 4).toString("hex"),
       change.replacementWordLe,
-      `${probe.name}.expected replacement word`,
+      `${overlay.name}.expected replacement word`,
     );
     Buffer.from(change.replacementWordLe, "hex").copy(expected, relative);
   }
   assertEqual(
     linkedBytes.toString("hex"),
     expected.toString("hex"),
-    `${probe.name}.linked bytes vs expected manual-probe diff`,
+    `${overlay.name}.linked bytes vs expected manual-probe diff`,
   );
+}
+
+function probeOverlays(probe: ManualDiscProbe): LinkedOverlay[] {
+  if (probe.overlays !== undefined) return probe.overlays;
+  return [
+    {
+      name: probe.name,
+      source: required(probe.source, `${probe.name}.source`),
+      linkerScript: required(probe.linkerScript, `${probe.name}.linkerScript`),
+      section: required(probe.section, `${probe.name}.section`),
+      range: required(probe.range, `${probe.name}.range`),
+      expectedChanges: required(probe.expectedChanges, `${probe.name}.expectedChanges`),
+      outputs: {
+        object: required(probe.outputs.object, `${probe.name}.outputs.object`),
+        elf: required(probe.outputs.elf, `${probe.name}.outputs.elf`),
+        unitBinary: required(probe.outputs.unitBinary, `${probe.name}.outputs.unitBinary`),
+      },
+    },
+  ];
+}
+
+function assertNonOverlapping(overlays: LinkedOverlay[]): void {
+  const sorted = [...overlays].sort((a, b) => a.range.fileStart - b.range.fileStart);
+  for (let i = 1; i < sorted.length; i++) {
+    const previous = sorted[i - 1];
+    const current = sorted[i];
+    if (previous === undefined || current === undefined) continue;
+    if (previous.range.fileEnd > current.range.fileStart) {
+      throw new Error(`Manual probe overlays overlap: ${previous.name} and ${current.name}`);
+    }
+  }
 }
 
 function findExecutableEntry(bin: Buffer, fmt: ReturnType<typeof detectDiscFormat>): IsoFile {

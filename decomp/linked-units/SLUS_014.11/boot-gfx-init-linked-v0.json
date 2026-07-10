@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "boot-gfx-init-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/boot-gfx-init.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.boot-gfx-init.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 16100,
+    "fileEnd": 16356,
+    "ramStart": 2147563236,
+    "ramEnd": 2147563492,
+    "size": 256
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.boot-gfx-init.o",
+    "elf": "decomp/build/linked/SLUS_014.11.boot-gfx-init.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.boot-gfx-init.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}

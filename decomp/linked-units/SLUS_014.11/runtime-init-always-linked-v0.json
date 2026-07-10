@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "serial": "SLUS_014.11",
+  "name": "runtime-init-always-linked-v0",
+  "evidenceClass": "linked_executable",
+  "sourceType": "mips_asm_linked",
+  "source": "decomp/src/SLUS_014.11/runtime-init-always.s",
+  "linkerScript": "decomp/layouts/SLUS_014.11.runtime-init-always.ld",
+  "section": ".text",
+  "range": {
+    "fileStart": 13032,
+    "fileEnd": 13136,
+    "ramStart": 2147560168,
+    "ramEnd": 2147560272,
+    "size": 104
+  },
+  "outputs": {
+    "object": "decomp/build/linked/SLUS_014.11.runtime-init-always.o",
+    "elf": "decomp/build/linked/SLUS_014.11.runtime-init-always.elf",
+    "unitBinary": "decomp/build/linked/SLUS_014.11.runtime-init-always.bin",
+    "executable": "decomp/build/linked/SLUS_014.11.exe"
+  }
+}
